@@ -97,7 +97,7 @@ const returns: Return[] = [
 // For this static file, the quantities in the `products` array are pre-calculated for simplicity.
 // (Total Purchases) - (Total Sales) + (Total Customer Returns)
 
-export const testData: Omit<AppState, 'toast' | 'selection' | 'installPromptEvent' | 'notifications' | 'profile' | 'pin'> = {
+export const testData: Omit<AppState, 'toast' | 'selection' | 'installPromptEvent' | 'notifications' | 'profile' | 'pin' | 'googleUser' | 'syncStatus'> = {
   customers,
   suppliers,
   products,
@@ -105,5 +105,6 @@ export const testData: Omit<AppState, 'toast' | 'selection' | 'installPromptEven
   purchases,
   returns,
   app_metadata: [],
+  audit_logs: [],
   theme: 'light',
 };

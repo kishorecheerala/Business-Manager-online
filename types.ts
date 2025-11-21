@@ -4,6 +4,23 @@ import { ReactNode } from "react";
 export type Page = 'DASHBOARD' | 'CUSTOMERS' | 'SALES' | 'PURCHASES' | 'REPORTS' | 'RETURNS' | 'PRODUCTS' | 'INSIGHTS';
 export type Theme = 'light' | 'dark';
 
+export interface GoogleUser {
+  name: string;
+  email: string;
+  picture: string;
+  accessToken?: string;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  timestamp: string;
+  user: string; // Email or Name
+  action: string; // e.g., "Added Sale", "Updated Customer"
+  details: string; // Brief description or ID reference
+}
+
+export type SyncStatus = 'idle' | 'syncing' | 'success' | 'error';
+
 export interface Payment {
   id: string;
   amount: number;

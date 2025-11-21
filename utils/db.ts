@@ -1,13 +1,13 @@
 
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
-import { Customer, Supplier, Product, Sale, Purchase, Return, Notification, ProfileData, AppMetadata } from '../types';
+import { Customer, Supplier, Product, Sale, Purchase, Return, Notification, ProfileData, AppMetadata, AuditLogEntry } from '../types';
 import { AppState } from '../context/AppContext';
 
 const DB_NAME = 'business-manager-db';
-const DB_VERSION = 4; // Bump version for schema change
+const DB_VERSION = 5; // Bump version for Audit Logs
 
-export type StoreName = 'customers' | 'suppliers' | 'products' | 'sales' | 'purchases' | 'returns' | 'app_metadata' | 'notifications' | 'profile';
-const STORE_NAMES: StoreName[] = ['customers', 'suppliers', 'products', 'sales', 'purchases', 'returns', 'app_metadata', 'notifications', 'profile'];
+export type StoreName = 'customers' | 'suppliers' | 'products' | 'sales' | 'purchases' | 'returns' | 'app_metadata' | 'notifications' | 'profile' | 'audit_logs';
+const STORE_NAMES: StoreName[] = ['customers', 'suppliers', 'products', 'sales', 'purchases', 'returns', 'app_metadata', 'notifications', 'profile', 'audit_logs'];
 
 interface BusinessManagerDB extends DBSchema {
   customers: { key: string; value: Customer; };
@@ -19,6 +19,7 @@ interface BusinessManagerDB extends DBSchema {
   app_metadata: { key: string; value: AppMetadata; };
   notifications: { key: string; value: Notification; };
   profile: { key: string; value: ProfileData; };
+  audit_logs: { key: string; value: AuditLogEntry; };
 }
 
 let dbPromise: Promise<IDBPDatabase<BusinessManagerDB>>;
@@ -71,7 +72,7 @@ export async function setLastBackupDate(): Promise<void> {
     await db.put('app_metadata', { id: 'lastBackup', date: now });
 }
 
-export async function exportData(): Promise<Omit<AppState, 'toast' | 'selection' | 'pin'>> {
+export async function exportData(): Promise<Omit<AppState, 'toast' | 'selection' | 'pin' | 'googleUser' | 'syncStatus'>> {
     const db = await getDb();
     const data: any = {};
     for (const storeName of STORE_NAMES) {
@@ -79,10 +80,10 @@ export async function exportData(): Promise<Omit<AppState, 'toast' | 'selection'
         if (storeName === 'notifications') continue;
         data[storeName] = await db.getAll(storeName);
     }
-    return data as Omit<AppState, 'toast' | 'selection' | 'pin'>;
+    return data;
 }
 
-export async function importData(data: Omit<AppState, 'toast' | 'selection' | 'pin'>): Promise<void> {
+export async function importData(data: any): Promise<void> {
     const db = await getDb();
     const tx = db.transaction(STORE_NAMES, 'readwrite');
     
