@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Home, Users, ShoppingCart, Package, FileText, Undo2, Boxes, Search, HelpCircle, Bell, Menu, Plus, UserPlus, PackagePlus, Download, X, Sun, Moon, Cloud, CloudOff, RefreshCw, Sparkles } from 'lucide-react';
+import { Home, Users, ShoppingCart, Package, FileText, Undo2, Boxes, Search, HelpCircle, Bell, Menu, Plus, UserPlus, PackagePlus, Download, X, Sun, Moon, Cloud, CloudOff, RefreshCw, Sparkles, BarChart2 } from 'lucide-react';
 
 import { AppProvider, useAppContext } from './context/AppContext';
 import { DialogProvider } from './context/DialogContext';
@@ -56,12 +56,14 @@ const NavItem: React.FC<{
 }> = ({ page, label, icon: Icon, onClick, isActive }) => (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center justify-center w-full pt-2 pb-1 text-xs transition-colors duration-200 ${
-        isActive ? 'text-white scale-[1.02]' : 'text-teal-100 hover:text-white'
+      className={`flex flex-col items-center justify-center w-full pt-2 pb-1.5 px-1 rounded-xl transition-all duration-200 ${
+        isActive 
+          ? 'text-white bg-white/15 shadow-sm transform scale-105' 
+          : 'text-teal-100 hover:text-white hover:bg-white/5'
       }`}
     >
-      <Icon className="w-6 h-6 mb-1" />
-      <span>{label}</span>
+      <Icon className="w-6 h-6 mb-0.5" strokeWidth={isActive ? 2.5 : 2} />
+      <span className="text-[10px] font-medium tracking-wide">{label}</span>
     </button>
 );
 
@@ -326,6 +328,7 @@ const MainApp: React.FC = () => {
       { page: 'PRODUCTS' as Page, label: 'Products', icon: Boxes },
       { page: 'RETURNS' as Page, label: 'Returns', icon: Undo2 },
       { page: 'REPORTS' as Page, label: 'Reports', icon: FileText },
+      { page: 'INSIGHTS' as Page, label: 'Insights', icon: BarChart2 },
   ];
 
   const allNavItems = [...mainNavItems, ...moreNavItems];
@@ -472,45 +475,56 @@ const MainApp: React.FC = () => {
         </div>
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-primary shadow-lg z-30">
+      <nav className="fixed bottom-0 left-0 right-0 bg-primary shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-50 pb-[env(safe-area-inset-bottom)] border-t border-teal-700/30">
         {/* Desktop nav */}
-        <div className="hidden md:flex justify-around max-w-2xl mx-auto">
-            {allNavItems.map(item => <NavItem key={item.page} page={item.page} label={item.label} icon={item.icon} onClick={() => setCurrentPage(item.page)} isActive={currentPage === item.page} />)}
+        <div className="hidden md:flex justify-around max-w-2xl mx-auto p-2">
+            {[...mainNavItems, ...moreNavItems].map(item => <NavItem key={item.page} page={item.page} label={item.label} icon={item.icon} onClick={() => setCurrentPage(item.page)} isActive={currentPage === item.page} />)}
         </div>
 
         {/* Mobile nav */}
-        <div className="flex md:hidden justify-around max-w-2xl mx-auto">
+        <div className="flex md:hidden justify-around items-end max-w-md mx-auto px-1 pt-2 pb-2">
             {mainNavItems.map(item => <NavItem key={item.page} page={item.page} label={item.label} icon={item.icon} onClick={() => setCurrentPage(item.page)} isActive={currentPage === item.page} />)}
-            <div className="relative flex flex-col items-center justify-center w-full pt-2 pb-1" ref={moreMenuRef}>
+            <div className="relative flex flex-col items-center justify-center w-full px-1" ref={moreMenuRef}>
                  <button
                     onClick={() => setIsMoreMenuOpen(prev => !prev)}
-                    className={`flex flex-col items-center justify-center w-full h-full text-xs transition-colors duration-200 ${
-                        isMoreMenuActive ? 'text-white scale-[1.02]' : 'text-teal-100 hover:text-white'
+                    className={`flex flex-col items-center justify-center w-full pt-2 pb-1.5 rounded-xl transition-all duration-200 ${
+                        isMoreMenuActive || isMoreMenuOpen ? 'text-white bg-white/15 shadow-sm transform scale-105' : 'text-teal-100 hover:text-white hover:bg-white/5'
                     }`}
                     aria-haspopup="true"
                     aria-expanded={isMoreMenuOpen}
                     >
-                    <Plus className="w-6 h-6 mb-1" />
-                    <span>More</span>
+                    <div className="w-6 h-6 mb-0.5 flex items-center justify-center">
+                         <Menu className="w-6 h-6" strokeWidth={isMoreMenuActive || isMoreMenuOpen ? 2.5 : 2} />
+                    </div>
+                    <span className="text-[10px] font-medium tracking-wide">More</span>
                 </button>
 
                 {isMoreMenuOpen && (
-                    <div className="absolute bottom-full right-0 mb-2 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-xl border dark:border-slate-700 text-text dark:text-slate-200 z-40 animate-slide-up-fade">
-                        {moreNavItems.map(item => (
-                            <button 
-                                key={item.page} 
-                                onClick={() => {
-                                    setCurrentPage(item.page);
-                                    setIsMoreMenuOpen(false);
-                                }} 
-                                className="w-full flex items-center gap-3 p-3 text-left hover:bg-teal-50 dark:hover:bg-slate-700 transition-colors"
-                            >
-                                <item.icon className="w-5 h-5 text-primary" />
-                                <span className={`font-semibold text-sm ${currentPage === item.page ? 'text-primary' : ''}`}>
-                                    {item.label}
-                                </span>
-                            </button>
-                        ))}
+                    <div className="absolute bottom-[calc(100%+12px)] right-2 w-56 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-slate-700 text-text dark:text-slate-200 z-50 animate-slide-up-fade origin-bottom-right overflow-hidden ring-1 ring-black/5">
+                        <div className="bg-gray-50 dark:bg-slate-800/80 p-3 border-b border-gray-100 dark:border-slate-700 backdrop-blur-sm">
+                            <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Additional Tools</p>
+                        </div>
+                        <div className="p-1">
+                            {moreNavItems.map(item => (
+                                <button 
+                                    key={item.page} 
+                                    onClick={() => {
+                                        setCurrentPage(item.page);
+                                        setIsMoreMenuOpen(false);
+                                    }} 
+                                    className={`w-full flex items-center gap-3 p-3 text-left rounded-xl transition-colors ${
+                                        currentPage === item.page 
+                                            ? 'bg-primary/10 text-primary font-semibold' 
+                                            : 'hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-300'
+                                    }`}
+                                >
+                                    <div className={`p-2 rounded-lg ${currentPage === item.page ? 'bg-primary text-white shadow-sm' : 'bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-gray-400'}`}>
+                                        <item.icon className="w-5 h-5" />
+                                    </div>
+                                    <span className="text-sm">{item.label}</span>
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 )}
             </div>
