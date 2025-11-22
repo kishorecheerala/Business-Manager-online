@@ -80,14 +80,26 @@ const getHeaders = (accessToken: string) => ({
   'Content-Type': 'application/json',
 });
 
+// Helper for safe JSON parsing to avoid "Unexpected end of input"
+const safeJsonParse = async (response: Response) => {
+    const text = await response.text();
+    if (!text || text.trim() === '') return null;
+    try {
+        return JSON.parse(text);
+    } catch (e) {
+        console.warn("JSON Parse Error:", e);
+        return null;
+    }
+};
+
 export const searchFolder = async (accessToken: string) => {
   const q = `mimeType='application/vnd.google-apps.folder' and name='${APP_FOLDER_NAME}' and trashed=false`;
   const response = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}`, {
     headers: getHeaders(accessToken),
   });
   if (!response.ok) throw new Error(`Search Folder Failed: ${response.status}`);
-  const data = await response.json();
-  return data.files && data.files.length > 0 ? data.files[0].id : null;
+  const data = await safeJsonParse(response);
+  return data && data.files && data.files.length > 0 ? data.files[0].id : null;
 };
 
 export const createFolder = async (accessToken: string) => {
@@ -101,8 +113,8 @@ export const createFolder = async (accessToken: string) => {
     body: JSON.stringify(metadata),
   });
   if (!response.ok) throw new Error(`Create Folder Failed: ${response.status}`);
-  const file = await response.json();
-  return file.id;
+  const file = await safeJsonParse(response);
+  return file ? file.id : null;
 };
 
 export const searchFile = async (accessToken: string, folderId: string) => {
@@ -111,8 +123,8 @@ export const searchFile = async (accessToken: string, folderId: string) => {
     headers: getHeaders(accessToken),
   });
   if (!response.ok) throw new Error(`Search File Failed: ${response.status}`);
-  const data = await response.json();
-  return data.files && data.files.length > 0 ? data.files[0] : null;
+  const data = await safeJsonParse(response);
+  return data && data.files && data.files.length > 0 ? data.files[0] : null;
 };
 
 export const uploadFile = async (accessToken: string, folderId: string, content: any, existingFileId?: string) => {
@@ -142,10 +154,11 @@ export const uploadFile = async (accessToken: string, folderId: string, content:
   });
   
   if (!response.ok) {
-      throw new Error(`Upload Failed: ${response.status}`);
+      const errText = await response.text();
+      throw new Error(`Upload Failed: ${response.status} - ${errText}`);
   }
   
-  return await response.json();
+  return await safeJsonParse(response);
 };
 
 export const downloadFile = async (accessToken: string, fileId: string) => {
@@ -157,7 +170,7 @@ export const downloadFile = async (accessToken: string, fileId: string) => {
       throw new Error(`Download Failed: ${response.status}`);
   }
   
-  return await response.json();
+  return await safeJsonParse(response);
 };
 
 export const getUserInfo = async (accessToken: string) => {
@@ -168,7 +181,8 @@ export const getUserInfo = async (accessToken: string) => {
     if (!response.ok) {
         throw new Error(`Failed to fetch user info: ${response.status}`);
     }
-    return await response.json();
+    const data = await safeJsonParse(response);
+    return data || { name: 'Google User', email: 'User', picture: '' };
   } catch (e) {
     console.error("Error fetching user info:", e);
     // Return a fallback object to prevent app crashes
