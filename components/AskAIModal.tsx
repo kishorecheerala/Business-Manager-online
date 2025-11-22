@@ -85,14 +85,17 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
             // Reset error message if the last message was an error asking for key
             setMessages(prev => {
                 const last = prev[prev.length - 1];
-                if (last.isError && last.text.includes("Configure")) {
+                if (last.isError && (last.text.includes("Configure") || last.text.includes("API Key"))) {
                     return prev.slice(0, -1);
                 }
                 return prev;
             });
           } catch (e) {
               console.error("Failed to open key selector", e);
+              alert("Failed to open API Key configuration. Please try again.");
           }
+      } else {
+          alert("API Key configuration is only available in the supported environment (Project IDX / AI Studio).");
       }
   };
 
@@ -118,6 +121,9 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
       // Initialize client just in time
       // process.env.API_KEY is expected to be injected by the environment
       const apiKey = process.env.API_KEY;
+      
+      // If both environment variable is missing AND aistudio helper is present (indicating we are in the IDX environment but failed to get key), throw error.
+      // If aistudio helper is missing, we might be in a different env where manual key setup isn't supported via this UI, but we proceed if env var exists.
       if (!apiKey && aistudio) {
            throw new Error("API_KEY_MISSING");
       }
@@ -145,7 +151,7 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
       let errorText = "Sorry, I encountered an error connecting to the AI service.";
       
       // Handle specific error cases
-      if (error.message === "API_KEY_MISSING" || error.message?.includes("API key") || error.toString().includes("API key")) {
+      if (error.message === "API_KEY_MISSING" || error.message?.includes("API key") || error.toString().includes("API key") || error.status === 400) {
           errorText = "Please configure your API Key to use the assistant.";
           setShowKeyButton(true);
       } else if (error.message?.includes("Requested entity was not found")) {
@@ -170,7 +176,7 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] p-4 animate-fade-in-fast">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4 animate-fade-in-fast">
       <Card className="w-full max-w-lg h-[80vh] flex flex-col p-0 overflow-hidden animate-scale-in relative">
         {/* Header */}
         <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-4 flex justify-between items-center text-white shrink-0">
@@ -203,8 +209,8 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
                         <div className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</div>
                         {msg.isError && showKeyButton && (
                              <div className="mt-2">
-                                <Button onClick={handleSelectKey} variant="secondary" className="bg-white border border-red-200 text-red-700 hover:bg-red-50 text-xs py-1 px-2 h-auto">
-                                    <Key size={12} className="mr-1" /> Configure Key
+                                <Button onClick={handleSelectKey} className="bg-white border border-red-300 text-red-700 hover:bg-red-50 text-sm py-1.5 px-3 w-full flex items-center justify-center gap-2 shadow-sm">
+                                    <Key size={14} /> Configure Key
                                 </Button>
                              </div>
                         )}
@@ -227,7 +233,7 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
         <div className="p-3 bg-white dark:bg-slate-800 border-t dark:border-slate-700 shrink-0">
             {showKeyButton && messages.length === 1 && (
                  <div className="mb-2 flex justify-center">
-                    <Button onClick={handleSelectKey} className="w-full bg-yellow-500 hover:bg-yellow-600 text-white">
+                    <Button onClick={handleSelectKey} className="w-full bg-yellow-500 hover:bg-yellow-600 text-white shadow-md">
                         <Key size={16} className="mr-2" />
                         Connect Google Account (API Key)
                     </Button>
