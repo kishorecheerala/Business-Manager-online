@@ -1,6 +1,10 @@
 
 // NOTE: You must replace this with your own Client ID from Google Cloud Console
-const CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com'; 
+// Go to https://console.cloud.google.com/apis/credentials
+// Create an OAuth 2.0 Client ID -> Web Application
+// Add your Vercel URL (https://kishore-business-manager.vercel.app) to "Authorized JavaScript origins"
+// ENSURE NO TRAILING SLASH at the end of the URL in Google Console (e.g., use .app NOT .app/).
+const CLIENT_ID = '732045270886-84cr2t9q71lgttqgdn1jqu9f7ub5qfo3.apps.googleusercontent.com'.trim(); 
 const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 
 // Folder name in Google Drive
@@ -27,7 +31,43 @@ export const initGoogleAuth = (callback: (response: any) => void) => {
   return (window as any).google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID,
     scope: SCOPES,
+    ux_mode: 'popup',
     callback: callback,
+    error_callback: (err: any) => {
+        console.error("Google Auth Error:", err);
+        const currentOrigin = window.location.origin;
+        
+        let msg = `Google Sign-In Error: ${err.type || 'Unknown Error'}\n\n`;
+        
+        if (err.message) {
+             msg += `Details: ${err.message}\n\n`;
+        }
+
+        if (err.type === 'popup_closed') {
+             msg += "This error usually means the URL configuration has not propagated yet, or is mismatched.\n\n";
+             msg += "1. CHECK URL: Ensure this EXACT URL is in 'Authorized JavaScript origins':\n";
+             msg += `${currentOrigin}\n`;
+             msg += "(No trailing slash / at the end)\n\n";
+             msg += "2. WAIT: If you just added the URL, wait 5-10 minutes. Google takes time to update.\n\n";
+             msg += "3. RETRY: Close this alert and try again in a few minutes.";
+        } else if (err.type === 'access_denied' || (err.error && err.error === 'access_denied')) {
+             msg += "ACCESS DENIED: TEST USER RESTRICTION\n\n";
+             msg += "Your app is in 'Testing' mode. Only emails listed as 'Test Users' can sign in.\n\n";
+             msg += "1. Go to Google Cloud Console > OAuth Consent Screen.\n";
+             msg += "2. Scroll down to the 'Test users' section.\n";
+             msg += "3. Click 'Add Users', enter your email address, and Save.\n";
+             msg += "4. OR click 'Publish App' to allow anyone.";
+        } else {
+             msg += "CONFIGURATION ERROR\n\n";
+             msg += "If you see 'Error 400: invalid_request', you must allow this specific URL in Google Cloud Console.\n\n";
+             msg += "1. Copy this URL:\n";
+             msg += `${currentOrigin}\n\n`;
+             msg += "2. Paste it into 'Authorized JavaScript origins' in Google Cloud Console.\n";
+             msg += "3. Ensure there is NO trailing slash (/) at the end.\n";
+        }
+
+        alert(msg);
+    }
   });
 };
 
