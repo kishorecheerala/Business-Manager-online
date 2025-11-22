@@ -24,6 +24,7 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const aiRef = useRef<GoogleGenAI | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -33,20 +34,21 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
     scrollToBottom();
   }, [messages, isOpen]);
 
-  // Initialize AI only when modal is open
-  const aiRef = useRef<GoogleGenAI | null>(null);
-
   useEffect(() => {
     if (isOpen && !aiRef.current) {
-        // Initialize with the API Key from environment
-        aiRef.current = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        try {
+            aiRef.current = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        } catch (error) {
+            console.error("Failed to initialize AI:", error);
+            setMessages(prev => [...prev, { id: 'err', role: 'model', text: "Error: API Key configuration failed." }]);
+        }
     }
   }, [isOpen]);
 
   const generateSystemContext = () => {
     const totalSales = state.sales.reduce((sum, s) => sum + Number(s.totalAmount), 0);
     const totalPurchases = state.purchases.reduce((sum, p) => sum + Number(p.totalAmount), 0);
-    const profit = totalSales - totalPurchases; // Simplified profit
+    const profit = totalSales - totalPurchases; 
     const lowStockItems = state.products.filter(p => p.quantity < 5).map(p => `${p.name} (${p.quantity})`).join(', ');
     const topCustomers = state.customers.slice(0, 5).map(c => c.name).join(', ');
 
@@ -69,24 +71,19 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
   };
 
   const handleSend = async () => {
-    if (!input.trim() || !aiRef.current) return;
-
+    if (!input.trim()) return;
+    
     const userMsg: Message = { id: Date.now().toString(), role: 'user', text: input };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsLoading(true);
 
     try {
+      if (!aiRef.current) {
+          throw new Error("AI Service not initialized");
+      }
+
       const systemInstruction = generateSystemContext();
-      
-      // We use generateContent for a single turn or construct a chat history if needed.
-      // For simplicity and robustness with the flash model, we'll send the history + context each time 
-      // or use the chat API if we want multi-turn state management.
-      // Here, using the chat API is best for conversation.
-      
-      // Note: In a real app, we might persist the chat session object, but for now re-creating it 
-      // with history is fine, or just keeping it simple with single queries.
-      // Let's try to maintain a simple chat session.
       
       const chat = aiRef.current.chats.create({
         model: 'gemini-2.5-flash',
@@ -107,7 +104,7 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
 
     } catch (error) {
       console.error("AI Error:", error);
-      setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: "Sorry, I encountered an error connecting to the AI service." }]);
+      setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: "Sorry, I encountered an error connecting to the AI service. Please try again later." }]);
     } finally {
       setIsLoading(false);
     }
@@ -123,7 +120,7 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in-fast">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] p-4 animate-fade-in-fast">
       <Card className="w-full max-w-lg h-[80vh] flex flex-col p-0 overflow-hidden animate-scale-in relative">
         {/* Header */}
         <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-4 flex justify-between items-center text-white shrink-0">
