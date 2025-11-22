@@ -558,7 +558,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           }, 10000);
           return () => clearTimeout(handler);
       }
-  }, [state.customers, state.sales, state.purchases, state.products]);
+  }, [state.customers, state.sales, state.purchases, state.products, state.profile, state.returns, state.app_metadata]);
 
 
   useEffect(() => {

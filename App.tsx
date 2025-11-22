@@ -18,6 +18,7 @@ import AppSkeletonLoader from './components/AppSkeletonLoader';
 import NotificationsPanel from './components/NotificationsPanel';
 import MenuPanel from './components/MenuPanel';
 import ProfileModal from './components/ProfileModal';
+import AskAIModal from './components/AskAIModal';
 import { BeforeInstallPromptEvent, Notification, Page, AppMetadataBackup, Theme, SyncStatus } from './types';
 import { useOnClickOutside } from './hooks/useOnClickOutside';
 import { useSwipe } from './hooks/useSwipe';
@@ -121,6 +122,7 @@ const MainApp: React.FC = () => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
+  const [isAskAIOpen, setIsAskAIOpen] = useState(false);
   const [navConfirm, setNavConfirm] = useState<{ show: boolean, page: Page | null }>({ show: false, page: null });
 
   const { state, dispatch, isDbLoaded } = useAppContext();
@@ -356,6 +358,7 @@ const MainApp: React.FC = () => {
       <Toast />
       <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
       <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
+      <AskAIModal isOpen={isAskAIOpen} onClose={() => setIsAskAIOpen(false)} />
       <UniversalSearch 
         isOpen={isSearchOpen} 
         onClose={closeSearch} 
@@ -406,6 +409,9 @@ const MainApp: React.FC = () => {
             {state.googleUser && <span className='text-[10px] opacity-80 flex items-center gap-1'><div className='w-1.5 h-1.5 rounded-full bg-green-400'></div>{state.googleUser.name}</span>}
           </button>
           <div className="flex items-center gap-2">
+             <button onClick={() => setIsAskAIOpen(true)} className="p-1 rounded-full hover:bg-white/20 transition-colors" aria-label="Ask AI">
+                <Sparkles className="w-6 h-6 text-yellow-300" />
+             </button>
              <div className='flex items-center justify-center w-8 h-8'>
                 <SyncIndicator status={state.syncStatus} user={state.googleUser} />
              </div>

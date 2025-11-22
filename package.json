@@ -16,7 +16,8 @@
     "jspdf-autotable": "^3.8.2",
     "html5-qrcode": "^2.3.8",
     "idb": "^8.0.0",
-    "jsbarcode": "^3.12.1"
+    "jsbarcode": "^3.12.1",
+    "@google/genai": "latest"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
