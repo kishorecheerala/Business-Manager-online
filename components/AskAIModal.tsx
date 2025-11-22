@@ -40,12 +40,20 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
   // Safe access to API Key
   const getApiKey = () => {
     try {
-        // Guideline: The API key must be obtained exclusively from process.env.API_KEY
-        // Check process.env (if replaced by bundler)
+        // 1. Check standard process.env (Node/Webpack/Next.js/Replacements)
         if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
             return process.env.API_KEY;
         }
+        
+        // 2. Check Vite environment variables (import.meta.env)
+        // Using type casting to any to avoid TypeScript errors if types aren't set up for vite/client
+        const meta = (import.meta as any);
+        if (meta && meta.env) {
+            if (meta.env.VITE_API_KEY) return meta.env.VITE_API_KEY;
+            if (meta.env.API_KEY) return meta.env.API_KEY;
+        }
     } catch (e) {
+        console.warn("Error retrieving API key:", e);
         return undefined;
     }
     return undefined;
@@ -70,11 +78,11 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
                 setIsEnvConfigured(false);
                 setMessages(prev => {
                     // Avoid duplicate error messages
-                    if (prev.some(m => m.text.includes("environment variable"))) return prev;
+                    if (prev.some(m => m.text.includes("environment variables"))) return prev;
                     return [...prev, { 
                         id: 'sys-error-init', 
                         role: 'model', 
-                        text: "⚠️ Missing API Key. Please configure 'API_KEY' in your environment variables.",
+                        text: "⚠️ Missing API Key. Please set 'VITE_API_KEY' (recommended for Vite) or 'API_KEY' in your environment variables.",
                         isError: true 
                     }];
                 });
@@ -196,7 +204,7 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
              setIsEnvConfigured(false);
           }
       } else if (error.message === "API_KEY_MISSING_PERMANENT") {
-             errorText = "Missing API Key. Please set 'API_KEY' in your environment variables.";
+             errorText = "Missing API Key. Please set 'VITE_API_KEY' (or 'API_KEY') in your environment variables.";
              setShowKeyButton(false);
              setIsEnvConfigured(false);
       } else if (error.message?.includes("API key")) {
@@ -294,7 +302,7 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyPress}
-                    placeholder={isEnvConfigured || showKeyButton ? "Ask about sales, stock, or profit..." : "Setup Required: API_KEY Missing"}
+                    placeholder={isEnvConfigured || showKeyButton ? "Ask about sales, stock, or profit..." : "Setup Required: Missing API Key"}
                     className="flex-grow bg-transparent border-none focus:ring-0 resize-none text-sm max-h-24 py-2 px-2 dark:text-white disabled:cursor-not-allowed"
                     rows={1}
                     disabled={(!isEnvConfigured && !showKeyButton) || isLoading}
