@@ -37,24 +37,27 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
     scrollToBottom();
   }, [messages, isOpen]);
 
-  // Safe access to API Key
+  // Robust access to API Key checking multiple conventions
   const getApiKey = () => {
     try {
-        // 1. Check standard process.env (Node/Webpack/Next.js/Replacements)
+        // 1. Check Vite standard (most likely for this project)
+        // Vite requires VITE_ prefix by default to expose to client
+        // Cast import.meta to any to avoid TypeScript errors if env types aren't loaded
+        const meta = import.meta as any;
+        if (meta.env) {
+            if (meta.env.VITE_API_KEY) return meta.env.VITE_API_KEY;
+            if (meta.env.API_KEY) return meta.env.API_KEY;
+            // Fallbacks for people migrating from other frameworks
+            if (meta.env.NEXT_PUBLIC_API_KEY) return meta.env.NEXT_PUBLIC_API_KEY;
+            if (meta.env.REACT_APP_API_KEY) return meta.env.REACT_APP_API_KEY;
+        }
+        
+        // 2. Check standard process.env (if polyfilled or configured in vite.config define)
         if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
             return process.env.API_KEY;
         }
-        
-        // 2. Check Vite environment variables (import.meta.env)
-        // Using type casting to any to avoid TypeScript errors if types aren't set up for vite/client
-        const meta = (import.meta as any);
-        if (meta && meta.env) {
-            if (meta.env.VITE_API_KEY) return meta.env.VITE_API_KEY;
-            if (meta.env.API_KEY) return meta.env.API_KEY;
-        }
     } catch (e) {
-        console.warn("Error retrieving API key:", e);
-        return undefined;
+        // Ignore errors during access
     }
     return undefined;
   };
@@ -78,11 +81,11 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
                 setIsEnvConfigured(false);
                 setMessages(prev => {
                     // Avoid duplicate error messages
-                    if (prev.some(m => m.text.includes("environment variables"))) return prev;
+                    if (prev.some(m => m.text.includes("Missing API Key"))) return prev;
                     return [...prev, { 
                         id: 'sys-error-init', 
                         role: 'model', 
-                        text: "⚠️ Missing API Key. Please set 'VITE_API_KEY' (recommended for Vite) or 'API_KEY' in your environment variables.",
+                        text: "⚠️ Missing API Key.\n\nTo fix this in Vercel:\n1. Go to Settings > Environment Variables.\n2. Add a variable named 'VITE_API_KEY' with your key.\n3. Redeploy the app for changes to take effect.",
                         isError: true 
                     }];
                 });
@@ -204,7 +207,7 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
              setIsEnvConfigured(false);
           }
       } else if (error.message === "API_KEY_MISSING_PERMANENT") {
-             errorText = "Missing API Key. Please set 'VITE_API_KEY' (or 'API_KEY') in your environment variables.";
+             errorText = "Missing API Key. In Vercel Settings, rename 'API_KEY' to 'VITE_API_KEY' and redeploy.";
              setShowKeyButton(false);
              setIsEnvConfigured(false);
       } else if (error.message?.includes("API key")) {
@@ -302,7 +305,7 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyPress}
-                    placeholder={isEnvConfigured || showKeyButton ? "Ask about sales, stock, or profit..." : "Setup Required: Missing API Key"}
+                    placeholder={isEnvConfigured || showKeyButton ? "Ask about sales, stock, or profit..." : "Setup Required: Set VITE_API_KEY in Vercel"}
                     className="flex-grow bg-transparent border-none focus:ring-0 resize-none text-sm max-h-24 py-2 px-2 dark:text-white disabled:cursor-not-allowed"
                     rows={1}
                     disabled={(!isEnvConfigured && !showKeyButton) || isLoading}
