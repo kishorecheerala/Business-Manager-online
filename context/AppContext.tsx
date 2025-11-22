@@ -444,7 +444,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 const remoteData = await downloadFile(accessToken, remoteFileId);
                 if (remoteData) {
                     await db.importData(remoteData);
-                    const reloadedData = await db.exportData();
+                    // Fix profile sync by normalizing data structure
+                    const reloadedData = await db.exportData() as any;
+                    
+                    if (reloadedData.profile && Array.isArray(reloadedData.profile)) {
+                        reloadedData.profile = reloadedData.profile.length > 0 ? reloadedData.profile[0] : null;
+                    }
+
+                    if (reloadedData.sales) {
+                        reloadedData.sales = reloadedData.sales.map((s: any) => ({ ...s, payments: s.payments || [] }));
+                    }
+                    if (reloadedData.purchases) {
+                        reloadedData.purchases = reloadedData.purchases.map((p: any) => ({ ...p, payments: p.payments || [] }));
+                    }
+
                     dispatch({ type: 'SET_STATE', payload: reloadedData });
                 }
             } catch (e) {
