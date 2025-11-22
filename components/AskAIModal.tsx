@@ -26,6 +26,7 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showKeyButton, setShowKeyButton] = useState(false);
+  const [isEnvConfigured, setIsEnvConfigured] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -36,22 +37,48 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
     scrollToBottom();
   }, [messages, isOpen]);
 
+  // Safe access to process.env.API_KEY
+  const getApiKey = () => {
+    try {
+        // This is often replaced by the bundler at build time
+        return process.env.API_KEY;
+    } catch (e) {
+        return undefined;
+    }
+  };
+
   // Check for API key availability on open
   useEffect(() => {
-    const aistudio = (window as any).aistudio;
-    if (isOpen && aistudio) {
-        // Use a timeout to avoid blocking initial render if this promise hangs
-        const checkKey = async () => {
-            try {
-                const hasKey = await aistudio.hasSelectedApiKey();
-                if (!hasKey) {
-                    setShowKeyButton(true);
+    if (isOpen) {
+        const checkConfig = async () => {
+            const aistudio = (window as any).aistudio;
+            const key = getApiKey();
+            
+            if (aistudio) {
+                try {
+                    const hasKey = await aistudio.hasSelectedApiKey();
+                    if (!hasKey) setShowKeyButton(true);
+                } catch (e) {
+                    console.warn("Failed to check API key status", e);
                 }
-            } catch (e) {
-                console.warn("Failed to check API key status", e);
+            } else if (!key) {
+                // No key and no IDX environment -> Deployment config missing
+                setIsEnvConfigured(false);
+                setMessages(prev => {
+                    // Avoid duplicate error messages
+                    if (prev.some(m => m.text.includes("environment variable"))) return prev;
+                    return [...prev, { 
+                        id: 'sys-error-init', 
+                        role: 'model', 
+                        text: "⚠️ Missing API Key. To use AI features, please set the API_KEY environment variable in your deployment settings.",
+                        isError: true 
+                    }];
+                });
+            } else {
+                setIsEnvConfigured(true);
             }
         };
-        checkKey();
+        checkConfig();
     }
   }, [isOpen]);
 
@@ -82,6 +109,7 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
           try {
             await aistudio.openSelectKey();
             setShowKeyButton(false);
+            setIsEnvConfigured(true);
             // Reset error message if the last message was an error asking for key
             setMessages(prev => {
                 const last = prev[prev.length - 1];
@@ -94,8 +122,6 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
               console.error("Failed to open key selector", e);
               alert("Failed to open API Key configuration. Please try again.");
           }
-      } else {
-          alert("To use AI features in this environment, please set the 'API_KEY' environment variable in your deployment settings.");
       }
   };
 
@@ -118,17 +144,19 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
           }
       }
 
-      // Initialize client just in time
-      // process.env.API_KEY is expected to be injected by the environment
-      const apiKey = process.env.API_KEY;
+      const apiKey = getApiKey();
       
-      // If both environment variable is missing AND aistudio helper is present (indicating we are in the IDX environment but failed to get key), throw error.
-      // If aistudio helper is missing, we might be in a different env where manual key setup isn't supported via this UI, but we proceed if env var exists.
-      if (!apiKey && aistudio) {
-           throw new Error("API_KEY_MISSING");
+      // If no env key and no aistudio helper, we are in a broken state
+      if (!apiKey && !aistudio) {
+           throw new Error("API_KEY_MISSING_PERMANENT");
+      }
+      
+      // Check if key is valid string if it exists
+      if (apiKey && apiKey.trim() === '') {
+           throw new Error("API_KEY_EMPTY");
       }
 
-      const ai = new GoogleGenAI({ apiKey: apiKey || '' }); // Pass empty string if missing to let it fail with a clear error from SDK or catch block
+      const ai = new GoogleGenAI({ apiKey: apiKey || '' }); 
       const systemInstruction = generateSystemContext();
       
       const chat = ai.chats.create({
@@ -151,15 +179,23 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
       let errorText = "Sorry, I encountered an error connecting to the AI service.";
       
       // Handle specific error cases
-      if (error.message === "API_KEY_MISSING" || error.message?.includes("API key") || error.toString().includes("API key") || error.status === 400) {
+      if (error.message === "API_KEY_MISSING" || error.message === "API_KEY_EMPTY" || error.status === 400) {
           const aistudio = (window as any).aistudio;
           if (aistudio) {
              errorText = "Please configure your API Key to use the assistant.";
              setShowKeyButton(true);
           } else {
+             errorText = "Invalid or Missing API Key. Please check your Vercel environment variables and redeploy.";
+             setShowKeyButton(false);
+             setIsEnvConfigured(false);
+          }
+      } else if (error.message === "API_KEY_MISSING_PERMANENT") {
              errorText = "Missing API Key. To use AI features, please set the API_KEY environment variable in your deployment settings.";
              setShowKeyButton(false);
-          }
+             setIsEnvConfigured(false);
+      } else if (error.message?.includes("API key")) {
+             errorText = "The configured API Key seems invalid. Please check your Vercel settings.";
+             setIsEnvConfigured(false);
       } else if (error.message?.includes("Requested entity was not found")) {
           // Specific handling for race condition mentioned in guidelines
           errorText = "API Key configuration seems invalid. Please try selecting it again.";
@@ -247,18 +283,19 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
                     </Button>
                  </div>
             )}
-            <div className="flex gap-2 items-end bg-gray-100 dark:bg-slate-900 p-2 rounded-xl border border-gray-200 dark:border-slate-700 focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500 transition-all">
+            <div className={`flex gap-2 items-end bg-gray-100 dark:bg-slate-900 p-2 rounded-xl border border-gray-200 dark:border-slate-700 focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500 transition-all ${!isEnvConfigured && !showKeyButton ? 'opacity-50' : ''}`}>
                 <textarea 
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyPress}
-                    placeholder="Ask about sales, stock, or profit..."
-                    className="flex-grow bg-transparent border-none focus:ring-0 resize-none text-sm max-h-24 py-2 px-2 dark:text-white"
+                    placeholder={isEnvConfigured || showKeyButton ? "Ask about sales, stock, or profit..." : "Setup Required: Set API_KEY env var"}
+                    className="flex-grow bg-transparent border-none focus:ring-0 resize-none text-sm max-h-24 py-2 px-2 dark:text-white disabled:cursor-not-allowed"
                     rows={1}
+                    disabled={(!isEnvConfigured && !showKeyButton) || isLoading}
                 />
                 <button 
                     onClick={handleSend}
-                    disabled={isLoading || !input.trim()}
+                    disabled={isLoading || !input.trim() || (!isEnvConfigured && !showKeyButton)}
                     className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors mb-0.5"
                 >
                     <Send size={18} />
