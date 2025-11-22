@@ -172,7 +172,6 @@ const appReducer = (state: AppState, action: Action): AppState => {
       return { ...state, sales: [...state.sales, action.payload] };
     case 'UPDATE_SALE': {
         const { oldSale, updatedSale } = action.payload;
-        // ... (Logic truncated for brevity, keeping existing logic)
         const stockChanges = new Map<string, number>();
         oldSale.items.forEach(item => stockChanges.set(item.productId, (stockChanges.get(item.productId) || 0) + item.quantity));
         updatedSale.items.forEach(item => stockChanges.set(item.productId, (stockChanges.get(item.productId) || 0) - item.quantity));
@@ -186,7 +185,6 @@ const appReducer = (state: AppState, action: Action): AppState => {
     case 'DELETE_SALE': {
       const saleToDelete = state.sales.find(s => s.id === action.payload);
       if (!saleToDelete) return state;
-      // ... (Logic truncated)
       const stockChanges = new Map<string, number>();
       saleToDelete.items.forEach(item => stockChanges.set(item.productId, (stockChanges.get(item.productId) || 0) + item.quantity));
       let updatedProducts = state.products;
@@ -199,7 +197,6 @@ const appReducer = (state: AppState, action: Action): AppState => {
       return { ...state, purchases: [...state.purchases, action.payload] };
     case 'UPDATE_PURCHASE': {
         const { oldPurchase, updatedPurchase } = action.payload;
-        // ... (Logic truncated, using complex logic from previous version)
         let tempProducts = [...state.products];
         const allProductIds = new Set([...oldPurchase.items.map(i => i.productId), ...updatedPurchase.items.map(i => i.productId)]);
         allProductIds.forEach(productId => {
@@ -241,7 +238,6 @@ const appReducer = (state: AppState, action: Action): AppState => {
       return { ...state, purchases: state.purchases.filter(p => p.id !== action.payload), products: updatedProducts };
     }
     case 'ADD_RETURN': {
-      // ... (Logic truncated)
       const returnPayload = action.payload;
       const updatedProducts = state.products.map(product => {
         const itemReturned = returnPayload.items.find(item => item.productId.trim().toLowerCase() === product.id.trim().toLowerCase());
@@ -262,7 +258,6 @@ const appReducer = (state: AppState, action: Action): AppState => {
       return { ...state, products: updatedProducts, sales: updatedSales, purchases: updatedPurchases, returns: [...state.returns, returnPayload] };
     }
     case 'UPDATE_RETURN': {
-       // ... (Logic truncated)
        const { oldReturn, updatedReturn } = action.payload;
         const stockChanges = new Map<string, number>();
         oldReturn.items.forEach(item => {
@@ -408,7 +403,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         accessToken: accessToken
       };
       
-      localStorage.setItem('googleUser', JSON.stringify(user)); // Persist user
+      localStorage.setItem('googleUser', JSON.stringify(user));
       dispatch({ type: 'SET_GOOGLE_USER', payload: user });
       await performSync(accessToken);
       dispatch({ type: 'SET_SYNC_STATUS', payload: 'success' });
@@ -422,31 +417,47 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const performSync = async (accessToken: string) => {
     try {
+        let folderId = localStorage.getItem('gdrive_folder_id');
+        let fileId = localStorage.getItem('gdrive_file_id');
+
         // 1. Ensure Folder Exists
-        let folderId = await searchFolder(accessToken);
         if (!folderId) {
-            folderId = await createFolder(accessToken);
+            folderId = await searchFolder(accessToken);
+            if (!folderId) {
+                folderId = await createFolder(accessToken);
+            }
+            if (folderId) localStorage.setItem('gdrive_folder_id', folderId);
         }
 
         // 2. Look for backup file
-        const remoteFile = await searchFile(accessToken, folderId);
+        // Optimization: Use cached fileId if available
+        let remoteFileId = fileId;
+        if (!remoteFileId && folderId) {
+             const remoteFile = await searchFile(accessToken, folderId);
+             remoteFileId = remoteFile ? remoteFile.id : null;
+             if (remoteFileId) localStorage.setItem('gdrive_file_id', remoteFileId);
+        }
 
-        if (remoteFile) {
-            // Conflict Resolution: If remote file exists, check if we should pull
-            // Ideally we compare timestamps. For now, we ask user or simple overwrite if remote is newer.
-            // Simplified: Always pull on initial login to sync state.
-            const remoteData = await downloadFile(accessToken, remoteFile.id);
-            if (remoteData) {
-               // Merge or Replace? Let's replace for consistency in this model
-               await db.importData(remoteData);
-               // Reload state from DB
-               const reloadedData = await db.exportData();
-               dispatch({ type: 'SET_STATE', payload: reloadedData });
+        if (remoteFileId) {
+            // Try to download
+            try {
+                const remoteData = await downloadFile(accessToken, remoteFileId);
+                if (remoteData) {
+                    await db.importData(remoteData);
+                    const reloadedData = await db.exportData();
+                    dispatch({ type: 'SET_STATE', payload: reloadedData });
+                }
+            } catch (e) {
+                console.warn("Failed to download with cached ID, retrying discovery", e);
+                // Clear cache and recurse/retry logic could go here, but simplest is to just fail softly for now
+                // or reset cache for next time
+                localStorage.removeItem('gdrive_file_id');
             }
-        } else {
-            // Upload current local data
+        } else if (folderId) {
+            // Upload current local data as new file
             const currentData = await db.exportData();
-            await uploadFile(accessToken, folderId, currentData);
+            const result = await uploadFile(accessToken, folderId, currentData);
+            if (result && result.id) localStorage.setItem('gdrive_file_id', result.id);
         }
     } catch (e) {
         console.error("Sync failed", e);
@@ -458,11 +469,47 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (!state.googleUser?.accessToken) return;
       dispatch({ type: 'SET_SYNC_STATUS', payload: 'syncing' });
       try {
-          const folderId = await searchFolder(state.googleUser.accessToken);
+          const accessToken = state.googleUser.accessToken;
+          // Try Fast Path with Cached IDs
+          let fileId = localStorage.getItem('gdrive_file_id');
+          let folderId = localStorage.getItem('gdrive_folder_id');
+
+          if (fileId) {
+              try {
+                  const currentData = await db.exportData();
+                  // Attempt patch upload directly
+                  await uploadFile(accessToken, folderId || '', currentData, fileId);
+                  dispatch({ type: 'SET_SYNC_STATUS', payload: 'success' });
+                  showToast("Cloud Sync Complete");
+                  return; // Exit early on success
+              } catch (e) {
+                  console.warn("Fast sync failed, falling back to full discovery", e);
+                  localStorage.removeItem('gdrive_file_id'); // Clear invalid cache
+                  fileId = null;
+              }
+          }
+
+          // Full Discovery Path
+          if (!folderId) {
+              folderId = await searchFolder(accessToken);
+              if (!folderId) {
+                  folderId = await createFolder(accessToken);
+              }
+              if (folderId) localStorage.setItem('gdrive_folder_id', folderId);
+          }
+
           if (folderId) {
-              const remoteFile = await searchFile(state.googleUser.accessToken, folderId);
+              // Check if file exists remotely
+              const remoteFile = await searchFile(accessToken, folderId);
               const currentData = await db.exportData();
-              await uploadFile(state.googleUser.accessToken, folderId, currentData, remoteFile?.id);
+              
+              const result = await uploadFile(accessToken, folderId, currentData, remoteFile?.id);
+              
+              // Cache the ID for next time
+              if (result && result.id) {
+                  localStorage.setItem('gdrive_file_id', result.id);
+              }
+
               dispatch({ type: 'SET_SYNC_STATUS', payload: 'success' });
               showToast("Cloud Sync Complete");
           }
@@ -481,34 +528,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const googleSignOut = async () => {
-    // 1. Clear Local Database to implement Clean Slate protocol
     await db.clearDatabase();
-
-    // 2. Reset App State (this clears data in memory)
     dispatch({ type: 'RESET_APP' });
-
-    // 3. Clear Persistence
     localStorage.removeItem('googleUser');
-
-    // 4. Clear User Session
+    localStorage.removeItem('gdrive_folder_id'); // Clear sync cache
+    localStorage.removeItem('gdrive_file_id');
     dispatch({ type: 'SET_GOOGLE_USER', payload: null });
     dispatch({ type: 'SET_SYNC_STATUS', payload: 'idle' });
-    
     showToast("Signed out. Local data cleared.");
   };
 
-  // Debounced Auto-Sync on Data Change
   useEffect(() => {
       if (state.googleUser && isDbLoaded) {
           const handler = setTimeout(() => {
               syncData();
-          }, 10000); // Auto-sync 10 seconds after last change
+          }, 10000);
           return () => clearTimeout(handler);
       }
   }, [state.customers, state.sales, state.purchases, state.products]);
 
 
-  // ... (Existing PWA install prompt listener code)
   useEffect(() => {
     const deferredPrompt = (window as any).deferredInstallPrompt;
     if (deferredPrompt) {
@@ -524,7 +563,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
   }, [dispatch]);
 
-  // Load initial data
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -569,7 +607,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     loadData();
   }, []);
   
-  // Persist data
   useEffect(() => { if (isDbLoaded) db.saveCollection('customers', state.customers); }, [state.customers, isDbLoaded]);
   useEffect(() => { if (isDbLoaded) db.saveCollection('suppliers', state.suppliers); }, [state.suppliers, isDbLoaded]);
   useEffect(() => { if (isDbLoaded) db.saveCollection('products', state.products); }, [state.products, isDbLoaded]);
@@ -592,4 +629,3 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 };
 
 export const useAppContext = () => useContext(AppContext);
-    

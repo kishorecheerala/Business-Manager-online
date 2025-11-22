@@ -85,6 +85,7 @@ export const searchFolder = async (accessToken: string) => {
   const response = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}`, {
     headers: getHeaders(accessToken),
   });
+  if (!response.ok) throw new Error(`Search Folder Failed: ${response.status}`);
   const data = await response.json();
   return data.files && data.files.length > 0 ? data.files[0].id : null;
 };
@@ -99,6 +100,7 @@ export const createFolder = async (accessToken: string) => {
     headers: getHeaders(accessToken),
     body: JSON.stringify(metadata),
   });
+  if (!response.ok) throw new Error(`Create Folder Failed: ${response.status}`);
   const file = await response.json();
   return file.id;
 };
@@ -108,6 +110,7 @@ export const searchFile = async (accessToken: string, folderId: string) => {
   const response = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}`, {
     headers: getHeaders(accessToken),
   });
+  if (!response.ok) throw new Error(`Search File Failed: ${response.status}`);
   const data = await response.json();
   return data.files && data.files.length > 0 ? data.files[0] : null;
 };
@@ -137,6 +140,11 @@ export const uploadFile = async (accessToken: string, folderId: string, content:
     headers: { 'Authorization': `Bearer ${accessToken}` },
     body: form,
   });
+  
+  if (!response.ok) {
+      throw new Error(`Upload Failed: ${response.status}`);
+  }
+  
   return await response.json();
 };
 
@@ -144,6 +152,11 @@ export const downloadFile = async (accessToken: string, fileId: string) => {
   const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
     headers: { 'Authorization': `Bearer ${accessToken}` },
   });
+  
+  if (!response.ok) {
+      throw new Error(`Download Failed: ${response.status}`);
+  }
+  
   return await response.json();
 };
 
