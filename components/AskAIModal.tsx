@@ -95,7 +95,7 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
               alert("Failed to open API Key configuration. Please try again.");
           }
       } else {
-          alert("API Key configuration is only available in the supported environment (Project IDX / AI Studio).");
+          alert("To use AI features in this environment, please set the 'API_KEY' environment variable in your deployment settings.");
       }
   };
 
@@ -152,12 +152,20 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
       
       // Handle specific error cases
       if (error.message === "API_KEY_MISSING" || error.message?.includes("API key") || error.toString().includes("API key") || error.status === 400) {
-          errorText = "Please configure your API Key to use the assistant.";
-          setShowKeyButton(true);
+          const aistudio = (window as any).aistudio;
+          if (aistudio) {
+             errorText = "Please configure your API Key to use the assistant.";
+             setShowKeyButton(true);
+          } else {
+             errorText = "Missing API Key. To use AI features, please set the API_KEY environment variable in your deployment settings.";
+             setShowKeyButton(false);
+          }
       } else if (error.message?.includes("Requested entity was not found")) {
           // Specific handling for race condition mentioned in guidelines
           errorText = "API Key configuration seems invalid. Please try selecting it again.";
-          setShowKeyButton(true);
+          if ((window as any).aistudio) {
+             setShowKeyButton(true);
+          }
       }
 
       setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: errorText, isError: true }]);
