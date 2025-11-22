@@ -37,28 +37,26 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
     scrollToBottom();
   }, [messages, isOpen]);
 
-  // Robust access to API Key checking multiple conventions
-  const getApiKey = () => {
+  // Robust access to API Key
+  const getApiKey = (): string | undefined => {
+    // 1. Try Vite standard (import.meta.env) with explicit casting
+    // This is the most likely path for Vercel + Vite
     try {
-        // 1. Check Vite standard (most likely for this project)
-        // Vite requires VITE_ prefix by default to expose to client
-        // Cast import.meta to any to avoid TypeScript errors if env types aren't loaded
         const meta = import.meta as any;
-        if (meta.env) {
+        if (meta && meta.env) {
+            // Check for VITE_API_KEY specifically as requested
             if (meta.env.VITE_API_KEY) return meta.env.VITE_API_KEY;
+            // Fallback checks
             if (meta.env.API_KEY) return meta.env.API_KEY;
-            // Fallbacks for people migrating from other frameworks
-            if (meta.env.NEXT_PUBLIC_API_KEY) return meta.env.NEXT_PUBLIC_API_KEY;
-            if (meta.env.REACT_APP_API_KEY) return meta.env.REACT_APP_API_KEY;
         }
-        
-        // 2. Check standard process.env (if polyfilled or configured in vite.config define)
-        if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-            return process.env.API_KEY;
-        }
-    } catch (e) {
-        // Ignore errors during access
+    } catch (e) {}
+
+    // 2. Try process.env (Node/Webpack standard)
+    if (typeof process !== 'undefined' && process.env) {
+        if (process.env.API_KEY) return process.env.API_KEY;
+        if (process.env.VITE_API_KEY) return process.env.VITE_API_KEY;
     }
+
     return undefined;
   };
 
@@ -69,29 +67,35 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
             const aistudio = (window as any).aistudio;
             const key = getApiKey();
             
+            // Debug logging to help diagnose issues
+            console.log("AI Config Check:", { 
+                hasMetaKey: !!key, 
+                hasAiStudio: !!aistudio 
+            });
+            
             if (aistudio) {
                 try {
                     const hasKey = await aistudio.hasSelectedApiKey();
                     if (!hasKey) setShowKeyButton(true);
                 } catch (e) {
-                    console.warn("Failed to check API key status", e);
+                    console.warn("Failed to check API key status via AI Studio", e);
                 }
             } else if (!key) {
-                // No key and no IDX environment -> Deployment config missing
+                // No key found in env vars
+                console.warn("API Key not found. Checked VITE_API_KEY and API_KEY.");
                 setIsEnvConfigured(false);
                 setMessages(prev => {
-                    // Avoid duplicate error messages
                     if (prev.some(m => m.text.includes("Missing API Key"))) return prev;
                     return [...prev, { 
                         id: 'sys-error-init', 
                         role: 'model', 
-                        text: "⚠️ Missing API Key.\n\nTo fix this in Vercel:\n1. Go to Settings > Environment Variables.\n2. Add a variable named 'VITE_API_KEY' with your key.\n3. Redeploy the app for changes to take effect.",
+                        text: "⚠️ Missing API Key.\n\nIf you have set 'VITE_API_KEY' in Vercel:\n1. Ensure it was added to the correct environment (Production/Preview).\n2. **Redeploy** your application (Environment variables are only loaded at build time).\n3. Refresh this page.",
                         isError: true 
                     }];
                 });
             } else {
+                // Key found
                 setIsEnvConfigured(true);
-                // If key exists, remove any previous error messages about missing key
                 setMessages(prev => prev.filter(m => !m.text.includes("Missing API Key")));
             }
         };
@@ -127,7 +131,6 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
             await aistudio.openSelectKey();
             setShowKeyButton(false);
             setIsEnvConfigured(true);
-            // Reset error message if the last message was an error asking for key
             setMessages(prev => {
                 const last = prev[prev.length - 1];
                 if (last.isError && (last.text.includes("Configure") || last.text.includes("API Key"))) {
@@ -152,7 +155,6 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
     setShowKeyButton(false);
 
     try {
-      // Check environment specific API key handler
       const aistudio = (window as any).aistudio;
       if (aistudio) {
           const hasKey = await aistudio.hasSelectedApiKey();
@@ -163,17 +165,20 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
 
       const apiKey = getApiKey();
       
-      // If no env key and no aistudio helper, we are in a broken state
       if (!apiKey && !aistudio) {
            throw new Error("API_KEY_MISSING_PERMANENT");
       }
       
-      // Check if key is valid string if it exists
       if (apiKey && apiKey.trim() === '') {
            throw new Error("API_KEY_EMPTY");
       }
 
-      const ai = new GoogleGenAI({ apiKey: apiKey || '' }); 
+      // Use process.env.API_KEY as primary if available, otherwise fallback to retrieved key
+      // This logic ensures we follow the "process.env.API_KEY" requirement if it exists,
+      // but gracefully fallback to VITE_API_KEY if that's what is available.
+      const finalKey = apiKey || process.env.API_KEY || '';
+
+      const ai = new GoogleGenAI({ apiKey: finalKey }); 
       const systemInstruction = generateSystemContext();
       
       const chat = ai.chats.create({
@@ -195,7 +200,6 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
       console.error("AI Error:", error);
       let errorText = "Sorry, I encountered an error connecting to the AI service.";
       
-      // Handle specific error cases
       if (error.message === "API_KEY_MISSING" || error.message === "API_KEY_EMPTY" || error.status === 400) {
           const aistudio = (window as any).aistudio;
           if (aistudio) {
@@ -207,14 +211,13 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
              setIsEnvConfigured(false);
           }
       } else if (error.message === "API_KEY_MISSING_PERMANENT") {
-             errorText = "Missing API Key. In Vercel Settings, rename 'API_KEY' to 'VITE_API_KEY' and redeploy.";
+             errorText = "Missing API Key. Please ensure 'VITE_API_KEY' is set in Vercel and you have redeployed.";
              setShowKeyButton(false);
              setIsEnvConfigured(false);
       } else if (error.message?.includes("API key")) {
              errorText = "The configured API Key seems invalid. Please check your settings.";
              setIsEnvConfigured(false);
       } else if (error.message?.includes("Requested entity was not found")) {
-          // Specific handling for race condition mentioned in guidelines
           errorText = "API Key configuration seems invalid. Please try selecting it again.";
           if ((window as any).aistudio) {
              setShowKeyButton(true);
@@ -305,7 +308,7 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyPress}
-                    placeholder={isEnvConfigured || showKeyButton ? "Ask about sales, stock, or profit..." : "Setup Required: Set VITE_API_KEY in Vercel"}
+                    placeholder={isEnvConfigured || showKeyButton ? "Ask about sales, stock, or profit..." : "API Key Missing. Please Configure in Vercel."}
                     className="flex-grow bg-transparent border-none focus:ring-0 resize-none text-sm max-h-24 py-2 px-2 dark:text-white disabled:cursor-not-allowed"
                     rows={1}
                     disabled={(!isEnvConfigured && !showKeyButton) || isLoading}
@@ -328,3 +331,4 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
 };
 
 export default AskAIModal;
+    
