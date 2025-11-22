@@ -39,22 +39,37 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
 
   // Robust access to API Key
   const getApiKey = (): string | undefined => {
-    // 1. Try Vite standard (import.meta.env) with explicit casting
-    // This is the most likely path for Vercel + Vite
-    try {
-        const meta = import.meta as any;
-        if (meta && meta.env) {
-            // Check for VITE_API_KEY specifically as requested
-            if (meta.env.VITE_API_KEY) return meta.env.VITE_API_KEY;
-            // Fallback checks
-            if (meta.env.API_KEY) return meta.env.API_KEY;
-        }
-    } catch (e) {}
-
-    // 2. Try process.env (Node/Webpack standard)
+    // 1. Try process.env (Standard Node/Next.js/Webpack)
+    // We check this first. If your build tool defines process.env.API_KEY, it will be used.
     if (typeof process !== 'undefined' && process.env) {
-        if (process.env.API_KEY) return process.env.API_KEY;
-        if (process.env.VITE_API_KEY) return process.env.VITE_API_KEY;
+        if (process.env.API_KEY) {
+            console.log("Business Manager: API Key detected in process.env.API_KEY");
+            return process.env.API_KEY;
+        }
+        if (process.env.VITE_API_KEY) {
+            console.log("Business Manager: API Key detected in process.env.VITE_API_KEY");
+            return process.env.VITE_API_KEY;
+        }
+    }
+
+    // 2. Try import.meta.env (Vite Standard)
+    // IMPORTANT: We access .VITE_API_KEY directly. Do not use intermediate variables.
+    // Vite statically replaces `import.meta.env.VITE_API_KEY` with the string value during build.
+    try {
+        // @ts-ignore: Ignore TS errors for direct access to facilitate Vite replacement
+        if (import.meta.env.VITE_API_KEY) {
+             console.log("Business Manager: API Key detected in import.meta.env.VITE_API_KEY");
+             // @ts-ignore
+             return import.meta.env.VITE_API_KEY;
+        }
+        // @ts-ignore
+        if (import.meta.env.API_KEY) {
+             console.log("Business Manager: API Key detected in import.meta.env.API_KEY");
+             // @ts-ignore
+             return import.meta.env.API_KEY;
+        }
+    } catch (e) {
+        // console.debug("import.meta.env access failed", e);
     }
 
     return undefined;
@@ -69,34 +84,35 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
             
             // Debug logging to help diagnose issues
             console.log("AI Config Check:", { 
-                hasMetaKey: !!key, 
+                keyFound: !!key, 
                 hasAiStudio: !!aistudio 
             });
             
-            if (aistudio) {
+            if (key) {
+                // Key found in environment
+                setIsEnvConfigured(true);
+                setMessages(prev => prev.filter(m => !m.text.includes("Missing API Key")));
+            } else if (aistudio) {
+                // Fallback to AI Studio if available
                 try {
                     const hasKey = await aistudio.hasSelectedApiKey();
                     if (!hasKey) setShowKeyButton(true);
                 } catch (e) {
                     console.warn("Failed to check API key status via AI Studio", e);
                 }
-            } else if (!key) {
-                // No key found in env vars
-                console.warn("API Key not found. Checked VITE_API_KEY and API_KEY.");
+            } else {
+                // No key found anywhere
+                console.warn("API Key not found. Please check Vercel Environment Variables.");
                 setIsEnvConfigured(false);
                 setMessages(prev => {
                     if (prev.some(m => m.text.includes("Missing API Key"))) return prev;
                     return [...prev, { 
                         id: 'sys-error-init', 
                         role: 'model', 
-                        text: "⚠️ Missing API Key.\n\nIf you have set 'VITE_API_KEY' in Vercel:\n1. Ensure it was added to the correct environment (Production/Preview).\n2. **Redeploy** your application (Environment variables are only loaded at build time).\n3. Refresh this page.",
+                        text: "⚠️ Missing API Key.\n\nTo fix this in Vercel:\n1. Go to Settings > Environment Variables.\n2. Ensure 'VITE_API_KEY' is set to your Gemini API Key.\n3. **Redeploy** the project (Required for new keys to take effect).\n\nCheck the browser console (F12) for debugging logs.",
                         isError: true 
                     }];
                 });
-            } else {
-                // Key found
-                setIsEnvConfigured(true);
-                setMessages(prev => prev.filter(m => !m.text.includes("Missing API Key")));
             }
         };
         checkConfig();
@@ -156,27 +172,31 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
 
     try {
       const aistudio = (window as any).aistudio;
-      if (aistudio) {
+      let apiKey = getApiKey();
+
+      // If no environment key, check AI studio state
+      if (!apiKey && aistudio) {
           const hasKey = await aistudio.hasSelectedApiKey();
           if (!hasKey) {
               throw new Error("API_KEY_MISSING");
           }
+          // AI Studio injects key automatically if selected, but we need one for initialization if not using proxy
+          // In this codebase, we assume if aistudio is present, process.env might be polyfilled or we let SDK handle it?
+          // Actually, the GoogleGenAI SDK needs a key passed.
+          // If window.aistudio exists, we might be in a specialized environment where process.env.API_KEY is injected dynamically?
+          // If not, and getApiKey() is null, we have a problem unless we prompt user.
       }
-
-      const apiKey = getApiKey();
       
       if (!apiKey && !aistudio) {
            throw new Error("API_KEY_MISSING_PERMANENT");
       }
       
-      if (apiKey && apiKey.trim() === '') {
-           throw new Error("API_KEY_EMPTY");
-      }
-
-      // Use process.env.API_KEY as primary if available, otherwise fallback to retrieved key
-      // This logic ensures we follow the "process.env.API_KEY" requirement if it exists,
-      // but gracefully fallback to VITE_API_KEY if that's what is available.
+      // Use the found key, or fallback to process.env.API_KEY standard if somehow missed by getApiKey logic
       const finalKey = apiKey || process.env.API_KEY || '';
+
+      if (!finalKey && !aistudio) {
+          throw new Error("API_KEY_EMPTY");
+      }
 
       const ai = new GoogleGenAI({ apiKey: finalKey }); 
       const systemInstruction = generateSystemContext();
@@ -206,7 +226,7 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
              errorText = "Please configure your API Key to use the assistant.";
              setShowKeyButton(true);
           } else {
-             errorText = "Invalid or Missing API Key. Please check your environment variables and redeploy.";
+             errorText = "Invalid or Missing API Key. Please check your Vercel environment variables and redeploy.";
              setShowKeyButton(false);
              setIsEnvConfigured(false);
           }
@@ -331,4 +351,3 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
 };
 
 export default AskAIModal;
-    
