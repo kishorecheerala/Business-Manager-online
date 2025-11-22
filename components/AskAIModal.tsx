@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Send, Sparkles, Bot, User, Loader2 } from 'lucide-react';
+import { X, Send, Sparkles, Bot, User, Loader2, Key } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { useAppContext } from '../context/AppContext';
 import Card from './Card';
+import Button from './Button';
 
 interface AskAIModalProps {
   isOpen: boolean;
@@ -14,6 +15,7 @@ interface Message {
   id: string;
   role: 'user' | 'model';
   text: string;
+  isError?: boolean;
 }
 
 const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
@@ -23,8 +25,8 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showKeyButton, setShowKeyButton] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const aiRef = useRef<GoogleGenAI | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -34,14 +36,13 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
     scrollToBottom();
   }, [messages, isOpen]);
 
+  // Check for API key availability on open, but don't error out yet
   useEffect(() => {
-    if (isOpen && !aiRef.current) {
-        try {
-            aiRef.current = new GoogleGenAI({ apiKey: process.env.API_KEY });
-        } catch (error) {
-            console.error("Failed to initialize AI:", error);
-            setMessages(prev => [...prev, { id: 'err', role: 'model', text: "Error: API Key configuration failed." }]);
-        }
+    const aistudio = (window as any).aistudio;
+    if (isOpen && aistudio) {
+        aistudio.hasSelectedApiKey().then((hasKey: boolean) => {
+            if (!hasKey) setShowKeyButton(true);
+        });
     }
   }, [isOpen]);
 
@@ -50,8 +51,7 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
     const totalPurchases = state.purchases.reduce((sum, p) => sum + Number(p.totalAmount), 0);
     const profit = totalSales - totalPurchases; 
     const lowStockItems = state.products.filter(p => p.quantity < 5).map(p => `${p.name} (${p.quantity})`).join(', ');
-    const topCustomers = state.customers.slice(0, 5).map(c => c.name).join(', ');
-
+    
     return `
       You are a helpful business assistant for a small business owner. 
       Here is the current business snapshot:
@@ -60,14 +60,21 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
       - Total Expenses (All Time): ₹${totalPurchases.toLocaleString()}
       - Estimated Gross Profit: ₹${profit.toLocaleString()}
       - Total Customers: ${state.customers.length}
-      - Total Products in DB: ${state.products.length}
-      - Low Stock Items (<5 qty): ${lowStockItems || 'None'}
-      - Recent Sales Count: ${state.sales.length}
+      - Total Products: ${state.products.length}
+      - Low Stock Items: ${lowStockItems || 'None'}
       
-      Answer questions based on this data. Be concise, friendly, and encouraging. 
-      If asked about specific details not listed here, say you don't have that granular data in your current context view.
-      Do not hallucinate data.
+      Answer questions based on this data. Be concise and helpful.
     `;
+  };
+
+  const handleSelectKey = async () => {
+      const aistudio = (window as any).aistudio;
+      if (aistudio) {
+          await aistudio.openSelectKey();
+          setShowKeyButton(false);
+          // Optional: Retry the last action or just let the user type again
+          setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: "API Key updated. You can ask me a question now." }]);
+      }
   };
 
   const handleSend = async () => {
@@ -77,20 +84,25 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsLoading(true);
+    setShowKeyButton(false);
 
     try {
-      if (!aiRef.current) {
-          throw new Error("AI Service not initialized");
+      // Check if we need to prompt for key first
+      const aistudio = (window as any).aistudio;
+      if (aistudio) {
+          const hasKey = await aistudio.hasSelectedApiKey();
+          if (!hasKey) {
+              throw new Error("API Key not selected");
+          }
       }
 
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const systemInstruction = generateSystemContext();
       
-      const chat = aiRef.current.chats.create({
+      const chat = ai.chats.create({
         model: 'gemini-2.5-flash',
-        config: {
-            systemInstruction: systemInstruction,
-        },
-        history: messages.map(m => ({
+        config: { systemInstruction },
+        history: messages.filter(m => !m.isError).map(m => ({
             role: m.role,
             parts: [{ text: m.text }]
         }))
@@ -102,9 +114,16 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
       const modelMsg: Message = { id: (Date.now() + 1).toString(), role: 'model', text: responseText || "I couldn't generate a response." };
       setMessages(prev => [...prev, modelMsg]);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("AI Error:", error);
-      setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: "Sorry, I encountered an error connecting to the AI service. Please try again later." }]);
+      let errorText = "Sorry, I encountered an error connecting to the AI service.";
+      
+      if (error.message === "API Key not selected" || ((window as any).aistudio && !process.env.API_KEY)) {
+          errorText = "Please configure your API Key to use the assistant.";
+          setShowKeyButton(true);
+      }
+
+      setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: errorText, isError: true }]);
     } finally {
       setIsLoading(false);
     }
@@ -142,7 +161,9 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
                     <div className={`max-w-[80%] rounded-2xl p-3 shadow-sm ${
                         msg.role === 'user' 
                         ? 'bg-indigo-600 text-white rounded-br-none' 
-                        : 'bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 text-gray-800 dark:text-gray-200 rounded-bl-none'
+                        : msg.isError 
+                            ? 'bg-red-50 border border-red-200 text-red-800 dark:bg-red-900/20 dark:text-red-200'
+                            : 'bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 text-gray-800 dark:text-gray-200 rounded-bl-none'
                     }`}>
                         <div className="flex items-center gap-2 mb-1 opacity-70 text-[10px] font-bold uppercase tracking-wider">
                             {msg.role === 'user' ? <User size={10} /> : <Bot size={10} />}
@@ -160,6 +181,16 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
                     </div>
                 </div>
             )}
+            
+            {showKeyButton && (
+                <div className="flex justify-center mt-4">
+                    <Button onClick={handleSelectKey} variant="secondary" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border border-yellow-300">
+                        <Key size={16} className="mr-2" />
+                        Configure API Key
+                    </Button>
+                </div>
+            )}
+            
             <div ref={messagesEndRef} />
         </div>
 
