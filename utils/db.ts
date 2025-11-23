@@ -102,7 +102,8 @@ export async function importData(data: any, merge: boolean = false): Promise<voi
         if (Array.isArray(items) && items.length > 0) {
             // Use Promise.all to ensure all put operations are queued within the transaction efficiently
             await Promise.all(items.map(item => {
-                if (item && 'id' in item) {
+                // Check if item is valid object with ID before putting
+                if (item && typeof item === 'object' && 'id' in item) {
                     return store.put(item);
                 }
                 return Promise.resolve();

@@ -46,7 +46,6 @@ export const initGoogleAuth = (callback: (response: any) => void) => {
         }
 
         if (err.type === 'popup_closed') {
-             // Popup closed is common, often ignored, but good to log.
              console.warn("Google Sign-In popup closed by user.");
              return;
         } else if (err.type === 'access_denied' || (err.error && err.error === 'access_denied')) {
@@ -101,12 +100,6 @@ export const getCandidateFolders = async (accessToken: string) => {
   if (!response.ok) throw new Error(`Search Folders Failed: ${response.status}`);
   const data = await safeJsonParse(response);
   return data && data.files ? data.files : [];
-};
-
-// Original searchFolder kept for backward compatibility/single folder find
-export const searchFolder = async (accessToken: string) => {
-  const folders = await getCandidateFolders(accessToken);
-  return folders.length > 0 ? folders[0].id : null;
 };
 
 export const createFolder = async (accessToken: string) => {
@@ -197,118 +190,117 @@ export const getUserInfo = async (accessToken: string) => {
     return data || { name: 'Google User', email: 'User', picture: '' };
   } catch (e) {
     console.error("Error fetching user info:", e);
-    // Return a fallback object to prevent app crashes
     return { name: 'Google User', email: 'User', picture: '' }; 
   }
 };
 
 // --- High Level Drive Service ---
 
+// Finds the BEST folder configuration.
+// 1. Looks for ALL folders named "BusinessManager_AppData".
+// 2. Checks each one for "backup.json".
+// 3. Returns the one that has the file.
+// 4. If none have the file, returns the newest folder.
+// 5. If no folder exists, creates one.
+async function locateDriveConfig(accessToken: string) {
+    // 1. Find all folders with the App Name, sorted by newest first
+    const folders = await getCandidateFolders(accessToken);
+    
+    let activeFolderId = null;
+    let activeFileId = null;
+
+    if (folders.length > 0) {
+        // We have candidates. Iterate to find one containing the backup file.
+        // This fixes issues where multiple folders exist (e.g. one empty, one with data).
+        for (const folder of folders) {
+            const file = await searchFile(accessToken, folder.id);
+            if (file) {
+                activeFolderId = folder.id;
+                activeFileId = file.id;
+                console.log("Found active backup in folder:", folder.id);
+                break; // Found the data! Stop searching.
+            }
+        }
+
+        // If we iterated all and found no file, default to the newest folder (first in list)
+        if (!activeFolderId) {
+            activeFolderId = folders[0].id;
+        }
+    } else {
+        // No folder exists at all. Create one.
+        activeFolderId = await createFolder(accessToken);
+    }
+
+    return { folderId: activeFolderId, fileId: activeFileId };
+}
+
 export const DriveService = {
     /**
-     * Ensures the App Data folder exists. Checks cache first, then Drive. Creates if missing.
-     */
-    async ensureFolder(accessToken: string): Promise<string> {
-        let folderId = localStorage.getItem('gdrive_folder_id');
-        
-        // Verify or Find
-        if (!folderId) {
-            folderId = await searchFolder(accessToken);
-            if (!folderId) {
-                folderId = await createFolder(accessToken);
-            }
-            if (folderId) localStorage.setItem('gdrive_folder_id', folderId);
-        }
-        
-        if (!folderId) throw new Error("Failed to initialize Google Drive folder.");
-        return folderId;
-    },
-
-    /**
-     * Reads the backup file.
-     * - Robustly finds the file by checking cached IDs and searching through folder candidates.
+     * Reads data from Drive.
+     * Always performs a fresh search to guarantee we find the correct folder/file pair.
      */
     async read(accessToken: string): Promise<any | null> {
         try {
-            // 1. Attempt Fast Read using Cached File ID
-            const cachedFileId = localStorage.getItem('gdrive_file_id');
-            if (cachedFileId) {
-                try {
-                    const data = await downloadFile(accessToken, cachedFileId);
-                    if (data) return data;
-                } catch (e) {
-                    console.warn("Cached file download failed, clearing cache and falling back to search.", e);
-                    localStorage.removeItem('gdrive_file_id');
-                }
-            }
-
-            // 2. Search Logic
-            // If no cache or cache failed, search for ALL candidate folders.
-            // This handles cases where duplicate folders might exist (e.g. one empty, one full).
-            const folders = await getCandidateFolders(accessToken);
+            // Clean state: ignore local cache to ensure we find the true cloud state
+            const { fileId, folderId } = await locateDriveConfig(accessToken);
             
-            if (folders.length === 0) return null;
+            // Update cache for subsequent writes during this session
+            if (folderId) localStorage.setItem('gdrive_folder_id', folderId);
+            if (fileId) localStorage.setItem('gdrive_file_id', fileId);
 
-            // Iterate through folders to find one that contains the backup file
-            for (const folder of folders) {
-                const remoteFile = await searchFile(accessToken, folder.id);
-                if (remoteFile) {
-                    // Found valid file!
-                    console.log("Found backup in folder:", folder.id);
-                    
-                    // Update Cache to this working pair
-                    localStorage.setItem('gdrive_folder_id', folder.id);
-                    localStorage.setItem('gdrive_file_id', remoteFile.id);
-                    
-                    // Download
-                    const data = await downloadFile(accessToken, remoteFile.id);
-                    return data;
-                }
+            if (fileId) {
+                return await downloadFile(accessToken, fileId);
             }
-            
-            // No file found in any candidate folder
-            return null;
-
+            return null; // Folder exists but no file -> No backup data
         } catch (e: any) {
             console.error("DriveService.read failed", e);
-            // Rethrow so the UI knows sync failed
             throw e;
         }
     },
 
     /**
-     * Writes data to the backup file.
-     * - Creates new file if none exists.
-     * - Updates existing file if ID is known.
-     * - Handles 404 by creating a new file.
+     * Writes data to Drive.
+     * Tries cached config first, but falls back to full search/recovery if upload fails.
      */
     async write(accessToken: string, data: any): Promise<void> {
-        const folderId = await this.ensureFolder(accessToken);
-        
-        // Check for file existence if we don't have a cached ID
+        let folderId = localStorage.getItem('gdrive_folder_id');
         let fileId = localStorage.getItem('gdrive_file_id');
-        if (!fileId) {
-             const remoteFile = await searchFile(accessToken, folderId);
-             fileId = remoteFile ? remoteFile.id : null;
+
+        // If no cache, resolve config
+        if (!folderId) {
+             const config = await locateDriveConfig(accessToken);
+             folderId = config.folderId;
+             fileId = config.fileId;
+             if (folderId) localStorage.setItem('gdrive_folder_id', folderId);
+             if (fileId) localStorage.setItem('gdrive_file_id', fileId);
         }
 
+        if (!folderId) throw new Error("Could not locate or create Drive folder.");
+
         try {
+            // Attempt upload
             const result = await uploadFile(accessToken, folderId, data, fileId || undefined);
             if (result && result.id) {
                 localStorage.setItem('gdrive_file_id', result.id);
             }
         } catch (e: any) {
-            // Handle Stale ID during upload (404)
-            if (e.message && e.message.includes('404')) {
-                console.warn("Upload target not found, creating new file...");
-                localStorage.removeItem('gdrive_file_id');
-                // Retry upload as a new file
-                const result = await uploadFile(accessToken, folderId, data);
-                if (result && result.id) {
-                    localStorage.setItem('gdrive_file_id', result.id);
-                }
-            } else {
-                throw e;
+            // If upload fails (likely 404 on stale fileId), perform full resolution and retry
+            console.warn("Upload failed, retrying with full discovery...", e);
+            
+            const config = await locateDriveConfig(accessToken);
+            folderId = config.folderId;
+            fileId = config.fileId;
+            
+            if (folderId) localStorage.setItem('gdrive_folder_id', folderId);
+            if (fileId) localStorage.setItem('gdrive_file_id', fileId);
+            else localStorage.removeItem('gdrive_file_id'); // clear stale file id if new folder is empty
+
+            if (!folderId) throw new Error("Recovery failed: Could not locate Drive folder.");
+
+            // Retry upload
+            const retryResult = await uploadFile(accessToken, folderId, data, fileId || undefined);
+            if (retryResult && retryResult.id) {
+                localStorage.setItem('gdrive_file_id', retryResult.id);
             }
         }
     }
