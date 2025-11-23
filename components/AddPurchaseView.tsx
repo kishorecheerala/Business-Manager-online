@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Plus, Upload, IndianRupee, Search, QrCode, Info, CheckCircle, XCircle, X } from 'lucide-react';
+import { Plus, Upload, IndianRupee, Search, QrCode, Info, CheckCircle, XCircle, X, Download, FileSpreadsheet } from 'lucide-react';
 import { Supplier, Product, PurchaseItem, Purchase } from '../types';
 import Card from './Card';
 import Button from './Button';
@@ -10,6 +10,7 @@ import QuantityInputModal from './QuantityInputModal';
 import Dropdown from './Dropdown';
 import AddSupplierModal from './AddSupplierModal';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
+import DateInput from './DateInput';
 
 const getLocalDateString = (date = new Date()) => {
   const year = date.getFullYear();
@@ -148,13 +149,31 @@ const NewProductModal: React.FC<{
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[51] p-4 animate-fade-in-fast">
             <Card title="Add New Product to Purchase" className="w-full max-w-md animate-scale-in">
                  <div className="space-y-4">
-                    <input type="text" placeholder="Product ID / Code (Unique)" value={newProduct.id} onChange={e => setNewProduct({...newProduct, id: e.target.value})} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" autoFocus />
-                    <input type="text" placeholder="Product Name" value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
-                    <input type="number" placeholder="Quantity" value={newProduct.quantity} onChange={e => setNewProduct({...newProduct, quantity: e.target.value})} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
-                    <input type="number" placeholder="Purchase Price" value={newProduct.purchasePrice} onChange={e => setNewProduct({...newProduct, purchasePrice: e.target.value})} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
-                    <input type="number" placeholder="Sale Value" value={newProduct.salePrice} onChange={e => setNewProduct({...newProduct, salePrice: e.target.value})} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
-                    <input type="number" placeholder="GST %" value={newProduct.gstPercent} onChange={e => setNewProduct({...newProduct, gstPercent: e.target.value})} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
-                    <div className="flex gap-2">
+                    <div>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Product ID / Code (Unique)</label>
+                        <input type="text" placeholder="e.g., PROD-001" value={newProduct.id} onChange={e => setNewProduct({...newProduct, id: e.target.value})} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" autoFocus />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Product Name</label>
+                        <input type="text" placeholder="e.g., Silk Saree" value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Quantity</label>
+                        <input type="number" placeholder="e.g., 10" value={newProduct.quantity} onChange={e => setNewProduct({...newProduct, quantity: e.target.value})} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Purchase Price (per item)</label>
+                        <input type="number" placeholder="e.g., 500" value={newProduct.purchasePrice} onChange={e => setNewProduct({...newProduct, purchasePrice: e.target.value})} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Sale Price (per item)</label>
+                        <input type="number" placeholder="e.g., 800" value={newProduct.salePrice} onChange={e => setNewProduct({...newProduct, salePrice: e.target.value})} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">GST %</label>
+                        <input type="number" placeholder="e.g., 5" value={newProduct.gstPercent} onChange={e => setNewProduct({...newProduct, gstPercent: e.target.value})} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
+                    </div>
+                    <div className="flex gap-2 pt-2">
                         <Button onClick={handleAddItemManually} className="w-full">Add Product</Button>
                         <Button onClick={onClose} variant="secondary" className="w-full">Cancel</Button>
                     </div>
@@ -332,6 +351,21 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
     setProductForQty(null);
   };
 
+  const handleDownloadTemplate = () => {
+    const headers = ['id', 'name', 'quantity', 'purchasePrice', 'salePrice', 'gstPercent'];
+    const example = ['PROD-001', 'Sample Product', '10', '100', '150', '5'];
+    const csvContent = "data:text/csv;charset=utf-8," 
+        + [headers.join(','), example.join(',')].join('\n');
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "purchase_import_template.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -394,6 +428,7 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
       dispatch({ type: 'ADD_SUPPLIER', payload: newSupplier });
       setSupplierId(newSupplier.id);
       showToast("Supplier added successfully!");
+      setIsAddingSupplier(false);
   };
 
   const handleSubmit = () => {
@@ -455,6 +490,23 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
     { value: 'CHEQUE', label: 'Cheque' }
   ];
   
+  if (isAddingSupplier) {
+      return (
+          <div className="space-y-4 animate-fade-in-fast">
+              <Button onClick={() => setIsAddingSupplier(false)} variant="secondary">
+                  &larr; Back to Purchase
+              </Button>
+              <AddSupplierModal 
+                  isOpen={true} 
+                  onClose={() => setIsAddingSupplier(false)} 
+                  onSave={handleAddSupplier} 
+                  existingSuppliers={suppliers}
+                  inline={true}
+              />
+          </div>
+      );
+  }
+
   return (
     <div className="space-y-4">
       {isScanning && <QRScannerModal onClose={() => setIsScanning(false)} onScanned={handleScannedId} />}
@@ -462,8 +514,6 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
       {isExistingProductModalOpen && <ProductSearchModal isOpen={isExistingProductModalOpen} onClose={() => setIsExistingProductModalOpen(false)} onSelect={handleSelectExistingProduct} products={products} />}
       {isQtyModalOpen && <QuantityInputModal isOpen={isQtyModalOpen} onClose={() => { setIsQtyModalOpen(false); setProductForQty(null); }} onSubmit={handleQtySubmit} product={productForQty} />}
       
-      {isAddingSupplier && <AddSupplierModal isOpen={isAddingSupplier} onClose={() => setIsAddingSupplier(false)} onSave={handleAddSupplier} existingSuppliers={suppliers} />}
-
       <Button onClick={onBack}>&larr; Back</Button>
       <Card title={mode === 'add' ? 'Create New Purchase' : `Edit Purchase ${initialData?.id}`}>
         <div className="space-y-4">
@@ -530,13 +580,14 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Purchase Date</label>
-                    <input type="date" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
-                </div>
+                <DateInput
+                    label="Purchase Date"
+                    value={purchaseDate}
+                    onChange={e => setPurchaseDate(e.target.value)}
+                />
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Supplier Invoice ID (Optional)</label>
-                    <input type="text" placeholder="Enter Invoice No." value={supplierInvoiceId} onChange={e => setSupplierInvoiceId(e.target.value)} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
+                    <input type="text" placeholder="Enter Invoice No." value={supplierInvoiceId} onChange={e => setSupplierInvoiceId(e.target.value)} className="w-full p-2.5 border bg-gray-50 dark:bg-slate-800 border-gray-200 dark:border-slate-700 rounded-lg text-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500" />
                 </div>
             </div>
         </div>
@@ -544,15 +595,37 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
 
       <Card title="Add Items">
         <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-                <Button onClick={() => setIsNewProductModalOpen(true)} className="w-full"><Plus size={16}/> New Product</Button>
-                <Button onClick={() => setIsExistingProductModalOpen(true)} variant="secondary" className="w-full"><Search size={16}/> Existing Product</Button>
-                <Button onClick={() => setIsScanning(true)} variant="secondary" className="w-full"><QrCode size={16}/> Scan</Button>
-                <label htmlFor="csv-upload" className="px-4 py-2 rounded-md font-semibold text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 shadow-sm flex items-center justify-center gap-2 bg-secondary hover:bg-teal-500 focus:ring-secondary cursor-pointer">
-                    <Upload size={16}/> From CSV
-                </label>
-                <input id="csv-upload" type="file" accept=".csv" className="hidden" onChange={handleFileImport} />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <Button onClick={() => setIsNewProductModalOpen(true)} className="w-full"><Plus size={16} className="mr-2"/> New Product</Button>
+                <Button onClick={() => setIsExistingProductModalOpen(true)} variant="secondary" className="w-full"><Search size={16} className="mr-2"/> Existing Product</Button>
+                <Button onClick={() => setIsScanning(true)} variant="secondary" className="w-full"><QrCode size={16} className="mr-2"/> Scan</Button>
             </div>
+            
+            <div className="border-2 border-dashed border-gray-200 dark:border-slate-700 rounded-xl p-4 bg-gray-50 dark:bg-slate-800/50 text-center transition-all hover:border-indigo-300 dark:hover:border-indigo-700">
+                <div className="flex flex-col items-center gap-2">
+                    <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                        <FileSpreadsheet size={18} className="text-green-600" />
+                        Bulk Import Items
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Upload a CSV file to add multiple items at once.</p>
+                    <div className="flex gap-3">
+                        <button onClick={handleDownloadTemplate} className="text-xs text-indigo-600 dark:text-indigo-400 font-medium hover:underline flex items-center gap-1 py-2 px-3 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors">
+                            <Download size={14} /> Download Template
+                        </button>
+                        <label htmlFor="csv-upload" className="text-xs bg-white dark:bg-slate-700 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-slate-600 font-medium hover:bg-gray-50 dark:hover:bg-slate-600 flex items-center gap-1 py-2 px-3 rounded-lg transition-colors cursor-pointer shadow-sm">
+                            <Upload size={14} /> Upload CSV
+                        </label>
+                        <input 
+                            id="csv-upload" 
+                            type="file" 
+                            accept=".csv, text/csv, application/vnd.ms-excel, text/plain" 
+                            className="absolute opacity-0 w-0 h-0 pointer-events-none" 
+                            onChange={handleFileImport} 
+                        />
+                    </div>
+                </div>
+            </div>
+
             {csvStatus && (
                 <div className={`p-2 rounded text-sm flex items-center gap-2 ${csvStatus.type === 'success' ? 'bg-green-100 text-green-800' : csvStatus.type === 'error' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>
                     {csvStatus.type === 'success' ? <CheckCircle size={16}/> : csvStatus.type === 'error' ? <XCircle size={16}/> : <Info size={16}/>}
@@ -560,6 +633,7 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
                     <button onClick={() => setCsvStatus(null)} className="ml-auto font-bold">&times;</button>
                 </div>
             )}
+            
             <div className="space-y-2">
             {items.map(item => (
                 <div key={item.productId} className="p-2 bg-gray-50 dark:bg-slate-700/50 rounded border dark:border-slate-700 animate-fade-in-fast">
@@ -570,12 +644,27 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
                     </div>
                     <DeleteButton variant="remove" onClick={() => handleItemRemove(item.productId)} />
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-sm mt-1">
-                    <input type="number" value={item.quantity} onChange={e => handleItemUpdate(item.productId, 'quantity', parseFloat(e.target.value))} className="w-full p-1 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" placeholder="Qty" />
-                    <input type="number" value={item.price} onChange={e => handleItemUpdate(item.productId, 'price', parseFloat(e.target.value))} className="w-full p-1 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" placeholder="Purch Price" />
-                    <input type="number" value={item.saleValue} onChange={e => handleItemUpdate(item.productId, 'saleValue', parseFloat(e.target.value))} className="w-full p-1 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" placeholder="Sale Value" />
-                    <input type="number" value={item.gstPercent} onChange={e => handleItemUpdate(item.productId, 'gstPercent', parseFloat(e.target.value))} className="w-full p-1 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" placeholder="GST %" />
-                    <div className="p-1 flex items-center justify-end font-semibold text-gray-700 dark:text-gray-300">₹{(Number(item.quantity) * Number(item.price)).toLocaleString('en-IN')}</div>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-sm mt-2">
+                    <div>
+                        <label className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">Qty</label>
+                        <input type="number" value={item.quantity} onChange={e => handleItemUpdate(item.productId, 'quantity', parseFloat(e.target.value))} className="w-full p-1 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" placeholder="Qty" />
+                    </div>
+                    <div>
+                        <label className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">Buy Price</label>
+                        <input type="number" value={item.price} onChange={e => handleItemUpdate(item.productId, 'price', parseFloat(e.target.value))} className="w-full p-1 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" placeholder="Purch Price" />
+                    </div>
+                    <div>
+                        <label className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">Sale Price</label>
+                        <input type="number" value={item.saleValue} onChange={e => handleItemUpdate(item.productId, 'saleValue', parseFloat(e.target.value))} className="w-full p-1 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" placeholder="Sale Value" />
+                    </div>
+                    <div>
+                        <label className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">GST %</label>
+                        <input type="number" value={item.gstPercent} onChange={e => handleItemUpdate(item.productId, 'gstPercent', parseFloat(e.target.value))} className="w-full p-1 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" placeholder="GST %" />
+                    </div>
+                    <div>
+                        <label className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5 text-right">Total</label>
+                        <div className="p-1 flex items-center justify-end font-semibold text-gray-700 dark:text-gray-300 h-full">₹{(Number(item.quantity) * Number(item.price)).toLocaleString('en-IN')}</div>
+                    </div>
                 </div>
                 </div>
             ))}
@@ -634,7 +723,7 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
                                 placeholder="e.g. UPI ID, Cheque No." 
                                 value={paymentReference}
                                 onChange={e => setPaymentReference(e.target.value)}
-                                className="w-full p-2 border rounded mt-1 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
+                                className="w-full p-2.5 border bg-gray-50 dark:bg-slate-800 border-gray-200 dark:border-slate-700 rounded-lg text-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
                             />
                         </div>
                     </div>
@@ -644,15 +733,13 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Payment Due Dates (Optional)</label>
                     {paymentDueDates.map((date, index) => (
                         <div key={index} className="flex items-center gap-2">
-                            <input 
-                                type="date" 
+                            <DateInput 
                                 value={date} 
                                 onChange={(e) => {
                                     const newDates = [...paymentDueDates];
                                     newDates[index] = e.target.value;
                                     setPaymentDueDates(newDates);
                                 }} 
-                                className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" 
                             />
                             <DeleteButton variant="remove" onClick={() => setPaymentDueDates(paymentDueDates.filter((_, i) => i !== index))} />
                         </div>

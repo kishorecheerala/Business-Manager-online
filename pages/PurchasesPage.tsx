@@ -13,6 +13,8 @@ import BatchBarcodeModal from '../components/BatchBarcodeModal';
 import Dropdown from '../components/Dropdown';
 import PaymentModal from '../components/PaymentModal';
 import { generateDebitNotePDF } from '../utils/pdfGenerator';
+import DatePill from '../components/DatePill';
+import DateInput from '../components/DateInput';
 
 const getLocalDateString = (date = new Date()) => {
   const year = date.getFullYear();
@@ -63,8 +65,7 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
     
     useEffect(() => {
         const detailViewDirty = !!(selectedSupplier && (editingScheduleId));
-        // Also consider add_supplier/edit_supplier dirty states implicitly handled by form components
-        // but we track basic view switching here
+        // add_supplier and edit_supplier are now inline views
         const currentlyDirty = detailViewDirty || view === 'add_supplier' || view === 'edit_supplier';
         if (currentlyDirty !== isDirtyRef.current) {
             isDirtyRef.current = currentlyDirty;
@@ -215,6 +216,7 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
             );
         }
 
+        // New Inline Add Supplier View
         if (view === 'add_supplier') {
             return (
                 <div className="space-y-4 animate-fade-in-fast">
@@ -230,6 +232,7 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
             );
         }
 
+        // New Inline Edit Supplier View
         if (view === 'edit_supplier' && selectedSupplier) {
             return (
                 <div className="space-y-4 animate-fade-in-fast">
@@ -237,7 +240,10 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
                     <AddSupplierModal 
                         isOpen={true} 
                         onClose={() => setView('list')}
-                        onSave={handleUpdateSupplier} 
+                        onSave={(updated) => {
+                            handleUpdateSupplier(updated);
+                            setView('list'); // Explicitly go back to list/details after save
+                        }} 
                         existingSuppliers={state.suppliers}
                         initialData={selectedSupplier}
                         inline={true}
@@ -410,7 +416,10 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
                                                             <div className="space-y-2">
                                                                 {tempDueDates.map((date, index) => (
                                                                     <div key={index} className="flex items-center gap-2">
-                                                                        <input type="date" value={date} onChange={(e) => handleTempDateChange(index, e.target.value)} className="w-full p-2 border rounded dark:bg-slate-600 dark:border-slate-500 dark:text-white" />
+                                                                        <DateInput 
+                                                                            value={date} 
+                                                                            onChange={(e) => handleTempDateChange(index, e.target.value)} 
+                                                                        />
                                                                         <DeleteButton variant="remove" onClick={() => removeTempDate(index)} />
                                                                     </div>
                                                                 ))}
@@ -542,9 +551,7 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div className="flex items-center gap-3">
                         <h1 className="text-2xl font-bold text-primary">Purchases & Suppliers</h1>
-                        <span className="text-xs sm:text-sm font-bold bg-gradient-to-r from-teal-600 to-emerald-600 text-white px-3 py-1 rounded-full shadow-md border border-teal-500/30">
-                            {new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
-                        </span>
+                        <DatePill />
                     </div>
                 </div>
 

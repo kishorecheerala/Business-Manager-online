@@ -46,12 +46,9 @@ export const initGoogleAuth = (callback: (response: any) => void) => {
         }
 
         if (err.type === 'popup_closed') {
-             msg += "This error usually means the URL configuration has not propagated yet, or is mismatched.\n\n";
-             msg += "1. CHECK URL: Ensure this EXACT URL is in 'Authorized JavaScript origins':\n";
-             msg += `${currentOrigin}\n`;
-             msg += "(No trailing slash / at the end)\n\n";
-             msg += "2. WAIT: If you just added the URL, wait 5-10 minutes. Google takes time to update.\n\n";
-             msg += "3. RETRY: Close this alert and try again in a few minutes.";
+             // Popup closed is common, often ignored, but good to log.
+             console.warn("Google Sign-In popup closed by user.");
+             return;
         } else if (err.type === 'access_denied' || (err.error && err.error === 'access_denied')) {
              msg += "ACCESS DENIED: TEST USER RESTRICTION\n\n";
              msg += "Your app is in 'Testing' mode. Only emails listed as 'Test Users' can sign in.\n\n";
@@ -118,8 +115,9 @@ export const createFolder = async (accessToken: string) => {
 };
 
 export const searchFile = async (accessToken: string, folderId: string) => {
+  // We add orderBy modifiedTime desc to get the most recent backup if duplicates exist
   const q = `name='${BACKUP_FILE_NAME}' and '${folderId}' in parents and trashed=false`;
-  const response = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}`, {
+  const response = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=modifiedTime desc&pageSize=1`, {
     headers: getHeaders(accessToken),
   });
   if (!response.ok) throw new Error(`Search File Failed: ${response.status}`);

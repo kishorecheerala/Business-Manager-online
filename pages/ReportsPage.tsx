@@ -9,6 +9,7 @@ import autoTable from 'jspdf-autotable';
 import { Customer, Sale, Supplier, Page } from '../types';
 import { logoBase64 } from '../utils/logo';
 import Dropdown from '../components/Dropdown';
+import DatePill from '../components/DatePill';
 
 interface CustomerWithDue extends Customer {
   dueAmount: number;
@@ -276,9 +277,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                 <div className="flex items-center gap-3">
                     <h1 className="text-2xl font-bold text-primary">Reports</h1>
-                    <span className="text-xs sm:text-sm font-bold bg-gradient-to-r from-teal-600 to-emerald-600 text-white px-3 py-1 rounded-full shadow-md border border-teal-500/30">
-                        {new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
-                    </span>
+                    <DatePill />
                 </div>
             </div>
 

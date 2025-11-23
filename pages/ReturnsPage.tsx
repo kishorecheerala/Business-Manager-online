@@ -8,6 +8,8 @@ import Button from '../components/Button';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import Dropdown from '../components/Dropdown';
+import DatePill from '../components/DatePill';
+import DateInput from '../components/DateInput';
 
 type ReturnType = 'CUSTOMER' | 'SUPPLIER';
 
@@ -299,9 +301,7 @@ const ReturnsPage: React.FC<ReturnsPageProps> = ({ setIsDirty }) => {
                      <h1 className="text-2xl font-bold text-primary flex items-center gap-2">
                         <Undo2 /> Returns Management
                     </h1>
-                    <span className="text-xs sm:text-sm font-bold bg-gradient-to-r from-teal-600 to-emerald-600 text-white px-3 py-1 rounded-full shadow-md border border-teal-500/30">
-                        {new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
-                    </span>
+                    <DatePill />
                 </div>
             </div>
 
@@ -379,10 +379,11 @@ const ReturnsPage: React.FC<ReturnsPageProps> = ({ setIsDirty }) => {
                                     <label className="block text-sm font-medium dark:text-gray-300">{returnType === 'CUSTOMER' ? 'Amount Refunded' : 'Credit Note Value'}</label>
                                     <input type="number" value={returnAmount} onChange={e => setReturnAmount(e.target.value)} className="w-full p-2 border rounded mt-1 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" placeholder={`${calculatedReturnValue.toFixed(2)}`} />
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium dark:text-gray-300">Return Date</label>
-                                    <input type="date" value={returnDate} onChange={e => setReturnDate(e.target.value)} className="w-full p-2 border rounded mt-1 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"/>
-                                </div>
+                                <DateInput
+                                    label="Return Date"
+                                    value={returnDate}
+                                    onChange={e => setReturnDate(e.target.value)}
+                                />
                            </div>
                            <input type="text" placeholder="Reason (Optional)" value={reason} onChange={e => setReason(e.target.value)} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
                            {returnType === 'SUPPLIER' &&

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Plus, Trash2, Share2, Search, X, IndianRupee, QrCode, Save, Edit, ShoppingCart, Info, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, Share2, Search, X, IndianRupee, QrCode, Save, Edit } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Sale, SaleItem, Customer, Product, Payment } from '../types';
 import Card from '../components/Card';
@@ -11,6 +11,8 @@ import { Html5Qrcode } from 'html5-qrcode';
 import DeleteButton from '../components/DeleteButton';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
 import { logoBase64 } from '../utils/logo';
+import DatePill from '../components/DatePill';
+import DateInput from '../components/DateInput';
 
 
 const getLocalDateString = (date = new Date()) => {
@@ -429,39 +431,139 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
 
 
     const generateAndSharePDF = async (sale: Sale, customer: Customer, paidAmountOnSale: number) => {
-      // ... logic handled by centralized pdfGenerator now, but kept for fallback/compatibility ...
-      // This function body is largely illustrative in this snippet as we moved logic to utils/pdfGenerator.ts
-      // In a real refactor, we call the util directly. 
-      // But adhering to "minimal changes" while fixing the request:
-      // We use window.open to prevent crashes as requested before.
-      
-      // NOTE: In a previous turn I moved this to utils/pdfGenerator.ts. 
-      // I will use the `handlePrintOrShare` logic (which calls utils) for the manual action buttons,
-      // but for automatic generation after sale, we'll do a simple share if supported.
-      
       try {
-          // Import dynamically to avoid circular deps if needed, or just use the util
-          const { generateThermalInvoicePDF } = await import('../utils/pdfGenerator');
-          const doc = await generateThermalInvoicePDF(sale, customer, state.profile);
-          
-          // Share Logic
-          const blob = doc.output('blob');
-          const file = new File([blob], `Receipt-${sale.id}.pdf`, { type: 'application/pdf' });
-          
-          if (navigator.share && navigator.canShare({ files: [file] })) {
-              await navigator.share({
-                  title: `Receipt ${sale.id}`,
-                  text: `Thank you for shopping with us!`,
-                  files: [file]
-              });
-          } else {
-              // Fallback for desktop
-              const url = URL.createObjectURL(blob);
-              window.open(url, '_blank');
+        const doc = new jsPDF();
+        const profile = state.profile;
+        let currentY = 15;
+
+        // FIX: Change image format to PNG
+        doc.addImage(logoBase64, 'PNG', 14, 10, 25, 25);
+
+        if (profile) {
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(24);
+            doc.setTextColor('#0d9488');
+            doc.text(profile.name, 105, currentY, { align: 'center' });
+            currentY += 8;
+            doc.setFontSize(10);
+            doc.setTextColor('#333333');
+            const addressLines = doc.splitTextToSize(profile.address, 180);
+            doc.text(addressLines, 105, currentY, { align: 'center' });
+            currentY += (addressLines.length * 5);
+            doc.text(`Phone: ${profile.phone} | GSTIN: ${profile.gstNumber}`, 105, currentY, { align: 'center' });
+        }
+        
+        currentY = Math.max(currentY, 10 + 25) + 5;
+
+        doc.setDrawColor('#cccccc');
+        doc.line(14, currentY, 196, currentY);
+        currentY += 10;
+        
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text('TAX INVOICE', 105, currentY, { align: 'center' });
+        currentY += 10;
+        
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Billed To:', 14, currentY);
+        doc.text('Invoice Details:', 120, currentY);
+        currentY += 5;
+
+        doc.setFont('helvetica', 'normal');
+        doc.text(customer.name, 14, currentY);
+        doc.text(`Invoice ID: ${sale.id}`, 120, currentY);
+        currentY += 5;
+        
+        const customerAddressLines = doc.splitTextToSize(customer.address, 80);
+        doc.text(customerAddressLines, 14, currentY);
+        doc.text(`Date: ${new Date(sale.date).toLocaleString()}`, 120, currentY);
+        currentY += (customerAddressLines.length * 5) + 5;
+        
+        autoTable(doc, {
+            startY: currentY,
+            head: [['#', 'Item Description', 'Qty', 'Rate', 'Amount']],
+            body: sale.items.map((item, index) => [
+                index + 1,
+                item.productName,
+                item.quantity,
+                `Rs. ${Number(item.price).toLocaleString('en-IN')}`,
+                `Rs. ${(Number(item.quantity) * Number(item.price)).toLocaleString('en-IN')}`
+            ]),
+            theme: 'grid',
+            headStyles: { fillColor: [13, 148, 136] },
+            columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' } }
+        });
+        
+        currentY = (doc as any).lastAutoTable.finalY + 10;
+        
+        // FIX: Calculate values from the `sale` object, not stale component state. This also fixes the scope issue.
+        const subTotal = sale.items.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
+        const dueAmountOnSale = Number(sale.totalAmount) - paidAmountOnSale;
+        
+        const totalsX = 196;
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text('Subtotal:', totalsX - 30, currentY, { align: 'right' });
+        doc.text(`Rs. ${subTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, totalsX, currentY, { align: 'right' });
+        currentY += 7;
+
+        doc.text('Discount:', totalsX - 30, currentY, { align: 'right' });
+        doc.text(`- Rs. ${Number(sale.discount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, totalsX, currentY, { align: 'right' });
+        currentY += 7;
+
+        doc.text('GST Included:', totalsX - 30, currentY, { align: 'right' });
+        doc.text(`Rs. ${Number(sale.gstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, totalsX, currentY, { align: 'right' });
+        currentY += 7;
+        
+        doc.setFont('helvetica', 'bold');
+        doc.text('Grand Total:', totalsX - 30, currentY, { align: 'right' });
+        doc.text(`Rs. ${Number(sale.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, totalsX, currentY, { align: 'right' });
+        currentY += 7;
+
+        doc.setFont('helvetica', 'normal');
+        doc.text('Paid:', totalsX - 30, currentY, { align: 'right' });
+        doc.text(`Rs. ${paidAmountOnSale.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, totalsX, currentY, { align: 'right' });
+        currentY += 7;
+
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(dueAmountOnSale > 0.01 ? '#dc2626' : '#16a34a');
+        doc.text('Amount Due:', totalsX - 30, currentY, { align: 'right' });
+        doc.text(`Rs. ${dueAmountOnSale.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, totalsX, currentY, { align: 'right' });
+        
+        currentY = doc.internal.pageSize.height - 20;
+        doc.setFontSize(10);
+        doc.setTextColor('#888888');
+        doc.text('Thank you for your business!', 105, currentY, { align: 'center' });
+        
+        const pdfBlob = doc.output('blob');
+        const pdfFile = new File([pdfBlob], `Invoice-${sale.id}.pdf`, { type: 'application/pdf' });
+        const businessName = state.profile?.name || 'Your Business';
+        
+        // FIX: Use locally scoped variables for whatsAppText instead of calculations from component state to ensure data consistency.
+        const whatsAppText = `Thank you for your purchase from ${businessName}!\n\n*Invoice Summary:*\nInvoice ID: ${sale.id}\nDate: ${new Date(sale.date).toLocaleString()}\n\n*Items:*\n${sale.items.map(i => `- ${i.productName} (x${i.quantity}) - Rs. ${(Number(i.price) * Number(i.quantity)).toLocaleString('en-IN')}`).join('\n')}\n\nSubtotal: Rs. ${subTotal.toLocaleString('en-IN')}\nGST: Rs. ${Number(sale.gstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}\nDiscount: Rs. ${Number(sale.discount).toLocaleString('en-IN')}\n*Total: Rs. ${Number(sale.totalAmount).toLocaleString('en-IN')}*\nPaid: Rs. ${paidAmountOnSale.toLocaleString('en-IN')}\nDue: Rs. ${dueAmountOnSale.toLocaleString('en-IN', { minimumFractionDigits: 2 })}\n\nHave a blessed day!`;
+        
+        if (navigator.share && navigator.canShare({ files: [pdfFile] })) {
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              await navigator.clipboard.writeText(whatsAppText);
+              showToast('Invoice text copied to clipboard!');
+            }
+          } catch (err) {
+            console.warn('Could not copy text to clipboard:', err);
           }
-      } catch (e) {
-          console.error("Auto-receipt failed", e);
-          // Don't block the UI for this
+          await navigator.share({
+            title: `${businessName} Invoice ${sale.id}`,
+            text: whatsAppText,
+            files: [pdfFile],
+          });
+        } else {
+          doc.save(`Invoice-${sale.id}.pdf`);
+        }
+      } catch (error) {
+        console.error("PDF generation or sharing failed:", error);
+        alert(`Sale created successfully, but the PDF invoice could not be generated or shared. Error: ${(error as Error).message}`);
       }
     };
 
@@ -506,8 +608,6 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                 dispatch({ type: 'UPDATE_PRODUCT_STOCK', payload: { productId: item.productId, change: -Number(item.quantity) } });
             });
             showToast('Sale created successfully!');
-            
-            // Auto-generate thermal receipt
             await generateAndSharePDF(newSale, customer, paidAmount);
 
         } else if (mode === 'edit' && saleToEdit) {
@@ -607,38 +707,55 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                     onScanned={handleProductScanned}
                 />
             }
-            
-            <h1 className="text-2xl font-bold text-primary">{pageTitle}</h1>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="flex items-center gap-3">
+                    <h1 className="text-2xl font-bold text-primary">{pageTitle}</h1>
+                    <DatePill />
+                </div>
+            </div>
             
             <Card>
                 <div className="space-y-4">
                     <div>
-                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1.5">Select Customer</label>
-                        <div className="flex gap-3 items-center">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Customer</label>
+                        <div className="flex gap-2 items-center">
                             <div className="relative w-full" ref={customerDropdownRef}>
-                                <div 
-                                    onClick={() => setIsCustomerDropdownOpen(!isCustomerDropdownOpen)}
-                                    className="w-full p-3 pl-4 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl flex items-center justify-between cursor-pointer shadow-sm hover:border-indigo-400 transition-all"
+                                <button
+                                    type="button"
+                                    onClick={() => setIsCustomerDropdownOpen(prev => !prev)}
+                                    className="w-full p-2 border rounded bg-white text-left custom-select dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
+                                    disabled={mode === 'edit' || (mode === 'add' && items.length > 0)}
+                                    aria-haspopup="listbox"
+                                    aria-expanded={isCustomerDropdownOpen}
                                 >
-                                    <span className={selectedCustomer ? 'text-gray-800 dark:text-white font-semibold' : 'text-gray-400'}>
-                                        {selectedCustomer ? selectedCustomer.name : 'Search or Select Customer'}
-                                    </span>
-                                    <Search className="w-5 h-5 text-gray-400" />
-                                </div>
+                                    {selectedCustomer ? `${selectedCustomer.name} - ${selectedCustomer.area}` : 'Select a Customer'}
+                                </button>
 
                                 {isCustomerDropdownOpen && (
-                                    <div className="absolute top-full left-0 w-full mt-1 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-gray-100 dark:border-slate-700 z-40 animate-scale-in origin-top overflow-hidden">
-                                        <div className="p-2 border-b dark:border-slate-700 bg-gray-50 dark:bg-slate-800">
+                                    <div className="absolute top-full left-0 w-full mt-1 bg-white dark:bg-slate-900 rounded-md shadow-lg border dark:border-slate-700 z-40 animate-fade-in-fast">
+                                        <div className="p-2 border-b dark:border-slate-700">
                                             <input
                                                 type="text"
-                                                placeholder="Type to search..."
+                                                placeholder="Search by name or area..."
                                                 value={customerSearchTerm}
                                                 onChange={e => setCustomerSearchTerm(e.target.value)}
-                                                className="w-full p-2.5 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white"
+                                                className="w-full p-2 border border-gray-300 rounded dark:bg-slate-800 dark:border-slate-600 dark:text-white"
                                                 autoFocus
                                             />
                                         </div>
                                         <ul className="max-h-60 overflow-y-auto" role="listbox">
+                                            <li
+                                                key="select-customer-placeholder"
+                                                onClick={() => {
+                                                    setCustomerId('');
+                                                    setIsCustomerDropdownOpen(false);
+                                                    setCustomerSearchTerm('');
+                                                }}
+                                                className="px-4 py-2 hover:bg-teal-50 dark:hover:bg-slate-800 cursor-pointer text-gray-500"
+                                                role="option"
+                                            >
+                                                Select a Customer
+                                            </li>
                                             {filteredCustomers.map(c => (
                                                 <li
                                                     key={c.id}
@@ -647,48 +764,40 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                                                         setIsCustomerDropdownOpen(false);
                                                         setCustomerSearchTerm('');
                                                     }}
-                                                    className="px-4 py-3 hover:bg-indigo-50 dark:hover:bg-slate-800 cursor-pointer border-b border-gray-50 dark:border-slate-800 last:border-0 transition-colors"
+                                                    className="px-4 py-2 hover:bg-teal-50 dark:hover:bg-slate-800 cursor-pointer border-t dark:border-slate-800"
+                                                    role="option"
                                                 >
-                                                    <div className="font-semibold text-gray-800 dark:text-gray-200">{c.name}</div>
-                                                    <div className="text-xs text-gray-500">{c.area} • {c.phone}</div>
+                                                    {c.name} - {c.area}
                                                 </li>
                                             ))}
                                             {filteredCustomers.length === 0 && (
-                                                <li className="px-4 py-4 text-center text-gray-400 text-sm">No customers found.</li>
+                                                <li className="px-4 py-2 text-gray-400">No customers found.</li>
                                             )}
                                         </ul>
                                     </div>
                                 )}
                             </div>
                             {mode === 'add' && (
-                                <button 
-                                    onClick={() => setIsAddingCustomer(true)} 
-                                    className="p-3.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl shadow-md hover:shadow-lg active:scale-95 transition-all flex-shrink-0"
-                                    aria-label="Add New Customer"
-                                >
-                                    <Plus size={24} strokeWidth={2.5} />
-                                </button>
+                                <Button onClick={() => setIsAddingCustomer(true)} variant="secondary" className="flex-shrink-0">
+                                    <Plus size={16}/> New Customer
+                                </Button>
                             )}
                         </div>
                     </div>
                     
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Sale Date</label>
-                        <input 
-                            type="date" 
-                            value={saleDate} 
-                            onChange={e => setSaleDate(e.target.value)} 
-                            className="w-full p-2.5 border bg-gray-50 dark:bg-slate-800 border-gray-200 dark:border-slate-700 rounded-lg mt-1 text-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
-                            disabled={mode === 'edit'}
-                        />
-                    </div>
+                    <DateInput
+                        label="Sale Date"
+                        value={saleDate}
+                        onChange={e => setSaleDate(e.target.value)}
+                        disabled={mode === 'edit'}
+                    />
 
                     {customerId && customerTotalDue !== null && mode === 'add' && (
-                        <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-xl flex justify-between items-center">
-                            <p className="text-sm font-medium text-indigo-800 dark:text-indigo-300">
-                                Outstanding Dues
+                        <div className="p-2 bg-gray-50 dark:bg-slate-700/50 rounded-lg text-center border dark:border-slate-700">
+                            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                                Selected Customer's Total Outstanding Due:
                             </p>
-                            <p className={`text-lg font-bold ${customerTotalDue > 0.01 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                            <p className={`text-xl font-bold ${customerTotalDue > 0.01 ? 'text-red-600' : 'text-green-600'}`}>
                                 ₹{customerTotalDue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                             </p>
                         </div>
@@ -706,123 +815,77 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                         <QrCode size={16} className="mr-2"/> Scan Product
                     </Button>
                 </div>
-                
                 <div className="mt-4 space-y-2">
-                    {items.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-10 text-gray-400 dark:text-gray-500 border-2 border-dashed border-gray-200 dark:border-slate-700 rounded-xl bg-gray-50/50 dark:bg-slate-800/30">
-                            <div className="p-4 bg-white dark:bg-slate-800 rounded-full shadow-sm mb-3">
-                                <ShoppingCart size={32} className="text-indigo-200 dark:text-slate-600" />
+                    {items.map(item => (
+                        <div key={item.productId} className="p-2 bg-gray-50 dark:bg-slate-700/50 rounded animate-fade-in-fast border dark:border-slate-700">
+                            <div className="flex justify-between items-start">
+                                <p className="font-semibold flex-grow">{item.productName}</p>
+                                <DeleteButton variant="remove" onClick={() => handleRemoveItem(item.productId)} />
                             </div>
-                            <p className="font-medium">Cart is empty</p>
-                            <p className="text-xs mt-1 opacity-70">Add products to proceed</p>
+                            <div className="flex items-center gap-2 text-sm mt-1">
+                                <input type="number" value={item.quantity} onChange={e => handleItemChange(item.productId, 'quantity', e.target.value)} className="w-20 p-1 border rounded dark:bg-slate-700 dark:border-slate-600" placeholder="Qty"/>
+                                <span>x</span>
+                                <input type="number" value={item.price} onChange={e => handleItemChange(item.productId, 'price', e.target.value)} className="w-24 p-1 border rounded dark:bg-slate-700 dark:border-slate-600" placeholder="Price"/>
+                                <span>= ₹{(Number(item.quantity) * Number(item.price)).toLocaleString('en-IN')}</span>
+                            </div>
                         </div>
-                    ) : (
-                        items.map(item => (
-                            <div key={item.productId} className="p-3 bg-white dark:bg-slate-800 rounded-xl shadow-sm animate-fade-in-fast border border-gray-100 dark:border-slate-700">
-                                <div className="flex justify-between items-start">
-                                    <p className="font-semibold flex-grow dark:text-gray-200 text-sm">{item.productName}</p>
-                                    <DeleteButton variant="remove" onClick={() => handleRemoveItem(item.productId)} />
-                                </div>
-                                <div className="flex items-center gap-2 text-sm mt-2">
-                                    <div className="relative">
-                                        <input type="number" value={item.quantity} onChange={e => handleItemChange(item.productId, 'quantity', e.target.value)} className="w-16 p-1.5 pl-2 border rounded-lg text-center font-bold dark:bg-slate-700 dark:border-slate-600 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500" />
-                                        <span className="text-[10px] text-gray-400 absolute -bottom-4 left-1/2 -translate-x-1/2">Qty</span>
-                                    </div>
-                                    <span className="text-gray-400 mx-1">x</span>
-                                    <div className="relative">
-                                        <input type="number" value={item.price} onChange={e => handleItemChange(item.productId, 'price', e.target.value)} className="w-20 p-1.5 pl-2 border rounded-lg text-center dark:bg-slate-700 dark:border-slate-600 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500" />
-                                        <span className="text-[10px] text-gray-400 absolute -bottom-4 left-1/2 -translate-x-1/2">Price</span>
-                                    </div>
-                                    <span className="ml-auto font-bold text-indigo-600 dark:text-indigo-400">₹{(Number(item.quantity) * Number(item.price)).toLocaleString('en-IN')}</span>
-                                </div>
-                            </div>
-                        ))
-                    )}
+                    ))}
                 </div>
             </Card>
 
-            {/* Billing Summary Card - Ensure consistent light mode background */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-xl border border-gray-100 dark:border-slate-700 transition-all duration-200">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-4 border-b border-gray-100 dark:border-slate-700 pb-2">Billing Summary</h3>
-                
-                <div className="space-y-3">
-                    <div className="flex justify-between items-center text-gray-600 dark:text-slate-300 text-sm">
-                        <span>Subtotal:</span>
-                        <span className="font-medium">₹{calculations.subTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-gray-600 dark:text-slate-300 text-sm">
-                        <span>Discount:</span>
-                        <input 
-                            type="number" 
-                            value={discount} 
-                            onChange={e => setDiscount(e.target.value)} 
-                            className="w-24 p-1.5 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg text-right text-gray-800 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all" 
-                        />
-                    </div>
-                    <div className="flex justify-between items-center text-gray-600 dark:text-slate-300 text-sm">
-                        <span>GST Included:</span>
-                        <span>₹{calculations.gstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                    </div>
-                </div>
-
-                <div className="my-4 border-t border-dashed border-gray-200 dark:border-slate-700"></div>
-
-                <div className="text-center mb-6">
-                    <p className="text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1">Grand Total</p>
-                    <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-emerald-400 dark:to-teal-300">
-                        ₹{calculations.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                    </p>
-                </div>
-
-                {mode === 'add' ? (
-                    <div className="bg-gray-50 dark:bg-slate-900/50 rounded-xl p-4 space-y-4 border border-gray-200 dark:border-slate-700">
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 dark:text-slate-400 uppercase mb-1.5">Amount Paid Now</label>
-                            <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">₹</span>
-                                <input 
-                                    type="number" 
-                                    value={paymentDetails.amount} 
-                                    onChange={e => setPaymentDetails({...paymentDetails, amount: e.target.value })} 
-                                    placeholder={`${calculations.totalAmount.toLocaleString('en-IN')}`} 
-                                    className="w-full p-2.5 pl-8 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-800 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all font-bold text-lg" 
-                                />
-                            </div>
+            <Card title="Transaction Details">
+                <div className="space-y-6">
+                    {/* Section 1: Calculation Details */}
+                    <div className="space-y-3">
+                        <div className="flex justify-between items-center text-gray-700 dark:text-gray-300">
+                            <span>Subtotal:</span>
+                            <span>₹{calculations.subTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="flex justify-between items-center text-gray-700 dark:text-gray-300">
+                            <span>Discount:</span>
+                            <input type="number" value={discount} onChange={e => setDiscount(e.target.value)} className="w-28 p-1 border rounded text-right dark:bg-slate-700 dark:border-slate-600" />
+                        </div>
+                        <div className="flex justify-between items-center text-gray-700 dark:text-gray-300">
+                            <span>GST Included:</span>
+                            <span>₹{calculations.gstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                    </div>
+
+                    {/* Section 2: Grand Total */}
+                    <div className="text-center">
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Grand Total</p>
+                        <p className="text-4xl font-bold text-primary">
+                            ₹{calculations.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </p>
+                    </div>
+
+                    {/* Section 3: Payment Details */}
+                    {mode === 'add' ? (
+                        <div className="space-y-4">
                             <div>
-                                <label className="block text-xs font-bold text-gray-500 dark:text-slate-400 uppercase mb-1.5">Method</label>
-                                <select 
-                                    value={paymentDetails.method} 
-                                    onChange={e => setPaymentDetails({ ...paymentDetails, method: e.target.value as any})} 
-                                    className="w-full p-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-800 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                                >
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Amount Paid Now</label>
+                                <input type="number" value={paymentDetails.amount} onChange={e => setPaymentDetails({...paymentDetails, amount: e.target.value })} placeholder={`Total is ₹${calculations.totalAmount.toLocaleString('en-IN')}`} className="w-full p-2 border-2 border-red-300 rounded-lg shadow-inner focus:ring-red-500 focus:border-red-500 mt-1 dark:bg-slate-700 dark:border-red-400 dark:text-slate-200" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Payment Method</label>
+                                <select value={paymentDetails.method} onChange={e => setPaymentDetails({ ...paymentDetails, method: e.target.value as any})} className="w-full p-2 border rounded custom-select mt-1 dark:bg-slate-700 dark:border-slate-600">
                                     <option value="CASH">Cash</option>
                                     <option value="UPI">UPI</option>
                                     <option value="CHEQUE">Cheque</option>
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-gray-500 dark:text-slate-400 uppercase mb-1.5">Reference</label>
-                                <input 
-                                    type="text" 
-                                    placeholder="Optional" 
-                                    value={paymentDetails.reference} 
-                                    onChange={e => setPaymentDetails({...paymentDetails, reference: e.target.value })} 
-                                    className="w-full p-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-800 dark:text-white text-sm placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 outline-none" 
-                                />
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Payment Reference (Optional)</label>
+                                <input type="text" placeholder="e.g. UPI ID, Cheque No." value={paymentDetails.reference} onChange={e => setPaymentDetails({...paymentDetails, reference: e.target.value })} className="w-full p-2 border rounded mt-1 dark:bg-slate-700 dark:border-slate-600" />
                             </div>
                         </div>
-                    </div>
-                ) : (
-                    <div className="p-3 bg-blue-50 dark:bg-slate-900/50 rounded-lg border border-blue-100 dark:border-slate-700 text-center">
-                        <p className="text-xs text-blue-600 dark:text-slate-400 flex items-center justify-center gap-2">
-                            <Info size={14}/>
-                            Payments managed in customer details.
-                        </p>
-                    </div>
-                )}
-            </div>
+                    ) : (
+                        <div className="pt-4 border-t dark:border-slate-700 text-center">
+                            <p className="text-sm text-gray-600 dark:text-gray-400">Payments for this invoice must be managed from the customer's details page.</p>
+                        </div>
+                    )}
+                </div>
+            </Card>
             
             {mode === 'add' && items.length === 0 && customerId && customerTotalDue != null && customerTotalDue > 0.01 && (
                 <Card title="Record Payment for Dues">
@@ -843,10 +906,10 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                 </Card>
             )}
 
-            <div className="space-y-2 pb-20">
+            <div className="space-y-2">
                 {canCreateSale ? (
-                    <Button onClick={handleSubmitSale} variant="secondary" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg py-3 text-lg">
-                        <Share2 className="w-5 h-5 mr-2"/>
+                    <Button onClick={handleSubmitSale} variant="secondary" className="w-full">
+                        <Share2 className="w-4 h-4 mr-2"/>
                         Create Sale & Share Invoice
                     </Button>
                 ) : canUpdateSale ? (
@@ -860,11 +923,11 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                         Record Standalone Payment
                     </Button>
                 ) : (
-                     <Button className="w-full opacity-50 cursor-not-allowed" disabled>
+                     <Button className="w-full" disabled>
                         {customerId ? (items.length === 0 ? 'Enter payment or add items' : 'Complete billing details') : 'Select a customer'}
                     </Button>
                 )}
-                <Button onClick={resetForm} variant="secondary" className="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600">
+                <Button onClick={resetForm} variant="secondary" className="w-full bg-teal-200 hover:bg-teal-300 focus:ring-teal-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600">
                     {mode === 'edit' ? 'Cancel Edit' : 'Clear Form'}
                 </Button>
             </div>

@@ -10,6 +10,7 @@ import { Page, Customer, Sale, Purchase, Supplier, Product, Return, AppMetadataB
 import { testData, testProfile } from '../utils/testData';
 import { useDialog } from '../context/DialogContext';
 import PinModal from '../components/PinModal';
+import DatePill from '../components/DatePill';
 
 interface DashboardProps {
     setCurrentPage: (page: Page) => void;
@@ -801,18 +802,14 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
 
                     {/* Center: Dashboard Title (Second) */}
                     <div className="flex justify-center">
-                        <h1 className="text-xl sm:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 tracking-tight drop-shadow-sm">
+                        <h1 className="text-xl sm:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 tracking-tight drop-shadow-sm">
                             Dashboard
                         </h1>
                     </div>
 
                     {/* Right: Date (Third/Edge) */}
                     <div className="flex justify-end z-10">
-                         <span className="text-xs sm:text-sm font-bold bg-gradient-to-r from-teal-600 to-emerald-600 text-white px-2 sm:px-4 py-1 sm:py-1.5 rounded-full shadow-md border border-teal-500/30 flex items-center gap-1 sm:gap-2 whitespace-nowrap">
-                            <CalendarClock className="w-3 h-3 sm:w-4 sm:h-4 text-white/80" />
-                            <span className="hidden sm:inline">{new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                            <span className="sm:hidden">{new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>
-                        </span>
+                         <DatePill />
                     </div>
                 </div>
             </div>

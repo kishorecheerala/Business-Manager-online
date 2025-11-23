@@ -430,6 +430,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
 
         // 2. Look for backup file
+        // Always search for file ID if not cached, or just to be safe on fresh login
         let remoteFileId = fileId;
         if (!remoteFileId && folderId) {
              const remoteFile = await searchFile(accessToken, folderId);
@@ -437,34 +438,39 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
              if (remoteFileId) localStorage.setItem('gdrive_file_id', remoteFileId);
         }
 
+        // 3. Pull (Download & Merge)
         if (remoteFileId) {
-            // Found remote file: Download, Merge, then Upload combined data
             try {
                 const remoteData = await downloadFile(accessToken, remoteFileId);
                 if (remoteData) {
-                    // MERGE: Import remote data into local DB without clearing (merge = true)
+                    // IMPORTANT: Use merge=true to preserve local data (e.g. created offline)
+                    // and combine with remote data.
                     await db.importData(remoteData, true);
                     
-                    // Get the merged result
+                    // Reload state from merged DB
                     const mergedData = await db.exportData() as any;
                     
-                    // Fix profile sync by normalizing data structure
-                    if (mergedData.profile && Array.isArray(mergedData.profile)) {
-                        mergedData.profile = mergedData.profile.length > 0 ? mergedData.profile[0] : null;
-                    }
-                    if (mergedData.sales) {
-                        mergedData.sales = mergedData.sales.map((s: any) => ({ ...s, payments: s.payments || [] }));
-                    }
-                    if (mergedData.purchases) {
-                        mergedData.purchases = mergedData.purchases.map((p: any) => ({ ...p, payments: p.payments || [] }));
-                    }
+                    // Normalize helpers
+                    const normalize = (data: any) => {
+                        if (data.profile && Array.isArray(data.profile)) {
+                            data.profile = data.profile.length > 0 ? data.profile[0] : null;
+                        }
+                        if (data.sales) {
+                            data.sales = data.sales.map((s: any) => ({ ...s, payments: s.payments || [] }));
+                        }
+                        if (data.purchases) {
+                            data.purchases = data.purchases.map((p: any) => ({ ...p, payments: p.payments || [] }));
+                        }
+                        return data;
+                    };
+                    
+                    const finalState = normalize(mergedData);
+                    dispatch({ type: 'SET_STATE', payload: finalState });
 
-                    // Update App State
-                    dispatch({ type: 'SET_STATE', payload: mergedData });
-
-                    // Upload merged data back to cloud (Push)
+                    // 4. Push (Upload combined)
+                    // We upload the MERGED data back to ensure cloud has everything
                     if (folderId) {
-                        await uploadFile(accessToken, folderId, mergedData, remoteFileId);
+                        await uploadFile(accessToken, folderId, finalState, remoteFileId);
                     }
                 }
             } catch (e) {
@@ -472,10 +478,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 localStorage.removeItem('gdrive_file_id');
             }
         } else if (folderId) {
-            // No remote file: Upload current local data as new file
+            // No remote file found.
+            // Empty Data Guard: Check if local data is actually worth uploading.
             const currentData = await db.exportData();
-            const result = await uploadFile(accessToken, folderId, currentData);
-            if (result && result.id) localStorage.setItem('gdrive_file_id', result.id);
+            const hasLocalData = (currentData.customers && currentData.customers.length > 0) || 
+                                 (currentData.sales && currentData.sales.length > 0) ||
+                                 (currentData.products && currentData.products.length > 0);
+
+            if (hasLocalData) {
+                // Upload current local data as new backup
+                const result = await uploadFile(accessToken, folderId, currentData);
+                if (result && result.id) localStorage.setItem('gdrive_file_id', result.id);
+            } else {
+                console.log("Skipping initial cloud upload: No local data and no remote backup found.");
+                // This prevents creating an empty backup file immediately if the user just logged in
+                // on a fresh device but the search failed to find existing backup.
+            }
         }
     } catch (e) {
         console.error("Sync failed", e);
@@ -488,9 +506,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       dispatch({ type: 'SET_SYNC_STATUS', payload: 'syncing' });
       try {
           const accessToken = state.googleUser.accessToken;
-          // Use performSync logic for manual sync too, to ensure Pull-Merge-Push safety
           await performSync(accessToken);
-          
           dispatch({ type: 'SET_SYNC_STATUS', payload: 'success' });
           showToast("Cloud Sync Complete");
       } catch (e) {

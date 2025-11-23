@@ -92,7 +92,7 @@ export async function importData(data: any, merge: boolean = false): Promise<voi
         if (storeName === 'notifications') return;
         
         // If not merging, clear the existing data first (overwrite mode)
-        // If merging, we keep existing data and overwrite only collisions
+        // If merging, we keep existing data and overwrite only collisions (same IDs)
         if (!merge) {
             await tx.objectStore(storeName).clear();
         }

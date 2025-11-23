@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, Edit, Save, X, Package, IndianRupee, Percent, PackageCheck, Barcode, AlertTriangle, Printer, QrCode } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -6,6 +7,7 @@ import Card from '../components/Card';
 import Button from '../components/Button';
 import { BarcodeModal } from '../components/BarcodeModal';
 import BatchBarcodeModal from '../components/BatchBarcodeModal';
+import DatePill from '../components/DatePill';
 
 interface ProductsPageProps {
   setIsDirty: (isDirty: boolean) => void;
@@ -233,9 +235,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div className="flex items-center gap-3">
                     <h1 className="text-2xl font-bold text-primary">Products Inventory</h1>
-                    <span className="text-xs sm:text-sm font-bold bg-gradient-to-r from-teal-600 to-emerald-600 text-white px-3 py-1 rounded-full shadow-md border border-teal-500/30">
-                        {new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
-                    </span>
+                    <DatePill />
                 </div>
                 <div className="flex gap-2">
                     {isSelectMode && (

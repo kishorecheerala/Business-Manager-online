@@ -14,6 +14,7 @@ import PinModal from '../components/PinModal';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Page, Sale, Customer, Product, AppMetadataRevenueGoal, Purchase } from '../types';
+import DatePill from '../components/DatePill';
 
 interface InsightsPageProps {
     setCurrentPage: (page: Page) => void;
@@ -1022,6 +1023,7 @@ const InsightsPage: React.FC<InsightsPageProps> = ({ setCurrentPage }) => {
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
                             <ShieldCheck size={12} className="mr-1" /> Secured
                         </span>
+                        <DatePill />
                     </div>
                     <div className="flex gap-2 w-full md:w-auto">
                         <select 

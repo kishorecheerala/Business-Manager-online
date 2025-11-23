@@ -3,6 +3,7 @@ import React from 'react';
 import Card from './Card';
 import Button from './Button';
 import Dropdown from './Dropdown';
+import DateInput from './DateInput';
 
 interface PaymentModalProps {
     isOpen: boolean;
@@ -74,15 +75,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                         />
                     </div>
                     
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Payment Date</label>
-                        <input 
-                            type="date" 
-                            value={paymentDetails.date} 
-                            onChange={e => setPaymentDetails({ ...paymentDetails, date: e.target.value })} 
-                            className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
-                        />
-                    </div>
+                    <DateInput
+                        label="Payment Date"
+                        value={paymentDetails.date} 
+                        onChange={e => setPaymentDetails({ ...paymentDetails, date: e.target.value })} 
+                    />
                     
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Reference (Optional)</label>

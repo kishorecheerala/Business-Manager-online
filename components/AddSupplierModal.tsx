@@ -46,7 +46,8 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ isOpen, onClose, on
             onSave(formData);
         }
         
-        onClose();
+        // If inline, the parent handles the view change, but we call onClose to signal completion
+        if (!inline) onClose();
     };
 
     const handleChange = (field: keyof Supplier, value: string) => {
@@ -57,7 +58,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ isOpen, onClose, on
 
     const formContent = (
         <div className="space-y-6">
-            {/* ID Section - Prominent at top */}
+            {/* ID Section */}
             <div className="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-xl border border-indigo-100 dark:border-indigo-800/50">
                 <label className="block text-xs font-bold uppercase text-indigo-600 dark:text-indigo-400 mb-1.5 tracking-wide">Unique ID</label>
                 {isEditMode ? (
@@ -73,7 +74,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ isOpen, onClose, on
                             value={formData.id} 
                             onChange={e => handleChange('id', e.target.value)}
                             className="w-full p-2.5 border border-indigo-200 dark:border-indigo-700 rounded-r-lg dark:bg-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-mono" 
-                            autoFocus 
+                            autoFocus={!isEditMode}
                         />
                     </div>
                 )}
@@ -183,12 +184,12 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ isOpen, onClose, on
 
     const footerButtons = (
         <div className={`flex gap-3 ${inline ? 'mt-6' : 'p-4 border-t dark:border-slate-700 flex gap-3 bg-white dark:bg-slate-800 shrink-0 pb-6 sm:pb-4'}`}>
-            <Button onClick={handleSave} className={inline ? "w-full" : "flex-[2] font-bold py-3.5 rounded-xl shadow-lg shadow-indigo-200 dark:shadow-none"}>
+            <Button onClick={handleSave} className={inline ? "w-full py-3.5 rounded-xl shadow-lg shadow-indigo-200 dark:shadow-none" : "flex-[2] font-bold py-3.5 rounded-xl shadow-lg shadow-indigo-200 dark:shadow-none"}>
                 {isEditMode ? 'Save Changes' : 'Save Supplier'}
             </Button>
             <button 
                 onClick={onClose} 
-                className={inline ? "w-full py-2 rounded-md font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600" : "flex-1 py-3.5 rounded-xl font-semibold bg-red-50 text-red-600 hover:bg-red-100 border border-red-100 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/30 dark:border-red-800/50 transition-all"}
+                className={inline ? "w-full py-3.5 rounded-xl font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600" : "flex-1 py-3.5 rounded-xl font-semibold bg-red-50 text-red-600 hover:bg-red-100 border border-red-100 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/30 dark:border-red-800/50 transition-all"}
             >
                 Cancel
             </button>

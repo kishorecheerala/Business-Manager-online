@@ -225,8 +225,8 @@ export const DataImportModal: React.FC<DataImportModalProps> = ({ isOpen, onClos
                     <input
                         id={`csv-import-${activeTab}`}
                         type="file"
-                        accept=".csv, text/csv"
-                        className="hidden"
+                        accept=".csv, text/csv, application/vnd.ms-excel, text/plain"
+                        className="absolute opacity-0 w-0 h-0 pointer-events-none"
                         onChange={(e) => handleFileImport(e, tabConfig[activeTab].storeName)}
                         onClick={(event) => { (event.target as HTMLInputElement).value = '' }} // Reset file input
                     />
