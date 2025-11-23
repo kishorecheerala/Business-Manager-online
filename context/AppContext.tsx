@@ -29,6 +29,7 @@ export interface AppState {
   theme: Theme;
   googleUser: GoogleUser | null;
   syncStatus: SyncStatus;
+  lastLocalUpdate: number; // Timestamp of last user-initiated change to trigger sync
 }
 
 type Action =
@@ -113,9 +114,11 @@ const initialState: AppState = {
   theme: getInitialTheme(),
   googleUser: getInitialGoogleUser(),
   syncStatus: 'idle',
+  lastLocalUpdate: 0,
 };
 
 const appReducer = (state: AppState, action: Action): AppState => {
+  const touch = { lastLocalUpdate: Date.now() };
   switch (action.type) {
     case 'SET_STATE':
         return { ...state, ...action.payload };
@@ -124,52 +127,55 @@ const appReducer = (state: AppState, action: Action): AppState => {
     case 'RESET_APP':
         return { ...initialState, theme: state.theme, installPromptEvent: state.installPromptEvent };
     case 'REPLACE_COLLECTION':
-        return { ...state, [action.payload.storeName]: action.payload.data };
+        return { ...state, [action.payload.storeName]: action.payload.data, ...touch };
     case 'SET_NOTIFICATIONS':
         return { ...state, notifications: action.payload };
     case 'SET_PROFILE':
-        return { ...state, profile: action.payload };
+        return { ...state, profile: action.payload, ...touch };
     case 'SET_PIN':
         const otherMetadata = state.app_metadata.filter(m => m.id !== 'securityPin');
         const newPinMetadata: AppMetadataPin = { id: 'securityPin', pin: action.payload };
-        return { ...state, pin: action.payload, app_metadata: [...otherMetadata, newPinMetadata] };
+        return { ...state, pin: action.payload, app_metadata: [...otherMetadata, newPinMetadata], ...touch };
     case 'REMOVE_PIN': {
       const metadataWithoutPin = state.app_metadata.filter(m => m.id !== 'securityPin');
-      return { ...state, pin: null, app_metadata: metadataWithoutPin };
+      return { ...state, pin: null, app_metadata: metadataWithoutPin, ...touch };
     }
     case 'SET_REVENUE_GOAL': {
         const metaWithoutGoal = state.app_metadata.filter(m => m.id !== 'revenueGoal');
         return {
             ...state,
-            app_metadata: [...metaWithoutGoal, { id: 'revenueGoal', amount: action.payload }]
+            app_metadata: [...metaWithoutGoal, { id: 'revenueGoal', amount: action.payload }],
+            ...touch
         };
     }
     case 'ADD_CUSTOMER':
-      return { ...state, customers: [...state.customers, action.payload] };
+      return { ...state, customers: [...state.customers, action.payload], ...touch };
     case 'UPDATE_CUSTOMER':
-      return { ...state, customers: state.customers.map(c => c.id === action.payload.id ? action.payload : c) };
+      return { ...state, customers: state.customers.map(c => c.id === action.payload.id ? action.payload : c), ...touch };
     case 'ADD_SUPPLIER':
-      return { ...state, suppliers: [...state.suppliers, action.payload] };
+      return { ...state, suppliers: [...state.suppliers, action.payload], ...touch };
     case 'UPDATE_SUPPLIER':
-      return { ...state, suppliers: state.suppliers.map(s => s.id === action.payload.id ? action.payload : s) };
+      return { ...state, suppliers: state.suppliers.map(s => s.id === action.payload.id ? action.payload : s), ...touch };
     case 'ADD_PRODUCT':
         const existingProduct = state.products.find(p => p.id === action.payload.id);
         if (existingProduct) {
             return {
                 ...state,
-                products: state.products.map(p => p.id === action.payload.id ? { ...p, quantity: p.quantity + action.payload.quantity, purchasePrice: action.payload.purchasePrice, salePrice: action.payload.salePrice } : p)
+                products: state.products.map(p => p.id === action.payload.id ? { ...p, quantity: p.quantity + action.payload.quantity, purchasePrice: action.payload.purchasePrice, salePrice: action.payload.salePrice } : p),
+                ...touch
             };
         }
-        return { ...state, products: [...state.products, action.payload] };
+        return { ...state, products: [...state.products, action.payload], ...touch };
     case 'UPDATE_PRODUCT':
-        return { ...state, products: state.products.map(p => p.id === action.payload.id ? action.payload : p) };
+        return { ...state, products: state.products.map(p => p.id === action.payload.id ? action.payload : p), ...touch };
     case 'UPDATE_PRODUCT_STOCK':
         return {
             ...state,
-            products: state.products.map(p => p.id === action.payload.productId ? { ...p, quantity: p.quantity + action.payload.change } : p)
+            products: state.products.map(p => p.id === action.payload.productId ? { ...p, quantity: p.quantity + action.payload.change } : p),
+            ...touch
         }
     case 'ADD_SALE':
-      return { ...state, sales: [...state.sales, action.payload] };
+      return { ...state, sales: [...state.sales, action.payload], ...touch };
     case 'UPDATE_SALE': {
         const { oldSale, updatedSale } = action.payload;
         const stockChanges = new Map<string, number>();
@@ -180,7 +186,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
             return p;
         });
         const updatedSales = state.sales.map(s => s.id === updatedSale.id ? updatedSale : s);
-        return { ...state, sales: updatedSales, products: updatedProducts };
+        return { ...state, sales: updatedSales, products: updatedProducts, ...touch };
     }
     case 'DELETE_SALE': {
       const saleToDelete = state.sales.find(s => s.id === action.payload);
@@ -191,10 +197,10 @@ const appReducer = (state: AppState, action: Action): AppState => {
       stockChanges.forEach((change, productId) => {
         updatedProducts = updatedProducts.map(p => p.id === productId ? { ...p, quantity: p.quantity + change } : p);
       });
-      return { ...state, sales: state.sales.filter(s => s.id !== action.payload), products: updatedProducts };
+      return { ...state, sales: state.sales.filter(s => s.id !== action.payload), products: updatedProducts, ...touch };
     }
     case 'ADD_PURCHASE':
-      return { ...state, purchases: [...state.purchases, action.payload] };
+      return { ...state, purchases: [...state.purchases, action.payload], ...touch };
     case 'UPDATE_PURCHASE': {
         const { oldPurchase, updatedPurchase } = action.payload;
         let tempProducts = [...state.products];
@@ -221,7 +227,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
         });
         const updatedProducts = tempProducts.map(p => ({ ...p, quantity: Math.max(0, p.quantity) }));
         const updatedPurchases = state.purchases.map(p => p.id === updatedPurchase.id ? updatedPurchase : p);
-        return { ...state, purchases: updatedPurchases, products: updatedProducts };
+        return { ...state, purchases: updatedPurchases, products: updatedProducts, ...touch };
     }
     case 'DELETE_PURCHASE': {
       const purchaseToDelete = state.purchases.find(p => p.id === action.payload);
@@ -235,7 +241,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
       stockChanges.forEach((change, productId) => {
         updatedProducts = updatedProducts.map(p => p.id === productId ? { ...p, quantity: Math.max(0, p.quantity + change) } : p);
       });
-      return { ...state, purchases: state.purchases.filter(p => p.id !== action.payload), products: updatedProducts };
+      return { ...state, purchases: state.purchases.filter(p => p.id !== action.payload), products: updatedProducts, ...touch };
     }
     case 'ADD_RETURN': {
       const returnPayload = action.payload;
@@ -255,7 +261,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
       } else {
         updatedPurchases = state.purchases.map(purchase => purchase.id === returnPayload.referenceId ? { ...purchase, payments: [...(purchase.payments || []), creditPayment] } : purchase);
       }
-      return { ...state, products: updatedProducts, sales: updatedSales, purchases: updatedPurchases, returns: [...state.returns, returnPayload] };
+      return { ...state, products: updatedProducts, sales: updatedSales, purchases: updatedPurchases, returns: [...state.returns, returnPayload], ...touch };
     }
     case 'UPDATE_RETURN': {
        const { oldReturn, updatedReturn } = action.payload;
@@ -299,19 +305,19 @@ const appReducer = (state: AppState, action: Action): AppState => {
             });
         }
         const updatedReturns = state.returns.map(r => r.id === updatedReturn.id ? updatedReturn : r);
-        return { ...state, products: updatedProducts, sales: updatedSales, purchases: updatedPurchases, returns: updatedReturns };
+        return { ...state, products: updatedProducts, sales: updatedSales, purchases: updatedPurchases, returns: updatedReturns, ...touch };
     }
     case 'ADD_PAYMENT_TO_SALE':
-      return { ...state, sales: state.sales.map(sale => sale.id === action.payload.saleId ? { ...sale, payments: [...(sale.payments || []), action.payload.payment] } : sale) };
+      return { ...state, sales: state.sales.map(sale => sale.id === action.payload.saleId ? { ...sale, payments: [...(sale.payments || []), action.payload.payment] } : sale), ...touch };
     case 'ADD_PAYMENT_TO_PURCHASE':
-      return { ...state, purchases: state.purchases.map(purchase => purchase.id === action.payload.purchaseId ? { ...purchase, payments: [...(purchase.payments || []), action.payload.payment] } : purchase) };
+      return { ...state, purchases: state.purchases.map(purchase => purchase.id === action.payload.purchaseId ? { ...purchase, payments: [...(purchase.payments || []), action.payload.payment] } : purchase), ...touch };
     case 'SHOW_TOAST':
         return { ...state, toast: { message: action.payload.message, show: true, type: action.payload.type || 'info' } };
     case 'HIDE_TOAST':
         return { ...state, toast: { ...state.toast, show: false } };
     case 'SET_LAST_BACKUP_DATE':
       const otherMeta = state.app_metadata.filter(m => m.id !== 'lastBackup');
-      return { ...state, app_metadata: [...otherMeta, { id: 'lastBackup', date: action.payload }] };
+      return { ...state, app_metadata: [...otherMeta, { id: 'lastBackup', date: action.payload }], ...touch };
     case 'SET_SELECTION':
       return { ...state, selection: action.payload };
     case 'CLEAR_SELECTION':
@@ -360,6 +366,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [state, dispatch] = useReducer(appReducer, initialState);
   const [isDbLoaded, setIsDbLoaded] = useState(false);
   const tokenClient = useRef<any>(null);
+  const isSyncingRef = useRef(false);
 
   // Audit Logging Wrapper
   const dispatchWithLogging = (action: Action) => {
@@ -416,6 +423,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const performSync = async (accessToken: string) => {
+    if (isSyncingRef.current) return;
+    isSyncingRef.current = true;
+
     try {
         let folderId = localStorage.getItem('gdrive_folder_id');
         let fileId = localStorage.getItem('gdrive_file_id');
@@ -430,7 +440,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
 
         // 2. Look for backup file
-        // Always search for file ID if not cached, or just to be safe on fresh login
         let remoteFileId = fileId;
         if (!remoteFileId && folderId) {
              const remoteFile = await searchFile(accessToken, folderId);
@@ -439,65 +448,88 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
 
         // 3. Pull (Download & Merge)
+        let remoteData = null;
         if (remoteFileId) {
             try {
-                const remoteData = await downloadFile(accessToken, remoteFileId);
-                if (remoteData) {
-                    // IMPORTANT: Use merge=true to preserve local data (e.g. created offline)
-                    // and combine with remote data.
-                    await db.importData(remoteData, true);
-                    
-                    // Reload state from merged DB
-                    const mergedData = await db.exportData() as any;
-                    
-                    // Normalize helpers
-                    const normalize = (data: any) => {
-                        if (data.profile && Array.isArray(data.profile)) {
-                            data.profile = data.profile.length > 0 ? data.profile[0] : null;
-                        }
-                        if (data.sales) {
-                            data.sales = data.sales.map((s: any) => ({ ...s, payments: s.payments || [] }));
-                        }
-                        if (data.purchases) {
-                            data.purchases = data.purchases.map((p: any) => ({ ...p, payments: p.payments || [] }));
-                        }
-                        return data;
-                    };
-                    
-                    const finalState = normalize(mergedData);
-                    dispatch({ type: 'SET_STATE', payload: finalState });
-
-                    // 4. Push (Upload combined)
-                    // We upload the MERGED data back to ensure cloud has everything
-                    if (folderId) {
-                        await uploadFile(accessToken, folderId, finalState, remoteFileId);
-                    }
+                remoteData = await downloadFile(accessToken, remoteFileId);
+                if (!remoteData) {
+                    // File returned 404 or null, cleanup ID to force upload
+                    console.warn("Remote file not found, resetting ID.");
+                    localStorage.removeItem('gdrive_file_id');
+                    remoteFileId = null;
                 }
             } catch (e) {
-                console.warn("Failed to sync with cached ID, retrying discovery", e);
+                console.warn("Failed to download with cached ID, retrying discovery", e);
+                // We proceed to upload fallback if download fails
                 localStorage.removeItem('gdrive_file_id');
+                remoteFileId = null;
+            }
+        }
+
+        if (remoteData) {
+            // MERGE MODE
+            await db.importData(remoteData, true);
+            
+            // Reload state
+            const mergedData = await db.exportData() as any;
+            
+            // Normalize
+            const normalize = (data: any) => {
+                if (data.profile && Array.isArray(data.profile)) {
+                    data.profile = data.profile.length > 0 ? data.profile[0] : null;
+                }
+                if (data.sales) {
+                    data.sales = data.sales.map((s: any) => ({ ...s, payments: s.payments || [] }));
+                }
+                if (data.purchases) {
+                    data.purchases = data.purchases.map((p: any) => ({ ...p, payments: p.payments || [] }));
+                }
+                return data;
+            };
+            
+            const finalState = normalize(mergedData);
+            // Update state without triggering lastLocalUpdate (to avoid infinite loop)
+            dispatch({ type: 'SET_STATE', payload: finalState });
+
+            // 4. Push (Upload combined)
+            if (folderId) {
+                try {
+                    // Try update first if we had an ID (even if download failed, we might try reusing ID, but we nulled it above if download failed)
+                    await uploadFile(accessToken, folderId, finalState, remoteFileId || undefined);
+                } catch(e: any) {
+                    // If update fails with 404, try creating new
+                    if (e.message && e.message.includes('404')) {
+                        const result = await uploadFile(accessToken, folderId, finalState);
+                        if (result && result.id) localStorage.setItem('gdrive_file_id', result.id);
+                    } else {
+                        throw e;
+                    }
+                }
             }
         } else if (folderId) {
-            // No remote file found.
-            // Empty Data Guard: Check if local data is actually worth uploading.
+            // No remote file found -> Upload Local
             const currentData = await db.exportData();
             const hasLocalData = (currentData.customers && currentData.customers.length > 0) || 
                                  (currentData.sales && currentData.sales.length > 0) ||
                                  (currentData.products && currentData.products.length > 0);
 
             if (hasLocalData) {
-                // Upload current local data as new backup
                 const result = await uploadFile(accessToken, folderId, currentData);
                 if (result && result.id) localStorage.setItem('gdrive_file_id', result.id);
-            } else {
-                console.log("Skipping initial cloud upload: No local data and no remote backup found.");
-                // This prevents creating an empty backup file immediately if the user just logged in
-                // on a fresh device but the search failed to find existing backup.
             }
         }
-    } catch (e) {
+    } catch (e: any) {
         console.error("Sync failed", e);
         dispatch({ type: 'SET_SYNC_STATUS', payload: 'error' });
+        
+        if (e.message && (e.message.includes('401') || e.message.includes('403'))) {
+             showToast("Sync Error: Authentication failed. Please sign in again.", 'info');
+             // Optional: auto-logout if token is definitely bad
+             // localStorage.removeItem('googleUser');
+             // dispatch({ type: 'SET_GOOGLE_USER', payload: null });
+        }
+    } finally {
+        isSyncingRef.current = false;
     }
   };
 
@@ -534,14 +566,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     showToast("Signed out. Local data cleared.");
   };
 
+  // Auto-Sync Effect
   useEffect(() => {
-      if (state.googleUser && isDbLoaded) {
+      // Trigger sync only when local data changes (tracked by lastLocalUpdate)
+      // This prevents infinite loops where sync-down triggers sync-up triggers sync-down...
+      if (state.googleUser && isDbLoaded && state.lastLocalUpdate > 0) {
           const handler = setTimeout(() => {
               syncData();
-          }, 10000);
+          }, 5000); // Debounce 5s
           return () => clearTimeout(handler);
       }
-  }, [state.customers, state.sales, state.purchases, state.products, state.profile, state.returns, state.app_metadata]);
+  }, [state.lastLocalUpdate]);
 
 
   useEffect(() => {

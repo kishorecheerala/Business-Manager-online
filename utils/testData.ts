@@ -107,4 +107,5 @@ export const testData: Omit<AppState, 'toast' | 'selection' | 'installPromptEven
   app_metadata: [],
   audit_logs: [],
   theme: 'light',
+  lastLocalUpdate: 0,
 };
