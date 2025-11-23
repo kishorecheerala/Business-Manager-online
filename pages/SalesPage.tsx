@@ -8,7 +8,6 @@ import Button from '../components/Button';
 import { Html5Qrcode } from 'html5-qrcode';
 import DeleteButton from '../components/DeleteButton';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
-import DateInput from '../components/DateInput';
 import { generateThermalInvoicePDF } from '../utils/pdfGenerator';
 
 
@@ -213,7 +212,6 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         }
     });
 
-    // Effect to handle switching to edit mode from another page
     useEffect(() => {
         if (state.selection?.page === 'SALES' && state.selection.action === 'edit') {
             const sale = state.sales.find(s => s.id === state.selection.id);
@@ -242,7 +240,6 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
     }, [customerId, items, discount, paymentDetails.amount, isAddingCustomer, newCustomer, setIsDirty, saleDate, mode]);
 
 
-    // On unmount, we must always clean up.
     useEffect(() => {
         return () => {
             setIsDirty(false);
@@ -419,7 +416,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
 
     const generateAndSharePDF = async (sale: Sale, customer: Customer, paidAmountOnSale: number) => {
       try {
-        // Use the shared thermal generator for consistent receipts
+        // Use the THERMAL invoice generator for sharing on mobile
         const doc = await generateThermalInvoicePDF(sale, customer, state.profile);
         
         const pdfBlob = doc.output('blob');
@@ -667,12 +664,16 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                         </div>
                     </div>
                     
-                    <DateInput 
-                        label="Sale Date"
-                        value={saleDate} 
-                        onChange={e => setSaleDate(e.target.value)} 
-                        disabled={mode === 'edit'}
-                    />
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Sale Date</label>
+                        <input 
+                            type="date" 
+                            value={saleDate} 
+                            onChange={e => setSaleDate(e.target.value)} 
+                            className="w-full p-2 border rounded mt-1 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
+                            disabled={mode === 'edit'}
+                        />
+                    </div>
 
                     {customerId && customerTotalDue !== null && mode === 'add' && (
                         <div className="p-2 bg-gray-50 dark:bg-slate-700/50 rounded-lg text-center border dark:border-slate-700">
@@ -758,7 +759,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Payment Reference (Optional)</label>
-                                <input type="text" placeholder="e.g. UPI ID, Cheque No." value={paymentDetails.reference} onChange={e => setPaymentDetails({...paymentDetails, reference: e.target.value })} className="w-full p-2 border rounded mt-1 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
+                                <input type="text" placeholder="e.g. UPI ID, Cheque No." value={paymentDetails.reference} onChange={e => setPaymentDetails({...paymentDetails, reference: e.target.value })} className="w-full p-2 border rounded mt-1 dark:bg-slate-700 dark:border-slate-600" />
                             </div>
                         </div>
                     ) : (

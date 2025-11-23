@@ -1,73 +1,62 @@
+
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Sale, Customer, ProfileData, Purchase, Supplier, Return } from '../types';
-import { logoBase64 } from './logo';
 
-// --- Helper: Add Header ---
-const addBusinessHeader = (doc: jsPDF, profile: ProfileData | null, isThermal: boolean = false) => {
+// --- Helper: Fetch QR Code ---
+const getQrCodeBase64 = async (data: string): Promise<string> => {
+    try {
+        const response = await fetch(`https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(data)}&size=200x200&margin=0`);
+        const blob = await response.blob();
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+        });
+    } catch (e) {
+        return '';
+    }
+};
+
+// --- Helper: Add Header (Common for A4/Debit Note, NOT Thermal) ---
+const addBusinessHeader = (doc: jsPDF, profile: ProfileData | null) => {
     const pageWidth = doc.internal.pageSize.getWidth();
     const centerX = pageWidth / 2;
-    let currentY = isThermal ? 5 : 10; // Tighter top margin for thermal
+    let currentY = 10;
 
     // 1. SACRED TEXT
     doc.setFont('times', 'italic');
-    doc.setFontSize(isThermal ? 9 : 10);
+    doc.setFontSize(10);
     doc.setTextColor('#000000');
     doc.text('Om Namo Venkatesaya', centerX, currentY, { align: 'center' });
-    currentY += isThermal ? 4 : 6;
+    currentY += 6;
 
-    // 2. LOGO (Optional)
-    const logoSize = isThermal ? 15 : 20;
-    try {
-        if (logoBase64 && logoBase64.startsWith('data:image')) {
-             // For thermal, we might center the logo or put it to the left depending on space.
-             // Centering it looks better on receipts.
-             const logoX = isThermal ? (pageWidth - logoSize) / 2 : 14;
-             const logoY = currentY;
-             doc.addImage(logoBase64, 'PNG', logoX, logoY, logoSize, logoSize);
-             currentY += logoSize + (isThermal ? 2 : 5);
-        }
-    } catch (err) {
-        console.warn("Logo add failed, skipping logo.", err);
-    }
-
-    // 3. BUSINESS DETAILS
+    // 2. BUSINESS DETAILS
     if (profile) {
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(isThermal ? 14 : 20);
+        doc.setFontSize(20);
         doc.setTextColor('#0d9488'); // Primary Color
         doc.text(profile.name, centerX, currentY, { align: 'center' });
-        currentY += isThermal ? 5 : 7;
+        currentY += 7;
         
-        doc.setFontSize(isThermal ? 8 : 10);
+        doc.setFontSize(10);
         doc.setTextColor('#333333');
         doc.setFont('helvetica', 'normal');
         
-        // Safe address split
         const address = profile.address || '';
-        // Tighter width for thermal
-        const maxAddrWidth = isThermal ? pageWidth - 4 : 120; 
-        const addressLines = doc.splitTextToSize(address, maxAddrWidth);
+        const addressLines = doc.splitTextToSize(address, 120);
         doc.text(addressLines, centerX, currentY, { align: 'center' });
-        currentY += (addressLines.length * (isThermal ? 3.5 : 5));
+        currentY += (addressLines.length * 5);
         
         const details = [];
-        if (profile.phone) details.push(isThermal ? `Ph: ${profile.phone}` : `Phone: ${profile.phone}`);
-        if (profile.gstNumber) details.push(isThermal ? `GST: ${profile.gstNumber}` : `GSTIN: ${profile.gstNumber}`);
+        if (profile.phone) details.push(`Phone: ${profile.phone}`);
+        if (profile.gstNumber) details.push(`GSTIN: ${profile.gstNumber}`);
         
         if (details.length > 0) {
-            if (isThermal) {
-                // Stack details on thermal if too long
-                details.forEach(d => {
-                    doc.text(d, centerX, currentY, { align: 'center' });
-                    currentY += 3.5;
-                });
-            } else {
-                doc.text(details.join(' | '), centerX, currentY, { align: 'center' });
-            }
+            doc.text(details.join(' | '), centerX, currentY, { align: 'center' });
         }
     } else {
-        doc.setFontSize(isThermal ? 16 : 22);
+        doc.setFontSize(22);
         doc.setTextColor('#0d9488');
         doc.text("Business Manager", centerX, currentY, { align: 'center' });
         currentY += 8;
@@ -77,15 +66,163 @@ const addBusinessHeader = (doc: jsPDF, profile: ProfileData | null, isThermal: b
     currentY += 2;
     doc.setDrawColor('#cccccc');
     doc.setLineWidth(0.5);
-    doc.line(isThermal ? 2 : 14, currentY, pageWidth - (isThermal ? 2 : 14), currentY);
+    doc.line(14, currentY, pageWidth - 14, currentY);
     
-    return currentY + (isThermal ? 3 : 5); 
+    return currentY + 5; 
 };
 
-// --- A4 Invoice Generator ---
-export const generateInvoicePDF = async (sale: Sale, customer: Customer, profile: ProfileData | null): Promise<jsPDF> => {
+// --- Thermal Receipt Generator (80mm) ---
+export const generateThermalInvoicePDF = async (sale: Sale, customer: Customer, profile: ProfileData | null): Promise<jsPDF> => {
+    // Estimate height dynamically: Base ~150mm + items
+    const estimatedHeight = 160 + (sale.items.length * 15);
+    const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: [80, estimatedHeight]
+    });
+
+    const pageWidth = 80;
+    const margin = 4;
+    const centerX = pageWidth / 2;
+    let y = 10;
+
+    // 1. Sacred Text (Italic, Centered)
+    doc.setFont('times', 'italic');
+    doc.setFontSize(12);
+    doc.setTextColor('#000000');
+    doc.text('Om Namo Venkatesaya', centerX, y, { align: 'center' });
+    y += 7;
+
+    // 2. Business Name (Teal, Bold, Centered)
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.setTextColor('#009688'); // Teal color
+    doc.text(profile?.name || 'Business Name', centerX, y, { align: 'center' });
+    y += 8;
+
+    doc.setTextColor('#000000');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+
+    // 3. Metadata & QR Code
+    const qrSize = 20;
+    const qrX = pageWidth - margin - qrSize;
+    const startHeaderY = y;
+
+    // QR Code generation
+    const qrBase64 = await getQrCodeBase64(sale.id);
+    if (qrBase64) {
+        doc.addImage(qrBase64, 'PNG', qrX, startHeaderY - 2, qrSize, qrSize);
+    }
+
+    // Invoice Info (Left aligned)
+    doc.text(`Invoice: ${sale.id}`, margin, y);
+    y += 5;
+    const dateStr = new Date(sale.date).toLocaleString('en-IN', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: false
+    });
+    doc.text(`Date: ${dateStr}`, margin, y);
+    y += 5;
+
+    // Ensure Y clears the QR code
+    y = Math.max(y + 2, startHeaderY + qrSize + 2);
+
+    // 4. Billed To
+    doc.setFont('helvetica', 'bold');
+    doc.text('Billed To:', margin, y);
+    y += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.text(customer.name, margin, y);
+    y += 5;
+    const addressLines = doc.splitTextToSize(customer.address, pageWidth - (margin * 2));
+    doc.text(addressLines, margin, y);
+    y += (addressLines.length * 5) + 3;
+
+    // 5. Separator & Purchase Details
+    doc.setLineWidth(0.3);
+    doc.setDrawColor(0, 0, 0);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 6;
+    
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text('Purchase Details', centerX, y, { align: 'center' });
+    y += 3;
+    
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 6;
+
+    // 6. Table Headers
+    doc.setFontSize(9);
+    doc.text('Item', margin, y);
+    doc.text('Total', pageWidth - margin, y, { align: 'right' });
+    y += 6;
+
+    // 7. Items
+    doc.setFont('helvetica', 'normal');
+    
+    sale.items.forEach(item => {
+        const itemTotal = Number(item.price) * Number(item.quantity);
+        
+        // Item Name (Left)
+        doc.setTextColor('#000000');
+        doc.setFontSize(9);
+        const nameLines = doc.splitTextToSize(item.productName, 55);
+        doc.text(nameLines, margin, y);
+        
+        // Item Total (Right, aligned with first line of name)
+        doc.text(`Rs. ${itemTotal.toLocaleString('en-IN')}`, pageWidth - margin, y, { align: 'right' });
+        
+        y += (nameLines.length * 4.5);
+        
+        // Quantity/Rate Detail (Gray, indented or below)
+        doc.setTextColor('#555555');
+        doc.setFontSize(8);
+        doc.text(`(x${item.quantity} @ Rs. ${Number(item.price).toLocaleString('en-IN')})`, margin + 2, y - 1);
+        
+        y += 5;
+    });
+
+    // 8. Separator
+    y += 2;
+    doc.setDrawColor(150);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 6;
+
+    // 9. Totals Section
+    const subTotal = sale.items.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
+    const paidAmount = (sale.payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
+    const dueAmount = Number(sale.totalAmount) - paidAmount;
+
+    const addRow = (label: string, value: string, isBold = false, size = 9, color = '#000000') => {
+        doc.setFont('helvetica', isBold ? 'bold' : 'normal');
+        doc.setFontSize(size);
+        doc.setTextColor(color);
+        doc.text(label, pageWidth - 35, y, { align: 'right' });
+        doc.text(value, pageWidth - margin, y, { align: 'right' });
+        y += 5;
+    };
+
+    addRow('Subtotal', `Rs. ${subTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`);
+    addRow('GST', `Rs. ${Number(sale.gstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`);
+    addRow('Discount', `Rs. -${Number(sale.discount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`);
+    
+    y += 2;
+    addRow('Total', `Rs. ${Number(sale.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, true, 11);
+    
+    addRow('Paid', `Rs. ${paidAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`);
+    
+    y += 2;
+    addRow('Due', `Rs. ${dueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, true, 11);
+
+    return doc;
+};
+
+// --- A4 Invoice Generator (Legacy/Print) ---
+export const generateA4InvoicePdf = async (sale: Sale, customer: Customer, profile: ProfileData | null): Promise<jsPDF> => {
     const doc = new jsPDF();
-    let startY = addBusinessHeader(doc, profile, false);
+    let startY = addBusinessHeader(doc, profile);
 
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
@@ -93,7 +230,6 @@ export const generateInvoicePDF = async (sale: Sale, customer: Customer, profile
     doc.text('TAX INVOICE', 105, startY, { align: 'center' });
     startY += 10;
 
-    // Invoice & Customer Details
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     doc.text('Billed To:', 14, startY);
@@ -111,7 +247,6 @@ export const generateInvoicePDF = async (sale: Sale, customer: Customer, profile
     
     startY += Math.max((customerAddr.length * 5), 10) + 5;
 
-    // Items Table
     autoTable(doc, {
         startY: startY,
         head: [['#', 'Item Description', 'Qty', 'Rate', 'Amount']],
@@ -123,7 +258,7 @@ export const generateInvoicePDF = async (sale: Sale, customer: Customer, profile
             `Rs. ${(Number(item.quantity) * Number(item.price)).toLocaleString('en-IN')}`
         ]),
         theme: 'grid',
-        headStyles: { fillColor: [13, 148, 136] }, // Primary color
+        headStyles: { fillColor: [13, 148, 136] }, 
         styles: { fontSize: 9, cellPadding: 2 },
         columnStyles: { 
             0: { cellWidth: 10 },
@@ -135,12 +270,10 @@ export const generateInvoicePDF = async (sale: Sale, customer: Customer, profile
 
     let finalY = (doc as any).lastAutoTable.finalY + 10;
 
-    // Calculations
     const subTotal = sale.items.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
     const paidAmount = (sale.payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
     const dueAmount = Number(sale.totalAmount) - paidAmount;
 
-    // Totals Section (Right aligned)
     const totalsX = 196;
     const labelX = totalsX - 40;
     
@@ -164,7 +297,6 @@ export const generateInvoicePDF = async (sale: Sale, customer: Customer, profile
     doc.setFontSize(12);
     addTotalRow('Amount Due:', `Rs. ${dueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, true, dueColor);
 
-    // Footer
     const pageHeight = doc.internal.pageSize.getHeight();
     doc.setFontSize(9);
     doc.setTextColor('#888888');
@@ -173,132 +305,10 @@ export const generateInvoicePDF = async (sale: Sale, customer: Customer, profile
     return doc;
 };
 
-// --- Thermal Receipt Generator (80mm) ---
-export const generateThermalInvoicePDF = async (sale: Sale, customer: Customer, profile: ProfileData | null): Promise<jsPDF> => {
-    // 80mm width, variable height (initially set high, will assume auto-paging or single long page concept)
-    // For standard thermal printers, height is continuous. We emulate this by making a long page or multi-page.
-    // jsPDF needs a fixed height. We'll estimate.
-    const estimatedHeight = 150 + (sale.items.length * 10); 
-    const doc = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: [80, estimatedHeight] 
-    });
-
-    const pageWidth = 80;
-    const margin = 3;
-    const contentWidth = pageWidth - (margin * 2);
-    const centerX = pageWidth / 2;
-
-    let currentY = addBusinessHeader(doc, profile, true);
-
-    // Receipt Meta
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor('#000000');
-    
-    const dateStr = new Date(sale.date).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' });
-    
-    doc.text(`Inv: ${sale.id}`, margin, currentY);
-    doc.text(dateStr, pageWidth - margin, currentY, { align: 'right' });
-    currentY += 4;
-    
-    doc.setFont('helvetica', 'bold');
-    doc.text(`To: ${customer.name}`, margin, currentY);
-    currentY += 4;
-    
-    // Divider
-    doc.setDrawColor('#000000');
-    doc.setLineDash([1, 1], 0);
-    doc.line(margin, currentY, pageWidth - margin, currentY);
-    currentY += 4;
-
-    // Items Header
-    doc.setFontSize(8);
-    doc.text('Item', margin, currentY);
-    doc.text('Qty', pageWidth - 25, currentY, { align: 'right' });
-    doc.text('Amt', pageWidth - margin, currentY, { align: 'right' });
-    currentY += 2;
-    
-    doc.line(margin, currentY, pageWidth - margin, currentY);
-    currentY += 4;
-
-    // Items List
-    doc.setFont('helvetica', 'normal');
-    sale.items.forEach(item => {
-        const itemTotal = Number(item.price) * Number(item.quantity);
-        
-        // Item Name (Wrap if needed)
-        const nameLines = doc.splitTextToSize(item.productName, 40);
-        doc.text(nameLines, margin, currentY);
-        
-        // Qty
-        doc.text(item.quantity.toString(), pageWidth - 25, currentY, { align: 'right' });
-        
-        // Amount
-        doc.text(itemTotal.toLocaleString('en-IN'), pageWidth - margin, currentY, { align: 'right' });
-        
-        currentY += (nameLines.length * 3.5);
-        
-        // Price detail (small)
-        doc.setFontSize(7);
-        doc.setTextColor('#555555');
-        doc.text(`@ ${Number(item.price).toLocaleString()}`, margin + 2, currentY - 0.5);
-        doc.setFontSize(8);
-        doc.setTextColor('#000000');
-        
-        currentY += 3;
-    });
-
-    // Divider
-    currentY += 1;
-    doc.setLineDash([], 0); // Solid
-    doc.line(margin, currentY, pageWidth - margin, currentY);
-    currentY += 4;
-
-    // Totals
-    const subTotal = sale.items.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
-    const paidAmount = (sale.payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
-    const dueAmount = Number(sale.totalAmount) - paidAmount;
-
-    const addReceiptRow = (label: string, value: string, bold: boolean = false) => {
-        doc.setFont('helvetica', bold ? 'bold' : 'normal');
-        doc.setFontSize(bold ? 9 : 8);
-        doc.text(label, pageWidth - 30, currentY, { align: 'right' });
-        doc.text(value, pageWidth - margin, currentY, { align: 'right' });
-        currentY += 4;
-    };
-
-    addReceiptRow('Subtotal:', subTotal.toLocaleString('en-IN'));
-    if (Number(sale.discount) > 0) addReceiptRow('Discount:', `-${Number(sale.discount).toLocaleString('en-IN')}`);
-    
-    currentY += 1;
-    doc.setFontSize(10);
-    addReceiptRow('Total:', `Rs.${Number(sale.totalAmount).toLocaleString('en-IN')}`, true);
-    
-    currentY += 1;
-    doc.setFontSize(8);
-    addReceiptRow('Paid:', paidAmount.toLocaleString('en-IN'));
-    
-    if (dueAmount > 0) {
-        doc.setTextColor('#dc2626');
-        addReceiptRow('Due:', dueAmount.toLocaleString('en-IN'), true);
-        doc.setTextColor('#000000');
-    }
-
-    // Footer
-    currentY += 6;
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'italic');
-    doc.text('Thank you! Visit Again.', centerX, currentY, { align: 'center' });
-
-    return doc;
-};
-
 // --- Debit Note Generator ---
 export const generateDebitNotePDF = async (returnData: Return, supplier: Supplier | undefined, profile: ProfileData | null): Promise<jsPDF> => {
     const doc = new jsPDF();
-    let startY = addBusinessHeader(doc, profile, false);
+    let startY = addBusinessHeader(doc, profile);
 
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
