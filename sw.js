@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'business-manager-cache-v3';
+const CACHE_NAME = 'business-manager-cache-v5';
 
 // The essential files that make up the app's shell.
 const APP_SHELL_URLS = [
@@ -52,6 +52,21 @@ self.addEventListener('fetch', event => {
     return;
   }
 
+  const url = new URL(event.request.url);
+
+  // CRITICAL: Do not cache Google API requests.
+  // Caching these causes stale Drive file listings and prevents syncing.
+  if (url.hostname.includes('googleapis.com') || 
+      url.hostname.includes('googleusercontent.com') || 
+      url.hostname.includes('accounts.google.com')) {
+      return; 
+  }
+
+  // Also skip browser-sync or hot-reload related calls in dev
+  if (url.pathname.includes('hot-update')) {
+      return;
+  }
+
   event.respondWith(
     // 1. Try to find the response in the cache
     caches.match(event.request)
@@ -64,7 +79,7 @@ self.addEventListener('fetch', event => {
         // 2. If not in cache, fetch it from the network
         return fetch(event.request).then(networkResponse => {
           // Check if we received a valid response
-          if (!networkResponse || networkResponse.status !== 200) {
+          if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
             return networkResponse;
           }
 

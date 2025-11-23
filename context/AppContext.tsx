@@ -432,6 +432,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         try {
             showToast("Checking cloud backup...", 'info');
             remoteData = await DriveService.read(accessToken);
+            console.log("Remote Data received keys:", remoteData ? Object.keys(remoteData) : "null");
         } catch (e) {
             console.error("Failed to download remote file:", e);
             showToast("Sync Failed: Could not download backup. Check connection.", 'info');
@@ -439,7 +440,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             throw e; 
         }
 
-        if (remoteData) {
+        if (remoteData && Object.keys(remoteData).length > 0) {
             // MERGE MODE
             await db.importData(remoteData, true);
             
@@ -463,6 +464,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             const finalState = normalize(mergedData);
             // Update state without triggering lastLocalUpdate (to avoid infinite loop)
             dispatch({ type: 'SET_STATE', payload: finalState });
+            showToast("Restored data from cloud.", 'success');
 
             // 4. Push (Upload combined)
             try {
@@ -472,7 +474,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 throw e;
             }
         } else {
-            // No remote file found -> Upload Local (Only if it's truly a new setup with data)
+            // No remote file found or empty -> Check local
             const currentData = await db.exportData();
             const hasLocalData = (currentData.customers && currentData.customers.length > 0) || 
                                  (currentData.sales && currentData.sales.length > 0) ||
@@ -480,6 +482,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
             if (hasLocalData) {
                 await DriveService.write(accessToken, currentData);
+            } else {
+                // Both local and remote are empty or remote is null
+                if (remoteData === null) {
+                    showToast("No cloud backup found. Creating new one...", 'info');
+                    // Attempt to initialize empty cloud file to establish link
+                    await DriveService.write(accessToken, currentData);
+                }
             }
         }
     } catch (e: any) {

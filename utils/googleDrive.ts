@@ -7,6 +7,7 @@
 const CLIENT_ID = '732045270886-84cr2t9q71lgttqgdn1jqu9f7ub5qfo3.apps.googleusercontent.com'.trim(); 
 
 // Updated Scopes: Includes Drive File access AND User Profile/Email access
+// Note: drive.file only allows access to files created by THIS app.
 const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email';
 
 // Folder name in Google Drive
@@ -92,17 +93,23 @@ const safeJsonParse = async (response: Response) => {
 
 // Helper to get ALL candidate folders
 export const getCandidateFolders = async (accessToken: string) => {
+  // IMPORTANT: 'trashed=false' is critical.
   const q = `mimeType='application/vnd.google-apps.folder' and name='${APP_FOLDER_NAME}' and trashed=false`;
   // Order by createdTime descending to check newest folders first
   const response = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=createdTime desc`, {
     headers: getHeaders(accessToken),
+    cache: 'no-store' // Force network request
   });
-  if (!response.ok) throw new Error(`Search Folders Failed: ${response.status}`);
+  if (!response.ok) {
+      console.error("Google Drive List Folders Failed", response.status, response.statusText);
+      throw new Error(`Search Folders Failed: ${response.status}`);
+  }
   const data = await safeJsonParse(response);
   return data && data.files ? data.files : [];
 };
 
 export const createFolder = async (accessToken: string) => {
+  console.log("Creating new app folder...");
   const metadata = {
     name: APP_FOLDER_NAME,
     mimeType: 'application/vnd.google-apps.folder',
@@ -111,6 +118,7 @@ export const createFolder = async (accessToken: string) => {
     method: 'POST',
     headers: getHeaders(accessToken),
     body: JSON.stringify(metadata),
+    cache: 'no-store'
   });
   if (!response.ok) throw new Error(`Create Folder Failed: ${response.status}`);
   const file = await safeJsonParse(response);
@@ -122,6 +130,7 @@ export const searchFile = async (accessToken: string, folderId: string) => {
   const q = `name='${BACKUP_FILE_NAME}' and '${folderId}' in parents and trashed=false`;
   const response = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=modifiedTime desc&pageSize=1`, {
     headers: getHeaders(accessToken),
+    cache: 'no-store'
   });
   if (!response.ok) throw new Error(`Search File Failed: ${response.status}`);
   const data = await safeJsonParse(response);
@@ -152,6 +161,7 @@ export const uploadFile = async (accessToken: string, folderId: string, content:
     method: method,
     headers: { 'Authorization': `Bearer ${accessToken}` },
     body: form,
+    cache: 'no-store'
   });
   
   if (!response.ok) {
@@ -163,25 +173,34 @@ export const uploadFile = async (accessToken: string, folderId: string, content:
 };
 
 export const downloadFile = async (accessToken: string, fileId: string) => {
+  console.log(`Downloading file content for ID: ${fileId}`);
   const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
     headers: { 'Authorization': `Bearer ${accessToken}` },
+    cache: 'no-store'
   });
   
   if (!response.ok) {
       // 404 implies file gone/deleted remotely
       if (response.status === 404) {
-          throw new Error(`Download Failed: 404 Not Found`);
+          throw new Error(`Download Failed: 404 Not Found (File ID: ${fileId})`);
       }
-      throw new Error(`Download Failed: ${response.status}`);
+      throw new Error(`Download Failed: ${response.status} ${response.statusText}`);
   }
   
-  return await safeJsonParse(response);
+  const data = await safeJsonParse(response);
+  if (data === null) {
+      console.warn("Downloaded file but parsing failed (empty or invalid).");
+      return null;
+  }
+  console.log("Download successful, data keys:", Object.keys(data));
+  return data;
 };
 
 export const getUserInfo = async (accessToken: string) => {
   try {
     const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
       headers: { 'Authorization': `Bearer ${accessToken}` },
+      cache: 'no-store'
     });
     if (!response.ok) {
         throw new Error(`Failed to fetch user info: ${response.status}`);
@@ -196,20 +215,16 @@ export const getUserInfo = async (accessToken: string) => {
 
 // --- High Level Drive Service ---
 
-// Finds the BEST folder configuration.
-// 1. Looks for ALL folders named "BusinessManager_AppData".
-// 2. Checks each one for "backup.json".
-// 3. Returns the one that has the file.
-// 4. If none have the file, returns the newest folder.
-// 5. If no folder exists, creates one.
 async function locateDriveConfig(accessToken: string) {
     // 1. Find all folders with the App Name, sorted by newest first
+    console.log("Locating app folder in Drive...");
     const folders = await getCandidateFolders(accessToken);
     
     let activeFolderId = null;
     let activeFileId = null;
 
     if (folders.length > 0) {
+        console.log(`Found ${folders.length} candidate folders.`);
         // We have candidates. Iterate to find one containing the backup file.
         // This fixes issues where multiple folders exist (e.g. one empty, one with data).
         for (const folder of folders) {
@@ -217,7 +232,7 @@ async function locateDriveConfig(accessToken: string) {
             if (file) {
                 activeFolderId = folder.id;
                 activeFileId = file.id;
-                console.log("Found active backup in folder:", folder.id);
+                console.log("Found active backup in folder:", folder.id, "File ID:", file.id);
                 break; // Found the data! Stop searching.
             }
         }
@@ -225,8 +240,10 @@ async function locateDriveConfig(accessToken: string) {
         // If we iterated all and found no file, default to the newest folder (first in list)
         if (!activeFolderId) {
             activeFolderId = folders[0].id;
+            console.log("No backup file found in any folder. Using newest folder:", activeFolderId);
         }
     } else {
+        console.log("No app folder found. Creating new one.");
         // No folder exists at all. Create one.
         activeFolderId = await createFolder(accessToken);
     }
@@ -237,7 +254,7 @@ async function locateDriveConfig(accessToken: string) {
 export const DriveService = {
     /**
      * Reads data from Drive.
-     * Always performs a fresh search to guarantee we find the correct folder/file pair.
+     * Always performs a fresh search to guarantee we find the true cloud state
      */
     async read(accessToken: string): Promise<any | null> {
         try {
@@ -249,8 +266,15 @@ export const DriveService = {
             if (fileId) localStorage.setItem('gdrive_file_id', fileId);
 
             if (fileId) {
-                return await downloadFile(accessToken, fileId);
+                console.log("Attempting to download backup file...");
+                const data = await downloadFile(accessToken, fileId);
+                if (!data) {
+                    console.warn("File found but content was empty or null.");
+                }
+                return data;
             }
+            
+            console.log("No file ID found during read operation.");
             return null; // Folder exists but no file -> No backup data
         } catch (e: any) {
             console.error("DriveService.read failed", e);
@@ -278,10 +302,12 @@ export const DriveService = {
         if (!folderId) throw new Error("Could not locate or create Drive folder.");
 
         try {
+            console.log("Uploading backup to Drive...");
             // Attempt upload
             const result = await uploadFile(accessToken, folderId, data, fileId || undefined);
             if (result && result.id) {
                 localStorage.setItem('gdrive_file_id', result.id);
+                console.log("Upload successful. File ID:", result.id);
             }
         } catch (e: any) {
             // If upload fails (likely 404 on stale fileId), perform full resolution and retry
