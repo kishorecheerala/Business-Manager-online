@@ -3,7 +3,7 @@ import React, { createContext, useReducer, useContext, useEffect, ReactNode, use
 import { Customer, Supplier, Product, Sale, Purchase, Return, Payment, BeforeInstallPromptEvent, Notification, ProfileData, Page, AppMetadata, AppMetadataPin, Theme, GoogleUser, AuditLogEntry, SyncStatus } from '../types';
 import * as db from '../utils/db';
 import { StoreName } from '../utils/db';
-import { DriveService, initGoogleAuth, getUserInfo, loadGoogleScript } from '../utils/googleDrive';
+import { DriveService, initGoogleAuth, getUserInfo, loadGoogleScript, downloadFile } from '../utils/googleDrive';
 
 interface ToastState {
   message: string;
@@ -29,7 +29,8 @@ export interface AppState {
   theme: Theme;
   googleUser: GoogleUser | null;
   syncStatus: SyncStatus;
-  lastLocalUpdate: number; // Timestamp of last user-initiated change to trigger sync
+  lastLocalUpdate: number;
+  restoreFromFileId?: (fileId: string) => Promise<void>; // Added for debug modal access
 }
 
 type Action =
@@ -49,10 +50,10 @@ type Action =
   | { type: 'UPDATE_PRODUCT_STOCK'; payload: { productId: string; change: number } }
   | { type: 'ADD_SALE'; payload: Sale }
   | { type: 'UPDATE_SALE'; payload: { oldSale: Sale, updatedSale: Sale } }
-  | { type: 'DELETE_SALE'; payload: string } // saleId
+  | { type: 'DELETE_SALE'; payload: string }
   | { type: 'ADD_PURCHASE'; payload: Purchase }
   | { type: 'UPDATE_PURCHASE'; payload: { oldPurchase: Purchase, updatedPurchase: Purchase } }
-  | { type: 'DELETE_PURCHASE'; payload: string } // purchaseId
+  | { type: 'DELETE_PURCHASE'; payload: string }
   | { type: 'ADD_RETURN'; payload: Return }
   | { type: 'UPDATE_RETURN'; payload: { oldReturn: Return, updatedReturn: Return } }
   | { type: 'ADD_PAYMENT_TO_SALE'; payload: { saleId: string; payment: Payment } }
@@ -64,7 +65,7 @@ type Action =
   | { type: 'CLEAR_SELECTION' }
   | { type: 'SET_INSTALL_PROMPT_EVENT'; payload: BeforeInstallPromptEvent | null }
   | { type: 'ADD_NOTIFICATION'; payload: Notification }
-  | { type: 'MARK_NOTIFICATION_AS_READ'; payload: string } // id
+  | { type: 'MARK_NOTIFICATION_AS_READ'; payload: string }
   | { type: 'MARK_ALL_NOTIFICATIONS_AS_READ' }
   | { type: 'REPLACE_COLLECTION'; payload: { storeName: StoreName, data: any[] } }
   | { type: 'SET_GOOGLE_USER'; payload: GoogleUser | null }
@@ -350,6 +351,7 @@ interface AppContextType {
     googleSignIn: () => void;
     googleSignOut: () => void;
     syncData: () => Promise<void>;
+    restoreFromFileId: (fileId: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType>({
@@ -360,6 +362,7 @@ const AppContext = createContext<AppContextType>({
   googleSignIn: () => {},
   googleSignOut: () => {},
   syncData: async () => {},
+  restoreFromFileId: async () => {},
 });
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -422,6 +425,39 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const performRestore = async (data: any, accessToken: string) => {
+      await db.importData(data, true); // Merge
+            
+      // Reload state
+      const mergedData = await db.exportData() as any;
+      
+      // Normalize
+      const normalize = (d: any) => {
+          if (d.profile && Array.isArray(d.profile)) {
+              d.profile = d.profile.length > 0 ? d.profile[0] : null;
+          }
+          if (d.sales) {
+              d.sales = d.sales.map((s: any) => ({ ...s, payments: s.payments || [] }));
+          }
+          if (d.purchases) {
+              d.purchases = d.purchases.map((p: any) => ({ ...p, payments: p.payments || [] }));
+          }
+          return d;
+      };
+      
+      const finalState = normalize(mergedData);
+      // Update state without triggering lastLocalUpdate (to avoid infinite loop)
+      dispatch({ type: 'SET_STATE', payload: finalState });
+      showToast("Data restored from cloud.", 'success');
+
+      // Push back to update timestamp on current active file
+      try {
+          await DriveService.write(accessToken, finalState);
+      } catch(e: any) {
+          console.error("Upload failed during sync", e);
+      }
+  };
+
   const performSync = async (accessToken: string) => {
     if (isSyncingRef.current) return;
     isSyncingRef.current = true;
@@ -441,38 +477,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
 
         if (remoteData && Object.keys(remoteData).length > 0) {
-            // MERGE MODE
-            await db.importData(remoteData, true);
-            
-            // Reload state
-            const mergedData = await db.exportData() as any;
-            
-            // Normalize
-            const normalize = (data: any) => {
-                if (data.profile && Array.isArray(data.profile)) {
-                    data.profile = data.profile.length > 0 ? data.profile[0] : null;
-                }
-                if (data.sales) {
-                    data.sales = data.sales.map((s: any) => ({ ...s, payments: s.payments || [] }));
-                }
-                if (data.purchases) {
-                    data.purchases = data.purchases.map((p: any) => ({ ...p, payments: p.payments || [] }));
-                }
-                return data;
-            };
-            
-            const finalState = normalize(mergedData);
-            // Update state without triggering lastLocalUpdate (to avoid infinite loop)
-            dispatch({ type: 'SET_STATE', payload: finalState });
-            showToast("Restored data from cloud.", 'success');
-
-            // 4. Push (Upload combined)
-            try {
-                await DriveService.write(accessToken, finalState);
-            } catch(e: any) {
-                console.error("Upload failed during sync", e);
-                throw e;
-            }
+            await performRestore(remoteData, accessToken);
         } else {
             // No remote file found or empty -> Check local
             const currentData = await db.exportData();
@@ -501,6 +506,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } finally {
         isSyncingRef.current = false;
     }
+  };
+
+  const restoreFromFileId = async (fileId: string) => {
+      if (!state.googleUser?.accessToken) return;
+      dispatch({ type: 'SET_SYNC_STATUS', payload: 'syncing' });
+      try {
+          showToast("Forcing restore from selected file...", 'info');
+          const data = await downloadFile(state.googleUser.accessToken, fileId);
+          if (data) {
+              await performRestore(data, state.googleUser.accessToken);
+              // Update cache to point to this file for future
+              localStorage.setItem('gdrive_file_id', fileId);
+          } else {
+              showToast("File was empty.", 'info');
+          }
+      } catch (e) {
+          console.error("Force restore failed", e);
+          showToast("Restore failed. See console.", 'info');
+          dispatch({ type: 'SET_SYNC_STATUS', payload: 'error' });
+      } finally {
+          dispatch({ type: 'SET_SYNC_STATUS', payload: 'idle' });
+      }
   };
 
   const syncData = async () => {
@@ -626,7 +653,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }, 3000);
   };
 
-  return <AppContext.Provider value={{ state, dispatch: dispatchWithLogging, showToast, isDbLoaded, googleSignIn, googleSignOut, syncData }}>{children}</AppContext.Provider>;
+  // Inject helper into state for easy access via context hook in components
+  const extendedState = { ...state, restoreFromFileId };
+
+  return <AppContext.Provider value={{ state: extendedState, dispatch: dispatchWithLogging, showToast, isDbLoaded, googleSignIn, googleSignOut, syncData, restoreFromFileId }}>{children}</AppContext.Provider>;
 };
 
 export const useAppContext = () => useContext(AppContext);

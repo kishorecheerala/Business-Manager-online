@@ -1,9 +1,10 @@
 
 import React, { useState } from 'react';
-import { User, BarChart2, Activity, LogIn, LogOut, RefreshCw } from 'lucide-react';
+import { User, BarChart2, Activity, LogIn, LogOut, RefreshCw, CloudLightning } from 'lucide-react';
 import { Page } from '../types';
 import { useAppContext } from '../context/AppContext';
 import AuditLogPanel from './AuditLogPanel';
+import CloudDebugModal from './CloudDebugModal';
 
 interface MenuPanelProps {
   isOpen: boolean;
@@ -15,12 +16,15 @@ interface MenuPanelProps {
 const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, onNavigate }) => {
     const { state, googleSignIn, googleSignOut, syncData } = useAppContext();
     const [isAuditOpen, setIsAuditOpen] = useState(false);
+    const [isCloudDebugOpen, setIsCloudDebugOpen] = useState(false);
 
-    if (!isOpen && !isAuditOpen) return null;
+    if (!isOpen && !isAuditOpen && !isCloudDebugOpen) return null;
 
     return (
         <>
         <AuditLogPanel isOpen={isAuditOpen} onClose={() => setIsAuditOpen(false)} />
+        <CloudDebugModal isOpen={isCloudDebugOpen} onClose={() => setIsCloudDebugOpen(false)} />
+        
         {isOpen && (
         <div 
           className="absolute top-full left-0 mt-2 w-72 bg-white dark:bg-slate-800 rounded-lg shadow-2xl border border-gray-200 dark:border-slate-700 text-text dark:text-slate-200 animate-scale-in origin-top-left z-40 flex flex-col max-h-[80vh]"
@@ -71,6 +75,15 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                         <RefreshCw className={`w-5 h-5 text-blue-600 ${state.syncStatus === 'syncing' ? 'animate-spin' : ''}`} />
                         <span className="font-semibold text-sm">Sync Now</span>
                     </button>
+                    
+                    <button
+                        onClick={() => { onClose(); setIsCloudDebugOpen(true); }}
+                        className="w-full flex items-center gap-3 text-left p-3 rounded-md hover:bg-amber-50 dark:hover:bg-slate-700 transition-colors text-amber-600"
+                    >
+                        <CloudLightning className="w-5 h-5" />
+                        <span className="font-semibold text-sm">Cloud Diagnostics</span>
+                    </button>
+
                     <button
                         onClick={() => { googleSignOut(); onClose(); }}
                         className="w-full flex items-center gap-3 text-left p-3 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-red-600 group"

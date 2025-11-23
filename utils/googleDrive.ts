@@ -251,6 +251,57 @@ async function locateDriveConfig(accessToken: string) {
     return { folderId: activeFolderId, fileId: activeFileId };
 }
 
+// New Diagnostic Function for Mobile Debugging
+export const debugDriveState = async (accessToken: string) => {
+    const logs: string[] = [];
+    const log = (msg: string) => logs.push(msg);
+    
+    try {
+        log("--- DIAGNOSTIC START ---");
+        log("Fetching User Info...");
+        const user = await getUserInfo(accessToken);
+        log(`User: ${user.email}`);
+
+        log(`Searching for folders: '${APP_FOLDER_NAME}'`);
+        const folders = await getCandidateFolders(accessToken);
+        log(`Found ${folders.length} matching folder(s).`);
+
+        const details = [];
+
+        for (const folder of folders) {
+            log(`Scanning Folder: ${folder.name} (ID: ...${folder.id.slice(-6)})`);
+            log(`Created: ${folder.createdTime || 'Unknown'}`);
+            
+            // List all JSON files in this folder
+            const q = `'${folder.id}' in parents and mimeType='application/json' and trashed=false`;
+            const response = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name,modifiedTime,size)&orderBy=modifiedTime desc`, {
+                headers: getHeaders(accessToken),
+                cache: 'no-store'
+            });
+            
+            if (!response.ok) {
+                log(`  ERROR reading folder: ${response.status}`);
+                continue;
+            }
+
+            const data = await safeJsonParse(response);
+            const files = data?.files || [];
+            log(`  - Contains ${files.length} JSON file(s).`);
+            files.forEach((f: any) => {
+                log(`    * ${f.name} (${(Number(f.size)/1024).toFixed(1)}KB) - ${new Date(f.modifiedTime).toLocaleString()}`);
+            });
+            
+            details.push({ folder, files });
+        }
+        log("--- DIAGNOSTIC END ---");
+
+        return { logs, details };
+    } catch (e: any) {
+        log(`CRITICAL ERROR: ${e.message}`);
+        return { logs, details: [] };
+    }
+}
+
 export const DriveService = {
     /**
      * Reads data from Drive.
