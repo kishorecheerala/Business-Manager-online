@@ -6,6 +6,7 @@ import { useAppContext } from '../context/AppContext';
 import AuditLogPanel from './AuditLogPanel';
 import CloudDebugModal from './CloudDebugModal';
 import ColorPickerModal from './ColorPickerModal';
+import GradientPickerModal from './GradientPickerModal';
 
 interface MenuPanelProps {
   isOpen: boolean;
@@ -14,7 +15,18 @@ interface MenuPanelProps {
   onNavigate: (page: Page) => void;
 }
 
-const THEME_GROUPS = [
+interface ThemeColor {
+    hex: string;
+    name: string;
+    gradient?: string; // Optional gradient override for header
+}
+
+interface ThemeGroup {
+    name: string;
+    colors: ThemeColor[];
+}
+
+const THEME_GROUPS: ThemeGroup[] = [
     {
         name: 'Business',
         colors: [
@@ -43,6 +55,21 @@ const THEME_GROUPS = [
         ]
     },
     {
+        name: 'Gradients',
+        colors: [
+            { hex: '#0d9488', name: 'Oceanic', gradient: 'linear-gradient(135deg, #0d9488 0%, #2563eb 100%)' },
+            { hex: '#e11d48', name: 'Sunset', gradient: 'linear-gradient(135deg, #f59e0b 0%, #e11d48 100%)' },
+            { hex: '#db2777', name: 'Berry', gradient: 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)' },
+            { hex: '#6366f1', name: 'Royal', gradient: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' },
+            { hex: '#334155', name: 'Midnight', gradient: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)' },
+            { hex: '#10b981', name: 'Aurora', gradient: 'linear-gradient(135deg, #10b981 0%, #3b82f6 100%)' },
+            { hex: '#8b5cf6', name: 'Nebula', gradient: 'linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%)' },
+            { hex: '#f97316', name: 'Solar', gradient: 'linear-gradient(135deg, #f97316 0%, #dc2626 100%)' },
+            { hex: '#15803d', name: 'Forest', gradient: 'linear-gradient(135deg, #15803d 0%, #0f766e 100%)' },
+            { hex: '#475569', name: 'Slate', gradient: 'linear-gradient(135deg, #64748b 0%, #0f172a 100%)' },
+        ]
+    },
+    {
         name: 'Dark',
         colors: [
             { hex: '#475569', name: 'Slate' },
@@ -67,6 +94,7 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
     const [isAuditOpen, setIsAuditOpen] = useState(false);
     const [isCloudDebugOpen, setIsCloudDebugOpen] = useState(false);
     const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
+    const [isGradientPickerOpen, setIsGradientPickerOpen] = useState(false);
 
     const setTheme = (mode: 'light' | 'dark') => {
         dispatch({ type: 'SET_THEME', payload: mode });
@@ -74,10 +102,17 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
 
     const resetTheme = () => {
         dispatch({ type: 'SET_THEME_COLOR', payload: '#0d9488' });
+        dispatch({ type: 'SET_THEME_GRADIENT', payload: '' }); // Reset to solid
         dispatch({ type: 'SET_THEME', payload: 'light' });
     };
 
-    if (!isOpen && !isAuditOpen && !isCloudDebugOpen && !isColorPickerOpen) return null;
+    const handleColorSelect = (color: ThemeColor) => {
+        dispatch({ type: 'SET_THEME_COLOR', payload: color.hex });
+        // If the selected theme has a gradient, apply it. Otherwise, clear it (solid mode).
+        dispatch({ type: 'SET_THEME_GRADIENT', payload: color.gradient || '' });
+    };
+
+    if (!isOpen && !isAuditOpen && !isCloudDebugOpen && !isColorPickerOpen && !isGradientPickerOpen) return null;
 
     return (
         <>
@@ -87,7 +122,19 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
             isOpen={isColorPickerOpen} 
             onClose={() => setIsColorPickerOpen(false)}
             initialColor={state.themeColor}
-            onChange={(color) => dispatch({ type: 'SET_THEME_COLOR', payload: color })}
+            onChange={(color) => {
+                dispatch({ type: 'SET_THEME_COLOR', payload: color });
+                dispatch({ type: 'SET_THEME_GRADIENT', payload: '' }); // Custom color is always solid
+            }}
+        />
+        <GradientPickerModal
+            isOpen={isGradientPickerOpen}
+            onClose={() => setIsGradientPickerOpen(false)}
+            initialStartColor={state.themeColor}
+            onChange={(gradient, startColor) => {
+                dispatch({ type: 'SET_THEME_COLOR', payload: startColor });
+                dispatch({ type: 'SET_THEME_GRADIENT', payload: gradient });
+            }}
         />
         
         {isOpen && (
@@ -172,17 +219,21 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                                 <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 mb-1.5 pl-1">{group.name}</p>
                                 <div className="flex flex-wrap gap-2">
                                     {group.colors.map((t) => {
-                                        const isSelected = state.themeColor.toLowerCase() === t.hex.toLowerCase();
+                                        // Check match: Same hex AND same gradient state
+                                        const isHexMatch = state.themeColor.toLowerCase() === t.hex.toLowerCase();
+                                        const isGradientMatch = (state.themeGradient || '') === (t.gradient || '');
+                                        const isSelected = isHexMatch && isGradientMatch;
+
                                         return (
                                             <button
-                                                key={t.hex}
-                                                onClick={() => dispatch({ type: 'SET_THEME_COLOR', payload: t.hex })}
+                                                key={t.name}
+                                                onClick={() => handleColorSelect(t)}
                                                 className={`w-8 h-8 rounded-full flex items-center justify-center transition-all hover:scale-110 ${
                                                     isSelected 
                                                     ? 'ring-2 ring-offset-2 ring-gray-400 dark:ring-gray-500 scale-110 shadow-sm' 
                                                     : 'border border-gray-200 dark:border-slate-600 opacity-80 hover:opacity-100'
                                                 }`}
-                                                style={{ backgroundColor: t.hex }}
+                                                style={{ background: t.gradient || t.hex }}
                                                 title={t.name}
                                             >
                                                 {isSelected && (
@@ -208,6 +259,14 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                              >
                                 <div className="w-full h-9 rounded-lg bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 flex items-center justify-center text-white text-xs font-bold shadow-sm group-hover:shadow-md transition-all border border-white/20 hover:scale-[1.02]">
                                     Custom Color
+                                </div>
+                            </div>
+                            <div 
+                                className="relative group cursor-pointer flex-1"
+                                onClick={() => { onClose(); setIsGradientPickerOpen(true); }}
+                             >
+                                <div className="w-full h-9 rounded-lg bg-gradient-to-r from-teal-400 via-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold shadow-sm group-hover:shadow-md transition-all border border-white/20 hover:scale-[1.02]">
+                                    Custom Gradient
                                 </div>
                             </div>
                             <button 

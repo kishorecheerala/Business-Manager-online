@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Plus, X, UserPlus, ShoppingCart, PackagePlus, Undo2 } from 'lucide-react';
 import { Page } from '../types';
@@ -143,7 +142,7 @@ const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({ onNavigate 
                 ))}
             </div>
 
-            {/* Main FAB - Smaller Size w-12 h-12 */}
+            {/* Main FAB - Uses bg-theme for dynamic gradient */}
             <button
                 onMouseDown={handleTouchStart}
                 onMouseMove={handleTouchMove}
@@ -152,7 +151,7 @@ const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({ onNavigate 
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
                 onClick={handleClick}
-                className="bg-primary text-white w-12 h-12 rounded-full flex items-center justify-center shadow-xl transform active:scale-95 transition-transform relative overflow-hidden"
+                className="bg-theme text-white w-12 h-12 rounded-full flex items-center justify-center shadow-xl transform active:scale-95 transition-transform relative overflow-hidden"
                 aria-expanded={isOpen}
                 aria-label="Open quick actions menu"
             >

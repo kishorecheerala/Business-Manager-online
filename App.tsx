@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Home, Users, ShoppingCart, Package, FileText, Undo2, Boxes, Search, HelpCircle, Bell, Menu, Plus, UserPlus, PackagePlus, Download, X, Sun, Moon, Cloud, CloudOff, RefreshCw, Sparkles, BarChart2 } from 'lucide-react';
 
@@ -132,7 +131,7 @@ const MainApp: React.FC = () => {
   const [navConfirm, setNavConfirm] = useState<{ show: boolean, page: Page | null }>({ show: false, page: null });
 
   const { state, dispatch, isDbLoaded } = useAppContext();
-  const { installPromptEvent, theme, themeColor } = state;
+  const { installPromptEvent, theme, themeColor, themeGradient } = state;
   const [isInstallBannerVisible, setIsInstallBannerVisible] = useState(true);
 
   const menuRef = useRef<HTMLDivElement>(null);
@@ -159,12 +158,13 @@ const MainApp: React.FC = () => {
 
   // Apply dynamic theme color with Adaptive Lightening for Dark Mode
   useEffect(() => {
+      let r=0, g=0, b=0;
       if (themeColor) {
           // Convert Hex to RGB
           const hex = themeColor.replace('#', '');
-          let r = parseInt(hex.substring(0, 2), 16);
-          let g = parseInt(hex.substring(2, 4), 16);
-          let b = parseInt(hex.substring(4, 6), 16);
+          r = parseInt(hex.substring(0, 2), 16);
+          g = parseInt(hex.substring(2, 4), 16);
+          b = parseInt(hex.substring(4, 6), 16);
           
           // If in dark mode, we might need to lighten the primary color if it's too dark
           // to ensure visibility of text/icons against dark backgrounds.
@@ -183,7 +183,18 @@ const MainApp: React.FC = () => {
           document.documentElement.style.setProperty('--primary-color', `${r} ${g} ${b}`);
           localStorage.setItem('themeColor', themeColor);
       }
-  }, [themeColor, theme]);
+
+      // Apply gradient or solid fallback
+      if (themeGradient) {
+          document.documentElement.style.setProperty('--header-bg', themeGradient);
+          localStorage.setItem('themeGradient', themeGradient);
+      } else {
+          // Fallback to current primary solid color
+          document.documentElement.style.setProperty('--header-bg', `rgb(${r} ${g} ${b})`);
+          localStorage.removeItem('themeGradient');
+      }
+
+  }, [themeColor, theme, themeGradient]);
   
   const handleInstallClick = async () => {
     if (!installPromptEvent) return;
@@ -243,8 +254,8 @@ const MainApp: React.FC = () => {
       <ConfirmationModal isOpen={navConfirm.show} onClose={() => setNavConfirm({ show: false, page: null })} onConfirm={() => { if (navConfirm.page) { setIsDirty(false); _setCurrentPage(navConfirm.page); } setNavConfirm({ show: false, page: null }); }} title="Unsaved Changes">You have unsaved changes. Leave anyway?</ConfirmationModal>
       <FloatingActionButton onNavigate={(page, action) => { dispatch({ type: 'SET_SELECTION', payload: { page, id: action || 'new' } }); _setCurrentPage(page); }} />
       
-      {/* Dynamic Theme Header */}
-      <header className="bg-primary text-white shadow-lg p-3 px-4 flex items-center justify-between relative z-[60] sticky top-0">
+      {/* Dynamic Theme Header - Using bg-theme class which uses CSS variable */}
+      <header className="bg-theme text-white shadow-lg p-3 px-4 flex items-center justify-between relative z-[60] sticky top-0">
           <div className="flex items-center gap-1">
             <div className="relative" ref={menuRef}>
               <button onClick={() => setIsMenuOpen(prev => !prev)} className="p-2 rounded-full hover:bg-white/20 transition-all active:scale-95">

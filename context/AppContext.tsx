@@ -1,4 +1,3 @@
-
 import React, { createContext, useReducer, useContext, useEffect, ReactNode, useState, useRef } from 'react';
 import { Customer, Supplier, Product, Sale, Purchase, Return, Payment, BeforeInstallPromptEvent, Notification, ProfileData, Page, AppMetadata, AppMetadataPin, Theme, GoogleUser, AuditLogEntry, SyncStatus } from '../types';
 import * as db from '../utils/db';
@@ -27,7 +26,8 @@ export interface AppState {
   installPromptEvent: BeforeInstallPromptEvent | null;
   pin: string | null;
   theme: Theme;
-  themeColor: string; // Added property
+  themeColor: string;
+  themeGradient: string; // Added property for gradient support
   googleUser: GoogleUser | null;
   syncStatus: SyncStatus;
   lastSyncTime: number | null;
@@ -38,7 +38,8 @@ export interface AppState {
 type Action =
   | { type: 'SET_STATE'; payload: Partial<AppState> }
   | { type: 'SET_THEME'; payload: Theme }
-  | { type: 'SET_THEME_COLOR'; payload: string } // Added action
+  | { type: 'SET_THEME_COLOR'; payload: string }
+  | { type: 'SET_THEME_GRADIENT'; payload: string } // Added action
   | { type: 'SET_NOTIFICATIONS'; payload: Notification[] }
   | { type: 'SET_PROFILE'; payload: ProfileData | null }
   | { type: 'SET_PIN'; payload: string }
@@ -97,6 +98,10 @@ const getInitialThemeColor = (): string => {
     return localStorage.getItem('themeColor') || '#0d9488';
 };
 
+const getInitialThemeGradient = (): string => {
+    return localStorage.getItem('themeGradient') || '';
+};
+
 const getInitialGoogleUser = (): GoogleUser | null => {
   try {
     const stored = localStorage.getItem('googleUser');
@@ -135,6 +140,7 @@ const initialState: AppState = {
   pin: null,
   theme: getInitialTheme(),
   themeColor: getInitialThemeColor(),
+  themeGradient: getInitialThemeGradient(),
   googleUser: getInitialGoogleUser(),
   syncStatus: 'idle',
   lastSyncTime: getInitialSyncTime(),
@@ -150,8 +156,10 @@ const appReducer = (state: AppState, action: Action): AppState => {
         return { ...state, theme: action.payload };
     case 'SET_THEME_COLOR':
         return { ...state, themeColor: action.payload };
+    case 'SET_THEME_GRADIENT':
+        return { ...state, themeGradient: action.payload };
     case 'RESET_APP':
-        return { ...initialState, theme: state.theme, themeColor: state.themeColor, installPromptEvent: state.installPromptEvent };
+        return { ...initialState, theme: state.theme, themeColor: state.themeColor, themeGradient: state.themeGradient, installPromptEvent: state.installPromptEvent };
     case 'REPLACE_COLLECTION':
         return { ...state, [action.payload.storeName]: action.payload.data, ...touch };
     case 'SET_NOTIFICATIONS':

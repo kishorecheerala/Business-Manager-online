@@ -59,21 +59,21 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ isOpen, onClose, on
     const formContent = (
         <div className="space-y-6">
             {/* ID Section */}
-            <div className="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-xl border border-indigo-100 dark:border-indigo-800/50">
-                <label className="block text-xs font-bold uppercase text-indigo-600 dark:text-indigo-400 mb-1.5 tracking-wide">Unique ID</label>
+            <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 ml-1">Unique ID</label>
                 {isEditMode ? (
-                        <div className="w-full p-2 bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-700 rounded-lg text-gray-600 dark:text-gray-300 font-mono font-bold">
+                        <div className="w-full p-3 bg-gray-100 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-xl text-gray-600 dark:text-gray-300 font-mono font-bold">
                         {formData.id}
                         </div>
                 ) : (
-                    <div className="flex items-center shadow-sm">
-                        <span className="bg-white dark:bg-slate-800 border border-r-0 border-indigo-200 dark:border-indigo-700 px-3 py-2.5 rounded-l-lg text-sm text-gray-500 font-mono border-r">SUPP-</span>
+                    <div className="flex items-center">
+                        <span className="bg-gray-100 dark:bg-slate-700/50 border border-r-0 border-gray-200 dark:border-slate-600 px-3 py-3 rounded-l-xl text-sm text-gray-500 font-mono">SUPP-</span>
                         <input 
                             type="text" 
                             placeholder="unique id" 
                             value={formData.id} 
                             onChange={e => handleChange('id', e.target.value)}
-                            className="w-full p-2.5 border border-indigo-200 dark:border-indigo-700 rounded-r-lg dark:bg-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-mono" 
+                            className="w-full p-3 bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-r-xl focus:ring-2 focus:ring-primary outline-none transition-all font-mono dark:text-white" 
                             autoFocus={!isEditMode}
                         />
                     </div>

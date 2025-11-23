@@ -645,13 +645,14 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
                         )}
                     </div>
                     {mode === 'add' && (
-                        <button 
+                        <Button 
                             onClick={() => setIsAddingSupplier(true)} 
-                            className="p-3.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl shadow-md hover:shadow-lg active:scale-95 transition-all flex-shrink-0"
+                            variant="secondary"
+                            className="p-2 flex-shrink-0 h-12 w-12 flex items-center justify-center"
                             aria-label="Add New Supplier"
                         >
-                            <Plus size={24} strokeWidth={2.5} />
-                        </button>
+                            <Plus size={24} strokeWidth={3} />
+                        </Button>
                     )}
                 </div>
             </div>
