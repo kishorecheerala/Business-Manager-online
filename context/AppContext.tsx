@@ -29,8 +29,9 @@ export interface AppState {
   theme: Theme;
   googleUser: GoogleUser | null;
   syncStatus: SyncStatus;
+  lastSyncTime: number | null; // Added property
   lastLocalUpdate: number;
-  restoreFromFileId?: (fileId: string) => Promise<void>; // Added for debug modal access
+  restoreFromFileId?: (fileId: string) => Promise<void>;
 }
 
 type Action =
@@ -71,6 +72,7 @@ type Action =
   | { type: 'REPLACE_COLLECTION'; payload: { storeName: StoreName, data: any[] } }
   | { type: 'SET_GOOGLE_USER'; payload: GoogleUser | null }
   | { type: 'SET_SYNC_STATUS'; payload: SyncStatus }
+  | { type: 'SET_LAST_SYNC_TIME'; payload: number }
   | { type: 'ADD_AUDIT_LOG'; payload: AuditLogEntry }
   | { type: 'RESET_APP' };
 
@@ -80,7 +82,6 @@ const getInitialTheme = (): Theme => {
     const savedTheme = localStorage.getItem('theme') as Theme | null;
     if (savedTheme) return savedTheme;
     
-    // Fallback to system preference
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
         return 'dark';
     }
@@ -102,6 +103,15 @@ const getInitialGoogleUser = (): GoogleUser | null => {
   return null;
 };
 
+const getInitialSyncTime = (): number | null => {
+    try {
+        const stored = localStorage.getItem('lastSyncTime');
+        return stored ? parseInt(stored) : null;
+    } catch (e) {
+        return null;
+    }
+};
+
 const initialState: AppState = {
   customers: [],
   suppliers: [],
@@ -120,6 +130,7 @@ const initialState: AppState = {
   theme: getInitialTheme(),
   googleUser: getInitialGoogleUser(),
   syncStatus: 'idle',
+  lastSyncTime: getInitialSyncTime(),
   lastLocalUpdate: 0,
 };
 
@@ -347,6 +358,8 @@ const appReducer = (state: AppState, action: Action): AppState => {
       return { ...state, googleUser: action.payload };
     case 'SET_SYNC_STATUS':
       return { ...state, syncStatus: action.payload };
+    case 'SET_LAST_SYNC_TIME':
+      return { ...state, lastSyncTime: action.payload };
     case 'ADD_AUDIT_LOG':
       return { ...state, audit_logs: [action.payload, ...state.audit_logs] };
     default:
@@ -525,6 +538,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
         
         dispatch({ type: 'SET_SYNC_STATUS', payload: 'success' });
+        dispatch({ type: 'SET_LAST_SYNC_TIME', payload: Date.now() });
 
     } catch (e: any) {
         console.error("Sync failed", e);
@@ -550,6 +564,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               await performRestore(data, state.googleUser.accessToken);
               // Update cache to point to this file for future
               localStorage.setItem('gdrive_file_id', fileId);
+              dispatch({ type: 'SET_LAST_SYNC_TIME', payload: Date.now() });
           } else {
               showToast("File was empty.", 'info');
           }
@@ -593,6 +608,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.removeItem('googleUser');
     localStorage.removeItem('gdrive_folder_id'); // Clear sync cache
     localStorage.removeItem('gdrive_file_id');
+    localStorage.removeItem('lastSyncTime');
     dispatch({ type: 'SET_GOOGLE_USER', payload: null });
     dispatch({ type: 'SET_SYNC_STATUS', payload: 'idle' });
     showToast("Signed out. Local data cleared.");
@@ -688,6 +704,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   useEffect(() => { if (isDbLoaded) db.saveCollection('notifications', state.notifications); }, [state.notifications, isDbLoaded]);
   useEffect(() => { if (isDbLoaded && state.profile) db.saveCollection('profile', [state.profile]); }, [state.profile, isDbLoaded]);
   useEffect(() => { if (isDbLoaded) db.saveCollection('audit_logs', state.audit_logs); }, [state.audit_logs, isDbLoaded]);
+  
+  useEffect(() => { 
+      if (state.lastSyncTime) {
+          localStorage.setItem('lastSyncTime', state.lastSyncTime.toString());
+      }
+  }, [state.lastSyncTime]);
 
   const showToast = (message: string, type: 'success' | 'info' = 'success') => {
     dispatch({ type: 'SHOW_TOAST', payload: { message, type } });

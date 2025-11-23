@@ -100,6 +100,7 @@ const QuickAddMenu: React.FC<{
 };
 
 const SyncIndicator: React.FC<{ status: SyncStatus, user: any }> = ({ status, user }) => {
+    // Keep this as a visual icon summary on the right
     if (!user) return <CloudOff className="w-5 h-5 text-teal-200 opacity-60" />;
     
     if (status === 'syncing') return <RefreshCw className="w-5 h-5 text-white animate-spin" />;
@@ -107,6 +108,12 @@ const SyncIndicator: React.FC<{ status: SyncStatus, user: any }> = ({ status, us
     
     return <Cloud className="w-5 h-5 text-white" />;
 };
+
+const formatTime = (timestamp: number | null) => {
+    if (!timestamp) return "";
+    const date = new Date(timestamp);
+    return `Synced ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+}
 
 const MainApp: React.FC = () => {
   const [currentPage, _setCurrentPage] = useState<Page>(
@@ -224,9 +231,31 @@ const MainApp: React.FC = () => {
             </button>
           </div>
           
-          <button onClick={() => setCurrentPage('DASHBOARD')} className="flex flex-col items-center justify-center min-w-0 mx-2">
-            <h1 className="text-lg font-bold text-center truncate w-32 sm:w-auto leading-tight drop-shadow-md">{state.profile?.name || 'Business Manager'}</h1>
-            {state.googleUser && <span className='text-[10px] font-medium bg-white/20 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm'><div className='w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_5px_rgba(74,222,128,0.8)]'></div>{state.googleUser.name.split(' ')[0]}</span>}
+          <button onClick={() => setCurrentPage('DASHBOARD')} className="flex flex-col items-center justify-center min-w-0 mx-2 text-center">
+            <h1 className="text-lg font-bold leading-tight truncate max-w-[200px] drop-shadow-md">{state.profile?.name || 'Business Manager'}</h1>
+            <div className="text-[10px] font-medium flex items-center gap-1 mt-0.5">
+                {state.googleUser ? (
+                   <>
+                     <span className="opacity-90 truncate max-w-[120px]">{state.googleUser.name}</span>
+                     <span className="opacity-50">•</span>
+                     {state.syncStatus === 'error' ? (
+                        <span className="text-red-200 flex items-center gap-0.5 animate-pulse font-bold">
+                           <CloudOff size={10} /> Sync Error
+                        </span>
+                     ) : state.syncStatus === 'syncing' ? (
+                        <span className="flex items-center gap-0.5 opacity-90">
+                           <RefreshCw size={10} className="animate-spin"/> Syncing...
+                        </span>
+                     ) : (
+                        <span className="opacity-75">
+                           {formatTime(state.lastSyncTime)}
+                        </span>
+                     )}
+                   </>
+                ) : (
+                   <span className="opacity-70 italic">Local Mode (Not Backed Up)</span>
+                )}
+            </div>
           </button>
 
           <div className="flex items-center gap-1">
