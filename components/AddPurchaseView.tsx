@@ -7,8 +7,9 @@ import Button from './Button';
 import { Html5Qrcode } from 'html5-qrcode';
 import DeleteButton from './DeleteButton';
 import QuantityInputModal from './QuantityInputModal';
-import Dropdown, { DropdownOption } from './Dropdown';
+import Dropdown from './Dropdown';
 import AddSupplierModal from './AddSupplierModal';
+import { useOnClickOutside } from '../hooks/useOnClickOutside';
 
 const getLocalDateString = (date = new Date()) => {
   const year = date.getFullYear();
@@ -207,6 +208,15 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
   
   const [csvStatus, setCsvStatus] = useState<{ type: 'info' | 'success' | 'error', message: string } | null>(null);
 
+  // Custom Dropdown State
+  const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
+  const [supplierSearchTerm, setSupplierSearchTerm] = useState('');
+  const supplierDropdownRef = useRef<HTMLDivElement>(null);
+
+  useOnClickOutside(supplierDropdownRef, () => {
+      if (isSupplierDropdownOpen) setIsSupplierDropdownOpen(false);
+  });
+
   const isDirtyRef = useRef(false);
   
   // Initialize discount when editing based on total discrepancy if any
@@ -258,12 +268,15 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
     }
   }, [supplierId, items, discount, setIsDirty]);
 
-  const supplierOptions = useMemo((): DropdownOption[] => 
-    suppliers
-        .sort((a,b) => a.name.localeCompare(b.name))
-        .map(s => ({ value: s.id, label: s.name })),
-    [suppliers]
-  );
+  const selectedSupplier = useMemo(() => suppliers.find(s => s.id === supplierId), [suppliers, supplierId]);
+
+  const filteredSuppliers = useMemo(() => 
+      suppliers.filter(s => 
+          s.name.toLowerCase().includes(supplierSearchTerm.toLowerCase()) || 
+          s.location.toLowerCase().includes(supplierSearchTerm.toLowerCase()) ||
+          s.phone.includes(supplierSearchTerm)
+      ).sort((a,b) => a.name.localeCompare(b.name)),
+  [suppliers, supplierSearchTerm]);
   
   const handleItemUpdate = (productId: string, field: keyof PurchaseItem, value: string | number) => {
     setItems(items.map(item => item.productId === productId ? { ...item, [field]: value } : item));
@@ -449,27 +462,83 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
       {isExistingProductModalOpen && <ProductSearchModal isOpen={isExistingProductModalOpen} onClose={() => setIsExistingProductModalOpen(false)} onSelect={handleSelectExistingProduct} products={products} />}
       {isQtyModalOpen && <QuantityInputModal isOpen={isQtyModalOpen} onClose={() => { setIsQtyModalOpen(false); setProductForQty(null); }} onSubmit={handleQtySubmit} product={productForQty} />}
       
-      {isAddingSupplier && <AddSupplierModal isOpen={isAddingSupplier} onClose={() => setIsAddingSupplier(false)} onAdd={handleAddSupplier} existingSuppliers={suppliers} />}
+      {isAddingSupplier && <AddSupplierModal isOpen={isAddingSupplier} onClose={() => setIsAddingSupplier(false)} onSave={handleAddSupplier} existingSuppliers={suppliers} />}
 
       <Button onClick={onBack}>&larr; Back</Button>
       <Card title={mode === 'add' ? 'Create New Purchase' : `Edit Purchase ${initialData?.id}`}>
         <div className="space-y-4">
-            <div className="flex gap-2 items-center">
-                <Dropdown 
-                    options={supplierOptions}
-                    value={supplierId}
-                    onChange={setSupplierId}
-                    placeholder="Select a Supplier"
-                    disabled={mode === 'edit'}
-                />
-                {mode === 'add' && (
-                    <Button onClick={() => setIsAddingSupplier(true)} variant="secondary" className="flex-shrink-0">
-                        <Plus size={16}/> New Supplier
-                    </Button>
-                )}
+            
+            {/* Enhanced Supplier Selection */}
+            <div>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1.5">Select Supplier</label>
+                <div className="flex gap-3 items-center">
+                    <div className="relative w-full" ref={supplierDropdownRef}>
+                        <div 
+                            onClick={() => !((mode === 'edit')) && setIsSupplierDropdownOpen(!isSupplierDropdownOpen)}
+                            className={`w-full p-3 pl-4 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl flex items-center justify-between shadow-sm transition-all ${mode === 'edit' ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:border-indigo-400'}`}
+                        >
+                            <span className={selectedSupplier ? 'text-gray-800 dark:text-white font-semibold' : 'text-gray-400'}>
+                                {selectedSupplier ? `${selectedSupplier.name} - ${selectedSupplier.location}` : 'Search or Select Supplier'}
+                            </span>
+                            <Search className="w-5 h-5 text-gray-400" />
+                        </div>
+
+                        {isSupplierDropdownOpen && (
+                            <div className="absolute top-full left-0 w-full mt-1 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-gray-100 dark:border-slate-700 z-40 animate-scale-in origin-top overflow-hidden">
+                                <div className="p-2 border-b dark:border-slate-700 bg-gray-50 dark:bg-slate-800">
+                                    <input
+                                        type="text"
+                                        placeholder="Search by name, location, phone..."
+                                        value={supplierSearchTerm}
+                                        onChange={e => setSupplierSearchTerm(e.target.value)}
+                                        className="w-full p-2.5 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white"
+                                        autoFocus
+                                    />
+                                </div>
+                                <ul className="max-h-60 overflow-y-auto" role="listbox">
+                                    {filteredSuppliers.map(s => (
+                                        <li
+                                            key={s.id}
+                                            onClick={() => {
+                                                setSupplierId(s.id);
+                                                setIsSupplierDropdownOpen(false);
+                                                setSupplierSearchTerm('');
+                                            }}
+                                            className="px-4 py-3 hover:bg-indigo-50 dark:hover:bg-slate-800 cursor-pointer border-b border-gray-50 dark:border-slate-800 last:border-0 transition-colors"
+                                        >
+                                            <div className="font-semibold text-gray-800 dark:text-gray-200">{s.name}</div>
+                                            <div className="text-xs text-gray-500">{s.location} • {s.phone}</div>
+                                        </li>
+                                    ))}
+                                    {filteredSuppliers.length === 0 && (
+                                        <li className="px-4 py-4 text-center text-gray-400 text-sm">No suppliers found.</li>
+                                    )}
+                                </ul>
+                            </div>
+                        )}
+                    </div>
+                    {mode === 'add' && (
+                        <button 
+                            onClick={() => setIsAddingSupplier(true)} 
+                            className="p-3.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl shadow-md hover:shadow-lg active:scale-95 transition-all flex-shrink-0"
+                            aria-label="Add New Supplier"
+                        >
+                            <Plus size={24} strokeWidth={2.5} />
+                        </button>
+                    )}
+                </div>
             </div>
-          <input type="date" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
-          <input type="text" placeholder="Supplier Invoice ID (Optional)" value={supplierInvoiceId} onChange={e => setSupplierInvoiceId(e.target.value)} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Purchase Date</label>
+                    <input type="date" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Supplier Invoice ID (Optional)</label>
+                    <input type="text" placeholder="Enter Invoice No." value={supplierInvoiceId} onChange={e => setSupplierInvoiceId(e.target.value)} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
+                </div>
+            </div>
         </div>
       </Card>
 

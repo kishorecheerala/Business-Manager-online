@@ -28,16 +28,12 @@ interface PurchasesPageProps {
 
 const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPage }) => {
     const { state, dispatch, showToast } = useAppContext();
-    const [view, setView] = useState<'list' | 'add_purchase' | 'edit_purchase'>('list');
+    const [view, setView] = useState<'list' | 'add_purchase' | 'edit_purchase' | 'add_supplier' | 'edit_supplier'>('list');
     const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [purchaseToEdit, setPurchaseToEdit] = useState<Purchase | null>(null);
     const [activePurchaseId, setActivePurchaseId] = useState<string | null>(null);
 
-    const [isAddSupplierModalOpen, setIsAddSupplierModalOpen] = useState(false);
-    
-    const [isEditing, setIsEditing] = useState(false);
-    const [editedSupplier, setEditedSupplier] = useState<Supplier | null>(null);
     const [paymentModalState, setPaymentModalState] = useState<{ isOpen: boolean, purchaseId: string | null }>({ isOpen: false, purchaseId: null });
     const [paymentDetails, setPaymentDetails] = useState({ amount: '', method: 'CASH' as 'CASH' | 'UPI' | 'CHEQUE', date: getLocalDateString(), reference: '' });
     const [confirmModalState, setConfirmModalState] = useState<{ isOpen: boolean, purchaseIdToDelete: string | null }>({ isOpen: false, purchaseIdToDelete: null });
@@ -66,13 +62,15 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
     }, [state.selection, state.suppliers, dispatch]);
     
     useEffect(() => {
-        const detailViewDirty = !!(selectedSupplier && (isEditing || editingScheduleId));
-        const currentlyDirty = detailViewDirty;
+        const detailViewDirty = !!(selectedSupplier && (editingScheduleId));
+        // Also consider add_supplier/edit_supplier dirty states implicitly handled by form components
+        // but we track basic view switching here
+        const currentlyDirty = detailViewDirty || view === 'add_supplier' || view === 'edit_supplier';
         if (currentlyDirty !== isDirtyRef.current) {
             isDirtyRef.current = currentlyDirty;
             setIsDirty(currentlyDirty);
         }
-    }, [view, selectedSupplier, isEditing, editingScheduleId, setIsDirty]);
+    }, [view, selectedSupplier, editingScheduleId, setIsDirty]);
 
     useEffect(() => {
         return () => {
@@ -91,26 +89,21 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
 
     useEffect(() => {
         if (selectedSupplier) {
-            setEditedSupplier(selectedSupplier);
             setActivePurchaseId(null);
         }
-        setIsEditing(false);
     }, [selectedSupplier]);
     
     const handleAddSupplier = (newSupplier: Supplier) => {
         dispatch({ type: 'ADD_SUPPLIER', payload: newSupplier });
         showToast("Supplier added successfully!");
-        setIsAddSupplierModalOpen(false);
+        setView('list');
     };
     
-    const handleUpdateSupplier = () => {
-        if (editedSupplier) {
-            if (window.confirm('Save changes to this supplier?')) {
-                dispatch({ type: 'UPDATE_SUPPLIER', payload: editedSupplier });
-                showToast("Supplier details updated.");
-                setIsEditing(false);
-            }
-        }
+    const handleUpdateSupplier = (updatedSupplier: Supplier) => {
+        dispatch({ type: 'UPDATE_SUPPLIER', payload: updatedSupplier });
+        showToast("Supplier details updated.");
+        setSelectedSupplier(updatedSupplier);
+        setView('list');
     };
     
     const handleAddPayment = () => {
@@ -207,7 +200,7 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
 
     const renderContent = () => {
         if (view === 'add_purchase' || view === 'edit_purchase') {
-        return (
+            return (
                 <PurchaseForm
                     mode={view === 'add_purchase' ? 'add' : 'edit'}
                     initialData={purchaseToEdit}
@@ -221,6 +214,37 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
                 />
             );
         }
+
+        if (view === 'add_supplier') {
+            return (
+                <div className="space-y-4 animate-fade-in-fast">
+                    <Button onClick={() => setView('list')} variant="secondary">&larr; Back to List</Button>
+                    <AddSupplierModal 
+                        isOpen={true} 
+                        onClose={() => setView('list')} 
+                        onSave={handleAddSupplier} 
+                        existingSuppliers={state.suppliers}
+                        inline={true}
+                    />
+                </div>
+            );
+        }
+
+        if (view === 'edit_supplier' && selectedSupplier) {
+            return (
+                <div className="space-y-4 animate-fade-in-fast">
+                    <Button onClick={() => setView('list')} variant="secondary">&larr; Back to Details</Button>
+                    <AddSupplierModal 
+                        isOpen={true} 
+                        onClose={() => setView('list')}
+                        onSave={handleUpdateSupplier} 
+                        existingSuppliers={state.suppliers}
+                        initialData={selectedSupplier}
+                        inline={true}
+                    />
+                </div>
+            );
+        }
         
         if (selectedSupplier) {
             const supplierPurchases = state.purchases.filter(p => p.supplierId === selectedSupplier.id);
@@ -230,12 +254,6 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
             const selectedPurchasePaid = selectedPurchase ? (selectedPurchase.payments || []).reduce((sum, p) => sum + Number(p.amount), 0) : 0;
             const selectedPurchaseDue = selectedPurchase ? Number(selectedPurchase.totalAmount) - selectedPurchasePaid : 0;
 
-            const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-                if (editedSupplier) {
-                    setEditedSupplier({ ...editedSupplier, [e.target.name]: e.target.value });
-                }
-            };
-            
             const handleEditScheduleClick = (purchase: Purchase) => {
                 setEditingScheduleId(purchase.id);
                 setTempDueDates(purchase.paymentDueDates || []);
@@ -292,38 +310,18 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
                     <Card className="animate-slide-up-fade">
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="text-lg font-bold text-primary">Supplier Details: {selectedSupplier.name}</h2>
-                            {isEditing ? (
-                                <div className="flex gap-2 items-center">
-                                    <Button onClick={handleUpdateSupplier} className="h-9 px-3"><Save size={16} /> Save</Button>
-                                    <button onClick={() => setIsEditing(false)} className="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"><X size={20}/></button>
-                                </div>
-                            ) : (
-                                <Button onClick={() => setIsEditing(true)}><Edit size={16}/> Edit</Button>
-                            )}
+                            <Button onClick={() => setView('edit_supplier')} variant="secondary" className="h-9 px-3"><Edit size={16} className="mr-2"/> Edit</Button>
                         </div>
-                        {isEditing && editedSupplier ? (
-                            <div className="space-y-3">
-                                <div><label className="text-sm font-medium">Name</label><input type="text" name="name" value={editedSupplier.name} onChange={handleInputChange} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" /></div>
-                                <div><label className="text-sm font-medium">Phone</label><input type="text" name="phone" value={editedSupplier.phone} onChange={handleInputChange} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" /></div>
-                                <div><label className="text-sm font-medium">Location</label><input type="text" name="location" value={editedSupplier.location} onChange={handleInputChange} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" /></div>
-                                <div><label className="text-sm font-medium">GST Number</label><input type="text" name="gstNumber" value={editedSupplier.gstNumber || ''} onChange={handleInputChange} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" /></div>
-                                <div><label className="text-sm font-medium">Reference</label><input type="text" name="reference" value={editedSupplier.reference || ''} onChange={handleInputChange} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" /></div>
-                                <div><label className="text-sm font-medium">Account 1</label><input type="text" name="account1" value={editedSupplier.account1 || ''} onChange={handleInputChange} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" /></div>
-                                <div><label className="text-sm font-medium">Account 2</label><input type="text" name="account2" value={editedSupplier.account2 || ''} onChange={handleInputChange} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" /></div>
-                                <div><label className="text-sm font-medium">UPI ID</label><input type="text" name="upi" value={editedSupplier.upi || ''} onChange={handleInputChange} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" /></div>
-                            </div>
-                        ) : (
-                            <div className="space-y-1 text-gray-700 dark:text-gray-300">
-                                <p><strong>ID:</strong> {selectedSupplier.id}</p>
-                                <p><strong>Phone:</strong> {selectedSupplier.phone}</p>
-                                <p><strong>Location:</strong> {selectedSupplier.location}</p>
-                                {selectedSupplier.gstNumber && <p><strong>GSTIN:</strong> {selectedSupplier.gstNumber}</p>}
-                                {selectedSupplier.reference && <p><strong>Reference:</strong> {selectedSupplier.reference}</p>}
-                                {selectedSupplier.account1 && <p><strong>Account 1:</strong> {selectedSupplier.account1}</p>}
-                                {selectedSupplier.account2 && <p><strong>Account 2:</strong> {selectedSupplier.account2}</p>}
-                                {selectedSupplier.upi && <p><strong>UPI ID:</strong> {selectedSupplier.upi}</p>}
-                            </div>
-                        )}
+                        <div className="space-y-1 text-gray-700 dark:text-gray-300">
+                            <p><strong>ID:</strong> {selectedSupplier.id}</p>
+                            <p><strong>Phone:</strong> {selectedSupplier.phone}</p>
+                            <p><strong>Location:</strong> {selectedSupplier.location}</p>
+                            {selectedSupplier.gstNumber && <p><strong>GSTIN:</strong> {selectedSupplier.gstNumber}</p>}
+                            {selectedSupplier.reference && <p><strong>Reference:</strong> {selectedSupplier.reference}</p>}
+                            {selectedSupplier.account1 && <p><strong>Account 1:</strong> {selectedSupplier.account1}</p>}
+                            {selectedSupplier.account2 && <p><strong>Account 2:</strong> {selectedSupplier.account2}</p>}
+                            {selectedSupplier.upi && <p><strong>UPI ID:</strong> {selectedSupplier.upi}</p>}
+                        </div>
                     </Card>
                     <Card title="Purchase History" className="animate-slide-up-fade" style={{ animationDelay: '100ms' }}>
                         {supplierPurchases.length > 0 ? (
@@ -531,14 +529,6 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
 
         return (
             <div className="space-y-4">
-                {isAddSupplierModalOpen && (
-                    <AddSupplierModal 
-                        isOpen={isAddSupplierModalOpen} 
-                        onClose={() => setIsAddSupplierModalOpen(false)} 
-                        onAdd={handleAddSupplier} 
-                        existingSuppliers={state.suppliers}
-                    />
-                )}
                 {isBatchBarcodeModalOpen && lastPurchase && (
                     <BatchBarcodeModal
                         isOpen={isBatchBarcodeModalOpen}
@@ -563,7 +553,7 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
                         <Plus className="w-4 h-4 mr-2" />
                         Create New Purchase
                     </Button>
-                    <Button onClick={() => setIsAddSupplierModalOpen(true)} variant="secondary" className="w-full">
+                    <Button onClick={() => setView('add_supplier')} variant="secondary" className="w-full">
                         <Plus className="w-4 h-4 mr-2" />
                         Add New Supplier
                     </Button>

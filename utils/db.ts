@@ -83,7 +83,7 @@ export async function exportData(): Promise<Omit<AppState, 'toast' | 'selection'
     return data;
 }
 
-export async function importData(data: any): Promise<void> {
+export async function importData(data: any, merge: boolean = false): Promise<void> {
     const db = await getDb();
     const tx = db.transaction(STORE_NAMES, 'readwrite');
     
@@ -91,7 +91,12 @@ export async function importData(data: any): Promise<void> {
         // Exclude notifications from the main data import
         if (storeName === 'notifications') return;
         
-        await tx.objectStore(storeName).clear();
+        // If not merging, clear the existing data first (overwrite mode)
+        // If merging, we keep existing data and overwrite only collisions
+        if (!merge) {
+            await tx.objectStore(storeName).clear();
+        }
+        
         const items = (data as any)[storeName] || [];
         for (const item of items) {
             if (item && 'id' in item) {

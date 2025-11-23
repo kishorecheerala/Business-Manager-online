@@ -430,7 +430,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
 
         // 2. Look for backup file
-        // Optimization: Use cached fileId if available
         let remoteFileId = fileId;
         if (!remoteFileId && folderId) {
              const remoteFile = await searchFile(accessToken, folderId);
@@ -439,35 +438,41 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
 
         if (remoteFileId) {
-            // Try to download
+            // Found remote file: Download, Merge, then Upload combined data
             try {
                 const remoteData = await downloadFile(accessToken, remoteFileId);
                 if (remoteData) {
-                    await db.importData(remoteData);
-                    // Fix profile sync by normalizing data structure
-                    const reloadedData = await db.exportData() as any;
+                    // MERGE: Import remote data into local DB without clearing (merge = true)
+                    await db.importData(remoteData, true);
                     
-                    if (reloadedData.profile && Array.isArray(reloadedData.profile)) {
-                        reloadedData.profile = reloadedData.profile.length > 0 ? reloadedData.profile[0] : null;
+                    // Get the merged result
+                    const mergedData = await db.exportData() as any;
+                    
+                    // Fix profile sync by normalizing data structure
+                    if (mergedData.profile && Array.isArray(mergedData.profile)) {
+                        mergedData.profile = mergedData.profile.length > 0 ? mergedData.profile[0] : null;
+                    }
+                    if (mergedData.sales) {
+                        mergedData.sales = mergedData.sales.map((s: any) => ({ ...s, payments: s.payments || [] }));
+                    }
+                    if (mergedData.purchases) {
+                        mergedData.purchases = mergedData.purchases.map((p: any) => ({ ...p, payments: p.payments || [] }));
                     }
 
-                    if (reloadedData.sales) {
-                        reloadedData.sales = reloadedData.sales.map((s: any) => ({ ...s, payments: s.payments || [] }));
-                    }
-                    if (reloadedData.purchases) {
-                        reloadedData.purchases = reloadedData.purchases.map((p: any) => ({ ...p, payments: p.payments || [] }));
-                    }
+                    // Update App State
+                    dispatch({ type: 'SET_STATE', payload: mergedData });
 
-                    dispatch({ type: 'SET_STATE', payload: reloadedData });
+                    // Upload merged data back to cloud (Push)
+                    if (folderId) {
+                        await uploadFile(accessToken, folderId, mergedData, remoteFileId);
+                    }
                 }
             } catch (e) {
-                console.warn("Failed to download with cached ID, retrying discovery", e);
-                // Clear cache and recurse/retry logic could go here, but simplest is to just fail softly for now
-                // or reset cache for next time
+                console.warn("Failed to sync with cached ID, retrying discovery", e);
                 localStorage.removeItem('gdrive_file_id');
             }
         } else if (folderId) {
-            // Upload current local data as new file
+            // No remote file: Upload current local data as new file
             const currentData = await db.exportData();
             const result = await uploadFile(accessToken, folderId, currentData);
             if (result && result.id) localStorage.setItem('gdrive_file_id', result.id);
@@ -483,49 +488,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       dispatch({ type: 'SET_SYNC_STATUS', payload: 'syncing' });
       try {
           const accessToken = state.googleUser.accessToken;
-          // Try Fast Path with Cached IDs
-          let fileId = localStorage.getItem('gdrive_file_id');
-          let folderId = localStorage.getItem('gdrive_folder_id');
-
-          if (fileId) {
-              try {
-                  const currentData = await db.exportData();
-                  // Attempt patch upload directly
-                  await uploadFile(accessToken, folderId || '', currentData, fileId);
-                  dispatch({ type: 'SET_SYNC_STATUS', payload: 'success' });
-                  showToast("Cloud Sync Complete");
-                  return; // Exit early on success
-              } catch (e) {
-                  console.warn("Fast sync failed, falling back to full discovery", e);
-                  localStorage.removeItem('gdrive_file_id'); // Clear invalid cache
-                  fileId = null;
-              }
-          }
-
-          // Full Discovery Path
-          if (!folderId) {
-              folderId = await searchFolder(accessToken);
-              if (!folderId) {
-                  folderId = await createFolder(accessToken);
-              }
-              if (folderId) localStorage.setItem('gdrive_folder_id', folderId);
-          }
-
-          if (folderId) {
-              // Check if file exists remotely
-              const remoteFile = await searchFile(accessToken, folderId);
-              const currentData = await db.exportData();
-              
-              const result = await uploadFile(accessToken, folderId, currentData, remoteFile?.id);
-              
-              // Cache the ID for next time
-              if (result && result.id) {
-                  localStorage.setItem('gdrive_file_id', result.id);
-              }
-
-              dispatch({ type: 'SET_SYNC_STATUS', payload: 'success' });
-              showToast("Cloud Sync Complete");
-          }
+          // Use performSync logic for manual sync too, to ensure Pull-Merge-Push safety
+          await performSync(accessToken);
+          
+          dispatch({ type: 'SET_SYNC_STATUS', payload: 'success' });
+          showToast("Cloud Sync Complete");
       } catch (e) {
           dispatch({ type: 'SET_SYNC_STATUS', payload: 'error' });
           console.error("Manual sync failed", e);

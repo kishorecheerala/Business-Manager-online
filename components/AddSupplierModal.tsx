@@ -1,89 +1,233 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Supplier } from '../types';
-import Card from './Card';
 import Button from './Button';
-import { X } from 'lucide-react';
+import Card from './Card';
+import { X, User, Phone, MapPin, CreditCard, FileText, Hash } from 'lucide-react';
 
-const newSupplierInitialState = { id: '', name: '', phone: '', location: '', gstNumber: '', reference: '', account1: '', account2: '', upi: '' };
+const defaultSupplierState = { id: '', name: '', phone: '', location: '', gstNumber: '', reference: '', account1: '', account2: '', upi: '' };
 
-const AddSupplierModal: React.FC<{
+interface AddSupplierModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onAdd: (supplier: Supplier) => void;
+    onSave: (supplier: Supplier) => void;
     existingSuppliers: Supplier[];
-}> = ({ isOpen, onClose, onAdd, existingSuppliers }) => {
-    const [newSupplier, setNewSupplier] = useState(newSupplierInitialState);
+    initialData?: Supplier | null;
+    inline?: boolean;
+}
+
+const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ isOpen, onClose, onSave, existingSuppliers, initialData, inline = false }) => {
+    const [formData, setFormData] = useState(defaultSupplierState);
+    const isEditMode = !!initialData;
+
+    useEffect(() => {
+        if (isOpen || inline) {
+            if (initialData) {
+                setFormData(initialData);
+            } else {
+                setFormData(defaultSupplierState);
+            }
+        }
+    }, [isOpen, inline, initialData]);
 
     const handleSave = () => {
-        const trimmedId = newSupplier.id.trim();
+        const trimmedId = formData.id.trim();
         if (!trimmedId) return alert('Supplier ID is required.');
-        if (!newSupplier.name || !newSupplier.phone || !newSupplier.location) return alert('Please fill Name, Phone, and Location.');
+        if (!formData.name || !formData.phone || !formData.location) return alert('Please fill Name, Phone, and Location.');
 
-        const finalId = `SUPP-${trimmedId}`;
-        if (existingSuppliers.some(s => s.id.toLowerCase() === finalId.toLowerCase())) {
-            return alert(`Supplier ID "${finalId}" is already taken.`);
+        // Only check for duplicates if we are in Add mode
+        if (!isEditMode) {
+            const finalId = `SUPP-${trimmedId}`;
+            if (existingSuppliers.some(s => s.id.toLowerCase() === finalId.toLowerCase())) {
+                return alert(`Supplier ID "${finalId}" is already taken.`);
+            }
+            onSave({ ...formData, id: finalId });
+        } else {
+            onSave(formData);
         }
-
-        const supplierToAdd: Supplier = { ...newSupplier, id: finalId };
-        onAdd(supplierToAdd);
-        setNewSupplier(newSupplierInitialState);
+        
         onClose();
     };
 
-    if (!isOpen) return null;
+    const handleChange = (field: keyof Supplier, value: string) => {
+        setFormData(prev => ({ ...prev, [field]: value }));
+    };
 
-    return (
-         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[51] p-4 animate-fade-in-fast">
-            <Card title="Add New Supplier" className="w-full max-w-md animate-scale-in max-h-[90vh] overflow-y-auto relative">
-                 <button onClick={onClose} className="absolute top-4 right-4 p-1 rounded-full text-gray-500 hover:bg-gray-100 transition-colors"><X size={20}/></button>
-                 <div className="space-y-4 mt-2">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Supplier ID</label>
-                        <div className="flex items-center mt-1">
-                            <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm dark:bg-slate-700 dark:border-slate-600 dark:text-gray-400">SUPP-</span>
-                            <input type="text" placeholder="Unique ID" value={newSupplier.id} onChange={e => setNewSupplier({ ...newSupplier, id: e.target.value })} className="w-full p-2 border rounded-r-md dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" autoFocus />
+    if (!isOpen && !inline) return null;
+
+    const formContent = (
+        <div className="space-y-6">
+            {/* ID Section - Prominent at top */}
+            <div className="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-xl border border-indigo-100 dark:border-indigo-800/50">
+                <label className="block text-xs font-bold uppercase text-indigo-600 dark:text-indigo-400 mb-1.5 tracking-wide">Unique ID</label>
+                {isEditMode ? (
+                        <div className="w-full p-2 bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-700 rounded-lg text-gray-600 dark:text-gray-300 font-mono font-bold">
+                        {formData.id}
                         </div>
+                ) : (
+                    <div className="flex items-center shadow-sm">
+                        <span className="bg-white dark:bg-slate-800 border border-r-0 border-indigo-200 dark:border-indigo-700 px-3 py-2.5 rounded-l-lg text-sm text-gray-500 font-mono border-r">SUPP-</span>
+                        <input 
+                            type="text" 
+                            placeholder="unique id" 
+                            value={formData.id} 
+                            onChange={e => handleChange('id', e.target.value)}
+                            className="w-full p-2.5 border border-indigo-200 dark:border-indigo-700 rounded-r-lg dark:bg-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-mono" 
+                            autoFocus 
+                        />
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Name *</label>
-                        <input type="text" placeholder="Supplier Name" value={newSupplier.name} onChange={e => setNewSupplier({ ...newSupplier, name: e.target.value })} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Phone *</label>
-                        <input type="text" placeholder="Phone Number" value={newSupplier.phone} onChange={e => setNewSupplier({ ...newSupplier, phone: e.target.value })} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Location *</label>
-                        <input type="text" placeholder="City / Area" value={newSupplier.location} onChange={e => setNewSupplier({ ...newSupplier, location: e.target.value })} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">GST Number</label>
-                        <input type="text" placeholder="Optional" value={newSupplier.gstNumber} onChange={e => setNewSupplier({ ...newSupplier, gstNumber: e.target.value })} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Reference</label>
-                        <input type="text" placeholder="Optional" value={newSupplier.reference} onChange={e => setNewSupplier({ ...newSupplier, reference: e.target.value })} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Bank Account 1</label>
-                        <input type="text" placeholder="Optional" value={newSupplier.account1} onChange={e => setNewSupplier({ ...newSupplier, account1: e.target.value })} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Bank Account 2</label>
-                        <input type="text" placeholder="Optional" value={newSupplier.account2} onChange={e => setNewSupplier({ ...newSupplier, account2: e.target.value })} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">UPI ID</label>
-                        <input type="text" placeholder="Optional" value={newSupplier.upi} onChange={e => setNewSupplier({ ...newSupplier, upi: e.target.value })} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
-                    </div>
+                )}
+            </div>
 
-                    <div className="flex gap-2 pt-2">
-                        <Button onClick={handleSave} className="w-full">Save Supplier</Button>
-                        <Button onClick={onClose} variant="secondary" className="w-full">Cancel</Button>
+            {/* Basic Info */}
+            <div className="space-y-4">
+                <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2 border-b dark:border-slate-700 pb-2">
+                    <div className="p-1.5 bg-purple-100 dark:bg-purple-900/30 rounded-md text-purple-600 dark:text-purple-400"><User size={16}/></div>
+                    Basic Information
+                </h3>
+                
+                <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 ml-1">Supplier Name *</label>
+                    <input 
+                        type="text" 
+                        placeholder="Enter Supplier Name" 
+                        value={formData.name} 
+                        onChange={e => handleChange('name', e.target.value)} 
+                        className="w-full p-3 bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-primary focus:bg-white dark:focus:bg-slate-800 outline-none transition-all" 
+                    />
+                </div>
+                
+                <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 ml-1">Phone Number *</label>
+                    <div className="relative">
+                        <input 
+                            type="tel" 
+                            placeholder="Enter Phone Number" 
+                            value={formData.phone} 
+                            onChange={e => handleChange('phone', e.target.value)} 
+                            className="w-full p-3 pl-10 bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-primary focus:bg-white dark:focus:bg-slate-800 outline-none transition-all" 
+                        />
+                        <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"/>
                     </div>
                 </div>
+
+                <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 ml-1">Location *</label>
+                    <div className="relative">
+                        <input 
+                            type="text" 
+                            placeholder="City / Area" 
+                            value={formData.location} 
+                            onChange={e => handleChange('location', e.target.value)} 
+                            className="w-full p-3 pl-10 bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-primary focus:bg-white dark:focus:bg-slate-800 outline-none transition-all" 
+                        />
+                        <MapPin size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"/>
+                    </div>
+                </div>
+            </div>
+
+            {/* Official Details */}
+            <div className="space-y-4">
+                <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2 border-b dark:border-slate-700 pb-2">
+                    <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-md text-blue-600 dark:text-blue-400"><FileText size={16}/></div>
+                    Official Details
+                </h3>
+                <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 ml-1">GST Number</label>
+                    <input 
+                        type="text" 
+                        placeholder="Optional" 
+                        value={formData.gstNumber} 
+                        onChange={e => handleChange('gstNumber', e.target.value)} 
+                        className="w-full p-3 bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-primary focus:bg-white dark:focus:bg-slate-800 outline-none transition-all uppercase" 
+                    />
+                </div>
+                <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 ml-1">Reference</label>
+                    <input 
+                        type="text" 
+                        placeholder="Optional" 
+                        value={formData.reference} 
+                        onChange={e => handleChange('reference', e.target.value)} 
+                        className="w-full p-3 bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-primary focus:bg-white dark:focus:bg-slate-800 outline-none transition-all" 
+                    />
+                </div>
+            </div>
+
+            {/* Banking (Collapsible or Compact) */}
+            <div className="space-y-4 pt-2">
+                <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2 border-b dark:border-slate-700 pb-2">
+                    <div className="p-1.5 bg-teal-100 dark:bg-teal-900/30 rounded-md text-teal-600 dark:text-teal-400"><CreditCard size={16}/></div>
+                    Banking (Optional)
+                </h3>
+                <div className="grid grid-cols-2 gap-3">
+                    <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1 ml-1">Account 1</label>
+                        <input type="text" value={formData.account1} onChange={e => handleChange('account1', e.target.value)} className="w-full p-2.5 text-sm bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg outline-none" placeholder="Acc No."/>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1 ml-1">Account 2</label>
+                        <input type="text" value={formData.account2} onChange={e => handleChange('account2', e.target.value)} className="w-full p-2.5 text-sm bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg outline-none" placeholder="Acc No."/>
+                    </div>
+                </div>
+                <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1 ml-1">UPI ID</label>
+                    <div className="relative">
+                        <input type="text" value={formData.upi} onChange={e => handleChange('upi', e.target.value)} className="w-full p-2.5 pl-9 text-sm bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg outline-none" placeholder="user@upi"/>
+                        <Hash size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+
+    const footerButtons = (
+        <div className={`flex gap-3 ${inline ? 'mt-6' : 'p-4 border-t dark:border-slate-700 flex gap-3 bg-white dark:bg-slate-800 shrink-0 pb-6 sm:pb-4'}`}>
+            <Button onClick={handleSave} className={inline ? "w-full" : "flex-[2] font-bold py-3.5 rounded-xl shadow-lg shadow-indigo-200 dark:shadow-none"}>
+                {isEditMode ? 'Save Changes' : 'Save Supplier'}
+            </Button>
+            <button 
+                onClick={onClose} 
+                className={inline ? "w-full py-2 rounded-md font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600" : "flex-1 py-3.5 rounded-xl font-semibold bg-red-50 text-red-600 hover:bg-red-100 border border-red-100 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/30 dark:border-red-800/50 transition-all"}
+            >
+                Cancel
+            </button>
+        </div>
+    );
+
+    if (inline) {
+        return (
+            <Card title={isEditMode ? 'Edit Supplier' : 'Add New Supplier'} className="animate-slide-up-fade">
+                {formContent}
+                {footerButtons}
             </Card>
+        );
+    }
+
+    return (
+         <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-[100] sm:p-4 backdrop-blur-sm transition-all" role="dialog" aria-modal="true">
+            {/* Modal Container - Bottom Sheet on Mobile, Centered Card on Desktop */}
+            <div className="w-full sm:max-w-lg bg-white dark:bg-slate-800 rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col h-[85vh] sm:h-auto sm:max-h-[90vh] animate-slide-up-fade sm:animate-scale-in overflow-hidden border-t sm:border border-gray-200 dark:border-slate-700">
+                 
+                 {/* Header */}
+                 <div className="p-4 border-b dark:border-slate-700 flex justify-between items-center shrink-0 relative">
+                    {/* Drag Handle for Mobile aesthetics */}
+                    <div className="absolute top-2 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-gray-300 dark:bg-slate-600 rounded-full sm:hidden"></div>
+                    
+                    <h2 className="text-lg font-bold text-gray-800 dark:text-white mt-2 sm:mt-0">{isEditMode ? 'Edit Supplier' : 'Add New Supplier'}</h2>
+                    <button onClick={onClose} className="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors mt-2 sm:mt-0">
+                        <X size={20}/>
+                    </button>
+                 </div>
+
+                 {/* Scrollable Body */}
+                 <div className="p-5 overflow-y-auto custom-scrollbar flex-grow">
+                    {formContent}
+                 </div>
+
+                 {/* Footer */}
+                 {footerButtons}
+            </div>
         </div>
     );
 };
