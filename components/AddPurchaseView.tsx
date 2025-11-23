@@ -1,17 +1,18 @@
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Plus, Upload, IndianRupee, Search, QrCode, Info, CheckCircle, XCircle, X, Download, FileSpreadsheet } from 'lucide-react';
-import { Supplier, Product, PurchaseItem, Purchase } from '../types';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Purchase, Supplier, Product, PurchaseItem } from '../types';
+import { useOnClickOutside } from '../hooks/useOnClickOutside';
+import { Plus, Search, QrCode, FileSpreadsheet, Download, Upload, CheckCircle, XCircle, Info, X } from 'lucide-react';
 import Card from './Card';
 import Button from './Button';
-import { Html5Qrcode } from 'html5-qrcode';
 import DeleteButton from './DeleteButton';
-import QuantityInputModal from './QuantityInputModal';
+import DateInput from './DateInput';
 import Dropdown from './Dropdown';
 import AddSupplierModal from './AddSupplierModal';
-import { useOnClickOutside } from '../hooks/useOnClickOutside';
-import DateInput from './DateInput';
+import QuantityInputModal from './QuantityInputModal';
+import { Html5Qrcode } from 'html5-qrcode';
 
+// Helper functions
 const getLocalDateString = (date = new Date()) => {
   const year = date.getFullYear();
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -43,66 +44,104 @@ const parseCsvLine = (line: string): string[] => {
   return result;
 };
 
-// --- Modals defined outside the main component to prevent re-creation on render ---
+// Local Modals
 
-const QRScannerModal: React.FC<{ onClose: () => void; onScanned: (text: string) => void }> = ({ onClose, onScanned }) => {
+const ProductSearchModal: React.FC<{
+    products: Product[];
+    onClose: () => void;
+    onSelect: (product: Product) => void;
+    isOpen: boolean;
+}> = ({ products, onClose, onSelect, isOpen }) => {
+    const [productSearchTerm, setProductSearchTerm] = useState('');
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in-fast">
+          <Card className="w-full max-w-lg animate-scale-in">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-bold">Select Product</h2>
+              <button onClick={onClose} className="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
+                <X size={20}/>
+              </button>
+            </div>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+              <input
+                type="text"
+                placeholder="Search products..."
+                value={productSearchTerm}
+                onChange={e => setProductSearchTerm(e.target.value)}
+                className="w-full p-2 pl-10 border rounded-lg dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
+                autoFocus
+              />
+            </div>
+            <div className="mt-4 max-h-80 overflow-y-auto space-y-2">
+              {products
+                .filter(p => p.name.toLowerCase().includes(productSearchTerm.toLowerCase()) || p.id.toLowerCase().includes(productSearchTerm.toLowerCase()))
+                .map(p => (
+                <div key={p.id} onClick={() => onSelect(p)} className="p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg cursor-pointer hover:bg-teal-50 dark:hover:bg-slate-700 flex justify-between items-center">
+                  <div>
+                    <p className="font-semibold">{p.name}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Code: {p.id}</p>
+                  </div>
+                  <div className="text-right">
+                      <p className="font-semibold">₹{Number(p.purchasePrice).toLocaleString('en-IN')}</p>
+                      <p className="text-sm">Stock: {p.quantity}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+    );
+};
+
+const QRScannerModal: React.FC<{
+    onClose: () => void;
+    onScanned: (decodedText: string) => void;
+}> = ({ onClose, onScanned }) => {
+    const [scanStatus, setScanStatus] = useState<string>("Initializing camera...");
     const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
 
     useEffect(() => {
         html5QrCodeRef.current = new Html5Qrcode("qr-reader-purchase");
-        
+        setScanStatus("Requesting camera permissions...");
+
         const qrCodeSuccessCallback = (decodedText: string) => {
             if (html5QrCodeRef.current?.isScanning) {
                 html5QrCodeRef.current.stop().then(() => {
                     onScanned(decodedText);
-                }).catch(err => console.error("Error stopping scanner", err));
+                }).catch(err => {
+                    console.error("Error stopping scanner", err);
+                    onScanned(decodedText);
+                });
             }
         };
         const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
         html5QrCodeRef.current.start({ facingMode: "environment" }, config, qrCodeSuccessCallback, undefined)
-            .catch(err => alert("Camera permission is required. Please allow and try again."));
-        
+            .then(() => setScanStatus("Scanning for QR Code..."))
+            .catch(err => {
+                setScanStatus(`Camera Permission Error. Please allow camera access.`);
+                console.error("Camera start failed.", err);
+            });
+            
         return () => {
             if (html5QrCodeRef.current?.isScanning) {
-                html5QrCodeRef.current.stop().catch(err => console.log("Failed to stop scanner on cleanup.", err));
+                html5QrCodeRef.current.stop().catch(err => console.error("Cleanup stop scan failed.", err));
             }
         };
     }, [onScanned]);
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4 animate-fade-in-fast">
-            <Card title="Scan Product" className="w-full max-w-md relative animate-scale-in">
-                <button onClick={onClose} className="absolute top-4 right-4 p-2"><X size={20}/></button>
-                <div id="qr-reader-purchase" className="w-full mt-4"></div>
-            </Card>
-        </div>
-    );
-};
-
-const ProductSearchModal: React.FC<{
-    isOpen: boolean;
-    onClose: () => void;
-    onSelect: (product: Product) => void;
-    products: Product[];
-}> = ({ isOpen, onClose, onSelect, products }) => {
-    const [searchTerm, setSearchTerm] = useState('');
-    if (!isOpen) return null;
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in-fast">
-            <Card className="w-full max-w-lg animate-scale-in">
-            <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-bold">Select Existing Product</h2>
-                <button onClick={onClose}><X size={20}/></button>
-            </div>
-            <input type="text" placeholder="Search products..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full p-2 border rounded-lg mb-4 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" autoFocus/>
-            <div className="max-h-80 overflow-y-auto space-y-2">
-                {products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase())).map(p => (
-                <div key={p.id} onClick={() => onSelect(p)} className="p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-teal-50 dark:bg-slate-700/50 dark:hover:bg-slate-700">
-                    <p className="font-semibold">{p.name}</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Code: {p.id} | Stock: {p.quantity}</p>
-                </div>
-                ))}
-            </div>
+        <div className="fixed inset-0 bg-black bg-opacity-75 backdrop-blur-sm flex flex-col items-center justify-center z-50 p-4 animate-fade-in-fast">
+            <Card title="Scan Product QR Code" className="w-full max-w-md relative animate-scale-in">
+                 <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
+                    <X size={20}/>
+                 </button>
+                <div id="qr-reader-purchase" className="w-full mt-4 rounded-lg overflow-hidden border"></div>
+                <p className="text-center text-sm my-2 text-gray-600 dark:text-gray-400">{scanStatus}</p>
             </Card>
         </div>
     );
@@ -112,69 +151,84 @@ const NewProductModal: React.FC<{
     isOpen: boolean;
     onClose: () => void;
     onAdd: (item: PurchaseItem) => void;
-    initialId?: string;
+    initialId: string;
     existingProducts: Product[];
     currentPurchaseItems: PurchaseItem[];
     mode: 'add' | 'edit';
-}> = ({ isOpen, onClose, onAdd, initialId = '', existingProducts, currentPurchaseItems, mode }) => {
-    const [newProduct, setNewProduct] = useState({ id: initialId, name: '', purchasePrice: '', salePrice: '', gstPercent: '5', quantity: '' });
-    
+}> = ({ isOpen, onClose, onAdd, initialId, existingProducts, currentPurchaseItems, mode }) => {
+    const [newItem, setNewItem] = useState<PurchaseItem>({
+        productId: initialId,
+        productName: '',
+        quantity: 1,
+        price: 0,
+        saleValue: 0,
+        gstPercent: 0
+    });
+
     useEffect(() => {
-        setNewProduct(prev => ({ ...prev, id: initialId }));
+        setNewItem(prev => ({ ...prev, productId: initialId }));
     }, [initialId]);
 
-    const handleAddItemManually = () => {
-        const { id, name, purchasePrice, salePrice, gstPercent, quantity } = newProduct;
-        if (!id || !name || !purchasePrice || !salePrice || !quantity) return alert('All fields are required.');
-        
-        const trimmedId = id.trim();
-        if(currentPurchaseItems.some(item => item.productId.toLowerCase() === trimmedId.toLowerCase())) return alert(`Product with ID "${trimmedId}" is already in this purchase.`);
-        // In edit mode for a purchase, we don't need to check against existing stock, as we might be adding a new product line to an old invoice.
-        if(mode === 'add' && existingProducts.some(p => p.id.toLowerCase() === trimmedId.toLowerCase())) return alert(`Product with ID "${trimmedId}" already exists in stock. Please select it from the search instead.`);
+    const handleChange = (field: keyof PurchaseItem, value: string | number) => {
+        setNewItem(prev => ({ ...prev, [field]: value }));
+    };
 
-        onAdd({
-            productId: trimmedId,
-            productName: name,
-            quantity: parseFloat(quantity),
-            price: parseFloat(purchasePrice),
-            saleValue: parseFloat(salePrice),
-            gstPercent: parseFloat(gstPercent),
-        });
+    const handleSubmit = () => {
+        if (!newItem.productId || !newItem.productName) {
+            alert("Product ID and Name are required.");
+            return;
+        }
+        
+        // Check for duplicates
+        if (existingProducts.some(p => p.id.toLowerCase() === newItem.productId.toLowerCase())) {
+             alert("Product ID already exists in inventory. Please use 'Existing Product' or choose a different ID.");
+             return;
+        }
+        if (currentPurchaseItems.some(i => i.productId.toLowerCase() === newItem.productId.toLowerCase())) {
+             alert("Product ID already added to this purchase.");
+             return;
+        }
+
+        onAdd(newItem);
         onClose();
     };
-    
-    if(!isOpen) return null;
+
+    if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[51] p-4 animate-fade-in-fast">
-            <Card title="Add New Product to Purchase" className="w-full max-w-md animate-scale-in">
-                 <div className="space-y-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in-fast">
+            <Card title="Add New Product" className="w-full max-w-md animate-scale-in">
+                <div className="space-y-3">
                     <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Product ID / Code (Unique)</label>
-                        <input type="text" placeholder="e.g., PROD-001" value={newProduct.id} onChange={e => setNewProduct({...newProduct, id: e.target.value})} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" autoFocus />
+                        <label className="block text-sm font-medium">Product ID / Barcode</label>
+                        <input type="text" value={newItem.productId} onChange={e => handleChange('productId', e.target.value)} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600" placeholder="Scan or Type ID" />
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Product Name</label>
-                        <input type="text" placeholder="e.g., Silk Saree" value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
+                        <label className="block text-sm font-medium">Product Name</label>
+                        <input type="text" value={newItem.productName} onChange={e => handleChange('productName', e.target.value)} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600" placeholder="Product Name" />
                     </div>
-                    <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Quantity</label>
-                        <input type="number" placeholder="e.g., 10" value={newProduct.quantity} onChange={e => setNewProduct({...newProduct, quantity: e.target.value})} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-sm font-medium">Quantity</label>
+                            <input type="number" value={newItem.quantity} onChange={e => handleChange('quantity', parseFloat(e.target.value))} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium">GST %</label>
+                            <input type="number" value={newItem.gstPercent} onChange={e => handleChange('gstPercent', parseFloat(e.target.value))} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600" />
+                        </div>
                     </div>
-                    <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Purchase Price (per item)</label>
-                        <input type="number" placeholder="e.g., 500" value={newProduct.purchasePrice} onChange={e => setNewProduct({...newProduct, purchasePrice: e.target.value})} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Sale Price (per item)</label>
-                        <input type="number" placeholder="e.g., 800" value={newProduct.salePrice} onChange={e => setNewProduct({...newProduct, salePrice: e.target.value})} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">GST %</label>
-                        <input type="number" placeholder="e.g., 5" value={newProduct.gstPercent} onChange={e => setNewProduct({...newProduct, gstPercent: e.target.value})} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-sm font-medium">Purchase Price</label>
+                            <input type="number" value={newItem.price} onChange={e => handleChange('price', parseFloat(e.target.value))} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium">Sale Price</label>
+                            <input type="number" value={newItem.saleValue} onChange={e => handleChange('saleValue', parseFloat(e.target.value))} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600" />
+                        </div>
                     </div>
                     <div className="flex gap-2 pt-2">
-                        <Button onClick={handleAddItemManually} className="w-full">Add Product</Button>
+                        <Button onClick={handleSubmit} className="w-full">Add Item</Button>
                         <Button onClick={onClose} variant="secondary" className="w-full">Cancel</Button>
                     </div>
                 </div>
@@ -431,6 +485,18 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
       setIsAddingSupplier(false);
   };
 
+  const resetForm = () => {
+    setSupplierId('');
+    setItems([]);
+    setPurchaseDate(getLocalDateString());
+    setSupplierInvoiceId('');
+    setDiscount('0');
+    setAmountPaid('');
+    setPaymentMethod('CASH');
+    setPaymentReference('');
+    setPaymentDueDates([]);
+  };
+
   const handleSubmit = () => {
     const total = calculations.grandTotal;
     
@@ -482,6 +548,10 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
     };
 
     onSubmit(purchaseData);
+
+    if (mode === 'add') {
+        resetForm();
+    }
   };
 
   const paymentMethodOptions = [
