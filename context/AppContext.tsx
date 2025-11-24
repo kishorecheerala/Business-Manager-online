@@ -603,7 +603,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         dispatch({ type: 'SET_SYNC_STATUS', payload: 'error' });
         
         if (e.message && (e.message.includes('401') || e.message.includes('403'))) {
-             showToast("Sync Error: Authentication failed. Please sign in again.", 'info');
+             showToast("Session Expired. Tap Cloud icon to reconnect.", 'info');
         } else if (e.message && e.message.includes('Access Not Configured')) {
              showToast("Sync Error: Drive API not enabled. See Diagnostics.", 'info');
         }

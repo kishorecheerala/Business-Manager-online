@@ -147,7 +147,7 @@ const MainApp: React.FC = () => {
   const [navConfirm, setNavConfirm] = useState<{ show: boolean, page: Page | null }>({ show: false, page: null });
   const [exitAttempt, setExitAttempt] = useState(false);
 
-  const { state, dispatch, isDbLoaded, showToast } = useAppContext();
+  const { state, dispatch, isDbLoaded, showToast, googleSignIn, syncData } = useAppContext();
   const { installPromptEvent, theme, themeColor, themeGradient } = state;
   const [isInstallBannerVisible, setIsInstallBannerVisible] = useState(true);
 
@@ -363,9 +363,15 @@ const MainApp: React.FC = () => {
              <button onClick={() => setIsAskAIOpen(true)} className="p-2 rounded-full hover:bg-white/20 transition-all active:scale-95 group relative">
                 <Sparkles className="w-6 h-6 text-yellow-300 fill-yellow-300/20 animate-pulse" />
              </button>
-             <div className='flex items-center justify-center w-8 h-8'>
+             
+             {/* Clickable Sync Indicator for Manual Sync or Re-Auth */}
+             <button 
+                onClick={() => state.syncStatus === 'error' ? googleSignIn() : syncData()} 
+                className='flex items-center justify-center w-8 h-8 rounded-full hover:bg-white/20 transition-all active:scale-95'
+                title={state.syncStatus === 'error' ? "Session Expired - Click to Reconnect" : "Click to Sync"}
+             >
                 <SyncIndicator status={state.syncStatus} user={state.googleUser} />
-             </div>
+             </button>
              
              {/* Hidden on mobile, visible on desktop */}
              <div className="relative hidden md:block" ref={quickAddRef}>
