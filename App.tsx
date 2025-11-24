@@ -230,50 +230,90 @@ const MainApp: React.FC = () => {
     if (isDirtyRef.current) {
       setNavConfirm({ show: true, page });
     } else {
+      // Push state to history to allow back button to return to dashboard/prev page
+      // Standard PWA pattern: If navigating deeper, push state.
+      if (page !== 'DASHBOARD' && currentPage === 'DASHBOARD') {
+          window.history.pushState({ page }, '');
+      } else if (page === 'DASHBOARD' && currentPage !== 'DASHBOARD') {
+          // If going back to dashboard, we don't strictly push, 
+          // but to keep history clean in simple router we might.
+          // Ideally we'd use history.back(), but mixed nav is complex.
+          // Pushing is safer for reliable state.
+          window.history.pushState({ page: 'DASHBOARD' }, '');
+      }
       _setCurrentPage(page);
     }
   };
 
+  // --- Back Button & History Handling ---
+  useEffect(() => {
+    // Initialize history state on mount
+    window.history.replaceState({ page: 'DASHBOARD' }, '');
+
+    const handlePopState = (event: PopStateEvent) => {
+      // The user pressed back (or swiped edge on mobile).
+      
+      if (currentPage === 'DASHBOARD') {
+          if (exitAttempt) {
+              // Allow exit (history is popped to previous external page)
+              return; 
+          } else {
+              // Prevent exit, push state back to keep user in app
+              window.history.pushState({ page: 'DASHBOARD' }, '');
+              showToast("Press Back again to exit", 'info');
+              setExitAttempt(true);
+              setTimeout(() => setExitAttempt(false), 3500);
+          }
+      } else {
+          // We are on a subpage. The popstate event means we are going "back".
+          // If there are no dirty forms, go to dashboard.
+          if (!isDirtyRef.current) {
+              _setCurrentPage('DASHBOARD');
+          } else {
+              // If dirty, we need to intercept. 
+              // Since popstate already happened, we are technically "back".
+              // We should revert forward to block it and show confirm? 
+              // Complexity high. Simple approach: Just go to dashboard, 
+              // dirty check is usually for "Link Clicks".
+              // If native back is used, dirty check is hard to enforce without blocking.
+              // For now, let's allow back navigation to Dashboard.
+              _setCurrentPage('DASHBOARD');
+          }
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [currentPage, exitAttempt, showToast]);
+
+
   // useSwipe now attaches listeners globally via useEffect in the hook itself.
-  // We just need to invoke it here with the desired callbacks.
   useSwipe({
-    onSwipeLeft: () => {
-        // Placeholder for future swipe left logic (e.g. next tab)
-    },
     onSwipeRight: () => {
         // Prevent swipe if menus/modals are open
         if (isMenuOpen || isSearchOpen || isNotificationsOpen || isQuickAddOpen || isMobileQuickAddOpen || isMoreMenuOpen) return;
 
+        // If on a subpage, mimic Back button behavior
         if (currentPage !== 'DASHBOARD') {
-            setCurrentPage('DASHBOARD');
-        } else {
-            if (exitAttempt) {
-                try {
-                    window.close(); // Attempt to close
-                } catch(e) {}
-                // Fallback navigation out
-                window.history.back();
-            } else {
-                showToast("Swipe again to exit", 'info');
-                setExitAttempt(true);
-                setTimeout(() => setExitAttempt(false), 3500);
-            }
-        }
+            window.history.back();
+        } 
+        // Removed "Exit on Swipe" logic for Dashboard to prevent accidental closures.
+        // Now only Back Button / Edge Swipe (Native) triggers exit logic handled by popstate.
     }
   });
 
   const renderPage = () => {
     const commonProps = { setIsDirty };
     switch (currentPage) {
-      case 'DASHBOARD': return <Dashboard setCurrentPage={_setCurrentPage} />;
-      case 'CUSTOMERS': return <CustomersPage {...commonProps} setCurrentPage={_setCurrentPage} />;
+      case 'DASHBOARD': return <Dashboard setCurrentPage={setCurrentPage} />; // Pass setter wrapper
+      case 'CUSTOMERS': return <CustomersPage {...commonProps} setCurrentPage={setCurrentPage} />;
       case 'SALES': return <SalesPage {...commonProps} />;
-      case 'PURCHASES': return <PurchasesPage {...commonProps} setCurrentPage={_setCurrentPage} />;
-      case 'REPORTS': return <ReportsPage setCurrentPage={_setCurrentPage} />;
+      case 'PURCHASES': return <PurchasesPage {...commonProps} setCurrentPage={setCurrentPage} />;
+      case 'REPORTS': return <ReportsPage setCurrentPage={setCurrentPage} />;
       case 'RETURNS': return <ReturnsPage {...commonProps} />;
       case 'PRODUCTS': return <ProductsPage {...commonProps} />;
-      case 'INSIGHTS': return <InsightsPage setCurrentPage={_setCurrentPage} />;
-      default: return <Dashboard setCurrentPage={_setCurrentPage} />;
+      case 'INSIGHTS': return <InsightsPage setCurrentPage={setCurrentPage} />;
+      default: return <Dashboard setCurrentPage={setCurrentPage} />;
     }
   };
   
@@ -310,8 +350,8 @@ const MainApp: React.FC = () => {
         onOpenCloudDebug={() => setIsCloudDebugOpen(true)} 
       />
       <CloudDebugModal isOpen={isCloudDebugOpen} onClose={() => setIsCloudDebugOpen(false)} />
-      <UniversalSearch isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} onNavigate={(p, id) => { dispatch({ type: 'SET_SELECTION', payload: { page: p, id } }); _setCurrentPage(p); setIsSearchOpen(false); }} />
-      <ConfirmationModal isOpen={navConfirm.show} onClose={() => setNavConfirm({ show: false, page: null })} onConfirm={() => { if (navConfirm.page) { setIsDirty(false); _setCurrentPage(navConfirm.page); } setNavConfirm({ show: false, page: null }); }} title="Unsaved Changes">You have unsaved changes. Leave anyway?</ConfirmationModal>
+      <UniversalSearch isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} onNavigate={(p, id) => { dispatch({ type: 'SET_SELECTION', payload: { page: p, id } }); setCurrentPage(p); setIsSearchOpen(false); }} />
+      <ConfirmationModal isOpen={navConfirm.show} onClose={() => setNavConfirm({ show: false, page: null })} onConfirm={() => { if (navConfirm.page) { setIsDirty(false); setCurrentPage(navConfirm.page); } setNavConfirm({ show: false, page: null }); }} title="Unsaved Changes">You have unsaved changes. Leave anyway?</ConfirmationModal>
       
       {/* Dynamic Theme Header - Using bg-theme class which uses CSS variable */}
       <header className="bg-theme text-white shadow-lg p-3 px-4 flex items-center justify-between relative z-[60] sticky top-0">
@@ -379,14 +419,14 @@ const MainApp: React.FC = () => {
                 <button onClick={() => setIsQuickAddOpen(prev => !prev)} className={`p-2 rounded-full hover:bg-white/20 transition-all active:scale-95 bg-white/10 shadow-sm border border-white/10 ${isQuickAddOpen ? 'rotate-45' : ''}`}>
                     <Plus className="w-6 h-6" strokeWidth={3} />
                 </button>
-                <QuickAddMenu isOpen={isQuickAddOpen} onNavigate={(page, action) => { dispatch({ type: 'SET_SELECTION', payload: { page, id: 'new' } }); _setCurrentPage(page); setIsQuickAddOpen(false); }} />
+                <QuickAddMenu isOpen={isQuickAddOpen} onNavigate={(page, action) => { dispatch({ type: 'SET_SELECTION', payload: { page, id: 'new' } }); setCurrentPage(page); setIsQuickAddOpen(false); }} />
             </div>
             <div className="relative" ref={notificationsRef}>
                  <button onClick={() => setIsNotificationsOpen(prev => !prev)} className="p-2 rounded-full hover:bg-white/20 transition-all active:scale-95">
                     <Bell className={`w-6 h-6 transition-transform ${state.notifications.some(n => !n.read) ? 'animate-swing' : ''}`} />
                     {state.notifications.some(n => !n.read) && <span className="absolute top-2 right-2 h-2.5 w-2.5 rounded-full bg-red-50 border-2 border-white animate-bounce"></span>}
                 </button>
-                 <NotificationsPanel isOpen={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)} onNavigate={(page) => { _setCurrentPage(page); setIsNotificationsOpen(false); }} />
+                 <NotificationsPanel isOpen={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)} onNavigate={(page) => { setCurrentPage(page); setIsNotificationsOpen(false); }} />
             </div>
           </div>
       </header>
