@@ -234,7 +234,9 @@ const MainApp: React.FC = () => {
     }
   };
 
-  const swipeHandlers = useSwipe({
+  // useSwipe now attaches listeners globally via useEffect in the hook itself.
+  // We just need to invoke it here with the desired callbacks.
+  useSwipe({
     onSwipeLeft: () => {
         // Placeholder for future swipe left logic (e.g. next tab)
     },
@@ -297,7 +299,6 @@ const MainApp: React.FC = () => {
   return (
     <div 
         className="flex flex-col h-screen font-sans text-slate-800 dark:text-slate-200 bg-transparent touch-pan-y"
-        {...swipeHandlers}
     >
       <Toast />
       <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />

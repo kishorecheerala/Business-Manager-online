@@ -1,5 +1,5 @@
 
-import React, { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
 interface SwipeInput {
   onSwipeLeft?: () => void;
@@ -10,46 +10,51 @@ export const useSwipe = ({ onSwipeLeft, onSwipeRight }: SwipeInput) => {
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
 
-  // Thresholds
-  const minSwipeDistance = 40;
+  useEffect(() => {
+    const onTouchStart = (e: TouchEvent) => {
+      touchStartX.current = e.touches[0].clientX;
+      touchStartY.current = e.touches[0].clientY;
+    };
 
-  const onTouchStart = (e: React.TouchEvent) => {
-    // We only care about the first touch
-    if (e.touches.length !== 1) return;
-    touchStartX.current = e.touches[0].clientX;
-    touchStartY.current = e.touches[0].clientY;
-  };
+    const onTouchEnd = (e: TouchEvent) => {
+      if (touchStartX.current === null || touchStartY.current === null) return;
 
-  const onTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX.current === null || touchStartY.current === null) return;
+      const touchEndX = e.changedTouches[0].clientX;
+      const touchEndY = e.changedTouches[0].clientY;
 
-    const touchEndX = e.changedTouches[0].clientX;
-    const touchEndY = e.changedTouches[0].clientY;
+      const distanceX = touchStartX.current - touchEndX;
+      const distanceY = touchStartY.current - touchEndY;
 
-    const distanceX = touchStartX.current - touchEndX;
-    const distanceY = touchStartY.current - touchEndY;
+      const absX = Math.abs(distanceX);
+      const absY = Math.abs(distanceY);
+      
+      // Minimum swipe distance (px)
+      const minSwipeDistance = 60;
 
-    // Reset
-    touchStartX.current = null;
-    touchStartY.current = null;
-
-    const absX = Math.abs(distanceX);
-    const absY = Math.abs(distanceY);
-
-    // Check if horizontal movement is dominant and sufficient
-    if (absX > absY && absX > minSwipeDistance) {
+      // 1. Must be long enough
+      // 2. Must be dominantly horizontal (X > 2*Y) to avoid triggering on diagonal scrolls
+      if (absX > minSwipeDistance && absX > 2 * absY) {
         if (distanceX > 0) {
-            // Swiped Left (Drag Content Left -> Move Right)
-            onSwipeLeft?.();
+          // Swiped Left (Right motion)
+          if (onSwipeLeft) onSwipeLeft();
         } else {
-            // Swiped Right (Drag Content Right -> Move Left)
-            onSwipeRight?.();
+          // Swiped Right (Left motion - Back)
+          if (onSwipeRight) onSwipeRight();
         }
-    }
-  };
+      }
 
-  return {
-    onTouchStart,
-    onTouchEnd,
-  };
+      // Reset
+      touchStartX.current = null;
+      touchStartY.current = null;
+    };
+
+    // Attach globally to document to catch all swipes
+    document.addEventListener('touchstart', onTouchStart);
+    document.addEventListener('touchend', onTouchEnd);
+
+    return () => {
+      document.removeEventListener('touchstart', onTouchStart);
+      document.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [onSwipeLeft, onSwipeRight]); // Re-bind if handlers change
 };
