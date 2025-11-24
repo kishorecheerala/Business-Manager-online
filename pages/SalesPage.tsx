@@ -370,6 +370,12 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         searchText: `${c.name} ${c.area}`
     })), [state.customers]);
 
+    const paymentMethodOptions = useMemo(() => [
+        { value: 'CASH', label: 'Cash' },
+        { value: 'UPI', label: 'UPI' },
+        { value: 'CHEQUE', label: 'Cheque' }
+    ], []);
+
     const customerTotalDue = useMemo(() => {
         if (!customerId) return null;
 
@@ -825,11 +831,11 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Payment Method</label>
-                                <select value={paymentDetails.method} onChange={e => setPaymentDetails({ ...paymentDetails, method: e.target.value as any})} className="w-full p-2 border rounded custom-select mt-1 dark:bg-slate-700 dark:border-slate-600">
-                                    <option value="CASH">Cash</option>
-                                    <option value="UPI">UPI</option>
-                                    <option value="CHEQUE">Cheque</option>
-                                </select>
+                                <Dropdown
+                                    options={paymentMethodOptions}
+                                    value={paymentDetails.method}
+                                    onChange={(val) => setPaymentDetails({ ...paymentDetails, method: val as any })}
+                                />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Payment Reference (Optional)</label>
@@ -853,11 +859,11 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Payment Method</label>
-                            <select value={paymentDetails.method} onChange={e => setPaymentDetails({ ...paymentDetails, method: e.target.value as any})} className="w-full p-2 border rounded custom-select dark:bg-slate-700 dark:border-slate-600">
-                                <option value="CASH">Cash</option>
-                                <option value="UPI">UPI</option>
-                                <option value="CHEQUE">Cheque</option>
-                            </select>
+                            <Dropdown
+                                options={paymentMethodOptions}
+                                value={paymentDetails.method}
+                                onChange={(val) => setPaymentDetails({ ...paymentDetails, method: val as any })}
+                            />
                         </div>
                     </div>
                 </Card>

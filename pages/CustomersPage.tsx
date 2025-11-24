@@ -13,6 +13,7 @@ import { useOnClickOutside } from '../hooks/useOnClickOutside';
 import { generateThermalInvoicePDF, generateA4InvoicePdf } from '../utils/pdfGenerator';
 import DateInput from '../components/DateInput';
 import DatePill from '../components/DatePill';
+import Dropdown from '../components/Dropdown';
 
 const getLocalDateString = (date = new Date()) => {
   const year = date.getFullYear();
@@ -45,6 +46,12 @@ const PaymentModal: React.FC<{
     const amountPaid = sale.payments.reduce((sum, p) => sum + Number(p.amount), 0);
     const dueAmount = Number(sale.totalAmount) - amountPaid;
 
+    const paymentMethodOptions = [
+        { value: 'CASH', label: 'Cash' },
+        { value: 'UPI', label: 'UPI' },
+        { value: 'CHEQUE', label: 'Cheque' }
+    ];
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in-fast">
             <Card title="Add Payment" className="w-full max-w-sm animate-scale-in">
@@ -57,11 +64,11 @@ const PaymentModal: React.FC<{
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Method</label>
-                        <select value={paymentDetails.method} onChange={e => setPaymentDetails({ ...paymentDetails, method: e.target.value as any })} className="w-full p-2 border rounded custom-select">
-                            <option value="CASH">Cash</option>
-                            <option value="UPI">UPI</option>
-                            <option value="CHEQUE">Cheque</option>
-                        </select>
+                        <Dropdown
+                            options={paymentMethodOptions}
+                            value={paymentDetails.method}
+                            onChange={(val) => setPaymentDetails({ ...paymentDetails, method: val as any })}
+                        />
                     </div>
                     
                     <DateInput

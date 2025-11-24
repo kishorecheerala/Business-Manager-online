@@ -309,6 +309,9 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                                         options={[{value: 'all', label: 'All Areas'}, ...uniqueAreas.map(area => ({ value: area, label: area }))]}
                                         value={areaFilter}
                                         onChange={setAreaFilter}
+                                        searchable={true}
+                                        searchPlaceholder="Search areas..."
+                                        icon="search"
                                     />
                                 </div>
                             </div>
@@ -426,6 +429,9 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                                     options={[{value: 'all', label: 'All Suppliers'}, ...uniqueSuppliers.map(s => ({ value: s.id, label: s.name }))]}
                                     value={supplierFilter}
                                     onChange={setSupplierFilter}
+                                    searchable={true}
+                                    searchPlaceholder="Search suppliers..."
+                                    icon="search"
                                 />
                             </div>
                         </div>

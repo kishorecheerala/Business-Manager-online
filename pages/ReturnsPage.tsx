@@ -327,6 +327,7 @@ const ReturnsPage: React.FC<ReturnsPageProps> = ({ setIsDirty }) => {
                             placeholder={`Select ${returnType.toLowerCase()}`}
                             searchable={true}
                             searchPlaceholder={`Search by name or ${returnType === 'CUSTOMER' ? 'area' : 'location'}...`}
+                            icon="search"
                         />
                     </div>
 
@@ -340,6 +341,7 @@ const ReturnsPage: React.FC<ReturnsPageProps> = ({ setIsDirty }) => {
                                 placeholder="Select invoice"
                                 searchable={true}
                                 searchPlaceholder="Search invoices..."
+                                icon="search"
                             />
                         </div>
                     )}
