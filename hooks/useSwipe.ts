@@ -24,7 +24,7 @@ export const useSwipe = (
   options: SwipeOptions = {}
 ) => {
   const {
-    threshold = 100,
+    threshold = 80,
     edgeThreshold = 0,
     timeout = 500
   } = options;
@@ -46,6 +46,13 @@ export const useSwipe = (
       if (e.touches.length !== 1) return;
       
       const touch = e.touches[0];
+      
+      // EDGE DETECTION: If configured, ignore swipes starting too far from the left
+      if (edgeThreshold > 0 && touch.clientX > edgeThreshold) {
+          touchStartX.current = null; // invalid
+          return;
+      }
+
       touchStartX.current = touch.clientX;
       touchStartY.current = touch.clientY;
       touchStartTime.current = Date.now();
@@ -62,9 +69,8 @@ export const useSwipe = (
       const deltaX = touch.clientX - touchStartX.current;
       const deltaY = touch.clientY - touchStartY.current;
       const duration = Date.now() - touchStartTime.current;
-      const startX = touchStartX.current;
 
-      // Cleanup references immediately
+      // Cleanup references immediately to prevent double-firing
       touchStartX.current = null;
       touchStartY.current = null;
       touchStartTime.current = null;
@@ -77,14 +83,12 @@ export const useSwipe = (
 
       // 3. Angle Check (Must be horizontal)
       // Allow slight diagonal but ensure horizontal component is dominant
+      // tan(30deg) approx 0.57. Using 0.8 allows up to ~38deg deviation.
       if (Math.abs(deltaY) > Math.abs(deltaX) * 0.8) return;
 
-      // 4. Direction & Edge Logic
+      // 4. Direction Logic
       if (deltaX > 0) {
         // SWIPE RIGHT (Back / Exit)
-        // If edgeThreshold is configured, ensure swipe started from the left edge
-        if (edgeThreshold > 0 && startX > edgeThreshold) return;
-        
         callbacksRef.current.onSwipeRight?.();
       } else {
         // SWIPE LEFT (Next)

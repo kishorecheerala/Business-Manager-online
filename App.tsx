@@ -230,53 +230,58 @@ const MainApp: React.FC = () => {
     if (isDirtyRef.current) {
       setNavConfirm({ show: true, page });
     } else {
-      // Push state to history to allow back button to return to dashboard/prev page
-      // Standard PWA pattern: If navigating deeper, push state.
-      if (page !== 'DASHBOARD' && currentPage === 'DASHBOARD') {
+      // Always push a state when navigating forward to a new page to build history
+      if (page !== 'DASHBOARD') {
           window.history.pushState({ page }, '');
-      } else if (page === 'DASHBOARD' && currentPage !== 'DASHBOARD') {
-          // If going back to dashboard, we don't strictly push, 
-          // but to keep history clean in simple router we might.
-          // Ideally we'd use history.back(), but mixed nav is complex.
-          // Pushing is safer for reliable state.
-          window.history.pushState({ page: 'DASHBOARD' }, '');
       }
       _setCurrentPage(page);
     }
   };
 
-  // --- Back Button & History Handling ---
+  // --- HISTORY TRAP & BACK BUTTON HANDLING ---
+  // This Effect initializes the history stack to ensure we have a buffer before exiting.
   useEffect(() => {
-    // Initialize history state on mount
-    window.history.replaceState({ page: 'DASHBOARD' }, '');
+      // Check if we are running this init logic.
+      if (!window.history.state || window.history.state.page !== 'DASHBOARD') {
+          // Replace current state with Dashboard to be clean
+          window.history.replaceState({ page: 'DASHBOARD' }, '');
+          // Push it again to create a history entry we can 'pop' without exiting
+          window.history.pushState({ page: 'DASHBOARD' }, '');
+      }
+  }, []);
 
+  useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
-      // The user pressed back (or swiped edge on mobile).
+      // User pressed Back Button (or Swipe Back on Mobile)
       
       if (currentPage === 'DASHBOARD') {
           if (exitAttempt) {
-              // Allow exit (history is popped to previous external page)
-              return; 
+              // User confirmed exit (Double Back).
+              // Allow the pop to happen. Since we are popping the "Trap" state, 
+              // we are now at the previous state (Entry).
+              // To actually exit the app/tab, we might need to go back one more time
+              // or just let the user swipe again.
+              // For typical Android PWA feel:
+              // 1st Back -> Toast.
+              // 2nd Back -> Exit.
+              window.history.go(-1); // Go back again to exit the PWA
           } else {
-              // Prevent exit, push state back to keep user in app
+              // Trap the user: We just popped state, so push it back immediately
+              // to keep the history stack size constant and stay on page.
               window.history.pushState({ page: 'DASHBOARD' }, '');
+              
               showToast("Press Back again to exit", 'info');
               setExitAttempt(true);
               setTimeout(() => setExitAttempt(false), 3500);
           }
       } else {
-          // We are on a subpage. The popstate event means we are going "back".
-          // If there are no dirty forms, go to dashboard.
+          // On Subpage. Native back occurred.
+          // We just need to sync our React state to match where we are (Dashboard).
           if (!isDirtyRef.current) {
               _setCurrentPage('DASHBOARD');
           } else {
-              // If dirty, we need to intercept. 
-              // Since popstate already happened, we are technically "back".
-              // We should revert forward to block it and show confirm? 
-              // Complexity high. Simple approach: Just go to dashboard, 
-              // dirty check is usually for "Link Clicks".
-              // If native back is used, dirty check is hard to enforce without blocking.
-              // For now, let's allow back navigation to Dashboard.
+              // If dirty, strictly we should have intercepted via 'beforeunload' or similar,
+              // but for SPA nav, we just let it go back to Dashboard to avoid stuck state.
               _setCurrentPage('DASHBOARD');
           }
       }
@@ -293,26 +298,27 @@ const MainApp: React.FC = () => {
         // Prevent swipe if menus/modals are open
         if (isMenuOpen || isSearchOpen || isNotificationsOpen || isQuickAddOpen || isMobileQuickAddOpen || isMoreMenuOpen) return;
 
-        // Trigger back navigation logic.
         if (currentPage === 'DASHBOARD') {
             if (exitAttempt) {
-                // Second swipe (or swipe after back button press) -> Execute Back to exit
+                // Second swipe triggers actual back (which exits because of our history logic)
                 window.history.back();
             } else {
-                // First swipe -> Show warning, Do NOT navigate back yet (prevents immediate exit)
+                // First swipe shows warning.
+                // We DO NOT call history.back() here if it's a custom gesture to avoid double-pop 
+                // if the browser also processed it natively.
                 showToast("Swipe again to exit", 'info');
                 setExitAttempt(true);
                 setTimeout(() => setExitAttempt(false), 3500);
             }
         } else {
-            // On Subpage -> Go back to Dashboard (or previous history)
+            // On Subpage -> Go back
             window.history.back();
         }
     }
   }, {
-      edgeThreshold: 40, // Only trigger 'back' if swipe starts within 40px of left edge
-      threshold: 80,     // Minimum distance to be considered a swipe
-      timeout: 400       // Maximum duration for a valid swipe
+      edgeThreshold: 40, // Only trigger 'back' if swipe starts within 40px of left edge (Native Android zone)
+      threshold: 80,     // Minimum distance
+      timeout: 400       // Maximum duration
   });
 
   const renderPage = () => {
