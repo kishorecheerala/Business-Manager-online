@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Purchase, Supplier, Product, PurchaseItem } from '../types';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
@@ -340,7 +341,7 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
 
   const supplierOptions = useMemo(() => suppliers.map(s => ({
       value: s.id,
-      label: s.name,
+      label: `${s.name} - ${s.location}`,
       searchText: `${s.name} ${s.location} ${s.phone}`
   })).sort((a, b) => a.label.localeCompare(b.label)), [suppliers]);
   
