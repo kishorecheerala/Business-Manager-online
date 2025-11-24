@@ -1,53 +1,50 @@
-import React, { useState } from 'react';
+
+import React, { useRef } from 'react';
 
 interface SwipeInput {
-  onSwipeLeft: () => void;
-  onSwipeRight: () => void;
+  onSwipeLeft?: () => void;
+  onSwipeRight?: () => void;
 }
 
 export const useSwipe = ({ onSwipeLeft, onSwipeRight }: SwipeInput) => {
-  const [touchStartX, setTouchStartX] = useState<number | null>(null);
-  const [touchEndX, setTouchEndX] = useState<number | null>(null);
-  const [touchStartY, setTouchStartY] = useState<number | null>(null);
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+  const touchEndX = useRef<number | null>(null);
+  const touchEndY = useRef<number | null>(null);
 
   // The minimum distance in pixels for a swipe to be registered
   const minSwipeDistance = 50;
 
   const onTouchStart = (e: React.TouchEvent) => {
-    // Resetting touchEnd to prevent click events from triggering swipe
-    setTouchEndX(null); 
-    setTouchStartX(e.targetTouches[0].clientX);
-    setTouchStartY(e.targetTouches[0].clientY);
+    touchEndX.current = null; 
+    touchEndY.current = null;
+    touchStartX.current = e.targetTouches[0].clientX;
+    touchStartY.current = e.targetTouches[0].clientY;
   };
 
   const onTouchMove = (e: React.TouchEvent) => {
-    setTouchEndX(e.targetTouches[0].clientX);
+    touchEndX.current = e.targetTouches[0].clientX;
+    touchEndY.current = e.targetTouches[0].clientY;
   };
 
-  const onTouchEnd = (e: React.TouchEvent) => {
-    if (!touchStartX || !touchEndX || !touchStartY) return;
+  const onTouchEnd = () => {
+    if (!touchStartX.current || !touchStartY.current || !touchEndX.current || !touchEndY.current) return;
 
-    const distanceX = touchStartX - touchEndX;
+    const distanceX = touchStartX.current - touchEndX.current;
     const isLeftSwipe = distanceX > minSwipeDistance;
     const isRightSwipe = distanceX < -minSwipeDistance;
 
-    const touchEndY = e.changedTouches[0].clientY;
-    const distanceY = Math.abs(touchStartY - touchEndY);
+    const distanceY = Math.abs(touchStartY.current - touchEndY.current);
 
     // To be a valid swipe, the horizontal distance must be greater than the vertical distance
     // This prevents triggering swipes when the user is scrolling vertically
     if (Math.abs(distanceX) > distanceY) {
-      if (isLeftSwipe) {
+      if (isLeftSwipe && onSwipeLeft) {
         onSwipeLeft();
-      } else if (isRightSwipe) {
+      } else if (isRightSwipe && onSwipeRight) {
         onSwipeRight();
       }
     }
-
-    // Reset values
-    setTouchStartX(null);
-    setTouchEndX(null);
-    setTouchStartY(null);
   };
 
   return {
