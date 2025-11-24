@@ -16,6 +16,13 @@ interface DashboardProps {
     setCurrentPage: (page: Page) => void;
 }
 
+const getTimeBasedGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
+};
+
 const MetricCard: React.FC<{
     icon: React.ElementType;
     title: string;
@@ -47,7 +54,8 @@ const MetricCard: React.FC<{
     </div>
 );
 
-const SmartAnalystCard: React.FC<{ sales: Sale[], products: Product[], customers: Customer[], purchases: Purchase[], returns: Return[] }> = ({ sales, products, customers, purchases, returns }) => {
+const SmartAnalystCard: React.FC<{ sales: Sale[], products: Product[], customers: Customer[], purchases: Purchase[], returns: Return[], ownerName: string }> = ({ sales, products, customers, purchases, returns, ownerName }) => {
+    
     const insights = useMemo(() => {
         const list: { icon: React.ElementType, text: string, color: string, type: string }[] = [];
         const now = new Date();
@@ -263,12 +271,14 @@ const SmartAnalystCard: React.FC<{ sales: Sale[], products: Product[], customers
         <div className="relative overflow-hidden rounded-xl bg-white dark:bg-slate-800 shadow-lg border border-primary/10 dark:border-slate-700 transition-all hover:shadow-xl animate-slide-up-fade">
             <div className="absolute top-0 left-0 w-full h-1 bg-primary"></div>
             <div className="p-5">
-                <div className="flex items-center gap-2 mb-4">
-                    <div className="p-2 bg-primary/10 rounded-full animate-pulse-bg">
-                        <BrainCircuit className="w-6 h-6 text-primary" />
+                <div className="flex flex-col gap-1 mb-4">
+                    <div className="flex items-center gap-2">
+                        <div className="p-2 bg-primary/10 rounded-full animate-pulse-bg">
+                            <BrainCircuit className="w-6 h-6 text-primary" />
+                        </div>
+                        <h3 className="font-bold text-xl text-gray-800 dark:text-white">Smart Analyst</h3>
+                        <span className="text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">AI Powered</span>
                     </div>
-                    <h3 className="font-bold text-xl text-gray-800 dark:text-white">Smart Analyst</h3>
-                    <span className="text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">AI Powered</span>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -787,35 +797,38 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                 />
             )}
             
-            {/* Header Section with Welcome, Title, and Date */}
-            <div className="flex flex-col gap-4">
-                <div className="grid grid-cols-3 items-center relative">
-                    
-                    {/* Left: Welcome Message (First) */}
-                    <div className="flex justify-start z-10">
-                         <span className="text-xs sm:text-sm font-medium px-2 sm:px-4 py-1 sm:py-1.5 rounded-full bg-primary/10 text-primary border border-primary/20 shadow-sm transition-transform hover:scale-105 cursor-default whitespace-nowrap flex items-center gap-1 max-w-full">
-                            <span className="hidden sm:inline">Welcome back,</span>
-                            <span className="sm:hidden">Hi,</span>
-                            <strong className="truncate">{profile?.ownerName || 'Owner'}</strong>
-                        </span>
-                    </div>
+            {/* Header Section - Inline Layout */}
+            <div className="flex flex-row items-center justify-between gap-2 relative mb-6">
+                {/* Left: Greeting */}
+                <div className="flex-shrink-0">
+                     <span className="text-xs sm:text-sm font-medium px-3 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/20 shadow-sm cursor-default flex items-center gap-1 max-w-full">
+                        <span className="text-gray-500 dark:text-gray-400">{getTimeBasedGreeting()},</span>
+                        <strong className="truncate max-w-[120px] sm:max-w-[150px]">{profile?.ownerName || 'Owner'}</strong>
+                    </span>
+                </div>
 
-                    {/* Center: Dashboard Title (Second) */}
-                    <div className="flex justify-center">
-                        <h1 className="text-xl sm:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-primary to-emerald-600 tracking-tight drop-shadow-sm">
-                            Dashboard
-                        </h1>
-                    </div>
-
-                    {/* Right: Date (Third/Edge) */}
-                    <div className="flex justify-end z-10">
-                         <DatePill />
-                    </div>
+                {/* Center: Title - Hidden on very small screens if needed, or flexible */}
+                <div className="flex-grow text-center">
+                    <h1 className="text-lg sm:text-2xl md:text-3xl font-bold text-primary tracking-tight drop-shadow-sm truncate">
+                        Dashboard
+                    </h1>
+                </div>
+                
+                {/* Right: Date */}
+                <div className="flex-shrink-0">
+                    <DatePill />
                 </div>
             </div>
             
-            {/* New Smart Analyst AI Card (Moved Top) */}
-            <SmartAnalystCard sales={sales} products={products} customers={customers} purchases={purchases} returns={returns} />
+            {/* New Smart Analyst AI Card (Top) */}
+            <SmartAnalystCard 
+                sales={sales} 
+                products={products} 
+                customers={customers} 
+                purchases={purchases} 
+                returns={returns} 
+                ownerName={profile?.ownerName || 'Owner'}
+            />
             
             {/* Toolbar for Period Selectors */}
             <div className="flex justify-end items-center mb-1">
