@@ -1,3 +1,4 @@
+
 import React, { createContext, useReducer, useContext, useEffect, ReactNode, useState, useRef } from 'react';
 import { Customer, Supplier, Product, Sale, Purchase, Return, Payment, BeforeInstallPromptEvent, Notification, ProfileData, Page, AppMetadata, AppMetadataPin, Theme, GoogleUser, AuditLogEntry, SyncStatus } from '../types';
 import * as db from '../utils/db';
@@ -27,11 +28,12 @@ export interface AppState {
   pin: string | null;
   theme: Theme;
   themeColor: string;
-  themeGradient: string; // Added property for gradient support
+  themeGradient: string;
   googleUser: GoogleUser | null;
   syncStatus: SyncStatus;
   lastSyncTime: number | null;
   lastLocalUpdate: number;
+  devMode: boolean;
   restoreFromFileId?: (fileId: string) => Promise<void>;
 }
 
@@ -39,7 +41,7 @@ type Action =
   | { type: 'SET_STATE'; payload: Partial<AppState> }
   | { type: 'SET_THEME'; payload: Theme }
   | { type: 'SET_THEME_COLOR'; payload: string }
-  | { type: 'SET_THEME_GRADIENT'; payload: string } // Added action
+  | { type: 'SET_THEME_GRADIENT'; payload: string }
   | { type: 'SET_NOTIFICATIONS'; payload: Notification[] }
   | { type: 'SET_PROFILE'; payload: ProfileData | null }
   | { type: 'SET_PIN'; payload: string }
@@ -77,6 +79,7 @@ type Action =
   | { type: 'SET_SYNC_STATUS'; payload: SyncStatus }
   | { type: 'SET_LAST_SYNC_TIME'; payload: number }
   | { type: 'ADD_AUDIT_LOG'; payload: AuditLogEntry }
+  | { type: 'TOGGLE_DEV_MODE' }
   | { type: 'RESET_APP' };
 
 
@@ -123,6 +126,14 @@ const getInitialSyncTime = (): number | null => {
     }
 };
 
+const getInitialDevMode = (): boolean => {
+    try {
+        return localStorage.getItem('devMode') === 'true';
+    } catch (e) {
+        return false;
+    }
+}
+
 const initialState: AppState = {
   customers: [],
   suppliers: [],
@@ -145,6 +156,7 @@ const initialState: AppState = {
   syncStatus: 'idle',
   lastSyncTime: getInitialSyncTime(),
   lastLocalUpdate: 0,
+  devMode: getInitialDevMode(),
 };
 
 const appReducer = (state: AppState, action: Action): AppState => {
@@ -158,8 +170,12 @@ const appReducer = (state: AppState, action: Action): AppState => {
         return { ...state, themeColor: action.payload };
     case 'SET_THEME_GRADIENT':
         return { ...state, themeGradient: action.payload };
+    case 'TOGGLE_DEV_MODE':
+        const newDevMode = !state.devMode;
+        localStorage.setItem('devMode', String(newDevMode));
+        return { ...state, devMode: newDevMode };
     case 'RESET_APP':
-        return { ...initialState, theme: state.theme, themeColor: state.themeColor, themeGradient: state.themeGradient, installPromptEvent: state.installPromptEvent };
+        return { ...initialState, theme: state.theme, themeColor: state.themeColor, themeGradient: state.themeGradient, installPromptEvent: state.installPromptEvent, devMode: state.devMode };
     case 'REPLACE_COLLECTION':
         return { ...state, [action.payload.storeName]: action.payload.data, ...touch };
     case 'SET_NOTIFICATIONS':
@@ -391,7 +407,7 @@ interface AppContextType {
     isDbLoaded: boolean;
     googleSignIn: (options?: { forceConsent?: boolean }) => void;
     googleSignOut: () => void;
-    syncData: () => Promise<void>;
+    syncData: (options?: { silent?: boolean }) => Promise<void>;
     restoreFromFileId: (fileId: string) => Promise<void>;
 }
 
@@ -513,7 +529,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         // 1. Pull (Download) using DriveService
         let remoteData = null;
         try {
-            showToast("Checking cloud...", 'info');
+            // showToast("Checking cloud...", 'info'); // Silenced to avoid spam
             remoteData = await DriveService.read(accessToken);
         } catch (e) {
             console.error("Failed to download remote file:", e);
@@ -594,13 +610,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
   };
 
-  const syncData = async () => {
+  const syncData = async (options: { silent?: boolean } = {}) => {
       if (!state.googleUser?.accessToken) return;
       dispatch({ type: 'SET_SYNC_STATUS', payload: 'syncing' });
       try {
           const accessToken = state.googleUser.accessToken;
           await performSync(accessToken);
-          showToast("Cloud Sync Complete");
+          if (!options.silent) showToast("Cloud Sync Complete");
       } catch (e) {
           dispatch({ type: 'SET_SYNC_STATUS', payload: 'error' });
           console.error("Manual sync failed", e);
@@ -639,17 +655,74 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
   }, [state.lastLocalUpdate, isDbLoaded]);
 
-  // Auto-Sync Effect
+  // Auto-Sync Effect (Data Changes)
   useEffect(() => {
       // Trigger sync only when local data changes (tracked by lastLocalUpdate)
       // This prevents infinite loops where sync-down triggers sync-up triggers sync-down...
       if (state.googleUser && isDbLoaded && state.lastLocalUpdate > 0) {
           const handler = setTimeout(() => {
-              syncData();
+              syncData({ silent: true }); // Silent sync for background updates
           }, 5000); // Debounce 5s
           return () => clearTimeout(handler);
       }
   }, [state.lastLocalUpdate]);
+
+  // Daily Backup / Connection Recovery Logic
+  useEffect(() => {
+      if (!isDbLoaded || !state.googleUser) return;
+
+      const runDailyCheck = () => {
+          if (!navigator.onLine) return;
+          
+          const lastSync = state.lastSyncTime;
+          const now = new Date();
+          
+          // Check if last sync was on a different day (or never)
+          let needsBackup = false;
+          if (!lastSync) {
+              needsBackup = true;
+          } else {
+              const lastSyncDate = new Date(lastSync);
+              // Compare Year, Month, Date to see if it's a new day
+              if (
+                  lastSyncDate.getDate() !== now.getDate() ||
+                  lastSyncDate.getMonth() !== now.getMonth() ||
+                  lastSyncDate.getFullYear() !== now.getFullYear()
+              ) {
+                  needsBackup = true;
+              }
+          }
+
+          if (needsBackup) {
+              console.log("Performing Daily Backup/Sync...");
+              syncData({ silent: true });
+          }
+      };
+
+      // 1. Check immediately on load
+      runDailyCheck();
+
+      // 2. Check when network comes online
+      const handleOnline = () => runDailyCheck();
+      window.addEventListener('online', handleOnline);
+
+      // 3. Check when app comes to foreground
+      const handleVisibilityChange = () => {
+          if (document.visibilityState === 'visible') {
+              runDailyCheck();
+          }
+      };
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+
+      // 4. Check periodically (every hour) if app stays open to catch date changes
+      const interval = setInterval(runDailyCheck, 60 * 60 * 1000);
+
+      return () => {
+          window.removeEventListener('online', handleOnline);
+          document.removeEventListener('visibilitychange', handleVisibilityChange);
+          clearInterval(interval);
+      };
+  }, [isDbLoaded, state.googleUser, state.lastSyncTime]);
 
 
   useEffect(() => {

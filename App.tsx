@@ -19,6 +19,8 @@ import NotificationsPanel from './components/NotificationsPanel';
 import MenuPanel from './components/MenuPanel';
 import ProfileModal from './components/ProfileModal';
 import AskAIModal from './components/AskAIModal';
+import DeveloperToolsModal from './components/DeveloperToolsModal';
+import CloudDebugModal from './components/CloudDebugModal';
 import { BeforeInstallPromptEvent, Page, SyncStatus } from './types';
 import { useOnClickOutside } from './hooks/useOnClickOutside';
 import { useSwipe } from './hooks/useSwipe';
@@ -129,6 +131,8 @@ const MainApp: React.FC = () => {
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
   const [isMobileQuickAddOpen, setIsMobileQuickAddOpen] = useState(false);
   const [isAskAIOpen, setIsAskAIOpen] = useState(false);
+  const [isDevToolsOpen, setIsDevToolsOpen] = useState(false);
+  const [isCloudDebugOpen, setIsCloudDebugOpen] = useState(false);
   const [navConfirm, setNavConfirm] = useState<{ show: boolean, page: Page | null }>({ show: false, page: null });
 
   const { state, dispatch, isDbLoaded } = useAppContext();
@@ -256,6 +260,12 @@ const MainApp: React.FC = () => {
       <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
       <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
       <AskAIModal isOpen={isAskAIOpen} onClose={() => setIsAskAIOpen(false)} />
+      <DeveloperToolsModal 
+        isOpen={isDevToolsOpen} 
+        onClose={() => setIsDevToolsOpen(false)} 
+        onOpenCloudDebug={() => setIsCloudDebugOpen(true)} 
+      />
+      <CloudDebugModal isOpen={isCloudDebugOpen} onClose={() => setIsCloudDebugOpen(false)} />
       <UniversalSearch isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} onNavigate={(p, id) => { dispatch({ type: 'SET_SELECTION', payload: { page: p, id } }); _setCurrentPage(p); setIsSearchOpen(false); }} />
       <ConfirmationModal isOpen={navConfirm.show} onClose={() => setNavConfirm({ show: false, page: null })} onConfirm={() => { if (navConfirm.page) { setIsDirty(false); _setCurrentPage(navConfirm.page); } setNavConfirm({ show: false, page: null }); }} title="Unsaved Changes">You have unsaved changes. Leave anyway?</ConfirmationModal>
       
@@ -266,7 +276,13 @@ const MainApp: React.FC = () => {
               <button onClick={() => setIsMenuOpen(prev => !prev)} className="p-2 rounded-full hover:bg-white/20 transition-all active:scale-95">
                   <Menu className="w-6 h-6" />
               </button>
-              <MenuPanel isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} onProfileClick={() => { setIsMenuOpen(false); setIsProfileOpen(true); }} onNavigate={(page) => { setIsMenuOpen(false); setCurrentPage(page); }} />
+              <MenuPanel 
+                isOpen={isMenuOpen} 
+                onClose={() => setIsMenuOpen(false)} 
+                onProfileClick={() => { setIsMenuOpen(false); setIsProfileOpen(true); }} 
+                onNavigate={(page) => { setIsMenuOpen(false); setCurrentPage(page); }} 
+                onOpenDevTools={() => { setIsMenuOpen(false); setIsDevToolsOpen(true); }}
+              />
             </div>
             <button onClick={() => setIsSearchOpen(true)} className="p-2 rounded-full hover:bg-white/20 transition-all active:scale-95">
               <Search className="w-6 h-6" />

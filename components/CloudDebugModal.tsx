@@ -93,7 +93,7 @@ const CloudDebugModal: React.FC<CloudDebugModalProps> = ({ isOpen, onClose }) =>
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[110] p-4 animate-fade-in-fast">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[130] p-4 animate-fade-in-fast">
       <Card className="w-full max-w-2xl h-[85vh] flex flex-col p-0 overflow-hidden animate-scale-in">
         <div className="bg-slate-800 text-white p-4 flex justify-between items-center shrink-0">
           <div className="flex items-center gap-2">

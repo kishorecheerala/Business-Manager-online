@@ -1,18 +1,20 @@
 
-import React, { useState } from 'react';
-import { User, BarChart2, Activity, LogIn, LogOut, RefreshCw, CloudLightning, Sun, Moon, Palette, Check, Settings, Monitor, Shield, ChevronRight, RotateCcw, BrainCircuit } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { User, BarChart2, Activity, LogIn, LogOut, RefreshCw, CloudLightning, Sun, Moon, Palette, Check, Settings, Monitor, Shield, ChevronRight, RotateCcw, BrainCircuit, Terminal } from 'lucide-react';
 import { Page } from '../types';
 import { useAppContext } from '../context/AppContext';
 import AuditLogPanel from './AuditLogPanel';
 import CloudDebugModal from './CloudDebugModal';
 import ColorPickerModal from './ColorPickerModal';
 import GradientPickerModal from './GradientPickerModal';
+import PinModal from './PinModal';
 
 interface MenuPanelProps {
   isOpen: boolean;
   onClose: () => void;
   onProfileClick: () => void;
   onNavigate: (page: Page) => void;
+  onOpenDevTools: () => void;
 }
 
 interface ThemeColor {
@@ -89,12 +91,15 @@ const getContrastColor = (hexColor: string) => {
     return (yiq >= 128) ? 'black' : 'white';
 };
 
-const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, onNavigate }) => {
+const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, onNavigate, onOpenDevTools }) => {
     const { state, dispatch, googleSignIn, googleSignOut, syncData } = useAppContext();
     const [isAuditOpen, setIsAuditOpen] = useState(false);
     const [isCloudDebugOpen, setIsCloudDebugOpen] = useState(false);
     const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
     const [isGradientPickerOpen, setIsGradientPickerOpen] = useState(false);
+    
+    const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+    const [pinMode, setPinMode] = useState<'setup' | 'enter'>('enter');
 
     const setTheme = (mode: 'light' | 'dark') => {
         dispatch({ type: 'SET_THEME', payload: mode });
@@ -112,7 +117,26 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
         dispatch({ type: 'SET_THEME_GRADIENT', payload: color.gradient || '' });
     };
 
-    if (!isOpen && !isAuditOpen && !isCloudDebugOpen && !isColorPickerOpen && !isGradientPickerOpen) return null;
+    const handleDevToolsClick = () => {
+        if (state.pin) {
+            setPinMode('enter');
+        } else {
+            setPinMode('setup');
+        }
+        setIsPinModalOpen(true);
+    };
+
+    const handlePinSuccess = (newPin?: string) => {
+        if (newPin) {
+            // If setup mode, save the pin first
+            dispatch({ type: 'SET_PIN', payload: newPin });
+        }
+        setIsPinModalOpen(false);
+        onClose(); // Close menu
+        onOpenDevTools();
+    };
+
+    if (!isOpen && !isAuditOpen && !isCloudDebugOpen && !isColorPickerOpen && !isGradientPickerOpen && !isPinModalOpen) return null;
 
     return (
         <>
@@ -136,6 +160,15 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                 dispatch({ type: 'SET_THEME_GRADIENT', payload: gradient });
             }}
         />
+        {isPinModalOpen && (
+            <PinModal
+                mode={pinMode}
+                correctPin={state.pin}
+                onCorrectPin={() => handlePinSuccess()}
+                onSetPin={(pin) => handlePinSuccess(pin)}
+                onCancel={() => setIsPinModalOpen(false)}
+            />
+        )}
         
         {isOpen && (
         <div 
@@ -155,13 +188,18 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                         </div>
                     </div>
                 ) : (
-                    <button
-                        onClick={() => { googleSignIn(); onClose(); }}
-                        className="w-full flex items-center justify-center gap-2 p-2 rounded-lg bg-primary text-white font-semibold text-sm shadow-md hover:bg-opacity-90 transition-all"
-                    >
-                        <LogIn className="w-4 h-4" />
-                        Sign In with Google
-                    </button>
+                    <div className="flex flex-col gap-2">
+                        <div className="text-center p-1">
+                            <p className="text-sm font-bold text-gray-800 dark:text-white">Guest User</p>
+                        </div>
+                        <button
+                            onClick={() => { googleSignIn(); onClose(); }}
+                            className="w-full flex items-center justify-center gap-2 p-2 rounded-lg bg-primary text-white font-semibold text-sm shadow-md hover:bg-opacity-90 transition-all"
+                        >
+                            <LogIn className="w-4 h-4" />
+                            Sign In with Google
+                        </button>
+                    </div>
                 )}
             </div>
 
@@ -184,6 +222,13 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                 <button onClick={() => { onClose(); setIsAuditOpen(true); }} className="menu-item">
                     <Activity className="w-5 h-5 text-amber-500" />
                     <span className="flex-grow text-sm font-medium">Audit Logs</span>
+                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                </button>
+
+                <button onClick={handleDevToolsClick} className="menu-item bg-slate-100 dark:bg-slate-700/50 mt-2">
+                    <Terminal className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    <span className="flex-grow text-sm font-medium text-green-800 dark:text-green-200">Developer Tools</span>
+                    {state.pin && <Shield className="w-3 h-3 text-gray-400" />}
                     <ChevronRight className="w-4 h-4 text-gray-400" />
                 </button>
 
@@ -298,7 +343,7 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                             className="menu-item text-amber-600 dark:text-amber-400"
                         >
                             <CloudLightning className="w-5 h-5" />
-                            <span className="flex-grow text-sm font-medium">Diagnostics</span>
+                            <span className="flex-grow text-sm font-medium">Cloud Diagnostics</span>
                         </button>
 
                         <button

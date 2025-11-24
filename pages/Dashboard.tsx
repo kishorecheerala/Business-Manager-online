@@ -918,9 +918,11 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                                 <Button onClick={() => runSecureAction(() => setIsImportModalOpen(true))} variant="secondary" className="w-full">
                                     <Upload className="w-4 h-4 mr-2" /> Import Bulk Data from CSV
                                 </Button>
-                                <Button onClick={() => runSecureAction(handleLoadTestData)} className="w-full bg-purple-600 hover:bg-purple-700 focus:ring-purple-600" disabled={isGeneratingReport}>
-                                    <TestTube2 className="w-4 h-4 mr-2" /> Load Test Data
-                                </Button>
+                                {state.devMode && (
+                                    <Button onClick={() => runSecureAction(handleLoadTestData)} className="w-full bg-purple-600 hover:bg-purple-700 focus:ring-purple-600" disabled={isGeneratingReport}>
+                                        <TestTube2 className="w-4 h-4 mr-2" /> Load Test Data
+                                    </Button>
+                                )}
                             </div>
                              <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-md border border-yellow-200 dark:border-yellow-700">
                                 <div className="flex gap-2">

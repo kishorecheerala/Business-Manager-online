@@ -1,3 +1,4 @@
+
 import { AppState } from '../context/AppContext';
 import { ProfileData, Customer, Supplier, Product, Purchase, Sale, Return } from '../types';
 
@@ -110,4 +111,5 @@ export const testData: Omit<AppState, 'toast' | 'selection' | 'installPromptEven
   themeGradient: '',
   lastLocalUpdate: 0,
   lastSyncTime: null,
+  devMode: false,
 };
