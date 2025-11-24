@@ -316,9 +316,9 @@ const MainApp: React.FC = () => {
         }
     }
   }, {
-      edgeThreshold: 40, // Only trigger 'back' if swipe starts within 40px of left edge (Native Android zone)
-      threshold: 80,     // Minimum distance
-      timeout: 400       // Maximum duration
+      edgeThreshold: 120, // Increased activation area (pixels from left edge)
+      threshold: 60,      // Reduced minimum distance for easier triggering
+      timeout: 600        // Relaxed timeout for slower swipes
   });
 
   const renderPage = () => {
