@@ -241,12 +241,11 @@ const MainApp: React.FC = () => {
   // --- HISTORY TRAP & BACK BUTTON HANDLING ---
   // This Effect initializes the history stack to ensure we have a buffer before exiting.
   useEffect(() => {
-      // Check if we are running this init logic.
+      // Only initialize if we haven't already setup the dashboard trap
       if (!window.history.state || window.history.state.page !== 'DASHBOARD') {
-          // Replace current state with Dashboard to be clean
-          window.history.replaceState({ page: 'DASHBOARD' }, '');
-          // Push it again to create a history entry we can 'pop' without exiting
-          window.history.pushState({ page: 'DASHBOARD' }, '');
+          // Using unique ID to prevent browser from collapsing identical states
+          window.history.replaceState({ page: 'DASHBOARD', id: 'root' }, '');
+          window.history.pushState({ page: 'DASHBOARD', id: 'trap' }, '');
       }
   }, []);
 
@@ -257,18 +256,10 @@ const MainApp: React.FC = () => {
       if (currentPage === 'DASHBOARD') {
           if (exitAttempt) {
               // User confirmed exit (Double Back).
-              // Allow the pop to happen. Since we are popping the "Trap" state, 
-              // we are now at the previous state (Entry).
-              // To actually exit the app/tab, we might need to go back one more time
-              // or just let the user swipe again.
-              // For typical Android PWA feel:
-              // 1st Back -> Toast.
-              // 2nd Back -> Exit.
-              window.history.go(-1); // Go back again to exit the PWA
+              window.history.go(-1); 
           } else {
-              // Trap the user: We just popped state, so push it back immediately
-              // to keep the history stack size constant and stay on page.
-              window.history.pushState({ page: 'DASHBOARD' }, '');
+              // Trap the user: Push state back immediately
+              window.history.pushState({ page: 'DASHBOARD', id: 'trap' }, '');
               
               showToast("Press Back again to exit", 'info');
               setExitAttempt(true);
@@ -276,12 +267,9 @@ const MainApp: React.FC = () => {
           }
       } else {
           // On Subpage. Native back occurred.
-          // We just need to sync our React state to match where we are (Dashboard).
           if (!isDirtyRef.current) {
               _setCurrentPage('DASHBOARD');
           } else {
-              // If dirty, strictly we should have intercepted via 'beforeunload' or similar,
-              // but for SPA nav, we just let it go back to Dashboard to avoid stuck state.
               _setCurrentPage('DASHBOARD');
           }
       }
@@ -299,19 +287,13 @@ const MainApp: React.FC = () => {
         if (isMenuOpen || isSearchOpen || isNotificationsOpen || isQuickAddOpen || isMobileQuickAddOpen || isMoreMenuOpen) return;
 
         if (currentPage === 'DASHBOARD') {
-            if (exitAttempt) {
-                // Second swipe triggers actual back (which exits because of our history logic)
-                window.history.back();
-            } else {
-                // First swipe shows warning.
-                // We DO NOT call history.back() here if it's a custom gesture to avoid double-pop 
-                // if the browser also processed it natively.
-                showToast("Swipe again to exit", 'info');
-                setExitAttempt(true);
-                setTimeout(() => setExitAttempt(false), 3500);
-            }
+            // On Dashboard, we rely on the NATIVE system back gesture to trigger the history popstate event.
+            // If we handle it here AND the browser handles it, we get a race condition where 
+            // this hook sets 'exitAttempt=true' and then the popstate sees it's true and exits immediately.
+            // By doing nothing here, we let the native gesture drive the 'popstate' handler defined above.
+            return;
         } else {
-            // On Subpage -> Go back
+            // On Subpage -> Trigger back to go to Dashboard
             window.history.back();
         }
     }
