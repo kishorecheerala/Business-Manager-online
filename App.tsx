@@ -287,7 +287,7 @@ const MainApp: React.FC = () => {
   }, [currentPage, exitAttempt, showToast]);
 
 
-  // useSwipe now attaches listeners globally via useEffect in the hook itself.
+  // useSwipe with Edge Detection enabled for better PWA "Swipe to Exit/Back" feel
   useSwipe({
     onSwipeRight: () => {
         // Prevent swipe if menus/modals are open
@@ -309,6 +309,10 @@ const MainApp: React.FC = () => {
             window.history.back();
         }
     }
+  }, {
+      edgeThreshold: 40, // Only trigger 'back' if swipe starts within 40px of left edge
+      threshold: 80,     // Minimum distance to be considered a swipe
+      timeout: 400       // Maximum duration for a valid swipe
   });
 
   const renderPage = () => {

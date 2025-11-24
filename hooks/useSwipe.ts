@@ -1,71 +1,104 @@
+
 import { useEffect, useRef } from 'react';
 
-interface SwipeInput {
+interface SwipeCallbacks {
   onSwipeLeft?: () => void;
   onSwipeRight?: () => void;
 }
 
-export const useSwipe = ({ onSwipeLeft, onSwipeRight }: SwipeInput) => {
+interface SwipeOptions {
+  /** Minimum distance in pixels to trigger a swipe */
+  threshold?: number;
+  /** 
+   * Maximum X position (pixels from left) for the start of a right swipe. 
+   * If 0, edge detection is disabled (swipes work from anywhere).
+   * Default: 0
+   */
+  edgeThreshold?: number;
+  /** Maximum duration in ms for the swipe to be valid */
+  timeout?: number;
+}
+
+export const useSwipe = (
+  { onSwipeLeft, onSwipeRight }: SwipeCallbacks,
+  options: SwipeOptions = {}
+) => {
+  const {
+    threshold = 100,
+    edgeThreshold = 0,
+    timeout = 500
+  } = options;
+
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
+  const touchStartTime = useRef<number | null>(null);
   
-  // Store handlers in a ref. This allows us to bind the event listeners ONLY ONCE
-  // but still execute the *latest* version of the callback functions (with current state).
-  const handlersRef = useRef({ onSwipeLeft, onSwipeRight });
+  // Maintain fresh references to callbacks to avoid re-binding event listeners
+  const callbacksRef = useRef({ onSwipeLeft, onSwipeRight });
 
-  // Update the ref on every render so it always has the freshest closures
   useEffect(() => {
-    handlersRef.current = { onSwipeLeft, onSwipeRight };
-  });
+    callbacksRef.current = { onSwipeLeft, onSwipeRight };
+  }, [onSwipeLeft, onSwipeRight]);
 
   useEffect(() => {
     const onTouchStart = (e: TouchEvent) => {
-      // Ensure we only track single-finger swipes to avoid conflict with pinch-zoom etc.
+      // Only track single-finger touches
       if (e.touches.length !== 1) return;
       
-      // Use client coordinates for viewport-relative tracking
-      touchStartX.current = e.touches[0].clientX;
-      touchStartY.current = e.touches[0].clientY;
+      const touch = e.touches[0];
+      touchStartX.current = touch.clientX;
+      touchStartY.current = touch.clientY;
+      touchStartTime.current = Date.now();
     };
 
     const onTouchEnd = (e: TouchEvent) => {
-      if (touchStartX.current === null || touchStartY.current === null) return;
+      if (
+        touchStartX.current === null || 
+        touchStartY.current === null || 
+        touchStartTime.current === null
+      ) return;
 
-      const touchEndX = e.changedTouches[0].clientX;
-      const touchEndY = e.changedTouches[0].clientY;
+      const touch = e.changedTouches[0];
+      const deltaX = touch.clientX - touchStartX.current;
+      const deltaY = touch.clientY - touchStartY.current;
+      const duration = Date.now() - touchStartTime.current;
+      const startX = touchStartX.current;
 
-      const distanceX = touchStartX.current - touchEndX;
-      const distanceY = touchStartY.current - touchEndY;
-
-      const absX = Math.abs(distanceX);
-      const absY = Math.abs(distanceY);
-      
-      const minSwipeDistance = 50; // 50px threshold
-
-      // 1. Must be long enough (minSwipeDistance)
-      // 2. Must be dominantly horizontal (absX > absY)
-      // We use a relaxed slope check (1:1) to allow for natural diagonal thumb movements
-      if (absX > minSwipeDistance && absX > absY) {
-        if (distanceX > 0) {
-          // Dragged from Right to Left (positive diff) -> Next
-          if (handlersRef.current.onSwipeLeft) handlersRef.current.onSwipeLeft();
-        } else {
-          // Dragged from Left to Right (negative diff) -> Back
-          if (handlersRef.current.onSwipeRight) handlersRef.current.onSwipeRight();
-        }
-      }
-
-      // Reset
+      // Cleanup references immediately
       touchStartX.current = null;
       touchStartY.current = null;
+      touchStartTime.current = null;
+
+      // 1. Velocity Check (Swipe must be fast enough)
+      if (duration > timeout) return;
+
+      // 2. Distance Check (Must move enough pixels)
+      if (Math.abs(deltaX) < threshold) return;
+
+      // 3. Angle Check (Must be horizontal)
+      // Allow slight diagonal but ensure horizontal component is dominant
+      if (Math.abs(deltaY) > Math.abs(deltaX) * 0.8) return;
+
+      // 4. Direction & Edge Logic
+      if (deltaX > 0) {
+        // SWIPE RIGHT (Back / Exit)
+        // If edgeThreshold is configured, ensure swipe started from the left edge
+        if (edgeThreshold > 0 && startX > edgeThreshold) return;
+        
+        callbacksRef.current.onSwipeRight?.();
+      } else {
+        // SWIPE LEFT (Next)
+        callbacksRef.current.onSwipeLeft?.();
+      }
     };
 
     const onTouchCancel = () => {
         touchStartX.current = null;
         touchStartY.current = null;
+        touchStartTime.current = null;
     };
 
-    // Attach listeners globally to document with passive: true for performance
+    // Use passive listeners for better scrolling performance
     document.addEventListener('touchstart', onTouchStart, { passive: true });
     document.addEventListener('touchend', onTouchEnd, { passive: true });
     document.addEventListener('touchcancel', onTouchCancel, { passive: true });
@@ -75,5 +108,5 @@ export const useSwipe = ({ onSwipeLeft, onSwipeRight }: SwipeInput) => {
       document.removeEventListener('touchend', onTouchEnd);
       document.removeEventListener('touchcancel', onTouchCancel);
     };
-  }, []); // Empty dependency array ensures listeners are bound only once
+  }, [threshold, edgeThreshold, timeout]);
 };
