@@ -166,4 +166,11 @@ export interface AppMetadataLastModified {
   timestamp: number;
 }
 
-export type AppMetadata = AppMetadataPin | AppMetadataBackup | AppMetadataRevenueGoal | AppMetadataLastModified;
+export interface AppMetadataTheme {
+  id: 'themeSettings';
+  theme: Theme;
+  color: string;
+  gradient: string;
+}
+
+export type AppMetadata = AppMetadataPin | AppMetadataBackup | AppMetadataRevenueGoal | AppMetadataLastModified | AppMetadataTheme;

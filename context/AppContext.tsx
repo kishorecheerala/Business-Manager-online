@@ -1,6 +1,6 @@
 
 import React, { createContext, useReducer, useContext, useEffect, ReactNode, useState, useRef } from 'react';
-import { Customer, Supplier, Product, Sale, Purchase, Return, Payment, BeforeInstallPromptEvent, Notification, ProfileData, Page, AppMetadata, AppMetadataPin, Theme, GoogleUser, AuditLogEntry, SyncStatus } from '../types';
+import { Customer, Supplier, Product, Sale, Purchase, Return, Payment, BeforeInstallPromptEvent, Notification, ProfileData, Page, AppMetadata, AppMetadataPin, Theme, GoogleUser, AuditLogEntry, SyncStatus, AppMetadataTheme } from '../types';
 import * as db from '../utils/db';
 import { StoreName } from '../utils/db';
 import { DriveService, initGoogleAuth, getUserInfo, loadGoogleScript, downloadFile } from '../utils/googleDrive';
@@ -159,23 +159,44 @@ const initialState: AppState = {
   devMode: getInitialDevMode(),
 };
 
+// Helper to update theme metadata
+const upsertThemeToMetadata = (metadata: AppMetadata[], theme: Theme, color: string, gradient: string): AppMetadata[] => {
+    const otherMeta = metadata.filter(m => m.id !== 'themeSettings');
+    const themeMeta: AppMetadataTheme = { id: 'themeSettings', theme, color, gradient };
+    return [...otherMeta, themeMeta];
+};
+
 const appReducer = (state: AppState, action: Action): AppState => {
   const touch = { lastLocalUpdate: Date.now() };
   switch (action.type) {
     case 'SET_STATE':
         return { ...state, ...action.payload };
-    case 'SET_THEME':
-        return { ...state, theme: action.payload };
-    case 'SET_THEME_COLOR':
-        return { ...state, themeColor: action.payload };
-    case 'SET_THEME_GRADIENT':
-        return { ...state, themeGradient: action.payload };
+    case 'SET_THEME': {
+        const newMeta = upsertThemeToMetadata(state.app_metadata, action.payload, state.themeColor, state.themeGradient);
+        return { ...state, theme: action.payload, app_metadata: newMeta, ...touch };
+    }
+    case 'SET_THEME_COLOR': {
+        const newMeta = upsertThemeToMetadata(state.app_metadata, state.theme, action.payload, state.themeGradient);
+        return { ...state, themeColor: action.payload, app_metadata: newMeta, ...touch };
+    }
+    case 'SET_THEME_GRADIENT': {
+        const newMeta = upsertThemeToMetadata(state.app_metadata, state.theme, state.themeColor, action.payload);
+        return { ...state, themeGradient: action.payload, app_metadata: newMeta, ...touch };
+    }
     case 'TOGGLE_DEV_MODE':
         const newDevMode = !state.devMode;
         localStorage.setItem('devMode', String(newDevMode));
         return { ...state, devMode: newDevMode };
     case 'RESET_APP':
-        return { ...initialState, theme: state.theme, themeColor: state.themeColor, themeGradient: state.themeGradient, installPromptEvent: state.installPromptEvent, devMode: state.devMode };
+        // Resetting to defaults, NOT preserving old theme state
+        return { 
+            ...initialState, 
+            theme: 'light', 
+            themeColor: '#0d9488', 
+            themeGradient: '',
+            installPromptEvent: state.installPromptEvent, 
+            devMode: state.devMode 
+        };
     case 'REPLACE_COLLECTION':
         return { ...state, [action.payload.storeName]: action.payload.data, ...touch };
     case 'SET_NOTIFICATIONS':
@@ -201,7 +222,6 @@ const appReducer = (state: AppState, action: Action): AppState => {
     case 'UPDATE_METADATA_TIMESTAMP': {
         const timestamp = action.payload;
         const meta = state.app_metadata.filter(m => m.id !== 'lastModified');
-        // Note: We DO NOT update lastLocalUpdate here to avoid loops with the useEffect that triggers this
         return { ...state, app_metadata: [...meta, { id: 'lastModified', timestamp }] };
     }
     case 'ADD_CUSTOMER':
@@ -489,7 +509,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const mergedData = await db.exportData() as any;
       
       // Normalize for App State (React)
-      // Profile must be an object in state, but is an array in DB/JSON
       const normalizeForState = (d: any) => {
           const stateData = { ...d };
           if (stateData.profile && Array.isArray(stateData.profile)) {
@@ -500,6 +519,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           }
           if (stateData.purchases) {
               stateData.purchases = stateData.purchases.map((p: any) => ({ ...p, payments: p.payments || [] }));
+          }
+          // Apply Theme from Metadata
+          const meta = d.app_metadata || [];
+          const themeMeta = meta.find((m: any) => m.id === 'themeSettings');
+          if (themeMeta) {
+              stateData.theme = themeMeta.theme;
+              stateData.themeColor = themeMeta.color;
+              stateData.themeGradient = themeMeta.gradient;
           }
           return stateData;
       };
@@ -512,8 +539,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       showToast("Data restored from cloud.", 'success');
 
       // Push back to update timestamp on current active file
-      // CRITICAL FIX: Upload `mergedData` (where profile is Array) NOT `finalState` (where profile is Object).
-      // IndexedDB/Import expects arrays for collections to work correctly on other devices.
       try {
           await DriveService.write(accessToken, mergedData);
       } catch(e: any) {
@@ -636,8 +661,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const googleSignOut = async () => {
+    // Fail-safe: Attempt to sync/backup before wiping data
+    if (state.googleUser?.accessToken && navigator.onLine) {
+        try {
+            showToast("Backing up before sign out...", "info");
+            // We await the sync to ensure upload completes if needed
+            await syncData({ silent: true });
+        } catch (e) {
+            console.warn("Pre-signout sync failed:", e);
+            // Proceed with signout anyway, assuming user wants to leave
+        }
+    }
+
     await db.clearDatabase();
+    
+    // Explicitly clear theme settings from localStorage so RESET_APP doesn't pick them up
+    localStorage.removeItem('theme');
+    localStorage.removeItem('themeColor');
+    localStorage.removeItem('themeGradient');
+    
     dispatch({ type: 'RESET_APP' });
+    
     localStorage.removeItem('googleUser');
     localStorage.removeItem('gdrive_folder_id'); // Clear sync cache
     localStorage.removeItem('gdrive_file_id');
@@ -758,6 +802,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         const validatedMetadata = Array.isArray(app_metadata) ? app_metadata : [];
         const pinData = validatedMetadata.find(m => m.id === 'securityPin') as AppMetadataPin | undefined;
+        const themeData = validatedMetadata.find(m => m.id === 'themeSettings') as AppMetadataTheme | undefined;
 
         const validatedState: Partial<AppState> = {
             customers: Array.isArray(customers) ? customers : [],
@@ -768,6 +813,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             returns: Array.isArray(returns) ? returns : [],
             app_metadata: validatedMetadata,
             audit_logs: Array.isArray(audit_logs) ? audit_logs : [],
+            theme: themeData?.theme || getInitialTheme(),
+            themeColor: themeData?.color || getInitialThemeColor(),
+            themeGradient: themeData?.gradient || getInitialThemeGradient(),
         };
         dispatch({ type: 'SET_STATE', payload: validatedState });
         if (pinData?.pin) {
