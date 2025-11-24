@@ -20,9 +20,12 @@ export const useSwipe = ({ onSwipeLeft, onSwipeRight }: SwipeInput) => {
 
   useEffect(() => {
     const onTouchStart = (e: TouchEvent) => {
+      // Ensure we only track single-finger swipes to avoid conflict with pinch-zoom etc.
+      if (e.touches.length !== 1) return;
+      
       // Use screen coordinates to avoid issues with scrolling affecting calculation
-      touchStartX.current = e.changedTouches[0].screenX;
-      touchStartY.current = e.changedTouches[0].screenY;
+      touchStartX.current = e.touches[0].screenX;
+      touchStartY.current = e.touches[0].screenY;
     };
 
     const onTouchEnd = (e: TouchEvent) => {
@@ -57,13 +60,20 @@ export const useSwipe = ({ onSwipeLeft, onSwipeRight }: SwipeInput) => {
       touchStartY.current = null;
     };
 
-    // Attach listeners globally with passive: true for performance
-    document.addEventListener('touchstart', onTouchStart, { passive: true });
-    document.addEventListener('touchend', onTouchEnd, { passive: true });
+    const onTouchCancel = () => {
+        touchStartX.current = null;
+        touchStartY.current = null;
+    };
+
+    // Attach listeners globally to window with passive: true for performance
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchend', onTouchEnd, { passive: true });
+    window.addEventListener('touchcancel', onTouchCancel, { passive: true });
 
     return () => {
-      document.removeEventListener('touchstart', onTouchStart);
-      document.removeEventListener('touchend', onTouchEnd);
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchend', onTouchEnd);
+      window.removeEventListener('touchcancel', onTouchCancel);
     };
   }, []); // Empty dependency array ensures listeners are bound only once
 };
