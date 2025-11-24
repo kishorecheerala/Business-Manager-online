@@ -145,8 +145,9 @@ const MainApp: React.FC = () => {
   const [isDevToolsOpen, setIsDevToolsOpen] = useState(false);
   const [isCloudDebugOpen, setIsCloudDebugOpen] = useState(false);
   const [navConfirm, setNavConfirm] = useState<{ show: boolean, page: Page | null }>({ show: false, page: null });
+  const [exitAttempt, setExitAttempt] = useState(false);
 
-  const { state, dispatch, isDbLoaded } = useAppContext();
+  const { state, dispatch, isDbLoaded, showToast } = useAppContext();
   const { installPromptEvent, theme, themeColor, themeGradient } = state;
   const [isInstallBannerVisible, setIsInstallBannerVisible] = useState(true);
 
@@ -233,6 +234,28 @@ const MainApp: React.FC = () => {
     }
   };
 
+  const swipeHandlers = useSwipe({
+    onSwipeLeft: () => {
+        // Placeholder for future swipe left logic (e.g. next tab)
+    },
+    onSwipeRight: () => {
+        // Prevent swipe if menus/modals are open
+        if (isMenuOpen || isSearchOpen || isNotificationsOpen || isQuickAddOpen || isMobileQuickAddOpen || isMoreMenuOpen) return;
+
+        if (currentPage !== 'DASHBOARD') {
+            setCurrentPage('DASHBOARD');
+        } else {
+            if (exitAttempt) {
+                window.close();
+            } else {
+                showToast("Swipe again to exit", 'info');
+                setExitAttempt(true);
+                setTimeout(() => setExitAttempt(false), 2000);
+            }
+        }
+    }
+  });
+
   const renderPage = () => {
     const commonProps = { setIsDirty };
     switch (currentPage) {
@@ -268,7 +291,10 @@ const MainApp: React.FC = () => {
   const isMoreBtnActive = (mobileMoreItems.some(i => i.page === currentPage) || isMoreMenuOpen) && !isMobileQuickAddOpen;
 
   return (
-    <div className="flex flex-col h-screen font-sans text-slate-800 dark:text-slate-200 bg-transparent">
+    <div 
+        className="flex flex-col h-screen font-sans text-slate-800 dark:text-slate-200 bg-transparent"
+        {...swipeHandlers}
+    >
       <Toast />
       <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
       <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
