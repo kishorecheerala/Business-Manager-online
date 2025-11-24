@@ -524,16 +524,6 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
 
         return (
             <div className="space-y-4">
-                {isBatchBarcodeModalOpen && lastPurchase && (
-                    <BatchBarcodeModal
-                        isOpen={isBatchBarcodeModalOpen}
-                        onClose={() => setIsBatchBarcodeModalOpen(false)}
-                        purchaseItems={lastPurchase.items}
-                        businessName={state.profile?.name || 'Business Manager'}
-                        title="Batch Barcode Print"
-                    />
-                )}
-                
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div className="flex items-center gap-3">
                         <h1 className="text-2xl font-bold text-primary">Purchases & Suppliers</h1>
@@ -575,7 +565,7 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
                                 <div 
                                     key={supplier.id} 
                                     onClick={() => setSelectedSupplier(supplier)} 
-                                    className="p-3 bg-gray-50 dark:bg-slate-700/30 rounded-lg cursor-pointer hover:bg-teal-50 dark:hover:bg-slate-700 border dark:border-slate-700 animate-slide-up-fade"
+                                    className="p-3 bg-gray-50 dark:bg-slate-700/30 rounded-lg cursor-pointer hover:bg-primary/5 dark:hover:bg-slate-700 border dark:border-slate-700 animate-slide-up-fade"
                                     style={{ animationDelay: `${index * 50}ms` }}
                                 >
                                     <div className="flex justify-between items-start">
@@ -601,7 +591,20 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
         );
     };
     
-    return renderContent();
+    return (
+        <>
+            {isBatchBarcodeModalOpen && lastPurchase && (
+                <BatchBarcodeModal
+                    isOpen={isBatchBarcodeModalOpen}
+                    onClose={() => setIsBatchBarcodeModalOpen(false)}
+                    purchaseItems={lastPurchase.items}
+                    businessName={state.profile?.name || 'Business Manager'}
+                    title="Batch Barcode Print"
+                />
+            )}
+            {renderContent()}
+        </>
+    );
 };
 
 export default PurchasesPage;
