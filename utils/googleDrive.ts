@@ -286,9 +286,37 @@ async function locateDriveConfig(accessToken: string) {
     let activeFolderId = null;
 
     if (folders.length > 0) {
-        console.log(`Found ${folders.length} candidate folders.`);
-        // Just use the newest folder
-        activeFolderId = folders[0].id;
+        console.log(`Found ${folders.length} candidate folders. Checking for content...`);
+        
+        // Smart Selection: The "newest" folder (folders[0]) might be an empty duplicate 
+        // created by another device. We should prioritize the folder that actually 
+        // contains the most recent backup file.
+        
+        let bestFolder = folders[0];
+        let latestFileTimestamp = 0;
+
+        // Check up to 5 most recent folders to avoid excessive API calls
+        const foldersToCheck = folders.slice(0, 5);
+
+        for (const folder of foldersToCheck) {
+            try {
+                const latestFile = await findLatestFile(accessToken, folder.id);
+                if (latestFile) {
+                    const fileTime = new Date(latestFile.modifiedTime).getTime();
+                    // If this folder has a file newer than what we've seen, pick this folder
+                    if (fileTime > latestFileTimestamp) {
+                        latestFileTimestamp = fileTime;
+                        bestFolder = folder;
+                    }
+                }
+            } catch (e) {
+                console.warn(`Failed to check files in folder ${folder.id}`, e);
+            }
+        }
+
+        activeFolderId = bestFolder.id;
+        console.log(`Selected active folder: ${bestFolder.name} (ID: ${activeFolderId})`);
+
     } else {
         console.log("No app folder found. Creating new one.");
         // No folder exists at all. Create one.
