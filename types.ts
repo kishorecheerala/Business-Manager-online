@@ -207,6 +207,8 @@ export interface InvoiceLabels {
 
 export interface InvoiceTemplateConfig {
   id: string;
+  currencySymbol: string;
+  dateFormat: 'DD/MM/YYYY' | 'MM/DD/YYYY' | 'YYYY-MM-DD';
   colors: {
     primary: string;
     secondary: string;
@@ -226,6 +228,12 @@ export interface InvoiceTemplateConfig {
     logoPosition: 'left' | 'center' | 'right';
     headerAlignment: 'left' | 'center' | 'right';
     showWatermark: boolean;
+    watermarkOpacity: number; // 0.1 to 1.0
+    tableOptions: {
+        hideQty: boolean;
+        hideRate: boolean;
+        stripedRows: boolean;
+    };
   };
   content: {
     titleText: string; // e.g. "TAX INVOICE"
@@ -239,6 +247,12 @@ export interface InvoiceTemplateConfig {
     signatureText?: string;
     signatureImage?: string; // Base64 signature image
     labels?: InvoiceLabels; // Custom labels for tables and fields
+    
+    // New Fields
+    qrType?: 'INVOICE_ID' | 'UPI_PAYMENT';
+    upiId?: string;
+    payeeName?: string;
+    bankDetails?: string;
   };
 }
 

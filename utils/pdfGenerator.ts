@@ -57,6 +57,20 @@ const registerCustomFonts = (doc: jsPDF, fonts: CustomFont[]) => {
     });
 };
 
+// --- Helper: Date Formatter ---
+const formatDate = (dateString: string, format: 'DD/MM/YYYY' | 'MM/DD/YYYY' | 'YYYY-MM-DD' = 'DD/MM/YYYY') => {
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return dateString;
+    
+    const day = d.getDate().toString().padStart(2, '0');
+    const month = (d.getMonth() + 1).toString().padStart(2, '0');
+    const year = d.getFullYear();
+    
+    if (format === 'MM/DD/YYYY') return `${month}/${day}/${year}`;
+    if (format === 'YYYY-MM-DD') return `${year}-${month}-${day}`;
+    return `${day}/${month}/${year}`; // Default DD/MM/YYYY
+};
+
 // --- Default Labels Fallback ---
 const defaultLabels: InvoiceLabels = {
     billedTo: "Billed To",
@@ -161,6 +175,8 @@ export const generateThermalInvoicePDF = async (
     const showTerms = templateConfig?.content.showTerms ?? false;
     const showBusiness = templateConfig?.content.showBusinessDetails ?? true;
     const showCustomer = templateConfig?.content.showCustomerDetails ?? true;
+    const currency = templateConfig?.currencySymbol || 'Rs.';
+    const dateFormat = templateConfig?.dateFormat || 'DD/MM/YYYY';
     
     const labels = { ...defaultLabels, ...templateConfig?.content.labels };
 
@@ -256,14 +272,24 @@ export const generateThermalInvoicePDF = async (
     doc.text(`${labels.invoiceNo}: ${sale.id}`, margin, y);
     y += 4;
     
-    const d = new Date(sale.date);
-    const dateStr = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth()+1).toString().padStart(2, '0')}/${d.getFullYear()}, ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+    const dateStr = formatDate(sale.date, dateFormat);
     doc.text(`${labels.date}: ${dateStr}`, margin, y);
     y += 4;
 
     if (showQr) {
         try {
-            const qrBase64 = await getQrCodeBase64(sale.id);
+            let qrData = sale.id;
+            // Support UPI QR on Thermal if configured
+            if (templateConfig?.content.qrType === 'UPI_PAYMENT' && templateConfig?.content.upiId) {
+                const pa = templateConfig.content.upiId;
+                const pn = templateConfig.content.payeeName || 'Merchant';
+                const am = sale.totalAmount.toFixed(2);
+                const tr = sale.id;
+                const tn = `Invoice ${sale.id}`;
+                qrData = `upi://pay?pa=${pa}&pn=${encodeURIComponent(pn)}&am=${am}&tr=${tr}&tn=${encodeURIComponent(tn)}&cu=INR`;
+            }
+
+            const qrBase64 = await getQrCodeBase64(qrData);
             if (qrBase64) {
                 doc.addImage(qrBase64, 'PNG', qrX, startHeaderY, qrSize, qrSize);
             }
@@ -317,8 +343,17 @@ export const generateThermalInvoicePDF = async (
         y += (nameLines.length * 4);
         doc.setTextColor('#555555');
         doc.setFontSize(bodyFontSize - 1);
-        doc.text(`${item.quantity} x ${Number(item.price).toLocaleString('en-IN')}`, margin, y);
-        y += 4;
+        
+        // Only show Qty x Rate if configured, but on thermal space is tight so we usually show it
+        // We respect hideQty/hideRate if passed, but fallback to showing if critical
+        const showDetails = !(templateConfig?.layout.tableOptions?.hideQty && templateConfig?.layout.tableOptions?.hideRate);
+        
+        if (showDetails) {
+             const qtyStr = templateConfig?.layout.tableOptions?.hideQty ? '' : `${item.quantity} x `;
+             const rateStr = templateConfig?.layout.tableOptions?.hideRate ? '' : `${currency} ${Number(item.price).toLocaleString('en-IN')}`;
+             doc.text(`${qtyStr}${rateStr}`, margin, y);
+             y += 4;
+        }
     });
 
     y += 1;
@@ -348,7 +383,7 @@ export const generateThermalInvoicePDF = async (
     doc.setFont(bodyFont, 'bold');
     doc.setTextColor(primaryColor);
     doc.text(labels.grandTotal, pageWidth - 30, y, { align: 'right' });
-    doc.text(`Rs. ${Number(sale.totalAmount).toLocaleString('en-IN')}`, pageWidth - margin, y, { align: 'right' });
+    doc.text(`${currency} ${Number(sale.totalAmount).toLocaleString('en-IN')}`, pageWidth - margin, y, { align: 'right' });
     y += 6;
     
     doc.setFont(bodyFont, 'normal');
@@ -411,6 +446,7 @@ interface GenericDocumentData {
         size?: number;
     }[];
     watermarkText?: string;
+    qrString?: string; // Optional override for QR data (e.g. UPI string)
 }
 
 // --- Core Configurable PDF Engine ---
@@ -428,8 +464,9 @@ const _generateConfigurablePDF = async (
         registerCustomFonts(doc, customFonts);
     }
 
-    const { colors, fonts, layout, content } = templateConfig;
+    const { colors, fonts, layout, content, currencySymbol, dateFormat } = templateConfig;
     const labels = { ...defaultLabels, ...content.labels };
+    const tableOpts = layout.tableOptions || { hideQty: false, hideRate: false, stripedRows: false };
 
     // Conversions
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -544,11 +581,13 @@ const _generateConfigurablePDF = async (
     doc.setFontSize(fonts.bodySize);
     doc.setTextColor(colors.text);
     doc.text(`${data.sender.idLabel} ${data.id}`, rightColX, recipientY, { align: 'right' });
-    doc.text(`${labels.date}: ${new Date(data.date).toLocaleDateString()}`, rightColX, recipientY + 5, { align: 'right' });
+    doc.text(`${labels.date}: ${formatDate(data.date, dateFormat)}`, rightColX, recipientY + 5, { align: 'right' });
 
     if (content.showQr) {
         try {
-            const qrBase64 = await getQrCodeBase64(data.id);
+            // Prioritize UPI string if provided, else ID
+            const qrData = data.qrString || data.id;
+            const qrBase64 = await getQrCodeBase64(qrData);
             if (qrBase64) {
                 doc.addImage(qrBase64, 'PNG', rightColX - 55, currentY, 20, 20);
             }
@@ -558,18 +597,26 @@ const _generateConfigurablePDF = async (
     currentY = Math.max(recipientY + 5 + (recipientAddrLines.length * 4), recipientY + 25) + 5;
 
     // --- 3. TABLE ---
+    // Dynamic Columns
+    const tableHead = ['#', labels.item];
+    if (!tableOpts.hideQty) tableHead.push(labels.qty);
+    if (!tableOpts.hideRate) tableHead.push(labels.rate);
+    tableHead.push(labels.amount);
+
+    const tableBody = data.items.map((item, index) => {
+        const row = [(index + 1).toString(), item.name];
+        if (!tableOpts.hideQty) row.push(item.quantity.toString());
+        if (!tableOpts.hideRate) row.push(`${currencySymbol} ${item.rate.toLocaleString('en-IN')}`);
+        row.push(`${currencySymbol} ${item.amount.toLocaleString('en-IN')}`);
+        return row;
+    });
+
     autoTable(doc, {
         startY: currentY,
         margin: { left: margin, right: margin },
-        head: [['#', labels.item, labels.qty, labels.rate, labels.amount]],
-        body: data.items.map((item, index) => [
-            index + 1,
-            item.name,
-            item.quantity,
-            `Rs. ${item.rate.toLocaleString('en-IN')}`,
-            `Rs. ${item.amount.toLocaleString('en-IN')}`
-        ]),
-        theme: 'grid',
+        head: [tableHead],
+        body: tableBody,
+        theme: tableOpts.stripedRows ? 'striped' : 'grid',
         styles: {
             font: fonts.bodyFont,
             fontSize: fonts.bodySize,
@@ -582,11 +629,12 @@ const _generateConfigurablePDF = async (
             textColor: colors.tableHeaderText,
             fontStyle: 'bold'
         },
+        // Need to dynamically calculate column alignment indices
         columnStyles: { 
             0: { halign: 'center', cellWidth: 10 },
-            2: { halign: 'center', cellWidth: 20 }, 
-            3: { halign: 'right', cellWidth: 30 }, 
-            4: { halign: 'right', cellWidth: 35 } 
+            // Calculate other alignments
+            [tableHead.length - 1]: { halign: 'right', cellWidth: 35 }, // Amount always right
+            [tableHead.length - 2]: { halign: 'right' }, // Rate or Qty
         }
     });
 
@@ -610,9 +658,9 @@ const _generateConfigurablePDF = async (
         finalY += (row.size && row.size > fonts.bodySize ? 8 : 6);
     });
 
-    // --- 5. SIGNATURE, TERMS & FOOTER ---
-    // Check space for signature + terms (approx 50mm needed)
-    if (pageHeight - finalY < 50) {
+    // --- 5. SIGNATURE, TERMS, BANK DETAILS & FOOTER ---
+    // Check space for footer block (approx 50mm needed)
+    if (pageHeight - finalY < 60) {
         doc.addPage();
         finalY = margin;
     } else {
@@ -621,17 +669,15 @@ const _generateConfigurablePDF = async (
 
     // Signature Section
     if (content.showSignature) {
-        const sigY = finalY + 10; // Give some breathing room
+        const sigY = finalY + 10; 
         const sigX = pageWidth - margin - 40;
         
         if (content.signatureImage) {
             try {
                 const format = getImageType(content.signatureImage);
-                // Render signature image (approx 40x20mm)
                 doc.addImage(content.signatureImage, format, sigX - 20, sigY - 15, 40, 20);
             } catch(e) {}
         } else {
-            // Text signature line
             doc.setFont(fonts.bodyFont, 'normal');
             doc.setFontSize(fonts.bodySize);
             doc.setTextColor(colors.text);
@@ -644,33 +690,41 @@ const _generateConfigurablePDF = async (
             doc.setTextColor(colors.text);
             doc.text(content.signatureText, sigX, sigY + 20, { align: 'center' });
         }
-        
-        // Update finalY to ensure terms/footer don't overlap signature area if they are placed below
-        // However, terms usually go on left side. 
-        // If signature is on right, terms can start at same Y on left.
     }
 
-    if (content.showTerms && content.termsText) {
-        // Start Terms at same Y as signature block start
-        let termsY = finalY;
-        
+    let leftColY = finalY;
+    const contentLeftWidth = pageWidth - margin - 80; // Available width for left content
+
+    if (content.bankDetails) {
         doc.setFontSize(fonts.bodySize);
         doc.setFont(fonts.bodyFont, 'bold');
         doc.setTextColor(colors.text);
-        doc.text("Terms & Conditions:", margin, termsY);
-        termsY += 5;
+        doc.text("Bank Details:", margin, leftColY);
+        leftColY += 5;
         
         doc.setFont(fonts.bodyFont, 'normal');
         doc.setTextColor(colors.secondary);
-        // Wrap width: exclude signature area approx 60mm from right
-        const termsWidth = pageWidth - margin - 70; 
-        const termsLines = doc.splitTextToSize(content.termsText, termsWidth);
-        doc.text(termsLines, margin, termsY);
+        const bankLines = doc.splitTextToSize(content.bankDetails, contentLeftWidth);
+        doc.text(bankLines, margin, leftColY);
+        leftColY += (bankLines.length * 4) + 5;
+    }
+
+    if (content.showTerms && content.termsText) {
+        doc.setFontSize(fonts.bodySize);
+        doc.setFont(fonts.bodyFont, 'bold');
+        doc.setTextColor(colors.text);
+        doc.text("Terms & Conditions:", margin, leftColY);
+        leftColY += 5;
+        
+        doc.setFont(fonts.bodyFont, 'normal');
+        doc.setTextColor(colors.secondary);
+        const termsLines = doc.splitTextToSize(content.termsText, contentLeftWidth);
+        doc.text(termsLines, margin, leftColY);
     }
 
     if (layout.showWatermark) {
         doc.saveGraphicsState();
-        doc.setGState(new doc.GState({ opacity: 0.1 }));
+        doc.setGState(new doc.GState({ opacity: layout.watermarkOpacity || 0.1 }));
         doc.setFontSize(60);
         doc.setTextColor(colors.primary);
         const watermark = data.watermarkText || profile?.name || 'INVOICE';
@@ -695,10 +749,22 @@ export const generateA4InvoicePdf = async (
     customFonts?: CustomFont[]
 ): Promise<jsPDF> => {
     const labels = { ...defaultLabels, ...templateConfig.content.labels };
+    const currency = templateConfig.currencySymbol || 'Rs.';
+    
     const subTotal = sale.items.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
     const paidAmount = (sale.payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
     const dueAmount = Number(sale.totalAmount) - paidAmount;
     const dueColor = dueAmount > 0.01 ? '#dc2626' : '#16a34a';
+
+    let qrString = sale.id;
+    if (templateConfig.content.qrType === 'UPI_PAYMENT' && templateConfig.content.upiId) {
+       const pa = templateConfig.content.upiId;
+       const pn = templateConfig.content.payeeName || 'Merchant';
+       const am = sale.totalAmount.toFixed(2);
+       const tr = sale.id; 
+       const tn = `Invoice ${sale.id}`; 
+       qrString = `upi://pay?pa=${pa}&pn=${encodeURIComponent(pn)}&am=${am}&tr=${tr}&tn=${encodeURIComponent(tn)}&cu=INR`;
+    }
 
     const data: GenericDocumentData = {
         id: sale.id,
@@ -719,13 +785,14 @@ export const generateA4InvoicePdf = async (
             amount: Number(item.quantity) * Number(item.price)
         })),
         totals: [
-            { label: labels.subtotal, value: `Rs. ${subTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` },
-            { label: labels.discount, value: `- Rs. ${Number(sale.discount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` },
-            { label: labels.gst, value: `Rs. ${Number(sale.gstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` },
-            { label: labels.grandTotal, value: `Rs. ${Number(sale.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, isBold: true, color: templateConfig.colors.primary, size: templateConfig.fonts.bodySize + 2 },
-            { label: labels.paid, value: `Rs. ${paidAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` },
-            { label: labels.balance, value: `Rs. ${dueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, isBold: true, color: dueColor, size: templateConfig.fonts.bodySize + 2 }
-        ]
+            { label: labels.subtotal, value: `${currency} ${subTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` },
+            { label: labels.discount, value: `- ${currency} ${Number(sale.discount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` },
+            { label: labels.gst, value: `${currency} ${Number(sale.gstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` },
+            { label: labels.grandTotal, value: `${currency} ${Number(sale.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, isBold: true, color: templateConfig.colors.primary, size: templateConfig.fonts.bodySize + 2 },
+            { label: labels.paid, value: `${currency} ${paidAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` },
+            { label: labels.balance, value: `${currency} ${dueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, isBold: true, color: dueColor, size: templateConfig.fonts.bodySize + 2 }
+        ],
+        qrString: qrString
     };
 
     return _generateConfigurablePDF(data, profile, templateConfig, customFonts);
@@ -739,6 +806,7 @@ export const generateEstimatePDF = async (
     customFonts?: CustomFont[]
 ): Promise<jsPDF> => {
     const labels = { ...defaultLabels, ...templateConfig.content.labels };
+    const currency = templateConfig.currencySymbol || 'Rs.';
     const subTotal = quote.items.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
 
     const data: GenericDocumentData = {
@@ -760,10 +828,10 @@ export const generateEstimatePDF = async (
             amount: Number(item.quantity) * Number(item.price)
         })),
         totals: [
-            { label: labels.subtotal, value: `Rs. ${subTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` },
-            { label: labels.discount, value: `- Rs. ${Number(quote.discount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` },
-            { label: labels.gst, value: `Rs. ${Number(quote.gstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` },
-            { label: labels.grandTotal, value: `Rs. ${Number(quote.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, isBold: true, color: templateConfig.colors.primary, size: templateConfig.fonts.bodySize + 2 },
+            { label: labels.subtotal, value: `${currency} ${subTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` },
+            { label: labels.discount, value: `- ${currency} ${Number(quote.discount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` },
+            { label: labels.gst, value: `${currency} ${Number(quote.gstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` },
+            { label: labels.grandTotal, value: `${currency} ${Number(quote.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, isBold: true, color: templateConfig.colors.primary, size: templateConfig.fonts.bodySize + 2 },
         ],
         watermarkText: 'ESTIMATE'
     };
@@ -779,6 +847,7 @@ export const generateDebitNotePDF = async (
     customFonts?: CustomFont[]
 ): Promise<jsPDF> => {
     const labels = { ...defaultLabels, ...templateConfig.content.labels };
+    const currency = templateConfig.currencySymbol || 'Rs.';
     
     const data: GenericDocumentData = {
         id: returnData.id,
@@ -799,7 +868,7 @@ export const generateDebitNotePDF = async (
             amount: Number(item.quantity) * Number(item.price)
         })),
         totals: [
-            { label: 'Total Debit Value:', value: `Rs. ${Number(returnData.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, isBold: true, size: templateConfig.fonts.bodySize + 2 }
+            { label: 'Total Debit Value:', value: `${currency} ${Number(returnData.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, isBold: true, size: templateConfig.fonts.bodySize + 2 }
         ],
         watermarkText: 'DEBIT NOTE'
     };

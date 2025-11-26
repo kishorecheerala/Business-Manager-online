@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Save, RotateCcw, Type, Layout, Palette, FileText, Image as ImageIcon, RefreshCw, Eye, Edit3, ExternalLink, ChevronDown, Upload, Trash2, Wand2, Sparkles, Grid, Languages, PenTool } from 'lucide-react';
+import { Save, RotateCcw, Type, Layout, Palette, FileText, Image as ImageIcon, RefreshCw, Eye, Edit3, ExternalLink, ChevronDown, Upload, Trash2, Wand2, Sparkles, Grid, Languages, PenTool, QrCode, Download, FileUp } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { useAppContext } from '../context/AppContext';
 import { InvoiceTemplateConfig, DocumentType, InvoiceLabels } from '../types';
@@ -68,22 +68,34 @@ const PRESETS: Record<string, Partial<InvoiceTemplateConfig>> = {
     'Modern': {
         colors: { primary: '#0f172a', secondary: '#64748b', text: '#334155', tableHeaderBg: '#f1f5f9', tableHeaderText: '#0f172a' },
         fonts: { titleFont: 'helvetica', bodyFont: 'helvetica', headerSize: 24, bodySize: 10 },
-        layout: { logoPosition: 'left', headerAlignment: 'right', margin: 10, logoSize: 25, showWatermark: false }
+        layout: { 
+            logoPosition: 'left', headerAlignment: 'right', margin: 10, logoSize: 25, showWatermark: false, watermarkOpacity: 0.1,
+            tableOptions: { hideQty: false, hideRate: false, stripedRows: true }
+        }
     },
     'Corporate': {
         colors: { primary: '#1e40af', secondary: '#475569', text: '#1e293b', tableHeaderBg: '#1e40af', tableHeaderText: '#ffffff' },
         fonts: { titleFont: 'times', bodyFont: 'times', headerSize: 22, bodySize: 11 },
-        layout: { logoPosition: 'center', headerAlignment: 'center', margin: 15, logoSize: 30, showWatermark: true }
+        layout: { 
+            logoPosition: 'center', headerAlignment: 'center', margin: 15, logoSize: 30, showWatermark: true, watermarkOpacity: 0.05,
+            tableOptions: { hideQty: false, hideRate: false, stripedRows: false }
+        }
     },
     'Minimal': {
         colors: { primary: '#000000', secondary: '#52525b', text: '#27272a', tableHeaderBg: '#ffffff', tableHeaderText: '#000000' },
         fonts: { titleFont: 'courier', bodyFont: 'courier', headerSize: 20, bodySize: 9 },
-        layout: { logoPosition: 'right', headerAlignment: 'left', margin: 12, logoSize: 20, showWatermark: false }
+        layout: { 
+            logoPosition: 'right', headerAlignment: 'left', margin: 12, logoSize: 20, showWatermark: false, watermarkOpacity: 0.1,
+            tableOptions: { hideQty: false, hideRate: false, stripedRows: false }
+        }
     },
     'Bold': {
         colors: { primary: '#dc2626', secondary: '#1f2937', text: '#111827', tableHeaderBg: '#dc2626', tableHeaderText: '#ffffff' },
         fonts: { titleFont: 'helvetica', bodyFont: 'helvetica', headerSize: 28, bodySize: 10 },
-        layout: { logoPosition: 'left', headerAlignment: 'left', margin: 10, logoSize: 35, showWatermark: true }
+        layout: { 
+            logoPosition: 'left', headerAlignment: 'left', margin: 10, logoSize: 35, showWatermark: true, watermarkOpacity: 0.15,
+            tableOptions: { hideQty: false, hideRate: false, stripedRows: true }
+        }
     }
 };
 
@@ -130,9 +142,14 @@ const InvoiceDesigner: React.FC = () => {
     // Safe defaults
     const defaults: InvoiceTemplateConfig = {
         id: 'invoiceTemplateConfig',
+        currencySymbol: '₹',
+        dateFormat: 'DD/MM/YYYY',
         colors: { primary: '#0d9488', secondary: '#333333', text: '#000000', tableHeaderBg: '#0d9488', tableHeaderText: '#ffffff' },
         fonts: { headerSize: 22, bodySize: 10, titleFont: 'helvetica', bodyFont: 'helvetica' },
-        layout: { margin: 10, logoSize: 25, logoPosition: 'center', headerAlignment: 'center', showWatermark: false },
+        layout: { 
+            margin: 10, logoSize: 25, logoPosition: 'center', headerAlignment: 'center', showWatermark: false, watermarkOpacity: 0.1,
+            tableOptions: { hideQty: false, hideRate: false, stripedRows: false }
+        },
         content: { 
             titleText: 'TAX INVOICE', 
             showTerms: true, 
@@ -143,7 +160,9 @@ const InvoiceDesigner: React.FC = () => {
             showCustomerDetails: true,
             showSignature: true,
             signatureText: 'Authorized Signatory',
-            labels: defaultLabels
+            labels: defaultLabels,
+            qrType: 'INVOICE_ID',
+            bankDetails: ''
         }
     };
 
@@ -161,6 +180,7 @@ const InvoiceDesigner: React.FC = () => {
     
     const fontInputRef = useRef<HTMLInputElement>(null);
     const signatureInputRef = useRef<HTMLInputElement>(null);
+    const importInputRef = useRef<HTMLInputElement>(null);
 
     // Load correct template from state when doc type changes
     useEffect(() => {
@@ -176,12 +196,18 @@ const InvoiceDesigner: React.FC = () => {
             id: sourceConfig?.id || defaults.id,
             colors: { ...defaults.colors, ...sourceConfig?.colors },
             fonts: { ...defaults.fonts, ...sourceConfig?.fonts },
-            layout: { ...defaults.layout, ...sourceConfig?.layout },
+            layout: { 
+                ...defaults.layout, 
+                ...sourceConfig?.layout,
+                tableOptions: { ...defaults.layout.tableOptions, ...sourceConfig?.layout?.tableOptions }
+            },
             content: { 
                 ...defaults.content, 
                 ...sourceConfig?.content,
                 labels: { ...defaultLabels, ...sourceConfig?.content.labels }
             },
+            currencySymbol: sourceConfig?.currencySymbol || defaults.currencySymbol,
+            dateFormat: sourceConfig?.dateFormat || defaults.dateFormat
         });
     }, [selectedDocType, state.invoiceTemplate, state.estimateTemplate, state.debitNoteTemplate, state.receiptTemplate]);
 
@@ -230,12 +256,29 @@ const InvoiceDesigner: React.FC = () => {
         }
     };
 
-    const updateConfig = (section: keyof InvoiceTemplateConfig, key: string, value: any) => {
+    const updateConfig = (section: keyof InvoiceTemplateConfig | 'root', key: string, value: any) => {
+        if (section === 'root') {
+            setConfig(prev => ({ ...prev, [key]: value }));
+        } else {
+            setConfig(prev => ({
+                ...prev,
+                [section]: {
+                    ...(prev[section] as any),
+                    [key]: value
+                }
+            }));
+        }
+    };
+    
+    const updateTableOption = (key: string, value: boolean) => {
         setConfig(prev => ({
             ...prev,
-            [section]: {
-                ...prev[section],
-                [key]: value
+            layout: {
+                ...prev.layout,
+                tableOptions: {
+                    ...prev.layout.tableOptions,
+                    [key]: value
+                }
             }
         }));
     };
@@ -398,6 +441,40 @@ const InvoiceDesigner: React.FC = () => {
         }
     };
 
+    const handleExportTemplate = () => {
+        const dataStr = JSON.stringify(config, null, 2);
+        const blob = new Blob([dataStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${selectedDocType}_Template_${Date.now()}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const handleImportTemplate = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            try {
+                const imported = JSON.parse(evt.target?.result as string);
+                // Basic validation
+                if (imported && imported.layout && imported.content) {
+                    setConfig(prev => ({ ...prev, ...imported, id: prev.id }));
+                    showToast("Template imported successfully!");
+                } else {
+                    showToast("Invalid template file.", 'error');
+                }
+            } catch (e) {
+                showToast("Failed to parse template.", 'error');
+            }
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+    };
+
     return (
         <div className="h-full w-full flex flex-col md:flex-row gap-4 overflow-hidden relative">
             
@@ -430,6 +507,11 @@ const InvoiceDesigner: React.FC = () => {
                             <button onClick={handleReset} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-500" title="Reset Default"><RotateCcw size={18} /></button>
                             <Button onClick={handleSave} className="h-8 px-3 text-xs"><Save size={14} className="mr-1" /> Save</Button>
                         </div>
+                    </div>
+                    <div className="flex gap-2 mt-2">
+                        <Button onClick={handleExportTemplate} variant="secondary" className="h-7 px-2 text-[10px] w-1/2"><Download size={12} className="mr-1"/> Export</Button>
+                        <Button onClick={() => importInputRef.current?.click()} variant="secondary" className="h-7 px-2 text-[10px] w-1/2"><FileUp size={12} className="mr-1"/> Import</Button>
+                        <input type="file" accept=".json" ref={importInputRef} className="hidden" onChange={handleImportTemplate} />
                     </div>
                 </div>
 
@@ -485,7 +567,45 @@ const InvoiceDesigner: React.FC = () => {
                                     </div>
                                 </div>
                             </div>
-                            <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={config.layout.showWatermark} onChange={(e) => updateConfig('layout', 'showWatermark', e.target.checked)} className="rounded text-primary focus:ring-primary"/><span className="text-sm font-medium text-gray-700 dark:text-gray-300">Show Watermark</span></label>
+                            
+                            <div className="border-t dark:border-slate-700 pt-4">
+                                <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Table Options</label>
+                                <div className="space-y-2">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox" checked={config.layout.tableOptions?.hideQty} onChange={(e) => updateTableOption('hideQty', e.target.checked)} className="rounded text-primary focus:ring-primary"/>
+                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Hide Quantity Column</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox" checked={config.layout.tableOptions?.hideRate} onChange={(e) => updateTableOption('hideRate', e.target.checked)} className="rounded text-primary focus:ring-primary"/>
+                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Hide Rate Column</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox" checked={config.layout.tableOptions?.stripedRows} onChange={(e) => updateTableOption('stripedRows', e.target.checked)} className="rounded text-primary focus:ring-primary"/>
+                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Striped Table Rows</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div className="border-t dark:border-slate-700 pt-4">
+                                <label className="flex items-center gap-2 cursor-pointer mb-2">
+                                    <input type="checkbox" checked={config.layout.showWatermark} onChange={(e) => updateConfig('layout', 'showWatermark', e.target.checked)} className="rounded text-primary focus:ring-primary"/>
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Show Watermark</span>
+                                </label>
+                                {config.layout.showWatermark && (
+                                    <div>
+                                        <label className="text-xs text-gray-500 block mb-1">Watermark Opacity</label>
+                                        <input 
+                                            type="range" 
+                                            min="0.05" 
+                                            max="0.5" 
+                                            step="0.05"
+                                            value={config.layout.watermarkOpacity || 0.1} 
+                                            onChange={(e) => updateConfig('layout', 'watermarkOpacity', parseFloat(e.target.value))} 
+                                            className="w-full" 
+                                        />
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
 
@@ -553,6 +673,25 @@ const InvoiceDesigner: React.FC = () => {
                         <div className="space-y-4">
                             <div><label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">Document Title</label><input type="text" value={config.content.titleText} onChange={(e) => updateConfig('content', 'titleText', e.target.value)} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
                             
+                            {/* Localization Settings */}
+                            <div className="p-3 bg-gray-50 dark:bg-slate-800 rounded border dark:border-slate-700 space-y-2">
+                                <label className="text-xs font-bold uppercase text-gray-500 mb-1 block">Regional Settings</label>
+                                <div className="flex gap-2">
+                                    <div className="flex-1">
+                                        <label className="text-xs text-gray-500">Currency</label>
+                                        <input type="text" value={config.currencySymbol} onChange={(e) => updateConfig('root', 'currencySymbol', e.target.value)} className="w-full p-1.5 text-sm border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white" placeholder="₹" />
+                                    </div>
+                                    <div className="flex-[2]">
+                                        <label className="text-xs text-gray-500">Date Format</label>
+                                        <select value={config.dateFormat} onChange={(e) => updateConfig('root', 'dateFormat', e.target.value)} className="w-full p-1.5 text-sm border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white">
+                                            <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                                            <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                                            <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div className="space-y-2">
                                 {['showBusinessDetails', 'showCustomerDetails', 'showQr', 'showTerms', 'showSignature'].map(key => (
                                     <label key={key} className="flex items-center gap-2 cursor-pointer">
@@ -560,6 +699,52 @@ const InvoiceDesigner: React.FC = () => {
                                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300 capitalize">{key.replace('show', '').replace(/([A-Z])/g, ' $1').trim()}</span>
                                     </label>
                                 ))}
+                            </div>
+
+                            {/* QR Configuration */}
+                            {config.content.showQr && (
+                                <div className="p-3 bg-gray-50 dark:bg-slate-800 rounded border dark:border-slate-700">
+                                    <label className="text-xs font-bold uppercase text-gray-500 mb-2 block flex items-center gap-1"><QrCode size={12}/> QR Code Type</label>
+                                    <div className="flex gap-2 mb-2">
+                                        <button 
+                                            onClick={() => updateConfig('content', 'qrType', 'INVOICE_ID')}
+                                            className={`flex-1 text-xs py-1.5 rounded border ${config.content.qrType === 'INVOICE_ID' ? 'bg-primary text-white border-primary' : 'bg-white dark:bg-slate-700 border-gray-200 dark:border-slate-600'}`}
+                                        >
+                                            Invoice ID
+                                        </button>
+                                        <button 
+                                            onClick={() => updateConfig('content', 'qrType', 'UPI_PAYMENT')}
+                                            className={`flex-1 text-xs py-1.5 rounded border ${config.content.qrType === 'UPI_PAYMENT' ? 'bg-primary text-white border-primary' : 'bg-white dark:bg-slate-700 border-gray-200 dark:border-slate-600'}`}
+                                        >
+                                            UPI Payment
+                                        </button>
+                                    </div>
+                                    
+                                    {config.content.qrType === 'UPI_PAYMENT' && (
+                                        <div className="space-y-2 animate-fade-in-fast">
+                                            <div>
+                                                <label className="text-xs text-gray-500">UPI ID (VPA)</label>
+                                                <input type="text" value={config.content.upiId || ''} onChange={(e) => updateConfig('content', 'upiId', e.target.value)} placeholder="e.g. business@upi" className="w-full p-1.5 text-sm border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white" />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs text-gray-500">Payee Name</label>
+                                                <input type="text" value={config.content.payeeName || ''} onChange={(e) => updateConfig('content', 'payeeName', e.target.value)} placeholder="Your Name" className="w-full p-1.5 text-sm border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white" />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Bank Details */}
+                            <div className="p-3 bg-gray-50 dark:bg-slate-800 rounded border dark:border-slate-700">
+                                <label className="text-xs font-bold uppercase text-gray-500 mb-2 block">Bank Details Section</label>
+                                <textarea 
+                                    rows={3} 
+                                    value={config.content.bankDetails || ''} 
+                                    onChange={(e) => updateConfig('content', 'bankDetails', e.target.value)} 
+                                    className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white text-sm" 
+                                    placeholder="Bank Name: HDFC&#10;A/C No: 1234567890&#10;IFSC: HDFC0001234" 
+                                />
                             </div>
 
                             {config.content.showSignature && (
