@@ -11,6 +11,7 @@ import { Html5Qrcode } from 'html5-qrcode';
 import DeleteButton from '../components/DeleteButton';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
 import { logoBase64 } from '../utils/logo';
+import DateInput from '../components/DateInput';
 
 
 const getLocalDateString = (date = new Date()) => {
@@ -89,6 +90,54 @@ const AddCustomerModal: React.FC<{
         </Card>
     </div>
 ));
+
+const ProductSearchModal: React.FC<{
+    products: Product[];
+    onClose: () => void;
+    onSelect: (product: Product) => void;
+}> = ({ products, onClose, onSelect }) => {
+    const [productSearchTerm, setProductSearchTerm] = useState('');
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in-fast">
+          <Card className="w-full max-w-lg animate-scale-in">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-bold">Select Product</h2>
+              <button onClick={onClose} className="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
+                <X size={20}/>
+              </button>
+            </div>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+              <input
+                type="text"
+                placeholder="Search products..."
+                value={productSearchTerm}
+                onChange={e => setProductSearchTerm(e.target.value)}
+                className="w-full p-2 pl-10 border rounded-lg dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
+                autoFocus
+              />
+            </div>
+            <div className="mt-4 max-h-80 overflow-y-auto space-y-2">
+              {products
+                .filter(p => p.name.toLowerCase().includes(productSearchTerm.toLowerCase()) || p.id.toLowerCase().includes(productSearchTerm.toLowerCase()))
+                .map(p => (
+                <div key={p.id} onClick={() => onSelect(p)} className="p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg cursor-pointer hover:bg-teal-50 dark:hover:bg-slate-700 flex justify-between items-center">
+                  <div>
+                    <p className="font-semibold">{p.name}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Code: {p.id}</p>
+                  </div>
+                  <div className="text-right">
+                      <p className="font-semibold">₹{Number(p.salePrice).toLocaleString('en-IN')}</p>
+                      <p className="text-sm">Stock: {p.quantity}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+    );
+};
     
 const QRScannerModal: React.FC<{
     onClose: () => void;
@@ -159,10 +208,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         reference: '',
     });
 
-    // Unified Product Search State
-    const [productSearch, setProductSearch] = useState('');
-    const [showProductDropdown, setShowProductDropdown] = useState(false);
-    const productSearchRef = useRef<HTMLDivElement>(null);
+    const [isSelectingProduct, setIsSelectingProduct] = useState(false);
     const [isScanning, setIsScanning] = useState(false);
     
     const [isAddingCustomer, setIsAddingCustomer] = useState(false);
@@ -173,7 +219,17 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
     const [customerSearchTerm, setCustomerSearchTerm] = useState('');
     const customerDropdownRef = useRef<HTMLDivElement>(null);
     
-    useOnClickOutside(customerDropdownRef, () => setIsCustomerDropdownOpen(false));
+    useOnClickOutside(customerDropdownRef, () => {
+        if (isCustomerDropdownOpen) {
+            setIsCustomerDropdownOpen(false);
+        }
+    });
+
+    // Unified Product Search State
+    const [productSearch, setProductSearch] = useState('');
+    const [showProductDropdown, setShowProductDropdown] = useState(false);
+    const productSearchRef = useRef<HTMLDivElement>(null);
+    
     useOnClickOutside(productSearchRef, () => setShowProductDropdown(false));
 
     // Effect to handle switching to edit mode from another page
@@ -234,6 +290,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         });
         setProductSearch('');
         setShowProductDropdown(false);
+        setIsSelectingProduct(false);
         setMode('add');
         setSaleToEdit(null);
     };
@@ -267,7 +324,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         
         setProductSearch('');
         setShowProductDropdown(false);
-        setIsScanning(false);
+        setIsSelectingProduct(false);
     };
     
     const handleProductScanned = (decodedText: string) => {
@@ -741,16 +798,12 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                         </div>
                     </div>
                     
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Sale Date</label>
-                        <input 
-                            type="date" 
-                            value={saleDate} 
-                            onChange={e => setSaleDate(e.target.value)} 
-                            className="w-full p-2 border rounded mt-1 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
-                            disabled={mode === 'edit'}
-                        />
-                    </div>
+                    <DateInput
+                        label="Sale Date"
+                        value={saleDate}
+                        onChange={e => setSaleDate(e.target.value)}
+                        disabled={mode === 'edit'}
+                    />
 
                     {customerId && customerTotalDue !== null && mode === 'add' && (
                         <div className="p-2 bg-gray-50 dark:bg-slate-700/50 rounded-lg text-center border dark:border-slate-700">
@@ -817,6 +870,12 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                         </Button>
                     </div>
                 </div>
+                {isScanning && 
+                    <QRScannerModal 
+                        onClose={() => setIsScanning(false)}
+                        onScanned={handleProductScanned}
+                    />
+                }
 
                 <div className="space-y-2 bg-gray-50 dark:bg-slate-700/30 p-3 rounded-lg border dark:border-slate-700">
                     {items.length === 0 && <p className="text-center text-sm text-gray-500">No items added yet.</p>}
