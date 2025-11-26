@@ -222,6 +222,8 @@ const defaultInvoiceTemplate: InvoiceTemplateConfig = {
         signatureText: 'Authorized Signatory',
         showAmountInWords: false,
         showStatusStamp: false,
+        showTaxBreakdown: false,
+        showGst: true,
         labels: defaultLabels,
         qrType: 'INVOICE_ID',
         bankDetails: ''
@@ -308,7 +310,8 @@ const defaultReceiptTemplate: InvoiceTemplateConfig = {
         showSignature: false,
         signatureText: '',
         labels: defaultLabels,
-        qrType: 'INVOICE_ID'
+        qrType: 'INVOICE_ID',
+        showGst: true
     }
 };
 

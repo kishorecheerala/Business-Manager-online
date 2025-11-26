@@ -260,6 +260,8 @@ export interface InvoiceTemplateConfig {
     signatureImage?: string; // Base64 signature image
     showAmountInWords?: boolean; // New: Show amount in words
     showStatusStamp?: boolean; // New: Show PAID/DUE stamp
+    showTaxBreakdown?: boolean; // New: Show Tax Breakdown Table
+    showGst?: boolean; // New: Show GST Line in totals
     labels?: InvoiceLabels; // Custom labels for tables and fields
     
     // New Fields

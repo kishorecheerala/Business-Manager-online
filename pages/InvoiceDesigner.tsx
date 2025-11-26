@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Save, RotateCcw, Type, Layout, Palette, FileText, Image as ImageIcon, RefreshCw, Eye, Edit3, ExternalLink, ChevronDown, Upload, Trash2, Wand2, Sparkles, Grid, Languages, PenTool, QrCode, Download, FileUp, Stamp, Banknote } from 'lucide-react';
+import { Save, RotateCcw, Type, Layout, Palette, FileText, Image as ImageIcon, RefreshCw, Eye, Edit3, ExternalLink, ChevronDown, Upload, Trash2, Wand2, Sparkles, Grid, Languages, PenTool, QrCode, Download, FileUp, Stamp, Banknote, TableProperties, EyeOff } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { useAppContext } from '../context/AppContext';
 import { InvoiceTemplateConfig, DocumentType, InvoiceLabels } from '../types';
@@ -24,9 +24,9 @@ const dummySale = {
     id: 'INV-2023-001',
     customerId: 'CUST-001',
     items: [
-        { productId: 'P1', productName: 'Premium Silk Saree', quantity: 2, price: 4500 },
-        { productId: 'P2', productName: 'Cotton Kurti', quantity: 5, price: 850 },
-        { productId: 'P3', productName: 'Designer Blouse', quantity: 3, price: 1200 }
+        { productId: 'P1', productName: 'Premium Silk Saree', quantity: 2, price: 4500, gstPercent: 5 },
+        { productId: 'P2', productName: 'Cotton Kurti', quantity: 5, price: 850, gstPercent: 5 },
+        { productId: 'P3', productName: 'Designer Blouse', quantity: 3, price: 1200, gstPercent: 12 }
     ],
     discount: 500,
     gstAmount: 1250,
@@ -63,8 +63,15 @@ const dummySupplier = {
     gstNumber: '33ABCDE1234Z1'
 };
 
+type PresetConfig = {
+    colors?: Partial<InvoiceTemplateConfig['colors']>;
+    fonts?: Partial<InvoiceTemplateConfig['fonts']>;
+    layout?: Partial<InvoiceTemplateConfig['layout']> & { tableOptions?: Partial<InvoiceTemplateConfig['layout']['tableOptions']> };
+    content?: Partial<InvoiceTemplateConfig['content']>;
+}
+
 // --- Templates ---
-const PRESETS: Record<string, Partial<InvoiceTemplateConfig>> = {
+const PRESETS: Record<string, PresetConfig> = {
     'Modern': {
         colors: { primary: '#0f172a', secondary: '#64748b', text: '#334155', tableHeaderBg: '#f1f5f9', tableHeaderText: '#0f172a', borderColor: '#e2e8f0', alternateRowBg: '#f8fafc' },
         fonts: { titleFont: 'helvetica', bodyFont: 'helvetica', headerSize: 24, bodySize: 10 },
@@ -79,7 +86,8 @@ const PRESETS: Record<string, Partial<InvoiceTemplateConfig>> = {
         layout: { 
             logoPosition: 'center', logoOffsetX: 0, logoOffsetY: 0, headerAlignment: 'center', headerStyle: 'banner', margin: 15, logoSize: 30, showWatermark: true, watermarkOpacity: 0.05,
             tableOptions: { hideQty: false, hideRate: false, stripedRows: false, bordered: true, compact: false }
-        }
+        },
+        content: { showAmountInWords: true }
     },
     'Minimal': {
         colors: { primary: '#000000', secondary: '#52525b', text: '#27272a', tableHeaderBg: '#ffffff', tableHeaderText: '#000000', borderColor: '#d4d4d8' },
@@ -95,7 +103,8 @@ const PRESETS: Record<string, Partial<InvoiceTemplateConfig>> = {
         layout: { 
             logoPosition: 'left', logoOffsetX: 0, logoOffsetY: 0, headerAlignment: 'left', headerStyle: 'banner', margin: 10, logoSize: 35, showWatermark: true, watermarkOpacity: 0.15,
             tableOptions: { hideQty: false, hideRate: false, stripedRows: true, bordered: true, compact: false }
-        }
+        },
+        content: { showStatusStamp: true }
     }
 };
 
@@ -170,6 +179,8 @@ const InvoiceDesigner: React.FC = () => {
             signatureText: 'Authorized Signatory',
             showAmountInWords: false,
             showStatusStamp: false,
+            showTaxBreakdown: false,
+            showGst: true,
             labels: defaultLabels,
             qrType: 'INVOICE_ID',
             bankDetails: ''
@@ -314,7 +325,8 @@ const InvoiceDesigner: React.FC = () => {
                 ...prev,
                 colors: { ...prev.colors, ...preset.colors },
                 fonts: { ...prev.fonts, ...preset.fonts },
-                layout: { ...prev.layout, ...preset.layout, tableOptions: { ...prev.layout.tableOptions, ...preset.layout?.tableOptions } }
+                layout: { ...prev.layout, ...preset.layout, tableOptions: { ...prev.layout.tableOptions, ...preset.layout?.tableOptions } },
+                content: { ...prev.content, ...preset.content }
             }));
             showToast(`Applied ${name} style`);
         }
@@ -769,7 +781,15 @@ const InvoiceDesigner: React.FC = () => {
                                 </label>
                                 <label className="flex items-center gap-2 cursor-pointer p-2 bg-gray-50 dark:bg-slate-800 rounded border dark:border-slate-700">
                                     <input type="checkbox" checked={config.content.showStatusStamp ?? false} onChange={(e) => updateConfig('content', 'showStatusStamp', e.target.checked)} className="rounded text-primary focus:ring-primary" />
-                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2"><Stamp size={16} className="text-red-600"/> Show PAID/DUE Stamp</span>
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2"><Stamp size={16} className="text-red-600"/> PAID/DUE Stamp</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer p-2 bg-gray-50 dark:bg-slate-800 rounded border dark:border-slate-700">
+                                    <input type="checkbox" checked={config.content.showTaxBreakdown ?? false} onChange={(e) => updateConfig('content', 'showTaxBreakdown', e.target.checked)} className="rounded text-primary focus:ring-primary" />
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2"><TableProperties size={16} className="text-blue-600"/> Tax Breakdown Table</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer p-2 bg-gray-50 dark:bg-slate-800 rounded border dark:border-slate-700">
+                                    <input type="checkbox" checked={config.content.showGst !== false} onChange={(e) => updateConfig('content', 'showGst', e.target.checked)} className="rounded text-primary focus:ring-primary" />
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2"><EyeOff size={16} className="text-gray-600"/> Show GST in Totals</span>
                                 </label>
                             </div>
 
