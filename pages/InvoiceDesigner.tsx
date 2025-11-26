@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Save, RotateCcw, Type, Layout, Palette, FileText, Image as ImageIcon, RefreshCw, Eye, Edit3, ExternalLink, ChevronDown, Upload, Trash2, Wand2, Sparkles, Grid, Languages, PenTool, QrCode, Download, FileUp, Stamp, Banknote, TableProperties, EyeOff } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { Save, RotateCcw, Type, Layout, Palette, FileText, Image as ImageIcon, RefreshCw, Eye, Edit3, ExternalLink, ChevronDown, Upload, Trash2, Wand2, Sparkles, Grid, Languages, PenTool, QrCode, Download, FileUp, Stamp, Banknote, TableProperties, EyeOff, GripVertical } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { useAppContext } from '../context/AppContext';
 import { InvoiceTemplateConfig, DocumentType, InvoiceLabels } from '../types';
@@ -199,9 +199,21 @@ const InvoiceDesigner: React.FC = () => {
     const [themeDescription, setThemeDescription] = useState('');
     const [targetLanguage, setTargetLanguage] = useState('Telugu');
     
+    // Resize Logic States
+    const [sidebarWidth, setSidebarWidth] = useState(380);
+    const [isResizing, setIsResizing] = useState(false);
+    const [isMd, setIsMd] = useState(typeof window !== 'undefined' ? window.innerWidth >= 768 : true);
+    
     const fontInputRef = useRef<HTMLInputElement>(null);
     const signatureInputRef = useRef<HTMLInputElement>(null);
     const importInputRef = useRef<HTMLInputElement>(null);
+
+    // Detect screen size for conditional rendering of resize logic
+    useEffect(() => {
+        const handleResize = () => setIsMd(window.innerWidth >= 768);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     // Load correct template from state when doc type changes
     useEffect(() => {
@@ -240,6 +252,48 @@ const InvoiceDesigner: React.FC = () => {
         }, 800);
         return () => clearTimeout(timer);
     }, [config, selectedDocType, state.customFonts]);
+
+    // Resize Handlers
+    const startResizing = useCallback((e: React.MouseEvent) => {
+        e.preventDefault();
+        setIsResizing(true);
+    }, []);
+
+    const stopResizing = useCallback(() => {
+        setIsResizing(false);
+    }, []);
+
+    const resize = useCallback(
+        (mouseMoveEvent: MouseEvent) => {
+            if (isResizing) {
+                // Account for typical padding/margins
+                const newWidth = mouseMoveEvent.clientX - 16; 
+                const constrainedWidth = Math.max(300, Math.min(newWidth, window.innerWidth * 0.7));
+                setSidebarWidth(constrainedWidth);
+            }
+        },
+        [isResizing]
+    );
+
+    useEffect(() => {
+        if (isResizing) {
+            window.addEventListener("mousemove", resize);
+            window.addEventListener("mouseup", stopResizing);
+            document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none';
+        } else {
+            window.removeEventListener("mousemove", resize);
+            window.removeEventListener("mouseup", stopResizing);
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+        }
+        return () => {
+            window.removeEventListener("mousemove", resize);
+            window.removeEventListener("mouseup", stopResizing);
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+        };
+    }, [isResizing, resize, stopResizing]);
 
     const generatePreview = async () => {
         try {
@@ -499,7 +553,7 @@ const InvoiceDesigner: React.FC = () => {
     };
 
     return (
-        <div className="h-full w-full flex flex-col md:flex-row gap-4 overflow-hidden relative">
+        <div className="h-full w-full flex flex-col md:flex-row overflow-hidden relative">
             
             {/* Mobile View Switcher */}
             <div className="md:hidden flex bg-gray-100 dark:bg-slate-800 p-1 rounded-lg shrink-0 border dark:border-slate-700 mb-2">
@@ -508,7 +562,10 @@ const InvoiceDesigner: React.FC = () => {
             </div>
 
             {/* Left Control Panel */}
-            <div className={`w-full md:w-1/3 lg:w-1/4 flex-col bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-gray-200 dark:border-slate-700 overflow-hidden ${mobileView === 'editor' ? 'flex flex-grow' : 'hidden md:flex'}`}>
+            <div 
+                style={isMd ? { width: sidebarWidth } : {}}
+                className={`flex-col bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-gray-200 dark:border-slate-700 overflow-hidden ${mobileView === 'editor' ? 'flex flex-grow w-full' : 'hidden md:flex'} shrink-0 transition-all duration-0`}
+            >
                 
                 {/* Document Type Selector */}
                 <div className="p-4 border-b dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50 shrink-0">
@@ -902,8 +959,16 @@ const InvoiceDesigner: React.FC = () => {
                 </div>
             </div>
 
+            {/* Resize Handle - Only Visible on MD+ */}
+            <div
+                className="hidden md:flex w-4 cursor-col-resize items-center justify-center hover:bg-indigo-500/10 active:bg-indigo-500/20 transition-colors z-20 shrink-0 select-none"
+                onMouseDown={startResizing}
+            >
+                <div className={`w-1 h-12 rounded-full transition-colors ${isResizing ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-slate-600'}`}></div>
+            </div>
+
             {/* Right Preview Panel */}
-            <div className={`flex-grow bg-gray-200 dark:bg-slate-900 rounded-xl border border-gray-300 dark:border-slate-700 flex-col relative overflow-hidden ${mobileView === 'preview' ? 'flex' : 'hidden md:flex'}`}>
+            <div className={`flex-grow bg-gray-200 dark:bg-slate-900 rounded-xl border border-gray-300 dark:border-slate-700 flex-col relative overflow-hidden ${mobileView === 'preview' ? 'flex' : 'hidden md:flex'} ${isResizing ? 'pointer-events-none' : ''}`}>
                 <div className="absolute top-0 left-0 right-0 bg-white/80 dark:bg-slate-800/80 backdrop-blur p-2 flex justify-between items-center border-b border-gray-200 dark:border-slate-700 z-10">
                     <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Live Preview: {selectedDocType.replace('_', ' ')}</span>
                     {isGenerating ? <span className="text-xs text-primary flex items-center gap-1"><RefreshCw size={12} className="animate-spin" /> Updating...</span> : <span className="text-xs text-green-600 flex items-center gap-1"><Eye size={12} /> Ready</span>}
