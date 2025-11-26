@@ -215,6 +215,12 @@ export interface InvoiceTemplateConfig {
     text: string;
     tableHeaderBg: string;
     tableHeaderText: string;
+    bannerBg?: string;
+    bannerText?: string;
+    footerBg?: string;
+    footerText?: string;
+    borderColor?: string;
+    alternateRowBg?: string;
   };
   fonts: {
     headerSize: number;
@@ -226,13 +232,19 @@ export interface InvoiceTemplateConfig {
     margin: number; // mm
     logoSize: number; // mm
     logoPosition: 'left' | 'center' | 'right';
+    logoOffsetX?: number; // mm
+    logoOffsetY?: number; // mm
     headerAlignment: 'left' | 'center' | 'right';
+    headerStyle?: 'standard' | 'banner' | 'minimal'; // New: Header Style
+    footerStyle?: 'standard' | 'banner'; // New: Footer Style
     showWatermark: boolean;
     watermarkOpacity: number; // 0.1 to 1.0
     tableOptions: {
         hideQty: boolean;
         hideRate: boolean;
         stripedRows: boolean;
+        bordered?: boolean; // New: Table Border
+        compact?: boolean; // New: Compact Padding
     };
   };
   content: {
@@ -246,6 +258,8 @@ export interface InvoiceTemplateConfig {
     showSignature?: boolean;
     signatureText?: string;
     signatureImage?: string; // Base64 signature image
+    showAmountInWords?: boolean; // New: Show amount in words
+    showStatusStamp?: boolean; // New: Show PAID/DUE stamp
     labels?: InvoiceLabels; // Custom labels for tables and fields
     
     // New Fields

@@ -71,6 +71,39 @@ const formatDate = (dateString: string, format: 'DD/MM/YYYY' | 'MM/DD/YYYY' | 'Y
     return `${day}/${month}/${year}`; // Default DD/MM/YYYY
 };
 
+// --- Helper: Convert Number to Words (Indian format) ---
+const convertNumberToWords = (amount: number): string => {
+    const a = [
+        '', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '
+    ];
+    const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+    const numToWords = (n: number): string => {
+        if (n < 20) return a[n];
+        const digit = n % 10;
+        if (n < 100) return b[Math.floor(n / 10)] + (digit ? " " + a[digit] : "");
+        if (n < 1000) return a[Math.floor(n / 100)] + "Hundred " + (n % 100 === 0 ? "" : "and " + numToWords(n % 100));
+        return "";
+    };
+
+    if (amount === 0) return "Zero Rupees Only";
+
+    const crore = Math.floor(amount / 10000000);
+    amount -= crore * 10000000;
+    const lakh = Math.floor(amount / 100000);
+    amount -= lakh * 100000;
+    const thousand = Math.floor(amount / 1000);
+    amount -= thousand * 1000;
+    
+    let str = "";
+    if (crore > 0) str += numToWords(crore) + "Crore ";
+    if (lakh > 0) str += numToWords(lakh) + "Lakh ";
+    if (thousand > 0) str += numToWords(thousand) + "Thousand ";
+    if (amount > 0) str += numToWords(amount);
+
+    return str.trim() + " Rupees Only";
+};
+
 // --- Default Labels Fallback ---
 const defaultLabels: InvoiceLabels = {
     billedTo: "Billed To",
@@ -183,6 +216,8 @@ export const generateThermalInvoicePDF = async (
     const margin = templateConfig?.layout.margin || 3;
     const logoSize = templateConfig?.layout.logoSize || 15;
     const logoPos = templateConfig?.layout.logoPosition || 'center';
+    const logoOffsetX = templateConfig?.layout.logoOffsetX || 0;
+    const logoOffsetY = templateConfig?.layout.logoOffsetY || 0;
     const titleText = templateConfig?.content.titleText || 'TAX INVOICE';
     
     // Colors
@@ -221,7 +256,7 @@ export const generateThermalInvoicePDF = async (
                 if (logoPos === 'center') logoX = (pageWidth - logoSize) / 2;
                 else if (logoPos === 'right') logoX = pageWidth - margin - logoSize;
                 
-                doc.addImage(logoToUse, format, logoX, y, logoSize, logoSize);
+                doc.addImage(logoToUse, format, logoX + logoOffsetX, y + logoOffsetY, logoSize, logoSize);
                 y += logoSize + 3;
             } catch (e) {}
         }
@@ -447,6 +482,8 @@ interface GenericDocumentData {
     }[];
     watermarkText?: string;
     qrString?: string; // Optional override for QR data (e.g. UPI string)
+    grandTotalNumeric?: number; // For Amount in Words
+    balanceDue?: number; // For Status Stamp
 }
 
 // --- Core Configurable PDF Engine ---
@@ -477,10 +514,29 @@ const _generateConfigurablePDF = async (
 
     const showBusiness = content.showBusinessDetails ?? true;
     const showCustomer = content.showCustomerDetails ?? true;
+    
+    // Header styles
+    const isBannerHeader = layout.headerStyle === 'banner';
+    const isMinimalHeader = layout.headerStyle === 'minimal';
+    
+    // --- 1. HEADER BACKGROUND (Banner Mode) ---
+    if (isBannerHeader) {
+        doc.setFillColor(colors.bannerBg || colors.primary);
+        // Height is dynamic but lets allocate ~40-50mm based on content
+        const bannerHeight = Math.max(40, layout.logoSize + 20);
+        doc.rect(0, 0, pageWidth, bannerHeight, 'F');
+        // Reset Y to provide padding inside banner
+        currentY = margin + 5;
+    } else {
+        // Standard/Minimal: Add some top margin
+        currentY = margin + 5;
+    }
 
-    // --- 1. HEADER & LOGO ---
+    // --- 2. LOGO & BUSINESS DETAILS ---
     if (showBusiness) {
         const logoToUse = profile?.logo || logoBase64;
+        const logoOffsetX = layout.logoOffsetX || 0;
+        const logoOffsetY = layout.logoOffsetY || 0;
         
         if (logoToUse) {
             try {
@@ -493,7 +549,7 @@ const _generateConfigurablePDF = async (
                     logoX = pageWidth - margin - layout.logoSize;
                 }
 
-                doc.addImage(logoToUse, format, logoX, currentY, layout.logoSize, layout.logoSize);
+                doc.addImage(logoToUse, format, logoX + logoOffsetX, currentY + logoOffsetY, layout.logoSize, layout.logoSize);
                 
                 if (layout.logoPosition === 'center') {
                     currentY += layout.logoSize + 5;
@@ -504,20 +560,31 @@ const _generateConfigurablePDF = async (
         // Business Details
         const headerAlign = layout.headerAlignment;
         const headerX = headerAlign === 'center' ? centerX : (headerAlign === 'right' ? pageWidth - margin : margin);
-        let textY = layout.logoPosition === 'center' ? currentY : margin;
+        
+        // Calculate vertical centering for text if banner is active
+        let textY = layout.logoPosition === 'center' ? currentY : currentY;
+        
+        // If logo is Left/Right, align text vertically with logo roughly
+        if (layout.logoPosition !== 'center' && isBannerHeader) {
+             textY += 5; // Slight padding
+        }
+        
         let textXOffset = (layout.logoPosition === 'left' && headerAlign === 'left') ? (layout.logoSize + 5) : 0;
         
         if (profile) {
             doc.setFont(fonts.titleFont, 'bold');
             doc.setFontSize(fonts.headerSize);
-            doc.setTextColor(colors.primary);
+            // If banner, use bannerText color, else primary
+            doc.setTextColor(isBannerHeader ? (colors.bannerText || '#ffffff') : colors.primary);
+            
             doc.text(profile.name, headerX + textXOffset, textY, { align: headerAlign });
             
             textY += (fonts.headerSize * 0.4) + 2;
             
             doc.setFont(fonts.bodyFont, 'normal');
             doc.setFontSize(fonts.bodySize);
-            doc.setTextColor(colors.secondary);
+            // Secondary color for address
+            doc.setTextColor(isBannerHeader ? (colors.bannerText || '#ffffff') : colors.secondary);
             
             const addressLines = doc.splitTextToSize(profile.address, (pageWidth / 2));
             doc.text(addressLines, headerX + textXOffset, textY, { align: headerAlign });
@@ -532,24 +599,38 @@ const _generateConfigurablePDF = async (
             textY += 6;
         }
 
-        currentY = Math.max(currentY, textY, layout.logoPosition !== 'center' ? margin + layout.logoSize + 5 : 0);
-
-        doc.setDrawColor(colors.secondary);
-        doc.setLineWidth(0.5);
-        doc.line(margin, currentY, pageWidth - margin, currentY);
-        currentY += 10;
+        // Adjust currentY based on what took more vertical space: Logo or Text
+        // If logo is center, text is below it, so currentY is already updated.
+        // If logo is side, we compare textY vs logo height.
+        const headerContentHeight = Math.max(textY, layout.logoPosition !== 'center' ? currentY + layout.logoSize + 5 : currentY);
+        
+        // If banner, ensure we jump below it
+        if (isBannerHeader) {
+             currentY = Math.max(40, layout.logoSize + 20) + 5; 
+        } else {
+             currentY = headerContentHeight;
+             // Divider line for Standard mode only
+             if (!isMinimalHeader) {
+                doc.setDrawColor(colors.borderColor || colors.secondary);
+                doc.setLineWidth(0.5);
+                doc.line(margin, currentY, pageWidth - margin, currentY);
+                currentY += 10;
+             } else {
+                 currentY += 5;
+             }
+        }
     } else {
-        // Even if hidden, add some top margin
         currentY += 10;
     }
 
-    // --- 2. TITLE & METADATA ---
+    // --- 3. DOCUMENT TITLE ---
     doc.setFont(fonts.titleFont, 'bold');
     doc.setFontSize(16);
     doc.setTextColor(colors.text);
     doc.text(content.titleText, centerX, currentY, { align: 'center' });
     currentY += 10;
 
+    // --- 4. RECIPIENT & METADATA ---
     const colWidth = (pageWidth - (margin * 2)) / 2;
     let recipientY = currentY + 5;
     let recipientAddrLines: string[] = [];
@@ -596,7 +677,7 @@ const _generateConfigurablePDF = async (
 
     currentY = Math.max(recipientY + 5 + (recipientAddrLines.length * 4), recipientY + 25) + 5;
 
-    // --- 3. TABLE ---
+    // --- 5. TABLE ---
     // Dynamic Columns
     const tableHead = ['#', labels.item];
     if (!tableOpts.hideQty) tableHead.push(labels.qty);
@@ -611,34 +692,43 @@ const _generateConfigurablePDF = async (
         return row;
     });
 
+    // Determine Table Theme
+    let theme: 'striped' | 'grid' | 'plain' = 'plain';
+    if (tableOpts.bordered) theme = 'grid';
+    else if (tableOpts.stripedRows) theme = 'striped';
+
     autoTable(doc, {
         startY: currentY,
         margin: { left: margin, right: margin },
         head: [tableHead],
         body: tableBody,
-        theme: tableOpts.stripedRows ? 'striped' : 'grid',
+        theme: theme,
         styles: {
             font: fonts.bodyFont,
             fontSize: fonts.bodySize,
             textColor: colors.text,
-            lineColor: [200, 200, 200],
+            lineColor: colors.borderColor ? hexToRgbArray(colors.borderColor) : [200, 200, 200],
             lineWidth: 0.1,
+            cellPadding: tableOpts.compact ? 1 : 3
         },
         headStyles: { 
             fillColor: colors.tableHeaderBg,
             textColor: colors.tableHeaderText,
-            fontStyle: 'bold'
+            fontStyle: 'bold',
+            lineColor: colors.borderColor ? hexToRgbArray(colors.borderColor) : [200, 200, 200]
         },
-        // Need to dynamically calculate column alignment indices
+        alternateRowStyles: {
+            fillColor: tableOpts.stripedRows ? (colors.alternateRowBg || '#f9fafb') : '#ffffff'
+        },
         columnStyles: { 
             0: { halign: 'center', cellWidth: 10 },
-            // Calculate other alignments
+            // Dynamically align columns based on presence
             [tableHead.length - 1]: { halign: 'right', cellWidth: 35 }, // Amount always right
             [tableHead.length - 2]: { halign: 'right' }, // Rate or Qty
         }
     });
 
-    // --- 4. TOTALS ---
+    // --- 6. TOTALS ---
     let finalY = (doc as any).lastAutoTable.finalY + 10;
     const totalsX = pageWidth - margin;
     const labelX = totalsX - 40;
@@ -646,7 +736,7 @@ const _generateConfigurablePDF = async (
     data.totals.forEach((row, index) => {
         // Draw line before the last item (usually Grand Total or Balance) if it's bold
         if (row.isBold && index === data.totals.length - 1) {
-             doc.setDrawColor(colors.secondary);
+             doc.setDrawColor(colors.borderColor || colors.secondary);
              doc.line(labelX - 20, finalY - 4, totalsX, finalY - 4);
         }
 
@@ -657,8 +747,49 @@ const _generateConfigurablePDF = async (
         doc.text(row.value, totalsX, finalY, { align: 'right' });
         finalY += (row.size && row.size > fonts.bodySize ? 8 : 6);
     });
+    
+    // --- 6a. AMOUNT IN WORDS ---
+    if (content.showAmountInWords && data.grandTotalNumeric) {
+        doc.setFont(fonts.bodyFont, 'bold');
+        doc.setFontSize(fonts.bodySize);
+        doc.setTextColor(colors.primary);
+        const words = convertNumberToWords(Math.round(data.grandTotalNumeric));
+        // Place below the table, aligned left
+        const wordY = (doc as any).lastAutoTable.finalY + 10;
+        doc.text(`Amount in Words: ${words}`, margin, wordY);
+    }
 
-    // --- 5. SIGNATURE, TERMS, BANK DETAILS & FOOTER ---
+    // --- 6b. STATUS STAMP ---
+    if (content.showStatusStamp && typeof data.balanceDue !== 'undefined') {
+        const isPaid = data.balanceDue <= 0;
+        const stampText = isPaid ? "PAID" : "DUE";
+        const stampColor = isPaid ? "#22c55e" : "#ef4444"; // Green or Red
+        
+        doc.saveGraphicsState();
+        doc.setGState(new doc.GState({ opacity: 0.25 }));
+        
+        doc.setDrawColor(stampColor);
+        doc.setTextColor(stampColor);
+        doc.setLineWidth(1);
+        doc.setFontSize(30);
+        doc.setFont('helvetica', 'bold');
+        
+        // Position stamp roughly over the totals area
+        const stampX = pageWidth - margin - 40;
+        const stampY = (doc as any).lastAutoTable.finalY + 25;
+        
+        // Draw rotated text
+        doc.text(stampText, stampX, stampY, { align: 'center', angle: 30 });
+        
+        // Draw box around stamp
+        // NOTE: jsPDF rotate doesn't rotate rects easily around center without context transform
+        // Simplified: just text for now to be safe across versions
+        
+        doc.restoreGraphicsState();
+    }
+
+    // --- 7. SIGNATURE, TERMS, BANK DETAILS ---
+    
     // Check space for footer block (approx 50mm needed)
     if (pageHeight - finalY < 60) {
         doc.addPage();
@@ -732,11 +863,32 @@ const _generateConfigurablePDF = async (
         doc.restoreGraphicsState();
     }
 
+    // --- 8. FOOTER ---
+    const isBannerFooter = layout.footerStyle === 'banner';
+    const footerY = pageHeight - 15;
+    
+    if (isBannerFooter) {
+        doc.setFillColor(colors.footerBg || '#f3f4f6');
+        doc.rect(0, pageHeight - 20, pageWidth, 20, 'F');
+        doc.setTextColor(colors.footerText || colors.secondary);
+    } else {
+        doc.setTextColor(colors.secondary);
+    }
+
     doc.setFontSize(9);
-    doc.setTextColor(colors.secondary);
-    doc.text(content.footerText, centerX, pageHeight - 10, { align: 'center' });
+    doc.text(content.footerText, centerX, footerY, { align: 'center' });
 
     return doc;
+};
+
+// Helper: Convert hex to RGB array for jspdf-autotable
+const hexToRgbArray = (hex: string): [number, number, number] => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? [
+        parseInt(result[1], 16),
+        parseInt(result[2], 16),
+        parseInt(result[3], 16)
+    ] : [0, 0, 0];
 };
 
 // --- Public Generators ---
@@ -792,7 +944,9 @@ export const generateA4InvoicePdf = async (
             { label: labels.paid, value: `${currency} ${paidAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` },
             { label: labels.balance, value: `${currency} ${dueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, isBold: true, color: dueColor, size: templateConfig.fonts.bodySize + 2 }
         ],
-        qrString: qrString
+        qrString: qrString,
+        grandTotalNumeric: Number(sale.totalAmount),
+        balanceDue: dueAmount
     };
 
     return _generateConfigurablePDF(data, profile, templateConfig, customFonts);
@@ -833,7 +987,8 @@ export const generateEstimatePDF = async (
             { label: labels.gst, value: `${currency} ${Number(quote.gstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` },
             { label: labels.grandTotal, value: `${currency} ${Number(quote.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, isBold: true, color: templateConfig.colors.primary, size: templateConfig.fonts.bodySize + 2 },
         ],
-        watermarkText: 'ESTIMATE'
+        watermarkText: 'ESTIMATE',
+        grandTotalNumeric: Number(quote.totalAmount)
     };
 
     return _generateConfigurablePDF(data, profile, templateConfig, customFonts);
@@ -870,7 +1025,8 @@ export const generateDebitNotePDF = async (
         totals: [
             { label: 'Total Debit Value:', value: `${currency} ${Number(returnData.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, isBold: true, size: templateConfig.fonts.bodySize + 2 }
         ],
-        watermarkText: 'DEBIT NOTE'
+        watermarkText: 'DEBIT NOTE',
+        grandTotalNumeric: Number(returnData.amount)
     };
 
     return _generateConfigurablePDF(data, profile, templateConfig, customFonts);

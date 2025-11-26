@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Save, RotateCcw, Type, Layout, Palette, FileText, Image as ImageIcon, RefreshCw, Eye, Edit3, ExternalLink, ChevronDown, Upload, Trash2, Wand2, Sparkles, Grid, Languages, PenTool, QrCode, Download, FileUp } from 'lucide-react';
+import { Save, RotateCcw, Type, Layout, Palette, FileText, Image as ImageIcon, RefreshCw, Eye, Edit3, ExternalLink, ChevronDown, Upload, Trash2, Wand2, Sparkles, Grid, Languages, PenTool, QrCode, Download, FileUp, Stamp, Banknote } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { useAppContext } from '../context/AppContext';
 import { InvoiceTemplateConfig, DocumentType, InvoiceLabels } from '../types';
@@ -66,35 +66,35 @@ const dummySupplier = {
 // --- Templates ---
 const PRESETS: Record<string, Partial<InvoiceTemplateConfig>> = {
     'Modern': {
-        colors: { primary: '#0f172a', secondary: '#64748b', text: '#334155', tableHeaderBg: '#f1f5f9', tableHeaderText: '#0f172a' },
+        colors: { primary: '#0f172a', secondary: '#64748b', text: '#334155', tableHeaderBg: '#f1f5f9', tableHeaderText: '#0f172a', borderColor: '#e2e8f0', alternateRowBg: '#f8fafc' },
         fonts: { titleFont: 'helvetica', bodyFont: 'helvetica', headerSize: 24, bodySize: 10 },
         layout: { 
-            logoPosition: 'left', headerAlignment: 'right', margin: 10, logoSize: 25, showWatermark: false, watermarkOpacity: 0.1,
-            tableOptions: { hideQty: false, hideRate: false, stripedRows: true }
+            logoPosition: 'left', logoOffsetX: 0, logoOffsetY: 0, headerAlignment: 'right', headerStyle: 'minimal', margin: 10, logoSize: 25, showWatermark: false, watermarkOpacity: 0.1,
+            tableOptions: { hideQty: false, hideRate: false, stripedRows: true, bordered: false, compact: false }
         }
     },
     'Corporate': {
-        colors: { primary: '#1e40af', secondary: '#475569', text: '#1e293b', tableHeaderBg: '#1e40af', tableHeaderText: '#ffffff' },
+        colors: { primary: '#1e40af', secondary: '#475569', text: '#1e293b', tableHeaderBg: '#1e40af', tableHeaderText: '#ffffff', bannerBg: '#1e40af', bannerText: '#ffffff' },
         fonts: { titleFont: 'times', bodyFont: 'times', headerSize: 22, bodySize: 11 },
         layout: { 
-            logoPosition: 'center', headerAlignment: 'center', margin: 15, logoSize: 30, showWatermark: true, watermarkOpacity: 0.05,
-            tableOptions: { hideQty: false, hideRate: false, stripedRows: false }
+            logoPosition: 'center', logoOffsetX: 0, logoOffsetY: 0, headerAlignment: 'center', headerStyle: 'banner', margin: 15, logoSize: 30, showWatermark: true, watermarkOpacity: 0.05,
+            tableOptions: { hideQty: false, hideRate: false, stripedRows: false, bordered: true, compact: false }
         }
     },
     'Minimal': {
-        colors: { primary: '#000000', secondary: '#52525b', text: '#27272a', tableHeaderBg: '#ffffff', tableHeaderText: '#000000' },
+        colors: { primary: '#000000', secondary: '#52525b', text: '#27272a', tableHeaderBg: '#ffffff', tableHeaderText: '#000000', borderColor: '#d4d4d8' },
         fonts: { titleFont: 'courier', bodyFont: 'courier', headerSize: 20, bodySize: 9 },
         layout: { 
-            logoPosition: 'right', headerAlignment: 'left', margin: 12, logoSize: 20, showWatermark: false, watermarkOpacity: 0.1,
-            tableOptions: { hideQty: false, hideRate: false, stripedRows: false }
+            logoPosition: 'right', logoOffsetX: 0, logoOffsetY: 0, headerAlignment: 'left', headerStyle: 'minimal', margin: 12, logoSize: 20, showWatermark: false, watermarkOpacity: 0.1,
+            tableOptions: { hideQty: false, hideRate: false, stripedRows: false, bordered: false, compact: true }
         }
     },
     'Bold': {
-        colors: { primary: '#dc2626', secondary: '#1f2937', text: '#111827', tableHeaderBg: '#dc2626', tableHeaderText: '#ffffff' },
+        colors: { primary: '#dc2626', secondary: '#1f2937', text: '#111827', tableHeaderBg: '#dc2626', tableHeaderText: '#ffffff', bannerBg: '#dc2626', bannerText: '#ffffff' },
         fonts: { titleFont: 'helvetica', bodyFont: 'helvetica', headerSize: 28, bodySize: 10 },
         layout: { 
-            logoPosition: 'left', headerAlignment: 'left', margin: 10, logoSize: 35, showWatermark: true, watermarkOpacity: 0.15,
-            tableOptions: { hideQty: false, hideRate: false, stripedRows: true }
+            logoPosition: 'left', logoOffsetX: 0, logoOffsetY: 0, headerAlignment: 'left', headerStyle: 'banner', margin: 10, logoSize: 35, showWatermark: true, watermarkOpacity: 0.15,
+            tableOptions: { hideQty: false, hideRate: false, stripedRows: true, bordered: true, compact: false }
         }
     }
 };
@@ -144,11 +144,19 @@ const InvoiceDesigner: React.FC = () => {
         id: 'invoiceTemplateConfig',
         currencySymbol: '₹',
         dateFormat: 'DD/MM/YYYY',
-        colors: { primary: '#0d9488', secondary: '#333333', text: '#000000', tableHeaderBg: '#0d9488', tableHeaderText: '#ffffff' },
+        colors: { 
+            primary: '#0d9488', secondary: '#333333', text: '#000000', 
+            tableHeaderBg: '#0d9488', tableHeaderText: '#ffffff',
+            bannerBg: '#0d9488', bannerText: '#ffffff',
+            footerBg: '#f3f4f6', footerText: '#374151',
+            borderColor: '#e5e7eb', alternateRowBg: '#f9fafb'
+        },
         fonts: { headerSize: 22, bodySize: 10, titleFont: 'helvetica', bodyFont: 'helvetica' },
         layout: { 
-            margin: 10, logoSize: 25, logoPosition: 'center', headerAlignment: 'center', showWatermark: false, watermarkOpacity: 0.1,
-            tableOptions: { hideQty: false, hideRate: false, stripedRows: false }
+            margin: 10, logoSize: 25, logoPosition: 'center', logoOffsetX: 0, logoOffsetY: 0, headerAlignment: 'center', 
+            headerStyle: 'standard', footerStyle: 'standard',
+            showWatermark: false, watermarkOpacity: 0.1,
+            tableOptions: { hideQty: false, hideRate: false, stripedRows: false, bordered: false, compact: false }
         },
         content: { 
             titleText: 'TAX INVOICE', 
@@ -160,6 +168,8 @@ const InvoiceDesigner: React.FC = () => {
             showCustomerDetails: true,
             showSignature: true,
             signatureText: 'Authorized Signatory',
+            showAmountInWords: false,
+            showStatusStamp: false,
             labels: defaultLabels,
             qrType: 'INVOICE_ID',
             bankDetails: ''
@@ -304,7 +314,7 @@ const InvoiceDesigner: React.FC = () => {
                 ...prev,
                 colors: { ...prev.colors, ...preset.colors },
                 fonts: { ...prev.fonts, ...preset.fonts },
-                layout: { ...prev.layout, ...preset.layout }
+                layout: { ...prev.layout, ...preset.layout, tableOptions: { ...prev.layout.tableOptions, ...preset.layout?.tableOptions } }
             }));
             showToast(`Applied ${name} style`);
         }
@@ -322,7 +332,8 @@ const InvoiceDesigner: React.FC = () => {
                             ...prev.colors,
                             primary: dominant,
                             tableHeaderBg: dominant,
-                            tableHeaderText: '#ffffff'
+                            tableHeaderText: '#ffffff',
+                            bannerBg: dominant
                         }
                     }));
                     showToast("Brand colors applied from Logo!");
@@ -373,7 +384,7 @@ const InvoiceDesigner: React.FC = () => {
                     const theme = JSON.parse(response);
                     setConfig(prev => ({
                         ...prev,
-                        colors: { ...prev.colors, primary: theme.primary, tableHeaderBg: theme.primary, secondary: theme.secondary },
+                        colors: { ...prev.colors, primary: theme.primary, tableHeaderBg: theme.primary, secondary: theme.secondary, bannerBg: theme.primary },
                         fonts: { ...prev.fonts, titleFont: theme.font }
                     }));
                     showToast("Theme generated!");
@@ -537,18 +548,47 @@ const InvoiceDesigner: React.FC = () => {
                                     ))}
                                 </div>
                             </div>
+                            
+                            <div className="border-t dark:border-slate-700 pt-4 space-y-3">
+                                <div>
+                                    <label className="text-sm text-gray-700 dark:text-gray-300 block mb-1">Header Style</label>
+                                    <div className="flex rounded-md shadow-sm" role="group">
+                                        {['standard', 'banner', 'minimal'].map((style) => (
+                                            <button key={style} onClick={() => updateConfig('layout', 'headerStyle', style)} className={`flex-1 px-3 py-1.5 text-xs font-medium border first:rounded-l-lg last:rounded-r-lg capitalize ${config.layout.headerStyle === style ? 'bg-primary text-white border-primary' : 'bg-white dark:bg-slate-700 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-slate-600'}`}>{style}</button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="text-sm text-gray-700 dark:text-gray-300 block mb-1">Footer Style</label>
+                                    <div className="flex rounded-md shadow-sm" role="group">
+                                        {['standard', 'banner'].map((style) => (
+                                            <button key={style} onClick={() => updateConfig('layout', 'footerStyle', style)} className={`flex-1 px-3 py-1.5 text-xs font-medium border first:rounded-l-lg last:rounded-r-lg capitalize ${config.layout.footerStyle === style ? 'bg-primary text-white border-primary' : 'bg-white dark:bg-slate-700 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-slate-600'}`}>{style}</button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
                             <div className="border-t dark:border-slate-700 pt-4">
                                 <div className="space-y-3">
                                     <div>
                                         <label className="text-sm text-gray-700 dark:text-gray-300 block mb-1">Page Margin (mm): {config.layout.margin}</label>
-                                        <input type="range" min="1" max={30} value={config.layout.margin} onChange={(e) => updateConfig('layout', 'margin', parseInt(e.target.value))} className="w-full" />
+                                        <input type="range" min="1" max="30" value={config.layout.margin} onChange={(e) => updateConfig('layout', 'margin', parseInt(e.target.value))} className="w-full" />
                                     </div>
                                     <div>
                                         <label className="text-sm text-gray-700 dark:text-gray-300 block mb-1">Logo Size (mm): {config.layout.logoSize}</label>
                                         <input type="range" min="5" max={60} value={config.layout.logoSize} onChange={(e) => updateConfig('layout', 'logoSize', parseInt(e.target.value))} className="w-full" />
                                     </div>
+                                    <div>
+                                        <label className="text-sm text-gray-700 dark:text-gray-300 block mb-1">Logo X Offset (mm): {config.layout.logoOffsetX || 0}</label>
+                                        <input type="range" min="-50" max="50" value={config.layout.logoOffsetX || 0} onChange={(e) => updateConfig('layout', 'logoOffsetX', parseInt(e.target.value))} className="w-full" />
+                                    </div>
+                                    <div>
+                                        <label className="text-sm text-gray-700 dark:text-gray-300 block mb-1">Logo Y Offset (mm): {config.layout.logoOffsetY || 0}</label>
+                                        <input type="range" min="-20" max="50" value={config.layout.logoOffsetY || 0} onChange={(e) => updateConfig('layout', 'logoOffsetY', parseInt(e.target.value))} className="w-full" />
+                                    </div>
                                 </div>
                             </div>
+                            
                             <div className="space-y-3">
                                 <div>
                                     <label className="text-sm text-gray-700 dark:text-gray-300 block mb-1">Header Align</label>
@@ -582,6 +622,14 @@ const InvoiceDesigner: React.FC = () => {
                                     <label className="flex items-center gap-2 cursor-pointer">
                                         <input type="checkbox" checked={config.layout.tableOptions?.stripedRows} onChange={(e) => updateTableOption('stripedRows', e.target.checked)} className="rounded text-primary focus:ring-primary"/>
                                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Striped Table Rows</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox" checked={config.layout.tableOptions?.bordered} onChange={(e) => updateTableOption('bordered', e.target.checked)} className="rounded text-primary focus:ring-primary"/>
+                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Table Borders</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox" checked={config.layout.tableOptions?.compact} onChange={(e) => updateTableOption('compact', e.target.checked)} className="rounded text-primary focus:ring-primary"/>
+                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Compact Padding</span>
                                     </label>
                                 </div>
                             </div>
@@ -623,7 +671,19 @@ const InvoiceDesigner: React.FC = () => {
                                 </div>
                             </div>
 
-                            {Object.entries({ primary: "Primary Brand Color", secondary: "Secondary Text", text: "Body Text", tableHeaderBg: "Table Header Background", tableHeaderText: "Table Header Text" }).map(([key, label]) => (
+                            {Object.entries({ 
+                                primary: "Primary Brand Color", 
+                                secondary: "Secondary Text", 
+                                text: "Body Text", 
+                                tableHeaderBg: "Table Header Background", 
+                                tableHeaderText: "Table Header Text",
+                                bannerBg: "Banner Background (If Used)",
+                                bannerText: "Banner Text (If Used)",
+                                footerBg: "Footer Background (If Used)",
+                                footerText: "Footer Text (If Used)",
+                                borderColor: "Border Color",
+                                alternateRowBg: "Alternate Row Background"
+                            }).map(([key, label]) => (
                                 <div key={key} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-slate-700/50 rounded-lg border dark:border-slate-600">
                                     <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{label}</span>
                                     <button onClick={() => setColorPickerTarget(key as any)} className="w-8 h-8 rounded-full border-2 border-white shadow-sm" style={{ backgroundColor: (config.colors as any)[key] }} />
@@ -699,6 +759,18 @@ const InvoiceDesigner: React.FC = () => {
                                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300 capitalize">{key.replace('show', '').replace(/([A-Z])/g, ' $1').trim()}</span>
                                     </label>
                                 ))}
+                            </div>
+                            
+                            {/* New Toggles */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t dark:border-slate-700">
+                                <label className="flex items-center gap-2 cursor-pointer p-2 bg-gray-50 dark:bg-slate-800 rounded border dark:border-slate-700">
+                                    <input type="checkbox" checked={config.content.showAmountInWords ?? false} onChange={(e) => updateConfig('content', 'showAmountInWords', e.target.checked)} className="rounded text-primary focus:ring-primary" />
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2"><Banknote size={16} className="text-green-600"/> Amount In Words</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer p-2 bg-gray-50 dark:bg-slate-800 rounded border dark:border-slate-700">
+                                    <input type="checkbox" checked={config.content.showStatusStamp ?? false} onChange={(e) => updateConfig('content', 'showStatusStamp', e.target.checked)} className="rounded text-primary focus:ring-primary" />
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2"><Stamp size={16} className="text-red-600"/> Show PAID/DUE Stamp</span>
+                                </label>
                             </div>
 
                             {/* QR Configuration */}

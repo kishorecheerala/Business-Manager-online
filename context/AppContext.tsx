@@ -177,7 +177,13 @@ const defaultInvoiceTemplate: InvoiceTemplateConfig = {
         secondary: '#333333',
         text: '#000000',
         tableHeaderBg: '#0d9488',
-        tableHeaderText: '#ffffff'
+        tableHeaderText: '#ffffff',
+        bannerBg: '#0d9488',
+        bannerText: '#ffffff',
+        footerBg: '#f3f4f6',
+        footerText: '#374151',
+        borderColor: '#e5e7eb',
+        alternateRowBg: '#f9fafb'
     },
     fonts: {
         headerSize: 22,
@@ -189,13 +195,19 @@ const defaultInvoiceTemplate: InvoiceTemplateConfig = {
         margin: 10,
         logoSize: 25,
         logoPosition: 'center',
+        logoOffsetX: 0,
+        logoOffsetY: 0,
         headerAlignment: 'center',
+        headerStyle: 'standard',
+        footerStyle: 'standard',
         showWatermark: false,
         watermarkOpacity: 0.1,
         tableOptions: {
             hideQty: false,
             hideRate: false,
-            stripedRows: false
+            stripedRows: false,
+            bordered: false,
+            compact: false
         }
     },
     content: {
@@ -208,6 +220,8 @@ const defaultInvoiceTemplate: InvoiceTemplateConfig = {
         showCustomerDetails: true,
         showSignature: true,
         signatureText: 'Authorized Signatory',
+        showAmountInWords: false,
+        showStatusStamp: false,
         labels: defaultLabels,
         qrType: 'INVOICE_ID',
         bankDetails: ''
@@ -220,7 +234,8 @@ const defaultEstimateTemplate: InvoiceTemplateConfig = {
     colors: {
         ...defaultInvoiceTemplate.colors,
         primary: '#4f46e5', // Indigo for Estimates
-        tableHeaderBg: '#4f46e5'
+        tableHeaderBg: '#4f46e5',
+        bannerBg: '#4f46e5'
     },
     content: {
         ...defaultInvoiceTemplate.content,
@@ -236,7 +251,8 @@ const defaultDebitNoteTemplate: InvoiceTemplateConfig = {
     colors: {
         ...defaultInvoiceTemplate.colors,
         primary: '#000000', // Black for Debit Notes usually
-        tableHeaderBg: '#333333'
+        tableHeaderBg: '#333333',
+        bannerBg: '#333333'
     },
     content: {
         ...defaultInvoiceTemplate.content,
@@ -267,13 +283,18 @@ const defaultReceiptTemplate: InvoiceTemplateConfig = {
         margin: 2, // Small margin for 80mm paper
         logoSize: 15,
         logoPosition: 'center',
+        logoOffsetX: 0,
+        logoOffsetY: 0,
         headerAlignment: 'center',
+        headerStyle: 'standard',
         showWatermark: false,
         watermarkOpacity: 0.1,
         tableOptions: {
             hideQty: false,
             hideRate: false,
-            stripedRows: false
+            stripedRows: false,
+            bordered: false,
+            compact: false
         }
     },
     content: {
@@ -289,6 +310,26 @@ const defaultReceiptTemplate: InvoiceTemplateConfig = {
         labels: defaultLabels,
         qrType: 'INVOICE_ID'
     }
+};
+
+// Deep merge helper
+const mergeTemplate = (defaultTmpl: InvoiceTemplateConfig, storedTmpl: Partial<InvoiceTemplateConfig>): InvoiceTemplateConfig => {
+    return {
+        ...defaultTmpl,
+        ...storedTmpl,
+        colors: { ...defaultTmpl.colors, ...storedTmpl.colors },
+        fonts: { ...defaultTmpl.fonts, ...storedTmpl.fonts },
+        layout: { 
+            ...defaultTmpl.layout, 
+            ...storedTmpl.layout,
+            tableOptions: { ...defaultTmpl.layout.tableOptions, ...storedTmpl.layout?.tableOptions }
+        },
+        content: { 
+            ...defaultTmpl.content, 
+            ...storedTmpl.content,
+            labels: { ...defaultTmpl.content.labels, ...storedTmpl.content?.labels }
+        }
+    };
 };
 
 const initialState: AppState = {
@@ -709,11 +750,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   // Persist changes to IndexedDB
-  // We use a debounced approach or specific effects.
-  // Ideally, the reducer is pure, so side effects go here.
-  // For simplicity, we save the *entire* collection when it changes.
-  // Optimization: Check what changed. But for this scale, saving entire array is okay.
-  
   useEffect(() => { if (isDbLoaded) db.saveCollection('customers', state.customers); }, [state.customers, isDbLoaded]);
   useEffect(() => { if (isDbLoaded) db.saveCollection('suppliers', state.suppliers); }, [state.suppliers, isDbLoaded]);
   useEffect(() => { if (isDbLoaded) db.saveCollection('products', state.products); }, [state.products, isDbLoaded]);
@@ -738,7 +774,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
   }, [state.profile, isDbLoaded]);
 
-  // Google Auth & Sync
+  // Google Auth & Sync Logic (Kept as is)
   const googleSignIn = (options?: { forceConsent?: boolean }) => {
       loadGoogleScript().then(() => {
           if (!tokenClient.current) {
@@ -749,7 +785,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                           dispatch({ type: 'SET_GOOGLE_USER', payload: googleUser });
                           localStorage.setItem('googleUser', JSON.stringify(googleUser));
                           showToast(`Signed in as ${user.name}`, 'success');
-                          // Auto-sync after login
                           syncData();
                       });
                   }
@@ -757,7 +792,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           }
           
           if (options?.forceConsent) {
-              // Force prompt to select account/grant permissions again
               tokenClient.current.requestAccessToken({ prompt: 'consent' });
           } else {
               tokenClient.current.requestAccessToken();
@@ -784,8 +818,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       dispatch({ type: 'SET_SYNC_STATUS', payload: 'syncing' });
       
       try {
-          // 1. Write current state to Drive (Backup)
-          // Remove transient state before backup
           const { toast, selection, installPromptEvent, googleUser, syncStatus, lastSyncTime, devMode, restoreFromFileId, ...backupData } = state;
           
           await DriveService.write(state.googleUser.accessToken, backupData);
@@ -809,7 +841,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
   };
   
-  // Expose restore function for manual use in debug modal
   const restoreFromFileId = async (fileId: string) => {
       if (!state.googleUser?.accessToken) return;
       try {
