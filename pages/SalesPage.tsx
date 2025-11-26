@@ -5,6 +5,8 @@ import { useAppContext } from '../context/AppContext';
 import { Sale, SaleItem, Customer, Product, Payment } from '../types';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { Html5Qrcode } from 'html5-qrcode';
 import DeleteButton from '../components/DeleteButton';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
@@ -79,54 +81,6 @@ const AddCustomerModal: React.FC<{
     </div>
 ));
 
-const ProductSearchModal: React.FC<{
-    products: Product[];
-    onClose: () => void;
-    onSelect: (product: Product) => void;
-}> = ({ products, onClose, onSelect }) => {
-    const [productSearchTerm, setProductSearchTerm] = useState('');
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in-fast">
-          <Card className="w-full max-w-lg animate-scale-in">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-bold">Select Product</h2>
-              <button onClick={onClose} className="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
-                <X size={20}/>
-              </button>
-            </div>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-              <input
-                type="text"
-                placeholder="Search products..."
-                value={productSearchTerm}
-                onChange={e => setProductSearchTerm(e.target.value)}
-                className="w-full p-2 pl-10 border rounded-lg dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
-                autoFocus
-              />
-            </div>
-            <div className="mt-4 max-h-80 overflow-y-auto space-y-2">
-              {products
-                .filter(p => p.name.toLowerCase().includes(productSearchTerm.toLowerCase()) || p.id.toLowerCase().includes(productSearchTerm.toLowerCase()))
-                .map(p => (
-                <div key={p.id} onClick={() => onSelect(p)} className="p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg cursor-pointer hover:bg-teal-50 dark:hover:bg-slate-700 flex justify-between items-center">
-                  <div>
-                    <p className="font-semibold">{p.name}</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Code: {p.id}</p>
-                  </div>
-                  <div className="text-right">
-                      <p className="font-semibold">₹{Number(p.salePrice).toLocaleString('en-IN')}</p>
-                      <p className="text-sm">Stock: {p.quantity}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </div>
-    );
-};
-    
 const QRScannerModal: React.FC<{
     onClose: () => void;
     onScanned: (decodedText: string) => void;
@@ -144,7 +98,6 @@ const QRScannerModal: React.FC<{
                     onScanned(decodedText);
                 }).catch(err => {
                     console.error("Error stopping scanner", err);
-                    // Still call onScanned even if stopping fails, to proceed with logic
                     onScanned(decodedText);
                 });
             }
@@ -154,7 +107,7 @@ const QRScannerModal: React.FC<{
         html5QrCodeRef.current.start({ facingMode: "environment" }, config, qrCodeSuccessCallback, undefined)
             .then(() => setScanStatus("Scanning for QR Code..."))
             .catch(err => {
-                setScanStatus(`Camera Permission Error. Please allow camera access for this site in your browser's settings.`);
+                setScanStatus(`Camera Permission Error. Please allow camera access.`);
                 console.error("Camera start failed.", err);
             });
             
@@ -196,7 +149,6 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         reference: '',
     });
 
-    const [isSelectingProduct, setIsSelectingProduct] = useState(false);
     const [isScanning, setIsScanning] = useState(false);
     
     const [isAddingCustomer, setIsAddingCustomer] = useState(false);
@@ -278,7 +230,6 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         });
         setProductSearch('');
         setShowProductDropdown(false);
-        setIsSelectingProduct(false);
         setMode('add');
         setSaleToEdit(null);
     };
@@ -312,7 +263,6 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         
         setProductSearch('');
         setShowProductDropdown(false);
-        setIsSelectingProduct(false);
     };
     
     const handleProductScanned = (decodedText: string) => {
@@ -606,62 +556,13 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                     onCancel={handleCancelAddCustomer}
                 />
             }
-            {/* Unified Product Search Bar */}
-            <div className="relative z-20 mb-4" ref={productSearchRef}>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Add Items</label>
-                <div className="flex gap-2">
-                    <div className="relative flex-grow">
-                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-                            <Search size={18} />
-                        </div>
-                        <input 
-                            type="text" 
-                            className="w-full pl-10 pr-4 py-2 border rounded-lg bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-white outline-none focus:ring-2 focus:ring-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed" 
-                            placeholder={customerId ? "Search products to add..." : "Select a customer first"}
-                            value={productSearch}
-                            onChange={e => { setProductSearch(e.target.value); setShowProductDropdown(true); }}
-                            onFocus={() => setShowProductDropdown(true)}
-                            disabled={!customerId}
-                        />
-                        {showProductDropdown && customerId && (
-                            <div className="absolute top-full left-0 w-full bg-white dark:bg-slate-800 shadow-xl border dark:border-slate-700 rounded-lg mt-1 max-h-60 overflow-y-auto animate-scale-in">
-                                {filteredProducts.map(p => (
-                                    <div 
-                                        key={p.id} 
-                                        onClick={() => handleSelectProduct(p)}
-                                        className="p-3 hover:bg-gray-100 dark:hover:bg-slate-700 cursor-pointer border-b dark:border-slate-700 last:border-0 flex justify-between items-center"
-                                    >
-                                        <div>
-                                            <p className="font-medium text-sm dark:text-white">{p.name}</p>
-                                            <p className="text-xs text-gray-500">Code: {p.id}</p>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-sm font-bold text-primary">₹{Number(p.salePrice).toLocaleString('en-IN')}</p>
-                                            <p className="text-[10px] text-gray-500">Stock: {p.quantity}</p>
-                                        </div>
-                                    </div>
-                                ))}
-                                {filteredProducts.length === 0 && <div className="p-3 text-sm text-gray-500 text-center">No products found.</div>}
-                            </div>
-                        )}
-                    </div>
-                    <Button 
-                        onClick={() => setIsScanning(true)} 
-                        variant="secondary" 
-                        className="px-3"
-                        title="Scan QR Code"
-                        disabled={!customerId}
-                    >
-                        <QrCode size={20} />
-                    </Button>
-                </div>
-            </div>
             {isScanning && 
                 <QRScannerModal 
                     onClose={() => setIsScanning(false)}
                     onScanned={handleProductScanned}
                 />
             }
+            
             <h1 className="text-2xl font-bold text-primary">{pageTitle}</h1>
             
             <Card>
@@ -757,6 +658,57 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
 
 
             <Card title="Sale Items">
+                {/* Unified Product Search Bar - Moved inside Card */}
+                <div className="relative z-20 mb-4" ref={productSearchRef}>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Add Products</label>
+                    <div className="flex gap-2">
+                        <div className="relative flex-grow">
+                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                                <Search size={18} />
+                            </div>
+                            <input 
+                                type="text" 
+                                className="w-full pl-10 pr-4 py-2 border rounded-lg bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-white outline-none focus:ring-2 focus:ring-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed" 
+                                placeholder={customerId ? "Search products to add..." : "Select a customer first"}
+                                value={productSearch}
+                                onChange={e => { setProductSearch(e.target.value); setShowProductDropdown(true); }}
+                                onFocus={() => setShowProductDropdown(true)}
+                                disabled={!customerId}
+                            />
+                            {showProductDropdown && customerId && (
+                                <div className="absolute top-full left-0 w-full bg-white dark:bg-slate-800 shadow-xl border dark:border-slate-700 rounded-lg mt-1 max-h-60 overflow-y-auto animate-scale-in">
+                                    {filteredProducts.map(p => (
+                                        <div 
+                                            key={p.id} 
+                                            onClick={() => handleSelectProduct(p)}
+                                            className="p-3 hover:bg-gray-100 dark:hover:bg-slate-700 cursor-pointer border-b dark:border-slate-700 last:border-0 flex justify-between items-center"
+                                        >
+                                            <div>
+                                                <p className="font-medium text-sm dark:text-white">{p.name}</p>
+                                                <p className="text-xs text-gray-500">Code: {p.id}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-sm font-bold text-primary">₹{Number(p.salePrice).toLocaleString('en-IN')}</p>
+                                                <p className="text-[10px] text-gray-500">Stock: {p.quantity}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {filteredProducts.length === 0 && <div className="p-3 text-sm text-gray-500 text-center">No products found.</div>}
+                                </div>
+                            )}
+                        </div>
+                        <Button 
+                            onClick={() => setIsScanning(true)} 
+                            variant="secondary" 
+                            className="px-3"
+                            title="Scan QR Code"
+                            disabled={!customerId}
+                        >
+                            <QrCode size={20} />
+                        </Button>
+                    </div>
+                </div>
+
                 <div className="space-y-2 bg-gray-50 dark:bg-slate-700/30 p-3 rounded-lg border dark:border-slate-700">
                     {items.length === 0 && <p className="text-center text-sm text-gray-500">No items added yet.</p>}
                     {items.map(item => (
