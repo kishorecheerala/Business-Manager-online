@@ -10,6 +10,7 @@ import DateInput from '../components/DateInput';
 import DatePill from '../components/DatePill';
 import Dropdown from '../components/Dropdown';
 import { compressImage } from '../utils/imageUtils';
+import { useDialog } from '../context/DialogContext';
 
 interface ExpensesPageProps {
   setIsDirty: (isDirty: boolean) => void;
@@ -41,6 +42,7 @@ const PAYMENT_METHODS = [
 
 const ExpensesPage: React.FC<ExpensesPageProps> = ({ setIsDirty }) => {
     const { state, dispatch, showToast } = useAppContext();
+    const { showConfirm } = useDialog();
     const [amount, setAmount] = useState('');
     const [category, setCategory] = useState<ExpenseCategory>('Other');
     const [date, setDate] = useState(getLocalDateString());
@@ -75,14 +77,14 @@ const ExpensesPage: React.FC<ExpensesPageProps> = ({ setIsDirty }) => {
                 const base64 = await compressImage(e.target.files[0]);
                 setReceiptImage(base64);
             } catch (error) {
-                alert("Error processing image.");
+                showToast("Error processing image.", 'error');
             }
         }
     };
 
     const handleAddExpense = () => {
         if (!amount || parseFloat(amount) <= 0) {
-            alert("Please enter a valid amount.");
+            showToast("Please enter a valid amount.", 'error');
             return;
         }
 
@@ -108,8 +110,9 @@ const ExpensesPage: React.FC<ExpensesPageProps> = ({ setIsDirty }) => {
         setIsAdding(false);
     };
 
-    const handleDelete = (id: string) => {
-        if (window.confirm("Delete this expense record?")) {
+    const handleDelete = async (id: string) => {
+        const confirmed = await showConfirm("Delete this expense record?");
+        if (confirmed) {
             dispatch({ type: 'DELETE_EXPENSE', payload: id });
             showToast("Expense deleted.");
         }

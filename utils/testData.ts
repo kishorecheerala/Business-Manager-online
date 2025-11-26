@@ -100,10 +100,6 @@ const expenses: Expense[] = [
     { id: 'EXP-004', category: 'Food', amount: 150, date: daysAgo(2), note: 'Tea & Snacks', paymentMethod: 'CASH' },
 ];
 
-// This is a simplified static dataset. In a real generation script, you'd calculate final stock.
-// For this static file, the quantities in the `products` array are pre-calculated for simplicity.
-// (Total Purchases) - (Total Sales) + (Total Customer Returns)
-
 export const testData: Omit<AppState, 'toast' | 'selection' | 'installPromptEvent' | 'notifications' | 'profile' | 'pin' | 'googleUser' | 'syncStatus'> = {
   customers,
   suppliers,
@@ -121,4 +117,34 @@ export const testData: Omit<AppState, 'toast' | 'selection' | 'installPromptEven
   lastLocalUpdate: 0,
   lastSyncTime: null,
   devMode: false,
+  invoiceTemplate: {
+    id: 'invoiceTemplateConfig',
+    colors: {
+        primary: '#0d9488',
+        secondary: '#333333',
+        text: '#000000',
+        tableHeaderBg: '#0d9488',
+        tableHeaderText: '#ffffff'
+    },
+    fonts: {
+        headerSize: 22,
+        bodySize: 10,
+        titleFont: 'helvetica',
+        bodyFont: 'helvetica'
+    },
+    layout: {
+        margin: 10,
+        logoSize: 25,
+        logoPosition: 'center',
+        headerAlignment: 'center',
+        showWatermark: false
+    },
+    content: {
+        titleText: 'TAX INVOICE',
+        showTerms: true,
+        showQr: true,
+        termsText: '',
+        footerText: 'Thank you for your business!'
+    }
+  },
 };

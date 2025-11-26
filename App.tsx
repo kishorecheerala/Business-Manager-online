@@ -1,19 +1,22 @@
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Home, Users, ShoppingCart, Package, FileText, Undo2, Boxes, Search, HelpCircle, Bell, Menu, Plus, UserPlus, PackagePlus, Download, X, Sun, Moon, Cloud, CloudOff, RefreshCw, Sparkles, BarChart2, Receipt, Lock } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo, Suspense } from 'react';
+import { Home, Users, ShoppingCart, Package, FileText, Undo2, Boxes, Search, HelpCircle, Bell, Menu, Plus, UserPlus, PackagePlus, Download, X, Sun, Moon, Cloud, CloudOff, RefreshCw, Sparkles, BarChart2, Receipt, Lock, AlertCircle, CheckCircle, Info, PenTool } from 'lucide-react';
 
 import { AppProvider, useAppContext } from './context/AppContext';
 import { DialogProvider } from './context/DialogContext';
-import Dashboard from './pages/Dashboard';
-import CustomersPage from './pages/CustomersPage';
-import SalesPage from './pages/SalesPage';
-import PurchasesPage from './pages/PurchasesPage';
-import ReportsPage from './pages/ReportsPage';
-import ReturnsPage from './pages/ReturnsPage';
-import ProductsPage from './pages/ProductsPage';
-import InsightsPage from './pages/InsightsPage';
-import ExpensesPage from './pages/ExpensesPage';
-import QuotationsPage from './pages/QuotationsPage';
+// Lazy load pages for better performance (Code Splitting)
+const Dashboard = React.lazy(() => import('./pages/Dashboard'));
+const CustomersPage = React.lazy(() => import('./pages/CustomersPage'));
+const SalesPage = React.lazy(() => import('./pages/SalesPage'));
+const PurchasesPage = React.lazy(() => import('./pages/PurchasesPage'));
+const ReportsPage = React.lazy(() => import('./pages/ReportsPage'));
+const ReturnsPage = React.lazy(() => import('./pages/ReturnsPage'));
+const ProductsPage = React.lazy(() => import('./pages/ProductsPage'));
+const InsightsPage = React.lazy(() => import('./pages/InsightsPage'));
+const ExpensesPage = React.lazy(() => import('./pages/ExpensesPage'));
+const QuotationsPage = React.lazy(() => import('./pages/QuotationsPage'));
+const InvoiceDesigner = React.lazy(() => import('./pages/InvoiceDesigner'));
+
 import UniversalSearch from './components/UniversalSearch';
 import HelpModal from './components/HelpModal';
 import AppSkeletonLoader from './components/AppSkeletonLoader';
@@ -32,16 +35,26 @@ import PinModal from './components/PinModal';
 const Toast = () => {
     const { state } = useAppContext();
     if (!state.toast.show) return null;
-    const isSuccess = state.toast.type === 'success';
+    
+    let bgColor = "bg-slate-800";
+    let icon = <Info className="w-5 h-5 text-white" />;
+
+    if (state.toast.type === 'success') {
+        bgColor = "bg-emerald-600";
+        icon = <CheckCircle className="w-5 h-5 text-white" />;
+    } else if (state.toast.type === 'error') {
+        bgColor = "bg-red-600";
+        icon = <AlertCircle className="w-5 h-5 text-white" />;
+    }
+
     const containerClasses = "fixed top-5 inset-x-0 flex justify-center z-[200]";
-    const toastClasses = isSuccess
-        ? "bg-primary text-white px-6 py-3 rounded-full shadow-xl animate-fade-in-up font-medium flex items-center gap-2"
-        : "bg-slate-800 text-white px-6 py-3 rounded-full shadow-xl animate-fade-in-up font-medium flex items-center gap-2";
+    const toastClasses = `${bgColor} text-white px-6 py-3 rounded-full shadow-xl animate-fade-in-up font-medium flex items-center gap-3 border border-white/10`;
 
     return (
         <div className={containerClasses} style={{ pointerEvents: 'none' }}>
             <div className={toastClasses} style={{ pointerEvents: 'auto' }}>
-                {state.toast.message}
+                {icon}
+                <span>{state.toast.message}</span>
             </div>
         </div>
     );
@@ -168,6 +181,19 @@ const MainApp: React.FC = () => {
   useOnClickOutside(mobileQuickAddRef, () => setIsMobileQuickAddOpen(false));
   useOnClickOutside(notificationsRef, () => setIsNotificationsOpen(false));
   useOnClickOutside(moreMenuRef, () => setIsMoreMenuOpen(false));
+
+  // Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsSearchOpen(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // --- NETWORK STATUS MONITORING ---
   useEffect(() => {
@@ -316,6 +342,7 @@ const MainApp: React.FC = () => {
 
   const renderPage = () => {
     const commonProps = { setIsDirty };
+    // All pages are now lazy loaded
     switch (currentPage) {
       case 'DASHBOARD': return <Dashboard setCurrentPage={setCurrentPage} />;
       case 'CUSTOMERS': return <CustomersPage {...commonProps} setCurrentPage={setCurrentPage} />;
@@ -327,6 +354,7 @@ const MainApp: React.FC = () => {
       case 'INSIGHTS': return <InsightsPage setCurrentPage={setCurrentPage} />;
       case 'EXPENSES': return <ExpensesPage {...commonProps} />;
       case 'QUOTATIONS': return <QuotationsPage />;
+      case 'INVOICE_DESIGNER': return <InvoiceDesigner />;
       default: return <Dashboard setCurrentPage={setCurrentPage} />;
     }
   };
@@ -345,6 +373,7 @@ const MainApp: React.FC = () => {
       { page: 'RETURNS' as Page, label: 'Returns', icon: Undo2 },
       { page: 'REPORTS' as Page, label: 'Reports', icon: FileText },
       { page: 'INSIGHTS' as Page, label: 'Insights', icon: BarChart2 },
+      { page: 'INVOICE_DESIGNER' as Page, label: 'Inv. Designer', icon: PenTool },
   ];
 
   const mobileMoreItems = moreNavItems;
@@ -408,7 +437,7 @@ const MainApp: React.FC = () => {
                     onLockApp={handleManualLock}
                 />
                 </div>
-                <button onClick={() => setIsSearchOpen(true)} className="p-2 rounded-full hover:bg-white/20 transition-all active:scale-95">
+                <button onClick={() => setIsSearchOpen(true)} className="p-2 rounded-full hover:bg-white/20 transition-all active:scale-95" title="Search (Ctrl + K)">
                 <Search className="w-6 h-6" />
                 </button>
             </div>
@@ -486,7 +515,9 @@ const MainApp: React.FC = () => {
 
         <main className="flex-grow overflow-y-auto p-4 pb-24" style={{ WebkitOverflowScrolling: 'touch' }}>
             <div key={currentPage} className="animate-fade-in-up max-w-6xl mx-auto w-full">
-            {renderPage()}
+                <Suspense fallback={<AppSkeletonLoader />}>
+                    {renderPage()}
+                </Suspense>
             </div>
         </main>
 

@@ -1,7 +1,7 @@
 
 import { ReactNode } from "react";
 
-export type Page = 'DASHBOARD' | 'CUSTOMERS' | 'SALES' | 'PURCHASES' | 'REPORTS' | 'RETURNS' | 'PRODUCTS' | 'INSIGHTS' | 'EXPENSES' | 'QUOTATIONS';
+export type Page = 'DASHBOARD' | 'CUSTOMERS' | 'SALES' | 'PURCHASES' | 'REPORTS' | 'RETURNS' | 'PRODUCTS' | 'INSIGHTS' | 'EXPENSES' | 'QUOTATIONS' | 'INVOICE_DESIGNER';
 export type Theme = 'light' | 'dark';
 
 export interface GoogleUser {
@@ -180,6 +180,38 @@ export interface ProfileData {
   logo?: string; // Base64 encoded logo
 }
 
+// --- Invoice Template Configuration ---
+export interface InvoiceTemplateConfig {
+  id: 'invoiceTemplateConfig';
+  colors: {
+    primary: string;
+    secondary: string;
+    text: string;
+    tableHeaderBg: string;
+    tableHeaderText: string;
+  };
+  fonts: {
+    headerSize: number;
+    bodySize: number;
+    titleFont: string; // 'helvetica', 'times', 'courier'
+    bodyFont: string;
+  };
+  layout: {
+    margin: number; // mm
+    logoSize: number; // mm
+    logoPosition: 'left' | 'center' | 'right';
+    headerAlignment: 'left' | 'center' | 'right';
+    showWatermark: boolean;
+  };
+  content: {
+    titleText: string; // e.g. "TAX INVOICE"
+    showTerms: boolean;
+    showQr: boolean;
+    termsText: string;
+    footerText: string;
+  };
+}
+
 // --- App Metadata Types ---
 export interface AppMetadataPin {
   id: 'securityPin';
@@ -208,4 +240,11 @@ export interface AppMetadataTheme {
   gradient: string;
 }
 
-export type AppMetadata = AppMetadataPin | AppMetadataBackup | AppMetadataRevenueGoal | AppMetadataLastModified | AppMetadataTheme;
+export interface AppMetadataInvoiceSettings {
+  id: 'invoiceSettings';
+  terms: string;
+  footer: string;
+  showQr: boolean;
+}
+
+export type AppMetadata = AppMetadataPin | AppMetadataBackup | AppMetadataRevenueGoal | AppMetadataLastModified | AppMetadataTheme | AppMetadataInvoiceSettings | InvoiceTemplateConfig;

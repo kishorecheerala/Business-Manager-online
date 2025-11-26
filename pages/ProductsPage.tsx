@@ -11,10 +11,80 @@ import DatePill from '../components/DatePill';
 import { compressImage } from '../utils/imageUtils';
 import { Html5Qrcode } from 'html5-qrcode';
 import EmptyState from '../components/EmptyState';
+import { useDialog } from '../context/DialogContext';
 
 interface ProductsPageProps {
   setIsDirty: (isDirty: boolean) => void;
 }
+
+// --- Helper Component for Image Interaction ---
+interface ProductImageProps {
+    src?: string;
+    alt: string;
+    className?: string;
+    onPreview: (src: string) => void;
+}
+
+const ProductImage: React.FC<ProductImageProps> = ({ src, alt, className, onPreview }) => {
+    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const isLongPress = useRef(false);
+
+    const handlePointerDown = (e: React.PointerEvent) => {
+        if (e.pointerType === 'touch') {
+            isLongPress.current = false;
+            timerRef.current = setTimeout(() => {
+                isLongPress.current = true;
+                if (src) {
+                    if (navigator.vibrate) navigator.vibrate(50);
+                    onPreview(src);
+                }
+            }, 500); // 500ms for long press
+        }
+    };
+
+    const handlePointerUp = (e: React.PointerEvent) => {
+        if (timerRef.current) {
+            clearTimeout(timerRef.current);
+            timerRef.current = null;
+        }
+
+        if (e.pointerType === 'mouse') {
+            e.stopPropagation(); // Stop row selection on desktop click
+            if (src) onPreview(src);
+        } else if (e.pointerType === 'touch' && isLongPress.current) {
+            e.stopPropagation(); // Stop row selection if it was a long press
+        }
+        // If touch and NOT long press, let it bubble to select the row
+    };
+
+    const handlePointerCancel = () => {
+        if (timerRef.current) {
+            clearTimeout(timerRef.current);
+            timerRef.current = null;
+        }
+    };
+
+    if (!src) {
+        return (
+            <div className={`${className} flex items-center justify-center text-gray-300 dark:text-gray-600 bg-gray-100 dark:bg-slate-700`}>
+                <ImageIcon size={20} />
+            </div>
+        );
+    }
+
+    return (
+        <img 
+            src={src} 
+            alt={alt} 
+            className={className}
+            onPointerDown={handlePointerDown}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerCancel}
+            onContextMenu={(e) => e.preventDefault()} // Prevent context menu on long press
+            draggable={false}
+        />
+    );
+};
 
 const QRScannerModal: React.FC<{
     onClose: () => void;
@@ -70,6 +140,7 @@ const QRScannerModal: React.FC<{
 
 const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     const { state, dispatch, showToast } = useAppContext();
+    const { showConfirm } = useDialog();
     const [searchTerm, setSearchTerm] = useState('');
     
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -89,6 +160,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     const [isShowcaseMode, setIsShowcaseMode] = useState(true);
     
     const [isScanning, setIsScanning] = useState(false);
+    const [previewImage, setPreviewImage] = useState<string | null>(null);
     
     useEffect(() => {
         if (state.selection && state.selection.page === 'PRODUCTS') {
@@ -153,9 +225,10 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
         }
     };
 
-    const handleUpdateProduct = () => {
+    const handleUpdateProduct = async () => {
         if (editedProduct) {
-             if (window.confirm('Are you sure you want to update this product\'s details?')) {
+             const confirmed = await showConfirm('Are you sure you want to update this product\'s details?');
+             if (confirmed) {
                 dispatch({ type: 'UPDATE_PRODUCT', payload: editedProduct });
                 setIsEditing(false);
                 showToast("Product details updated successfully.");
@@ -163,14 +236,15 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
         }
     };
 
-    const handleStockAdjustment = () => {
+    const handleStockAdjustment = async () => {
         if (selectedProduct && newQuantity !== '') {
             const newQty = parseInt(newQuantity, 10);
             if (!isNaN(newQty)) {
                 const change = newQty - selectedProduct.quantity;
                 if (change === 0) return;
 
-                if (window.confirm(`Confirm stock adjustment? New quantity will be ${newQty}.`)) {
+                const confirmed = await showConfirm(`Confirm stock adjustment? New quantity will be ${newQty}.`);
+                if (confirmed) {
                     dispatch({ type: 'UPDATE_PRODUCT_STOCK', payload: { productId: selectedProduct.id, change } });
                     showToast("Stock updated successfully.");
                 }
@@ -184,7 +258,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                 const base64 = await compressImage(e.target.files[0]);
                 setEditedProduct({ ...editedProduct, image: base64 });
             } catch (error) {
-                alert("Error processing image.");
+                showToast("Error processing image.", 'error');
             }
         }
     };
@@ -198,15 +272,18 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
         } else {
             // If not found exactly, put it in search term to filter
             setSearchTerm(scannedText);
-            alert("Product not found. Filtered list by scanned code.");
+            showToast("Product not found. Filtered list by scanned code.", 'info');
         }
     };
 
-    const filteredProducts = state.products.filter(p => {
-        const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                              p.id.toLowerCase().includes(searchTerm.toLowerCase());
-        return matchesSearch;
-    });
+    // Optimized Filtering
+    const filteredProducts = useMemo(() => {
+        const lowerTerm = searchTerm.toLowerCase();
+        return state.products.filter(p => 
+            p.name.toLowerCase().includes(lowerTerm) || 
+            p.id.toLowerCase().includes(lowerTerm)
+        );
+    }, [state.products, searchTerm]);
 
     const handleSelectAll = () => {
         if (selectedProductIds.length === filteredProducts.length) {
@@ -248,14 +325,13 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                 <Card>
                     <div className="flex justify-between items-start mb-4">
                          <div className="flex items-center gap-3">
-                            <div className="relative">
-                                {selectedProduct.image ? (
-                                    <img src={selectedProduct.image} alt={selectedProduct.name} className="w-16 h-16 object-cover rounded-lg border border-gray-200 dark:border-slate-600" />
-                                ) : (
-                                    <div className="w-16 h-16 bg-gray-100 dark:bg-slate-700 rounded-lg flex items-center justify-center border border-gray-200 dark:border-slate-600 text-gray-400">
-                                        <ImageIcon size={24} />
-                                    </div>
-                                )}
+                            <div className="relative w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden border border-gray-200 dark:border-slate-600 bg-gray-100 dark:bg-slate-700">
+                                <ProductImage 
+                                    src={selectedProduct.image} 
+                                    alt={selectedProduct.name} 
+                                    className="w-full h-full object-cover cursor-pointer"
+                                    onPreview={setPreviewImage}
+                                />
                             </div>
                             <div>
                                 <h2 className="text-lg font-bold text-primary">Product Details</h2>
@@ -314,7 +390,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                              <div className="grid grid-cols-2 gap-4 mt-2">
                                 <div className="flex items-center gap-2"><Package size={16} className="text-gray-400"/> <span>Stock: {selectedProduct.quantity}</span></div>
                                 <div className="flex items-center gap-2"><Percent size={16} className="text-gray-400"/> <span>GST: {selectedProduct.gstPercent}%</span></div>
-                                <div className="flex items-center gap-2"><IndianRupee size={16} className="text-gray-400"/> <span>Buy: ₹{selectedProduct.purchasePrice}</span></div>
+                                {/* Buying Price HIDDEN from view, visible only in Edit mode above */}
                                 <div className="flex items-center gap-2"><IndianRupee size={16} className="text-green-600"/> <span className="font-bold text-green-600 dark:text-green-400">Sell: ₹{selectedProduct.salePrice}</span></div>
                              </div>
                         </div>
@@ -348,6 +424,21 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     return (
         <div className="space-y-4">
             {isScanning && <QRScannerModal onClose={() => setIsScanning(false)} onScanned={handleScan} />}
+            
+            {/* Full Screen Image Preview Modal */}
+            {previewImage && (
+                <div className="fixed inset-0 bg-black bg-opacity-95 z-[200] flex items-center justify-center p-4 animate-fade-in-fast" onClick={() => setPreviewImage(null)}>
+                    <div className="relative max-w-full max-h-full">
+                        <button 
+                            onClick={() => setPreviewImage(null)} 
+                            className="absolute -top-12 right-0 p-2 rounded-full bg-white/20 text-white hover:bg-white/40 transition-colors"
+                        >
+                            <X size={24} />
+                        </button>
+                        <img src={previewImage} alt="Full Preview" className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl" />
+                    </div>
+                </div>
+            )}
             
             {isBatchBarcodeModalOpen && (
                 <BatchBarcodeModal
@@ -435,15 +526,14 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                         {filteredProducts.map((product) => (
                             <div key={product.id} onClick={() => handleProductClick(product)} className="bg-white dark:bg-slate-800 rounded-xl overflow-hidden shadow-md border border-gray-100 dark:border-slate-700 hover:shadow-xl transition-shadow flex flex-col h-full cursor-pointer">
                                 <div className="aspect-square w-full bg-gray-100 dark:bg-slate-700 relative overflow-hidden group">
-                                    {product.image ? (
-                                        <img src={product.image} alt={product.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-gray-300 dark:text-gray-600">
-                                            <ImageIcon size={48} />
-                                        </div>
-                                    )}
+                                    <ProductImage 
+                                        src={product.image} 
+                                        alt={product.name} 
+                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                        onPreview={setPreviewImage}
+                                    />
                                     {product.quantity < 1 && (
-                                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center pointer-events-none">
                                             <span className="bg-red-600 text-white px-3 py-1 text-xs font-bold uppercase tracking-widest rounded-sm">Out of Stock</span>
                                         </div>
                                     )}
@@ -484,12 +574,13 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                 </div>
                             )}
                             
-                            <div className="w-12 h-12 rounded bg-gray-100 dark:bg-slate-700 overflow-hidden flex-shrink-0 border border-gray-200 dark:border-slate-600">
-                                {product.image ? (
-                                    <img src={product.image} alt="" className="w-full h-full object-cover" />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-gray-400"><ImageIcon size={20} /></div>
-                                )}
+                            <div className="w-12 h-12 rounded bg-gray-100 dark:bg-slate-700 overflow-hidden flex-shrink-0 border border-gray-200 dark:border-slate-600 relative">
+                                <ProductImage 
+                                    src={product.image} 
+                                    alt={product.name} 
+                                    className="w-full h-full object-cover"
+                                    onPreview={setPreviewImage}
+                                />
                             </div>
 
                             <div className="flex-grow min-w-0">
@@ -503,7 +594,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                     <div className="text-right flex-shrink-0">
                                         <p className="font-bold text-primary">₹{product.salePrice.toLocaleString('en-IN')}</p>
                                         <div className="flex justify-end gap-2 text-xs">
-                                            <span className="text-gray-400 line-through">₹{product.purchasePrice}</span>
+                                            {/* Purchase Price HIDDEN from view */}
                                             <span className={`font-medium ${product.quantity < 5 ? 'text-red-500' : 'text-green-600'}`}>
                                                 Stock: {product.quantity}
                                             </span>

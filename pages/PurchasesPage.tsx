@@ -102,14 +102,18 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
     
     const handleAddPayment = () => {
         const purchase = state.purchases.find(p => p.id === paymentModalState.purchaseId);
-        if (!purchase || !paymentDetails.amount) return alert("Please enter a valid amount.");
+        if (!purchase || !paymentDetails.amount) {
+            showToast("Please enter a valid amount.", 'error');
+            return;
+        }
         
         const amountPaid = (purchase.payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
         const dueAmount = Number(purchase.totalAmount) - amountPaid;
         const newPaymentAmount = parseFloat(paymentDetails.amount);
 
         if(newPaymentAmount > dueAmount + 0.01) {
-            return alert(`Payment exceeds due amount of ₹${dueAmount.toLocaleString('en-IN')}.`);
+            showToast(`Payment exceeds due amount of ₹${dueAmount.toLocaleString('en-IN')}.`, 'error');
+            return;
         }
 
         const payment: Payment = {
@@ -166,7 +170,7 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
 
     const handleUpdatePurchase = (updatedPurchase: Purchase) => {
         if (!purchaseToEdit) {
-            showToast("Error updating purchase: Original data not found.", 'info');
+            showToast("Error updating purchase: Original data not found.", 'error');
             return;
         }
 
@@ -180,7 +184,7 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
     const handleDownloadDebitNote = async (newReturn: Return) => {
         const supplier = state.suppliers.find(s => s.id === newReturn.partyId);
         if (!supplier) {
-            alert("Supplier not found.");
+            showToast("Supplier not found.", 'error');
             return;
         }
         try {
@@ -189,7 +193,7 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
             doc.save(`DebitNote_${newReturn.id}_${dateStr}.pdf`);
         } catch (e) {
             console.error("PDF Error", e);
-            showToast("Failed to generate PDF", 'info');
+            showToast("Failed to generate PDF", 'error');
         }
     };
 
@@ -281,7 +285,7 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
 
                 const oldPurchase = state.purchases.find(p => p.id === purchaseToUpdate.id);
                 if (!oldPurchase) {
-                    showToast("Could not find original purchase to update.", "info");
+                    showToast("Could not find original purchase to update.", "error");
                     return;
                 }
 

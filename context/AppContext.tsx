@@ -1,6 +1,6 @@
 
 import React, { createContext, useReducer, useContext, useEffect, ReactNode, useState, useRef } from 'react';
-import { Customer, Supplier, Product, Sale, Purchase, Return, Payment, BeforeInstallPromptEvent, Notification, ProfileData, Page, AppMetadata, AppMetadataPin, Theme, GoogleUser, AuditLogEntry, SyncStatus, AppMetadataTheme, Expense, Quote } from '../types';
+import { Customer, Supplier, Product, Sale, Purchase, Return, Payment, BeforeInstallPromptEvent, Notification, ProfileData, Page, AppMetadata, AppMetadataPin, Theme, GoogleUser, AuditLogEntry, SyncStatus, AppMetadataTheme, Expense, Quote, AppMetadataInvoiceSettings, InvoiceTemplateConfig } from '../types';
 import * as db from '../utils/db';
 import { StoreName } from '../utils/db';
 import { DriveService, initGoogleAuth, getUserInfo, loadGoogleScript, downloadFile } from '../utils/googleDrive';
@@ -8,7 +8,7 @@ import { DriveService, initGoogleAuth, getUserInfo, loadGoogleScript, downloadFi
 interface ToastState {
   message: string;
   show: boolean;
-  type: 'success' | 'info';
+  type: 'success' | 'info' | 'error';
 }
 
 export interface AppState {
@@ -24,6 +24,7 @@ export interface AppState {
   notifications: Notification[];
   audit_logs: AuditLogEntry[];
   profile: ProfileData | null;
+  invoiceTemplate: InvoiceTemplateConfig;
   toast: ToastState;
   selection: { page: Page; id: string; action?: 'edit' | 'new'; data?: any } | null;
   installPromptEvent: BeforeInstallPromptEvent | null;
@@ -50,6 +51,7 @@ type Action =
   | { type: 'REMOVE_PIN' }
   | { type: 'SET_REVENUE_GOAL'; payload: number }
   | { type: 'UPDATE_METADATA_TIMESTAMP'; payload: number }
+  | { type: 'SET_INVOICE_TEMPLATE'; payload: InvoiceTemplateConfig }
   | { type: 'ADD_CUSTOMER'; payload: Customer }
   | { type: 'UPDATE_CUSTOMER'; payload: Customer }
   | { type: 'ADD_SUPPLIER'; payload: Supplier }
@@ -72,7 +74,7 @@ type Action =
   | { type: 'DELETE_QUOTE'; payload: string }
   | { type: 'ADD_PAYMENT_TO_SALE'; payload: { saleId: string; payment: Payment } }
   | { type: 'ADD_PAYMENT_TO_PURCHASE'; payload: { purchaseId: string; payment: Payment } }
-  | { type: 'SHOW_TOAST'; payload: { message: string; type?: 'success' | 'info' } }
+  | { type: 'SHOW_TOAST'; payload: { message: string; type?: 'success' | 'info' | 'error' } }
   | { type: 'HIDE_TOAST' }
   | { type: 'SET_LAST_BACKUP_DATE'; payload: string }
   | { type: 'SET_SELECTION'; payload: { page: Page; id: string; action?: 'edit' | 'new'; data?: any } }
@@ -141,6 +143,37 @@ const getInitialDevMode = (): boolean => {
     }
 }
 
+const defaultInvoiceTemplate: InvoiceTemplateConfig = {
+    id: 'invoiceTemplateConfig',
+    colors: {
+        primary: '#0d9488',
+        secondary: '#333333',
+        text: '#000000',
+        tableHeaderBg: '#0d9488',
+        tableHeaderText: '#ffffff'
+    },
+    fonts: {
+        headerSize: 22,
+        bodySize: 10,
+        titleFont: 'helvetica',
+        bodyFont: 'helvetica'
+    },
+    layout: {
+        margin: 10,
+        logoSize: 25,
+        logoPosition: 'center',
+        headerAlignment: 'center',
+        showWatermark: false
+    },
+    content: {
+        titleText: 'TAX INVOICE',
+        showTerms: true,
+        showQr: true,
+        termsText: '',
+        footerText: 'Thank you for your business!'
+    }
+};
+
 const initialState: AppState = {
   customers: [],
   suppliers: [],
@@ -154,6 +187,7 @@ const initialState: AppState = {
   notifications: [],
   audit_logs: [],
   profile: null,
+  invoiceTemplate: defaultInvoiceTemplate,
   toast: { message: '', show: false, type: 'info' },
   selection: null,
   installPromptEvent: null,
@@ -225,6 +259,18 @@ const appReducer = (state: AppState, action: Action): AppState => {
         return {
             ...state,
             app_metadata: [...metaWithoutGoal, { id: 'revenueGoal', amount: action.payload }],
+            ...touch
+        };
+    }
+    case 'SET_INVOICE_TEMPLATE': {
+        const metaWithoutTemplate = state.app_metadata.filter(m => m.id !== 'invoiceTemplateConfig');
+        // Store as metadata so it syncs
+        // cast to any to store complex object in metadata array for IDB persistence, 
+        // though runtime state has strict type
+        return {
+            ...state,
+            invoiceTemplate: action.payload,
+            app_metadata: [...metaWithoutTemplate, action.payload as any],
             ...touch
         };
     }
@@ -442,7 +488,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
 interface AppContextType {
     state: AppState;
     dispatch: React.Dispatch<Action>;
-    showToast: (message: string, type?: 'success' | 'info') => void;
+    showToast: (message: string, type?: 'success' | 'info' | 'error') => void;
     isDbLoaded: boolean;
     googleSignIn: (options?: { forceConsent?: boolean }) => void;
     googleSignOut: () => void;
@@ -546,6 +592,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               stateData.theme = themeMeta.theme;
               stateData.themeColor = themeMeta.color;
               stateData.themeGradient = themeMeta.gradient;
+          }
+          // Apply Invoice Template
+          const templateMeta = meta.find((m: any) => m.id === 'invoiceTemplateConfig');
+          if (templateMeta) {
+              stateData.invoiceTemplate = templateMeta;
           }
           return stateData;
       };
@@ -824,6 +875,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const validatedMetadata = Array.isArray(app_metadata) ? app_metadata : [];
         const pinData = validatedMetadata.find(m => m.id === 'securityPin') as AppMetadataPin | undefined;
         const themeData = validatedMetadata.find(m => m.id === 'themeSettings') as AppMetadataTheme | undefined;
+        const invoiceTemplateData = validatedMetadata.find(m => m.id === 'invoiceTemplateConfig') as InvoiceTemplateConfig | undefined;
 
         const validatedState: Partial<AppState> = {
             customers: Array.isArray(customers) ? customers : [],
@@ -839,6 +891,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             theme: themeData?.theme || getInitialTheme(),
             themeColor: themeData?.color || getInitialThemeColor(),
             themeGradient: themeData?.gradient || getInitialThemeGradient(),
+            invoiceTemplate: invoiceTemplateData || defaultInvoiceTemplate,
         };
         dispatch({ type: 'SET_STATE', payload: validatedState });
         if (pinData?.pin) {
@@ -874,7 +927,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
   }, [state.lastSyncTime]);
 
-  const showToast = (message: string, type: 'success' | 'info' = 'success') => {
+  const showToast = (message: string, type: 'success' | 'info' | 'error' = 'success') => {
     dispatch({ type: 'SHOW_TOAST', payload: { message, type } });
     setTimeout(() => {
         dispatch({ type: 'HIDE_TOAST' });
