@@ -267,7 +267,7 @@ const QuotationsPage: React.FC = () => {
                                         onChange={e => { setProductSearch(e.target.value); setShowProductDropdown(true); }}
                                         onFocus={() => setShowProductDropdown(true)}
                                     />
-                                    {showProductDropdown && productSearch && (
+                                    {showProductDropdown && (
                                         <div className="absolute top-full left-0 w-full bg-white dark:bg-slate-800 shadow-xl border dark:border-slate-700 rounded-lg mt-1 max-h-60 overflow-y-auto animate-scale-in">
                                             {filteredProducts.map(p => (
                                                 <div 
