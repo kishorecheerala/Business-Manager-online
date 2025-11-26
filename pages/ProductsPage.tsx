@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, Edit, Save, X, Package, IndianRupee, Percent, PackageCheck, Barcode, Printer, Filter, Grid, List, Camera, Image as ImageIcon, Eye, Trash2, QrCode, Boxes, Maximize2, ArrowLeft } from 'lucide-react';
+import { Search, Edit, Save, X, Package, IndianRupee, Percent, PackageCheck, Barcode, Printer, Filter, Grid, List, Camera, Image as ImageIcon, Eye, Trash2, QrCode, Boxes, Maximize2, Minimize2, ArrowLeft } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Product, PurchaseItem } from '../types';
 import Card from '../components/Card';
@@ -8,7 +7,7 @@ import Button from '../components/Button';
 import { BarcodeModal } from '../components/BarcodeModal';
 import BatchBarcodeModal from '../components/BatchBarcodeModal';
 import DatePill from '../components/DatePill';
-import { compressImage } from '../utils/imageUtils'; // Kept for other potential uses, but replaced in upload flow
+import { compressImage } from '../utils/imageUtils'; 
 import { Html5Qrcode } from 'html5-qrcode';
 import EmptyState from '../components/EmptyState';
 import { useDialog } from '../context/DialogContext';
@@ -336,8 +335,9 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
             setEditedProduct({ ...editedProduct, [name]: name === 'name' ? value : parseFloat(value) || 0 });
         };
 
+        // Using fixed z-[500] to ensure it covers app header (z-[60])
         return (
-            <div className="h-full flex flex-col md:flex-row animate-fade-in-fast fixed inset-0 z-50 bg-white dark:bg-slate-900 sm:relative sm:inset-auto sm:z-auto">
+            <div className="fixed inset-0 top-0 left-0 w-screen h-screen z-[500] bg-white dark:bg-slate-900 flex flex-col md:flex-row animate-fade-in-fast overflow-hidden">
                 <BarcodeModal 
                     isOpen={isDownloadModalOpen} 
                     onClose={() => setIsDownloadModalOpen(false)} 
@@ -345,36 +345,36 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                     businessName={state.profile?.name || 'Business Manager'}
                 />
                 
-                {/* Floating Back Button - Visible always on top left */}
+                {/* Floating Back Button - Visible always on top left, z-index above everything */}
                 <button 
                     onClick={() => setSelectedProduct(null)} 
-                    className="absolute top-4 left-4 z-30 p-2 bg-black/20 hover:bg-black/40 backdrop-blur-md text-white rounded-full transition-all shadow-lg"
+                    className="absolute top-4 left-4 z-[510] p-3 bg-black/30 hover:bg-black/50 backdrop-blur-md text-white rounded-full transition-all shadow-lg transform active:scale-90"
                     aria-label="Back to Inventory"
                 >
-                    <ArrowLeft size={24} />
+                    <ArrowLeft size={24} strokeWidth={2.5} />
                 </button>
                 
                 {/* LEFT: IMAGE SECTION */}
-                {/* Mobile: 55% height | Tablet/Desktop: Full Height, 50% Width */}
-                <div className="h-[55%] md:h-full w-full md:w-1/2 bg-gray-100 dark:bg-slate-900 relative group flex-shrink-0">
+                {/* Mobile: 65% height. Tablet/Desktop: 50% width, full height */}
+                <div className="h-[65%] w-full md:h-full md:w-1/2 bg-gray-100 dark:bg-slate-900 relative group flex-shrink-0 transition-all duration-500">
                     <div className="absolute inset-0 flex items-center justify-center">
                         <div className="relative w-full h-full flex items-center justify-center overflow-hidden bg-gray-50 dark:bg-slate-900">
                             <ProductImage 
                                 src={isEditing ? editedProduct.image : selectedProduct.image} 
                                 alt={selectedProduct.name} 
-                                className="w-full h-full object-contain p-4 transition-transform duration-500"
-                                onPreview={setPreviewImage}
-                                enableInteract={false}
+                                className="w-full h-full object-contain p-4 md:p-8"
+                                onPreview={() => setPreviewImage(isEditing ? (editedProduct.image || '') : (selectedProduct.image || ''))}
+                                enableInteract={!isEditing}
                             />
                         </div>
                     </div>
 
-                    {/* Floating Actions on Image (Top Right) */}
-                    <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">
+                    {/* Floating Toggle on Image (Top Right) */}
+                    <div className="absolute top-4 right-4 flex flex-col gap-2 z-[60]">
                         <button 
                             onClick={() => setPreviewImage(isEditing ? (editedProduct.image || '') : (selectedProduct.image || ''))}
-                            className="p-2 bg-white/90 text-gray-700 rounded-full shadow-lg hover:bg-white transition-all"
-                            title="Full Screen"
+                            className="p-2 bg-white/90 dark:bg-slate-800/90 text-gray-700 dark:text-white rounded-full shadow-lg hover:bg-white dark:hover:bg-slate-700 transition-all"
+                            title="Open Full Screen Viewer"
                         >
                             <Maximize2 size={20} />
                         </button>
@@ -408,9 +408,9 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                 </div>
 
                 {/* RIGHT: DETAILS SECTION */}
-                {/* Mobile: Fills rest, -mt-6 overlap, rounded top */}
-                {/* Tablet/Desktop: Full Height, 50% Width, No negative margin, side-by-side */}
-                <div className="flex-1 md:h-full w-full md:w-1/2 bg-white dark:bg-slate-800 flex flex-col border-t md:border-t-0 md:border-l dark:border-slate-700 shadow-[0_-10px_30px_-5px_rgba(0,0,0,0.15)] md:shadow-none relative z-10 rounded-t-3xl md:rounded-none -mt-6 md:mt-0 overflow-hidden">
+                {/* Mobile: Bottom 35-40%, overlaps with negative margin */}
+                {/* Tablet/Desktop: Right 50%, Full Height */}
+                <div className="flex-1 h-full w-full md:w-1/2 bg-white dark:bg-slate-800 flex flex-col border-t md:border-t-0 md:border-l dark:border-slate-700 shadow-[0_-10px_30px_-5px_rgba(0,0,0,0.15)] md:shadow-none relative z-10 rounded-t-3xl md:rounded-none -mt-6 md:mt-0 overflow-hidden animate-slide-up-fade">
                     
                     {/* Scrollable Form Content */}
                     <div className="flex-grow overflow-y-auto custom-scrollbar p-5 pt-6 space-y-4">
@@ -536,9 +536,9 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                 />
             )}
             
-            {/* Full Screen Image Preview Modal */}
+            {/* Full Screen Image Preview Modal - Use for Grid Mode Only */}
             {previewImage && (
-                <div className="fixed inset-0 bg-black bg-opacity-95 z-[200] flex items-center justify-center p-4 animate-fade-in-fast" onClick={() => setPreviewImage(null)}>
+                <div className="fixed inset-0 bg-black bg-opacity-95 z-[600] flex items-center justify-center p-4 animate-fade-in-fast" onClick={() => setPreviewImage(null)}>
                     <div className="relative max-w-full max-h-full">
                         <button 
                             onClick={() => setPreviewImage(null)} 
@@ -642,7 +642,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                         alt={product.name} 
                                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                                         onPreview={setPreviewImage}
-                                        enableInteract={false} // Disable click-to-preview on the image directly
+                                        enableInteract={false} // Disable click-to-preview on the image directly in grid
                                     />
                                     
                                     {/* Full Screen Button - Visible Always on All Devices */}
