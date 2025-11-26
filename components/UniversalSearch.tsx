@@ -21,27 +21,23 @@ interface UniversalSearchProps {
 }
 
 const QRScannerModal: React.FC<{ onClose: () => void; onScanned: (text: string) => void }> = ({ onClose, onScanned }) => {
-    const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
     const [scanStatus, setScanStatus] = useState<string>("Initializing scanner...");
     const scannerId = "qr-reader-universal";
 
     useEffect(() => {
         // Ensure container is clean
-        const container = document.getElementById(scannerId);
-        if (container) container.innerHTML = "";
+        if (!document.getElementById(scannerId)) return;
 
-        html5QrCodeRef.current = new Html5Qrcode(scannerId);
+        const html5QrCode = new Html5Qrcode(scannerId);
 
         const config = { fps: 10, qrbox: { width: 250, height: 250 } };
 
-        html5QrCodeRef.current.start(
+        html5QrCode.start(
             { facingMode: "environment" }, 
             config, 
             (decodedText) => {
+                html5QrCode.pause(true);
                 onScanned(decodedText);
-                if (html5QrCodeRef.current?.isScanning) {
-                    html5QrCodeRef.current.stop().catch(console.error);
-                }
             }, 
             (errorMessage) => {}
         ).then(() => setScanStatus("Scanning for QR Code..."))
@@ -51,10 +47,14 @@ const QRScannerModal: React.FC<{ onClose: () => void; onScanned: (text: string) 
         });
 
         return () => {
-            if (html5QrCodeRef.current?.isScanning) {
-                html5QrCodeRef.current.stop().then(() => {
-                    html5QrCodeRef.current?.clear();
-                }).catch(err => console.log("Failed to stop scanner on cleanup.", err));
+            try {
+                if (html5QrCode.isScanning) {
+                    html5QrCode.stop().then(() => html5QrCode.clear()).catch(e => console.warn("Scanner stop error", e));
+                } else {
+                    html5QrCode.clear();
+                }
+            } catch (e) {
+                console.warn("Scanner cleanup error", e);
             }
         };
     }, [onScanned]);

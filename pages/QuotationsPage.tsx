@@ -1,6 +1,6 @@
 
-import React, { useState, useMemo } from 'react';
-import { FileText, Plus, Search, Share2, Trash2, ShoppingCart } from 'lucide-react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { FileText, Plus, Search, Share2, Trash2, ShoppingCart, QrCode, X } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Customer, Quote, QuoteItem, Product } from '../types';
 import Card from '../components/Card';
@@ -10,12 +10,69 @@ import Dropdown from '../components/Dropdown';
 import DeleteButton from '../components/DeleteButton';
 import { generateEstimatePDF } from '../utils/pdfGenerator';
 import DatePill from '../components/DatePill';
+import { Html5Qrcode } from 'html5-qrcode';
+import { useOnClickOutside } from '../hooks/useOnClickOutside';
 
 const getLocalDateString = (date = new Date()) => {
   const year = date.getFullYear();
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
   const day = date.getDate().toString().padStart(2, '0');
   return `${year}-${month}-${day}`;
+};
+
+const QRScannerModal: React.FC<{
+    onClose: () => void;
+    onScanned: (decodedText: string) => void;
+}> = ({ onClose, onScanned }) => {
+    const [scanStatus, setScanStatus] = useState<string>("Initializing camera...");
+    const scannerId = "qr-reader-quotes";
+
+    useEffect(() => {
+        // Ensure container is ready
+        if (!document.getElementById(scannerId)) return;
+
+        const html5QrCode = new Html5Qrcode(scannerId);
+        setScanStatus("Requesting camera permissions...");
+
+        const qrCodeSuccessCallback = (decodedText: string) => {
+            html5QrCode.pause(true);
+            onScanned(decodedText);
+            // Cleanup handled by useEffect return
+        };
+        
+        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+        html5QrCode.start({ facingMode: "environment" }, config, qrCodeSuccessCallback, undefined)
+            .then(() => setScanStatus("Scanning for QR Code..."))
+            .catch(err => {
+                setScanStatus(`Camera Permission Error. Please allow camera access.`);
+                console.error("Camera start failed.", err);
+            });
+            
+        return () => {
+            try {
+                if (html5QrCode.isScanning) {
+                    html5QrCode.stop().then(() => html5QrCode.clear()).catch(e => console.warn("Scanner stop error", e));
+                } else {
+                    html5QrCode.clear();
+                }
+            } catch (e) {
+                console.warn("Scanner cleanup error", e);
+            }
+        };
+    }, [onScanned]);
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-75 backdrop-blur-sm flex flex-col items-center justify-center z-50 p-4 animate-fade-in-fast">
+            <Card title="Scan Product QR Code" className="w-full max-w-md relative animate-scale-in">
+                 <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
+                    <X size={20}/>
+                 </button>
+                <div id={scannerId} className="w-full mt-4 rounded-lg overflow-hidden border"></div>
+                <p className="text-center text-sm my-2 text-gray-600 dark:text-gray-400">{scanStatus}</p>
+            </Card>
+        </div>
+    );
 };
 
 const QuotationsPage: React.FC = () => {
@@ -32,6 +89,11 @@ const QuotationsPage: React.FC = () => {
     // Helper state for product selection
     const [productSearch, setProductSearch] = useState('');
     const [showProductDropdown, setShowProductDropdown] = useState(false);
+    const searchRef = useRef<HTMLDivElement>(null);
+    
+    const [isScanning, setIsScanning] = useState(false);
+
+    useOnClickOutside(searchRef, () => setShowProductDropdown(false));
 
     const customerOptions = useMemo(() => state.customers.map(c => ({
         value: c.id,
@@ -70,6 +132,17 @@ const QuotationsPage: React.FC = () => {
         });
         setProductSearch('');
         setShowProductDropdown(false);
+        setIsScanning(false);
+    };
+    
+    const handleProductScanned = (decodedText: string) => {
+        const product = state.products.find(p => p.id.toLowerCase() === decodedText.toLowerCase());
+        if (product) {
+            handleAddItem(product);
+        } else {
+            alert("Product not found in inventory.");
+            setIsScanning(false);
+        }
     };
 
     const handleUpdateItem = (id: string, field: keyof QuoteItem, val: number) => {
@@ -140,6 +213,12 @@ const QuotationsPage: React.FC = () => {
 
     return (
         <div className="space-y-6 animate-fade-in-fast">
+            {isScanning && 
+                <QRScannerModal 
+                    onClose={() => setIsScanning(false)}
+                    onScanned={handleProductScanned}
+                />
+            }
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div className="flex items-center gap-3">
                     <h1 className="text-2xl font-bold text-primary flex items-center gap-2">
@@ -172,35 +251,53 @@ const QuotationsPage: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Product Search */}
-                        <div className="relative">
+                        {/* Add Items Section - Clean Search Bar with QR */}
+                        <div className="relative z-20" ref={searchRef}>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Add Items</label>
-                            <div className="flex items-center border rounded-lg bg-white dark:bg-slate-700 dark:border-slate-600 overflow-hidden">
-                                <div className="p-2 text-gray-400"><Search size={18}/></div>
-                                <input 
-                                    type="text" 
-                                    className="w-full p-2 outline-none bg-transparent dark:text-white" 
-                                    placeholder="Search products..."
-                                    value={productSearch}
-                                    onChange={e => { setProductSearch(e.target.value); setShowProductDropdown(true); }}
-                                    onFocus={() => setShowProductDropdown(true)}
-                                />
-                            </div>
-                            {showProductDropdown && productSearch && (
-                                <div className="absolute z-10 w-full bg-white dark:bg-slate-800 shadow-xl border dark:border-slate-700 rounded-lg mt-1 max-h-60 overflow-y-auto">
-                                    {filteredProducts.map(p => (
-                                        <div 
-                                            key={p.id} 
-                                            onClick={() => handleAddItem(p)}
-                                            className="p-3 hover:bg-gray-100 dark:hover:bg-slate-700 cursor-pointer border-b dark:border-slate-700 last:border-0"
-                                        >
-                                            <p className="font-medium text-sm dark:text-white">{p.name}</p>
-                                            <p className="text-xs text-gray-500">Price: ₹{p.salePrice}</p>
+                            <div className="flex gap-2">
+                                <div className="relative flex-grow">
+                                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                                        <Search size={18} />
+                                    </div>
+                                    <input 
+                                        type="text" 
+                                        className="w-full pl-10 pr-4 py-2 border rounded-lg bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-white outline-none focus:ring-2 focus:ring-primary transition-all" 
+                                        placeholder="Search products to add..."
+                                        value={productSearch}
+                                        onChange={e => { setProductSearch(e.target.value); setShowProductDropdown(true); }}
+                                        onFocus={() => setShowProductDropdown(true)}
+                                    />
+                                    {showProductDropdown && productSearch && (
+                                        <div className="absolute top-full left-0 w-full bg-white dark:bg-slate-800 shadow-xl border dark:border-slate-700 rounded-lg mt-1 max-h-60 overflow-y-auto animate-scale-in">
+                                            {filteredProducts.map(p => (
+                                                <div 
+                                                    key={p.id} 
+                                                    onClick={() => handleAddItem(p)}
+                                                    className="p-3 hover:bg-gray-100 dark:hover:bg-slate-700 cursor-pointer border-b dark:border-slate-700 last:border-0 flex justify-between items-center"
+                                                >
+                                                    <div>
+                                                        <p className="font-medium text-sm dark:text-white">{p.name}</p>
+                                                        <p className="text-xs text-gray-500">Code: {p.id}</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-sm font-bold text-primary">₹{p.salePrice}</p>
+                                                        <p className="text-[10px] text-gray-500">Stock: {p.quantity}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            {filteredProducts.length === 0 && <div className="p-3 text-sm text-gray-500 text-center">No products found.</div>}
                                         </div>
-                                    ))}
-                                    {filteredProducts.length === 0 && <div className="p-3 text-sm text-gray-500">No products found.</div>}
+                                    )}
                                 </div>
-                            )}
+                                <Button 
+                                    onClick={() => setIsScanning(true)} 
+                                    variant="secondary" 
+                                    className="px-3"
+                                    title="Scan QR Code"
+                                >
+                                    <QrCode size={20} />
+                                </Button>
+                            </div>
                         </div>
 
                         {/* Items List */}

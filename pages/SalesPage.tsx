@@ -11,9 +11,6 @@ import { Html5Qrcode } from 'html5-qrcode';
 import DeleteButton from '../components/DeleteButton';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
 import { logoBase64 } from '../utils/logo';
-import Dropdown from '../components/Dropdown';
-import DateInput from '../components/DateInput';
-import DatePill from '../components/DatePill';
 
 
 const getLocalDateString = (date = new Date()) => {
@@ -124,7 +121,7 @@ const ProductSearchModal: React.FC<{
               {products
                 .filter(p => p.name.toLowerCase().includes(productSearchTerm.toLowerCase()) || p.id.toLowerCase().includes(productSearchTerm.toLowerCase()))
                 .map(p => (
-                <div key={p.id} onClick={() => onSelect(p)} className="p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg cursor-pointer hover:bg-primary/5 dark:hover:bg-slate-700 flex justify-between items-center">
+                <div key={p.id} onClick={() => onSelect(p)} className="p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg cursor-pointer hover:bg-teal-50 dark:hover:bg-slate-700 flex justify-between items-center">
                   <div>
                     <p className="font-semibold">{p.name}</p>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Code: {p.id}</p>
@@ -146,26 +143,21 @@ const QRScannerModal: React.FC<{
     onScanned: (decodedText: string) => void;
 }> = ({ onClose, onScanned }) => {
     const [scanStatus, setScanStatus] = useState<string>("Initializing camera...");
-    const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
+    const scannerId = "qr-reader-sales";
 
     useEffect(() => {
-        html5QrCodeRef.current = new Html5Qrcode("qr-reader-sales");
+        if (!document.getElementById(scannerId)) return;
+
+        const html5QrCode = new Html5Qrcode(scannerId);
         setScanStatus("Requesting camera permissions...");
 
         const qrCodeSuccessCallback = (decodedText: string) => {
-            if (html5QrCodeRef.current?.isScanning) {
-                html5QrCodeRef.current.stop().then(() => {
-                    onScanned(decodedText);
-                }).catch(err => {
-                    console.error("Error stopping scanner", err);
-                    // Still call onScanned even if stopping fails, to proceed with logic
-                    onScanned(decodedText);
-                });
-            }
+            html5QrCode.pause(true);
+            onScanned(decodedText);
         };
         const config = { fps: 10, qrbox: { width: 250, height: 250 } };
 
-        html5QrCodeRef.current.start({ facingMode: "environment" }, config, qrCodeSuccessCallback, undefined)
+        html5QrCode.start({ facingMode: "environment" }, config, qrCodeSuccessCallback, undefined)
             .then(() => setScanStatus("Scanning for QR Code..."))
             .catch(err => {
                 setScanStatus(`Camera Permission Error. Please allow camera access for this site in your browser's settings.`);
@@ -173,8 +165,14 @@ const QRScannerModal: React.FC<{
             });
             
         return () => {
-            if (html5QrCodeRef.current?.isScanning) {
-                html5QrCodeRef.current.stop().catch(err => console.error("Cleanup stop scan failed.", err));
+            try {
+                if (html5QrCode.isScanning) {
+                    html5QrCode.stop().then(() => html5QrCode.clear()).catch(e => console.warn("Scanner stop error", e));
+                } else {
+                    html5QrCode.clear();
+                }
+            } catch (e) {
+                console.warn("Scanner cleanup error", e);
             }
         };
     }, [onScanned]);
@@ -185,7 +183,7 @@ const QRScannerModal: React.FC<{
                  <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
                     <X size={20}/>
                  </button>
-                <div id="qr-reader-sales" className="w-full mt-4 rounded-lg overflow-hidden border"></div>
+                <div id={scannerId} className="w-full mt-4 rounded-lg overflow-hidden border"></div>
                 <p className="text-center text-sm my-2 text-gray-600 dark:text-gray-400">{scanStatus}</p>
             </Card>
         </div>
@@ -217,34 +215,32 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
     const [newCustomer, setNewCustomer] = useState(newCustomerInitialState);
     const isDirtyRef = useRef(false);
 
+    const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
     const [customerSearchTerm, setCustomerSearchTerm] = useState('');
+    const customerDropdownRef = useRef<HTMLDivElement>(null);
     
-    // Effect to handle switching to edit mode OR loading a Quote
+    useOnClickOutside(customerDropdownRef, () => {
+        if (isCustomerDropdownOpen) {
+            setIsCustomerDropdownOpen(false);
+        }
+    });
+
+    // Effect to handle switching to edit mode from another page
     useEffect(() => {
-        if (state.selection?.page === 'SALES') {
-            if (state.selection.action === 'edit') {
-                const sale = state.sales.find(s => s.id === state.selection?.id);
-                if (sale) {
-                    setSaleToEdit(sale);
-                    setMode('edit');
-                    setCustomerId(sale.customerId);
-                    setItems(sale.items.map(item => ({...item}))); // Deep copy
-                    setDiscount(sale.discount.toString());
-                    setSaleDate(getLocalDateString(new Date(sale.date)));
-                    setPaymentDetails({ amount: '', method: 'CASH', date: getLocalDateString(), reference: '' });
-                    dispatch({ type: 'CLEAR_SELECTION' });
-                }
-            } else if (state.selection.id === 'new' && state.selection.data) {
-                // Pre-fill from Quote
-                const data = state.selection.data;
-                setCustomerId(data.customerId || '');
-                setItems(data.items || []);
-                setDiscount(data.discount ? data.discount.toString() : '0');
+        if (state.selection?.page === 'SALES' && state.selection.action === 'edit') {
+            const sale = state.sales.find(s => s.id === state.selection.id);
+            if (sale) {
+                setSaleToEdit(sale);
+                setMode('edit');
+                setCustomerId(sale.customerId);
+                setItems(sale.items.map(item => ({...item}))); // Deep copy
+                setDiscount(sale.discount.toString());
+                setSaleDate(getLocalDateString(new Date(sale.date)));
+                setPaymentDetails({ amount: '', method: 'CASH', date: getLocalDateString(), reference: '' });
                 dispatch({ type: 'CLEAR_SELECTION' });
-                showToast("Quote loaded successfully. Verify details and save.");
             }
         }
-    }, [state.selection, state.sales, dispatch, showToast]);
+    }, [state.selection, state.sales, dispatch]);
 
     useEffect(() => {
         const dateIsDirty = mode === 'add' && saleDate !== getLocalDateString();
@@ -312,12 +308,12 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
     };
     
     const handleProductScanned = (decodedText: string) => {
-        setIsScanning(false);
         const product = state.products.find(p => p.id.toLowerCase() === decodedText.toLowerCase());
         if (product) {
             handleSelectProduct(product);
         } else {
             alert("Product not found in inventory.");
+            setIsScanning(false);
         }
     };
 
@@ -367,17 +363,12 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
 
     const selectedCustomer = useMemo(() => customerId ? state.customers.find(c => c.id === customerId) : null, [customerId, state.customers]);
 
-    const customerOptions = useMemo(() => state.customers.map(c => ({
-        value: c.id,
-        label: `${c.name} - ${c.area}`,
-        searchText: `${c.name} ${c.area}`
-    })), [state.customers]);
-
-    const paymentMethodOptions = useMemo(() => [
-        { value: 'CASH', label: 'Cash' },
-        { value: 'UPI', label: 'UPI' },
-        { value: 'CHEQUE', label: 'Cheque' }
-    ], []);
+    const filteredCustomers = useMemo(() => 
+        state.customers.filter(c => 
+            c.name.toLowerCase().includes(customerSearchTerm.toLowerCase()) || 
+            c.area.toLowerCase().includes(customerSearchTerm.toLowerCase())
+        ).sort((a,b) => a.name.localeCompare(b.name)),
+    [state.customers, customerSearchTerm]);
 
     const customerTotalDue = useMemo(() => {
         if (!customerId) return null;
@@ -715,48 +706,89 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                     onScanned={handleProductScanned}
                 />
             }
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div className="flex items-center gap-3">
-                    <h1 className="text-2xl font-bold text-primary">{pageTitle}</h1>
-                    <DatePill />
-                </div>
-            </div>
+            <h1 className="text-2xl font-bold text-primary">{pageTitle}</h1>
             
             <Card>
                 <div className="space-y-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Customer</label>
                         <div className="flex gap-2 items-center">
-                            <Dropdown
-                                options={customerOptions}
-                                value={customerId}
-                                onChange={(val) => setCustomerId(val)}
-                                placeholder="Search or Select Customer"
-                                searchable={true}
-                                searchPlaceholder="Search customers..."
-                                disabled={mode === 'edit' || (mode === 'add' && items.length > 0)}
-                                icon="search"
-                            />
-                            {mode === 'add' && (
-                                <Button 
-                                    onClick={() => setIsAddingCustomer(true)} 
-                                    variant="secondary" 
-                                    className="aspect-square !p-0 w-[42px] h-[42px] flex items-center justify-center flex-shrink-0"
-                                    aria-label="Add New Customer"
+                            <div className="relative w-full" ref={customerDropdownRef}>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsCustomerDropdownOpen(prev => !prev)}
+                                    className="w-full p-2 border rounded bg-white text-left custom-select dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
+                                    disabled={mode === 'edit' || (mode === 'add' && items.length > 0)}
+                                    aria-haspopup="listbox"
+                                    aria-expanded={isCustomerDropdownOpen}
                                 >
-                                    <Plus size={24}/>
+                                    {selectedCustomer ? `${selectedCustomer.name} - ${selectedCustomer.area}` : 'Select a Customer'}
+                                </button>
+
+                                {isCustomerDropdownOpen && (
+                                    <div className="absolute top-full left-0 w-full mt-1 bg-white dark:bg-slate-900 rounded-md shadow-lg border dark:border-slate-700 z-40 animate-fade-in-fast">
+                                        <div className="p-2 border-b dark:border-slate-700">
+                                            <input
+                                                type="text"
+                                                placeholder="Search by name or area..."
+                                                value={customerSearchTerm}
+                                                onChange={e => setCustomerSearchTerm(e.target.value)}
+                                                className="w-full p-2 border border-gray-300 rounded dark:bg-slate-800 dark:border-slate-600 dark:text-white"
+                                                autoFocus
+                                            />
+                                        </div>
+                                        <ul className="max-h-60 overflow-y-auto" role="listbox">
+                                            <li
+                                                key="select-customer-placeholder"
+                                                onClick={() => {
+                                                    setCustomerId('');
+                                                    setIsCustomerDropdownOpen(false);
+                                                    setCustomerSearchTerm('');
+                                                }}
+                                                className="px-4 py-2 hover:bg-teal-50 dark:hover:bg-slate-800 cursor-pointer text-gray-500"
+                                                role="option"
+                                            >
+                                                Select a Customer
+                                            </li>
+                                            {filteredCustomers.map(c => (
+                                                <li
+                                                    key={c.id}
+                                                    onClick={() => {
+                                                        setCustomerId(c.id);
+                                                        setIsCustomerDropdownOpen(false);
+                                                        setCustomerSearchTerm('');
+                                                    }}
+                                                    className="px-4 py-2 hover:bg-teal-50 dark:hover:bg-slate-800 cursor-pointer border-t dark:border-slate-800"
+                                                    role="option"
+                                                >
+                                                    {c.name} - {c.area}
+                                                </li>
+                                            ))}
+                                            {filteredCustomers.length === 0 && (
+                                                <li className="px-4 py-2 text-gray-400">No customers found.</li>
+                                            )}
+                                        </ul>
+                                    </div>
+                                )}
+                            </div>
+                            {mode === 'add' && (
+                                <Button onClick={() => setIsAddingCustomer(true)} variant="secondary" className="flex-shrink-0">
+                                    <Plus size={16}/> New Customer
                                 </Button>
                             )}
                         </div>
                     </div>
                     
-                    <DateInput
-                        label="Sale Date"
-                        value={saleDate} 
-                        onChange={e => setSaleDate(e.target.value)} 
-                        className={mode === 'edit' ? 'opacity-50 cursor-not-allowed' : ''}
-                        disabled={mode === 'edit'}
-                    />
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Sale Date</label>
+                        <input 
+                            type="date" 
+                            value={saleDate} 
+                            onChange={e => setSaleDate(e.target.value)} 
+                            className="w-full p-2 border rounded mt-1 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
+                            disabled={mode === 'edit'}
+                        />
+                    </div>
 
                     {customerId && customerTotalDue !== null && mode === 'add' && (
                         <div className="p-2 bg-gray-50 dark:bg-slate-700/50 rounded-lg text-center border dark:border-slate-700">
@@ -773,11 +805,11 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
 
 
             <Card title="Sale Items">
-                <div className="grid grid-cols-2 gap-3">
-                    <Button onClick={() => setIsSelectingProduct(true)} className="w-full" disabled={!customerId}>
+                <div className="flex flex-col sm:flex-row gap-2">
+                    <Button onClick={() => setIsSelectingProduct(true)} className="w-full sm:w-auto flex-grow" disabled={!customerId}>
                         <Search size={16} className="mr-2"/> Select Product
                     </Button>
-                    <Button onClick={() => setIsScanning(true)} className="w-full" disabled={!customerId}>
+                    <Button onClick={() => setIsScanning(true)} variant="secondary" className="w-full sm:w-auto flex-grow" disabled={!customerId}>
                         <QrCode size={16} className="mr-2"/> Scan Product
                     </Button>
                 </div>
@@ -834,11 +866,11 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Payment Method</label>
-                                <Dropdown
-                                    options={paymentMethodOptions}
-                                    value={paymentDetails.method}
-                                    onChange={(val) => setPaymentDetails({ ...paymentDetails, method: val as any })}
-                                />
+                                <select value={paymentDetails.method} onChange={e => setPaymentDetails({ ...paymentDetails, method: e.target.value as any})} className="w-full p-2 border rounded custom-select mt-1 dark:bg-slate-700 dark:border-slate-600">
+                                    <option value="CASH">Cash</option>
+                                    <option value="UPI">UPI</option>
+                                    <option value="CHEQUE">Cheque</option>
+                                </select>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Payment Reference (Optional)</label>
@@ -862,11 +894,11 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Payment Method</label>
-                            <Dropdown
-                                options={paymentMethodOptions}
-                                value={paymentDetails.method}
-                                onChange={(val) => setPaymentDetails({ ...paymentDetails, method: val as any })}
-                            />
+                            <select value={paymentDetails.method} onChange={e => setPaymentDetails({ ...paymentDetails, method: e.target.value as any})} className="w-full p-2 border rounded custom-select dark:bg-slate-700 dark:border-slate-600">
+                                <option value="CASH">Cash</option>
+                                <option value="UPI">UPI</option>
+                                <option value="CHEQUE">Cheque</option>
+                            </select>
                         </div>
                     </div>
                 </Card>
@@ -893,7 +925,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                         {customerId ? (items.length === 0 ? 'Enter payment or add items' : 'Complete billing details') : 'Select a customer'}
                     </Button>
                 )}
-                <Button onClick={resetForm} variant="secondary" className="w-full bg-primary/20 hover:bg-primary/30 focus:ring-primary/20 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600">
+                <Button onClick={resetForm} variant="secondary" className="w-full bg-teal-200 hover:bg-teal-300 focus:ring-teal-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600">
                     {mode === 'edit' ? 'Cancel Edit' : 'Clear Form'}
                 </Button>
             </div>

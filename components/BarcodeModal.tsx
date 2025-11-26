@@ -86,7 +86,9 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({ isOpen, product, onC
     // Cleanup iframe on modal close/unmount
     return () => {
         if (printIframeRef.current) {
-            document.body.removeChild(printIframeRef.current);
+            if (document.body.contains(printIframeRef.current)) {
+                document.body.removeChild(printIframeRef.current);
+            }
             printIframeRef.current = null;
         }
     };
@@ -172,7 +174,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({ isOpen, product, onC
         `;
         
         // Cleanup previous iframe if it exists from a prior print action
-        if (printIframeRef.current) {
+        if (printIframeRef.current && document.body.contains(printIframeRef.current)) {
             document.body.removeChild(printIframeRef.current);
         }
 
@@ -198,7 +200,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({ isOpen, product, onC
             };
         } else {
              // Fallback if doc is not available
-             if (printIframeRef.current) {
+             if (printIframeRef.current && document.body.contains(printIframeRef.current)) {
                 document.body.removeChild(printIframeRef.current);
                 printIframeRef.current = null;
              }

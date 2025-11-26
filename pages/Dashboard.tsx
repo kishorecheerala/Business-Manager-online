@@ -805,9 +805,9 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
             {/* Header Section */}
             <div className="flex flex-row items-center justify-between gap-2 relative mb-6">
                 <div className="flex-shrink-0">
-                     <span className="text-xs sm:text-sm font-medium px-3 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/20 shadow-sm cursor-default flex items-center gap-1 max-w-full">
-                        <span className="text-gray-500 dark:text-gray-400">{getTimeBasedGreeting()},</span>
-                        <strong className="truncate max-w-[120px] sm:max-w-[150px]">{profile?.ownerName || 'Owner'}</strong>
+                     <span className="text-xs sm:text-sm font-medium px-3 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/20 shadow-sm cursor-default flex flex-col items-start gap-0.5 max-w-full">
+                        <span className="text-[10px] text-gray-500 dark:text-gray-400">{getTimeBasedGreeting()},</span>
+                        <strong className="truncate max-w-[120px] sm:max-w-[150px] text-sm">{profile?.ownerName || 'Owner'}</strong>
                     </span>
                 </div>
 

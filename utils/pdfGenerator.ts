@@ -19,6 +19,14 @@ export const getQrCodeBase64 = async (data: string): Promise<string> => {
     }
 };
 
+// --- Helper: Detect Image Type ---
+const getImageType = (dataUrl: string): string => {
+    if (dataUrl.startsWith('data:image/png')) return 'PNG';
+    if (dataUrl.startsWith('data:image/jpeg')) return 'JPEG';
+    if (dataUrl.startsWith('data:image/jpg')) return 'JPEG';
+    return 'JPEG'; // default fallback
+};
+
 // --- Helper: Add Header (Common for A4/Debit Note) ---
 const addBusinessHeader = (doc: jsPDF, profile: ProfileData | null) => {
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -28,8 +36,8 @@ const addBusinessHeader = (doc: jsPDF, profile: ProfileData | null) => {
     // Add Logo if available
     if (profile?.logo) {
         try {
-            // Add logo at top left
-            doc.addImage(profile.logo, 'JPEG', 14, 10, 25, 25);
+            const format = getImageType(profile.logo);
+            doc.addImage(profile.logo, format, 14, 10, 25, 25);
         } catch (e) {
             console.warn("Failed to add custom logo to PDF", e);
         }
@@ -37,7 +45,9 @@ const addBusinessHeader = (doc: jsPDF, profile: ProfileData | null) => {
         // Use fallback generic logo
         try {
              doc.addImage(logoBase64, 'PNG', 14, 10, 25, 25);
-        } catch(e) {}
+        } catch(e) {
+            console.warn("Failed to add generic logo", e);
+        }
     }
 
     // 1. SACRED TEXT (Centered)

@@ -102,41 +102,36 @@ const QRScannerModal: React.FC<{
     onScanned: (decodedText: string) => void;
 }> = ({ onClose, onScanned }) => {
     const [scanStatus, setScanStatus] = useState<string>("Initializing camera...");
-    const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
     const scannerId = "qr-reader-purchase";
 
     useEffect(() => {
-        // Cleanup element to ensure fresh start
-        const container = document.getElementById(scannerId);
-        if (container) container.innerHTML = "";
+        if (!document.getElementById(scannerId)) return;
 
-        html5QrCodeRef.current = new Html5Qrcode(scannerId);
+        const html5QrCode = new Html5Qrcode(scannerId);
         setScanStatus("Requesting camera permissions...");
 
+        const qrCodeSuccessCallback = (decodedText: string) => {
+            html5QrCode.pause(true);
+            onScanned(decodedText);
+        };
         const config = { fps: 10, qrbox: { width: 250, height: 250 } };
 
-        html5QrCodeRef.current.start(
-            { facingMode: "environment" }, 
-            config, 
-            (decodedText) => {
-                onScanned(decodedText);
-                if (html5QrCodeRef.current?.isScanning) {
-                    html5QrCodeRef.current.stop().catch(console.error);
-                }
-            }, 
-            (errorMessage) => {}
-        ).then(() => {
-            setScanStatus("Scanning for QR Code...");
-        }).catch(err => {
-            setScanStatus(`Camera Error: ${err}. Please allow camera access.`);
-            console.error("Camera start failed.", err);
-        });
+        html5QrCode.start({ facingMode: "environment" }, config, qrCodeSuccessCallback, undefined)
+            .then(() => setScanStatus("Scanning for QR Code..."))
+            .catch(err => {
+                setScanStatus(`Camera Permission Error. Please allow camera access.`);
+                console.error("Camera start failed.", err);
+            });
             
         return () => {
-            if (html5QrCodeRef.current?.isScanning) {
-                html5QrCodeRef.current.stop().then(() => {
-                    html5QrCodeRef.current?.clear();
-                }).catch(console.error);
+            try {
+                if (html5QrCode.isScanning) {
+                    html5QrCode.stop().then(() => html5QrCode.clear()).catch(e => console.warn("Scanner stop error", e));
+                } else {
+                    html5QrCode.clear();
+                }
+            } catch (e) {
+                console.warn("Scanner cleanup error", e);
             }
         };
     }, [onScanned]);

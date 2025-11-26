@@ -339,6 +339,7 @@ const MainApp: React.FC = () => {
   ];
 
   const moreNavItems = [
+      { page: 'QUOTATIONS' as Page, label: 'Estimates', icon: FileText },
       { page: 'EXPENSES' as Page, label: 'Expenses', icon: Receipt },
       { page: 'PRODUCTS' as Page, label: 'Products', icon: Boxes },
       { page: 'RETURNS' as Page, label: 'Returns', icon: Undo2 },

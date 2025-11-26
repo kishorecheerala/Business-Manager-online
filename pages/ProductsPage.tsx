@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, Edit, Save, X, Package, IndianRupee, Percent, PackageCheck, Barcode, Printer, Filter, Grid, List, Camera, Image as ImageIcon, Eye, Trash2 } from 'lucide-react';
+import { Search, Edit, Save, X, Package, IndianRupee, Percent, PackageCheck, Barcode, Printer, Filter, Grid, List, Camera, Image as ImageIcon, Eye, Trash2, QrCode } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Product, PurchaseItem } from '../types';
 import Card from '../components/Card';
@@ -9,10 +9,63 @@ import { BarcodeModal } from '../components/BarcodeModal';
 import BatchBarcodeModal from '../components/BatchBarcodeModal';
 import DatePill from '../components/DatePill';
 import { compressImage } from '../utils/imageUtils';
+import { Html5Qrcode } from 'html5-qrcode';
 
 interface ProductsPageProps {
   setIsDirty: (isDirty: boolean) => void;
 }
+
+const QRScannerModal: React.FC<{
+    onClose: () => void;
+    onScanned: (decodedText: string) => void;
+}> = ({ onClose, onScanned }) => {
+    const [scanStatus, setScanStatus] = useState<string>("Initializing camera...");
+    const scannerId = "qr-reader-products";
+
+    useEffect(() => {
+        if (!document.getElementById(scannerId)) return;
+
+        const html5QrCode = new Html5Qrcode(scannerId);
+        setScanStatus("Requesting camera permissions...");
+
+        const qrCodeSuccessCallback = (decodedText: string) => {
+            html5QrCode.pause(true);
+            onScanned(decodedText);
+        };
+        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+        html5QrCode.start({ facingMode: "environment" }, config, qrCodeSuccessCallback, undefined)
+            .then(() => setScanStatus("Scanning for QR Code..."))
+            .catch(err => {
+                setScanStatus(`Camera Permission Error. Please allow camera access.`);
+                console.error("Camera start failed.", err);
+            });
+            
+        return () => {
+            try {
+                if (html5QrCode.isScanning) {
+                    html5QrCode.stop().then(() => html5QrCode.clear()).catch(e => console.warn("Scanner stop error", e));
+                } else {
+                    html5QrCode.clear();
+                }
+            } catch (e) {
+                console.warn("Scanner cleanup error", e);
+            }
+        };
+    }, [onScanned]);
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-75 backdrop-blur-sm flex flex-col items-center justify-center z-[150] p-4 animate-fade-in-fast">
+            <Card title="Scan Product QR Code" className="w-full max-w-md relative animate-scale-in">
+                 <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
+                    <X size={20}/>
+                 </button>
+                <div id={scannerId} className="w-full mt-4 rounded-lg overflow-hidden border"></div>
+                <p className="text-center text-sm my-2 text-gray-600 dark:text-gray-400">{scanStatus}</p>
+            </Card>
+        </div>
+    );
+};
 
 const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     const { state, dispatch, showToast } = useAppContext();
@@ -31,15 +84,17 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
     const [isBatchBarcodeModalOpen, setIsBatchBarcodeModalOpen] = useState(false);
     
-    // State for Showcase Mode
-    const [isShowcaseMode, setIsShowcaseMode] = useState(false);
+    // State for Showcase Mode - Default to TRUE
+    const [isShowcaseMode, setIsShowcaseMode] = useState(true);
+    
+    const [isScanning, setIsScanning] = useState(false);
     
     useEffect(() => {
         if (state.selection && state.selection.page === 'PRODUCTS') {
             const productToSelect = state.products.find(p => p.id === state.selection.id);
             if (productToSelect) {
                 setSelectedProduct(productToSelect);
-                setIsShowcaseMode(false); // Ensure we are in admin mode to see details
+                setIsShowcaseMode(false); // Switch to details view if navigated to specific ID
             }
             dispatch({ type: 'CLEAR_SELECTION' });
         }
@@ -130,6 +185,19 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
             } catch (error) {
                 alert("Error processing image.");
             }
+        }
+    };
+    
+    const handleScan = (scannedText: string) => {
+        setIsScanning(false);
+        const product = state.products.find(p => p.id.toLowerCase() === scannedText.toLowerCase());
+        if (product) {
+            setSelectedProduct(product);
+            setSearchTerm(''); // Clear search so we see the selected item logic take over
+        } else {
+            // If not found exactly, put it in search term to filter
+            setSearchTerm(scannedText);
+            alert("Product not found. Filtered list by scanned code.");
         }
     };
 
@@ -278,6 +346,8 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
 
     return (
         <div className="space-y-4">
+            {isScanning && <QRScannerModal onClose={() => setIsScanning(false)} onScanned={handleScan} />}
+            
             {isBatchBarcodeModalOpen && (
                 <BatchBarcodeModal
                     isOpen={isBatchBarcodeModalOpen}
@@ -322,16 +392,25 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                 </div>
             </div>
             
-            {/* Search Bar */}
-            <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                <input
-                    type="text"
-                    placeholder="Search products by name or ID..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full p-2 pl-10 border rounded-lg dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
-                />
+            {/* Search Bar with Scan */}
+            <div className="flex items-center gap-2">
+                <div className="relative flex-grow">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                    <input
+                        type="text"
+                        placeholder="Search products by name or ID..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full p-2 pl-10 border rounded-lg dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
+                    />
+                </div>
+                <button 
+                    onClick={() => setIsScanning(true)}
+                    className="p-2 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors shadow-sm"
+                    title="Scan QR Code"
+                >
+                    <QrCode size={20} />
+                </button>
             </div>
             
             {/* Selection Tool (Admin Mode only) */}
@@ -352,7 +431,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
             {isShowcaseMode ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 animate-fade-in-up">
                     {filteredProducts.map((product) => (
-                        <div key={product.id} className="bg-white dark:bg-slate-800 rounded-xl overflow-hidden shadow-md border border-gray-100 dark:border-slate-700 hover:shadow-xl transition-shadow flex flex-col h-full">
+                        <div key={product.id} onClick={() => handleProductClick(product)} className="bg-white dark:bg-slate-800 rounded-xl overflow-hidden shadow-md border border-gray-100 dark:border-slate-700 hover:shadow-xl transition-shadow flex flex-col h-full cursor-pointer">
                             <div className="aspect-square w-full bg-gray-100 dark:bg-slate-700 relative overflow-hidden group">
                                 {product.image ? (
                                     <img src={product.image} alt={product.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />

@@ -80,7 +80,9 @@ const BatchBarcodeModal: React.FC<BatchBarcodeModalProps> = ({ isOpen, purchaseI
         // Cleanup iframe on modal close/unmount
         return () => {
             if (printIframeRef.current) {
-                document.body.removeChild(printIframeRef.current);
+                if (document.body.contains(printIframeRef.current)) {
+                    document.body.removeChild(printIframeRef.current);
+                }
                 printIframeRef.current = null;
             }
         };
@@ -169,7 +171,7 @@ const BatchBarcodeModal: React.FC<BatchBarcodeModalProps> = ({ isOpen, purchaseI
             `;
             
             // Cleanup previous iframe if it exists
-            if (printIframeRef.current) {
+            if (printIframeRef.current && document.body.contains(printIframeRef.current)) {
                 document.body.removeChild(printIframeRef.current);
             }
 
@@ -195,7 +197,7 @@ const BatchBarcodeModal: React.FC<BatchBarcodeModalProps> = ({ isOpen, purchaseI
                 };
             } else {
                  // Fallback
-                 if (printIframeRef.current) {
+                 if (printIframeRef.current && document.body.contains(printIframeRef.current)) {
                     document.body.removeChild(printIframeRef.current);
                     printIframeRef.current = null;
                  }
