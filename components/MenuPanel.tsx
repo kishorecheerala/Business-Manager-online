@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { User, BarChart2, Activity, LogIn, LogOut, RefreshCw, CloudLightning, Sun, Moon, Palette, Check, Settings, Monitor, Shield, ChevronRight, RotateCcw, BrainCircuit, Terminal, Receipt, FileText } from 'lucide-react';
+import { User, BarChart2, Activity, LogIn, LogOut, RefreshCw, CloudLightning, Sun, Moon, Palette, Check, Settings, Monitor, Shield, ChevronRight, RotateCcw, BrainCircuit, Terminal, Receipt, FileText, Lock } from 'lucide-react';
 import { Page } from '../types';
 import { useAppContext } from '../context/AppContext';
 import AuditLogPanel from './AuditLogPanel';
@@ -15,6 +15,7 @@ interface MenuPanelProps {
   onProfileClick: () => void;
   onNavigate: (page: Page) => void;
   onOpenDevTools: () => void;
+  onLockApp?: () => void;
 }
 
 interface ThemeColor {
@@ -91,7 +92,7 @@ const getContrastColor = (hexColor: string) => {
     return (yiq >= 128) ? 'black' : 'white';
 };
 
-const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, onNavigate, onOpenDevTools }) => {
+const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, onNavigate, onOpenDevTools, onLockApp }) => {
     const { state, dispatch, googleSignIn, googleSignOut, syncData } = useAppContext();
     const [isAuditOpen, setIsAuditOpen] = useState(false);
     const [isCloudDebugOpen, setIsCloudDebugOpen] = useState(false);
@@ -236,6 +237,15 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                     <span className="flex-grow text-sm font-medium">Audit Logs</span>
                     <ChevronRight className="w-4 h-4 text-gray-400" />
                 </button>
+
+                {/* Lock App - Only if PIN is set */}
+                {state.pin && onLockApp && (
+                    <button onClick={onLockApp} className="menu-item text-rose-600 dark:text-rose-400">
+                        <Lock className="w-5 h-5" />
+                        <span className="flex-grow text-sm font-medium">Lock App Now</span>
+                        <ChevronRight className="w-4 h-4 text-gray-400" />
+                    </button>
+                )}
 
                 <button onClick={handleDevToolsClick} className="menu-item bg-slate-100 dark:bg-slate-700/50 mt-2">
                     <Terminal className="w-5 h-5 text-green-600 dark:text-green-400" />

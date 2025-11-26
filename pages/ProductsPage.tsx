@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, Edit, Save, X, Package, IndianRupee, Percent, PackageCheck, Barcode, Printer, Filter, Grid, List, Camera, Image as ImageIcon, Eye, Trash2, QrCode } from 'lucide-react';
+import { Search, Edit, Save, X, Package, IndianRupee, Percent, PackageCheck, Barcode, Printer, Filter, Grid, List, Camera, Image as ImageIcon, Eye, Trash2, QrCode, Boxes } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Product, PurchaseItem } from '../types';
 import Card from '../components/Card';
@@ -10,6 +10,7 @@ import BatchBarcodeModal from '../components/BatchBarcodeModal';
 import DatePill from '../components/DatePill';
 import { compressImage } from '../utils/imageUtils';
 import { Html5Qrcode } from 'html5-qrcode';
+import EmptyState from '../components/EmptyState';
 
 interface ProductsPageProps {
   setIsDirty: (isDirty: boolean) => void;
@@ -429,85 +430,97 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
 
             {/* SHOWCASE MODE (GRID) */}
             {isShowcaseMode ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 animate-fade-in-up">
-                    {filteredProducts.map((product) => (
-                        <div key={product.id} onClick={() => handleProductClick(product)} className="bg-white dark:bg-slate-800 rounded-xl overflow-hidden shadow-md border border-gray-100 dark:border-slate-700 hover:shadow-xl transition-shadow flex flex-col h-full cursor-pointer">
-                            <div className="aspect-square w-full bg-gray-100 dark:bg-slate-700 relative overflow-hidden group">
+                filteredProducts.length > 0 ? (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 animate-fade-in-up">
+                        {filteredProducts.map((product) => (
+                            <div key={product.id} onClick={() => handleProductClick(product)} className="bg-white dark:bg-slate-800 rounded-xl overflow-hidden shadow-md border border-gray-100 dark:border-slate-700 hover:shadow-xl transition-shadow flex flex-col h-full cursor-pointer">
+                                <div className="aspect-square w-full bg-gray-100 dark:bg-slate-700 relative overflow-hidden group">
+                                    {product.image ? (
+                                        <img src={product.image} alt={product.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-gray-300 dark:text-gray-600">
+                                            <ImageIcon size={48} />
+                                        </div>
+                                    )}
+                                    {product.quantity < 1 && (
+                                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                            <span className="bg-red-600 text-white px-3 py-1 text-xs font-bold uppercase tracking-widest rounded-sm">Out of Stock</span>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="p-3 flex flex-col flex-grow">
+                                    <h3 className="font-semibold text-gray-800 dark:text-gray-100 text-sm line-clamp-2 mb-1 flex-grow">{product.name}</h3>
+                                    <div className="flex justify-between items-end mt-2">
+                                        <span className="text-lg font-bold text-primary">₹{product.salePrice.toLocaleString('en-IN')}</span>
+                                        {product.quantity > 0 && (
+                                            <span className="text-[10px] bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-0.5 rounded-full">In Stock</span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <EmptyState 
+                        icon={Boxes}
+                        title="No Products Found"
+                        description={searchTerm ? `No products match "${searchTerm}"` : "Your inventory is empty. Add products to get started."}
+                    />
+                )
+            ) : (
+            /* ADMIN MODE (LIST) */
+            filteredProducts.length > 0 ? (
+                <div className="grid grid-cols-1 gap-3 animate-fade-in-up">
+                    {filteredProducts.map((product, index) => (
+                        <div 
+                            key={product.id} 
+                            className={`bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm border transition-all flex items-center gap-3 ${isSelectMode && selectedProductIds.includes(product.id) ? 'border-primary ring-1 ring-primary bg-primary/10 dark:bg-primary/20' : 'border-gray-100 dark:border-slate-700 hover:shadow-md cursor-pointer'}`}
+                            style={{ animationDelay: `${index * 30}ms` }}
+                            onClick={() => handleProductClick(product)}
+                        >
+                            {isSelectMode && (
+                                 <div className={`w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 ${selectedProductIds.includes(product.id) ? 'bg-primary border-primary' : 'border-gray-400 bg-white dark:bg-slate-700'}`}>
+                                    {selectedProductIds.includes(product.id) && <PackageCheck size={14} className="text-white" />}
+                                </div>
+                            )}
+                            
+                            <div className="w-12 h-12 rounded bg-gray-100 dark:bg-slate-700 overflow-hidden flex-shrink-0 border border-gray-200 dark:border-slate-600">
                                 {product.image ? (
-                                    <img src={product.image} alt={product.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                                    <img src={product.image} alt="" className="w-full h-full object-cover" />
                                 ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-gray-300 dark:text-gray-600">
-                                        <ImageIcon size={48} />
-                                    </div>
-                                )}
-                                {product.quantity < 1 && (
-                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                        <span className="bg-red-600 text-white px-3 py-1 text-xs font-bold uppercase tracking-widest rounded-sm">Out of Stock</span>
-                                    </div>
+                                    <div className="w-full h-full flex items-center justify-center text-gray-400"><ImageIcon size={20} /></div>
                                 )}
                             </div>
-                            <div className="p-3 flex flex-col flex-grow">
-                                <h3 className="font-semibold text-gray-800 dark:text-gray-100 text-sm line-clamp-2 mb-1 flex-grow">{product.name}</h3>
-                                <div className="flex justify-between items-end mt-2">
-                                    <span className="text-lg font-bold text-primary">₹{product.salePrice.toLocaleString('en-IN')}</span>
-                                    {product.quantity > 0 && (
-                                        <span className="text-[10px] bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-0.5 rounded-full">In Stock</span>
-                                    )}
+
+                            <div className="flex-grow min-w-0">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <p className="font-semibold text-gray-800 dark:text-gray-200 truncate">{product.name}</p>
+                                        <div className="flex items-center gap-2 mt-0.5">
+                                            <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">{product.id}</span>
+                                        </div>
+                                    </div>
+                                    <div className="text-right flex-shrink-0">
+                                        <p className="font-bold text-primary">₹{product.salePrice.toLocaleString('en-IN')}</p>
+                                        <div className="flex justify-end gap-2 text-xs">
+                                            <span className="text-gray-400 line-through">₹{product.purchasePrice}</span>
+                                            <span className={`font-medium ${product.quantity < 5 ? 'text-red-500' : 'text-green-600'}`}>
+                                                Stock: {product.quantity}
+                                            </span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     ))}
                 </div>
             ) : (
-            /* ADMIN MODE (LIST) */
-            <div className="grid grid-cols-1 gap-3 animate-fade-in-up">
-                {filteredProducts.map((product, index) => (
-                    <div 
-                        key={product.id} 
-                        className={`bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm border transition-all flex items-center gap-3 ${isSelectMode && selectedProductIds.includes(product.id) ? 'border-primary ring-1 ring-primary bg-primary/10 dark:bg-primary/20' : 'border-gray-100 dark:border-slate-700 hover:shadow-md cursor-pointer'}`}
-                        style={{ animationDelay: `${index * 30}ms` }}
-                        onClick={() => handleProductClick(product)}
-                    >
-                        {isSelectMode && (
-                             <div className={`w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 ${selectedProductIds.includes(product.id) ? 'bg-primary border-primary' : 'border-gray-400 bg-white dark:bg-slate-700'}`}>
-                                {selectedProductIds.includes(product.id) && <PackageCheck size={14} className="text-white" />}
-                            </div>
-                        )}
-                        
-                        <div className="w-12 h-12 rounded bg-gray-100 dark:bg-slate-700 overflow-hidden flex-shrink-0 border border-gray-200 dark:border-slate-600">
-                            {product.image ? (
-                                <img src={product.image} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center text-gray-400"><ImageIcon size={20} /></div>
-                            )}
-                        </div>
-
-                        <div className="flex-grow min-w-0">
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <p className="font-semibold text-gray-800 dark:text-gray-200 truncate">{product.name}</p>
-                                    <div className="flex items-center gap-2 mt-0.5">
-                                        <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">{product.id}</span>
-                                    </div>
-                                </div>
-                                <div className="text-right flex-shrink-0">
-                                    <p className="font-bold text-primary">₹{product.salePrice.toLocaleString('en-IN')}</p>
-                                    <div className="flex justify-end gap-2 text-xs">
-                                        <span className="text-gray-400 line-through">₹{product.purchasePrice}</span>
-                                        <span className={`font-medium ${product.quantity < 5 ? 'text-red-500' : 'text-green-600'}`}>
-                                            Stock: {product.quantity}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                ))}
-            </div>
-            )}
-            
-            {filteredProducts.length === 0 && (
-                <p className="text-center text-gray-500 dark:text-gray-400 py-8">No products found.</p>
+                <EmptyState 
+                    icon={Boxes}
+                    title="No Products Found"
+                    description={searchTerm ? `No products match "${searchTerm}"` : "Your inventory is empty. Add products via Purchase page or CSV import."}
+                />
+            )
             )}
         </div>
     );
