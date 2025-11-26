@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Save, RotateCcw, Type, Layout, Palette, FileText, Image as ImageIcon, RefreshCw, Eye, Edit3 } from 'lucide-react';
+import { Save, RotateCcw, Type, Layout, Palette, FileText, Image as ImageIcon, RefreshCw, Eye, Edit3, ExternalLink } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { InvoiceTemplateConfig } from '../types';
 import Card from '../components/Card';
@@ -45,14 +45,14 @@ const InvoiceDesigner: React.FC = () => {
     };
 
     // Deep merge to safely handle potential missing properties from saved state
-    const [config, setConfig] = useState<InvoiceTemplateConfig>({
+    const [config, setConfig] = useState<InvoiceTemplateConfig>(() => ({
         ...defaults,
         ...state.invoiceTemplate,
         colors: { ...defaults.colors, ...state.invoiceTemplate?.colors },
         fonts: { ...defaults.fonts, ...state.invoiceTemplate?.fonts },
         layout: { ...defaults.layout, ...state.invoiceTemplate?.layout },
         content: { ...defaults.content, ...state.invoiceTemplate?.content },
-    });
+    }));
 
     const [activeTab, setActiveTab] = useState<'layout' | 'colors' | 'fonts' | 'content'>('layout');
     const [mobileView, setMobileView] = useState<'editor' | 'preview'>('editor');
@@ -62,9 +62,10 @@ const InvoiceDesigner: React.FC = () => {
 
     // Debounce PDF generation
     useEffect(() => {
+        setIsGenerating(true);
         const timer = setTimeout(() => {
             generatePreview();
-        }, 500);
+        }, 800); // Increased debounce to prevent flickering on rapid changes
         return () => clearTimeout(timer);
     }, [config]);
 
@@ -74,7 +75,6 @@ const InvoiceDesigner: React.FC = () => {
     }, []);
 
     const generatePreview = async () => {
-        setIsGenerating(true);
         try {
             const doc = await generateA4InvoicePdf(dummySale, dummyCustomer, state.profile, config);
             const blobUrl = doc.output('bloburl');
@@ -107,11 +107,17 @@ const InvoiceDesigner: React.FC = () => {
         }));
     };
 
+    const handleOpenPdf = () => {
+        if (pdfUrl) {
+            window.open(pdfUrl, '_blank');
+        }
+    };
+
     return (
-        <div className="flex flex-col h-full w-full md:flex-row gap-4 overflow-hidden">
+        <div className="flex flex-col h-full w-full md:flex-row gap-4 overflow-hidden relative">
             
-            {/* Mobile View Switcher */}
-            <div className="md:hidden flex bg-gray-100 dark:bg-slate-800 p-1 rounded-lg shrink-0 border dark:border-slate-700">
+            {/* Mobile View Switcher - Fixed Top */}
+            <div className="md:hidden flex bg-gray-100 dark:bg-slate-800 p-1 rounded-lg shrink-0 border dark:border-slate-700 mb-2">
                 <button 
                     onClick={() => setMobileView('editor')}
                     className={`flex-1 py-2 rounded-md text-sm font-bold flex items-center justify-center gap-2 transition-all ${mobileView === 'editor' ? 'bg-white dark:bg-slate-600 text-primary shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}
@@ -128,7 +134,7 @@ const InvoiceDesigner: React.FC = () => {
 
             {/* Left Control Panel - Hidden on Mobile when in Preview mode */}
             <div className={`w-full md:w-1/3 lg:w-1/4 flex-col bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-gray-200 dark:border-slate-700 overflow-hidden ${mobileView === 'editor' ? 'flex flex-grow' : 'hidden md:flex'}`}>
-                <div className="p-4 border-b dark:border-slate-700 flex justify-between items-center bg-gray-50 dark:bg-slate-900/50">
+                <div className="p-4 border-b dark:border-slate-700 flex justify-between items-center bg-gray-50 dark:bg-slate-900/50 shrink-0">
                     <h2 className="font-bold text-lg text-primary">Invoice Designer</h2>
                     <div className="flex gap-2">
                         <button onClick={handleReset} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-500" title="Reset Default">
@@ -141,7 +147,7 @@ const InvoiceDesigner: React.FC = () => {
                 </div>
 
                 {/* Tabs */}
-                <div className="flex border-b dark:border-slate-700 overflow-x-auto">
+                <div className="flex border-b dark:border-slate-700 overflow-x-auto shrink-0 scrollbar-hide">
                     <button onClick={() => setActiveTab('layout')} className={`flex-1 py-3 px-4 text-sm font-medium whitespace-nowrap flex items-center justify-center gap-2 ${activeTab === 'layout' ? 'text-primary border-b-2 border-primary bg-primary/5' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-slate-700'}`}>
                         <Layout size={16} /> Layout
                     </button>
@@ -157,7 +163,7 @@ const InvoiceDesigner: React.FC = () => {
                 </div>
 
                 {/* Controls Area */}
-                <div className="flex-grow overflow-y-auto p-4 space-y-6 custom-scrollbar">
+                <div className="flex-grow overflow-y-auto p-4 space-y-6 custom-scrollbar pb-20 md:pb-4">
                     {activeTab === 'layout' && (
                         <div className="space-y-4">
                             <div>
@@ -296,11 +302,11 @@ const InvoiceDesigner: React.FC = () => {
                         <div className="space-y-4">
                             <div>
                                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">Document Title</label>
-                                <input type="text" value={config.content.titleText} onChange={(e) => updateConfig('content', 'titleText', e.target.value)} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600" />
+                                <input type="text" value={config.content.titleText} onChange={(e) => updateConfig('content', 'titleText', e.target.value)} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white" />
                             </div>
                             <div>
                                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">Footer Message</label>
-                                <input type="text" value={config.content.footerText} onChange={(e) => updateConfig('content', 'footerText', e.target.value)} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600" />
+                                <input type="text" value={config.content.footerText} onChange={(e) => updateConfig('content', 'footerText', e.target.value)} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white" />
                             </div>
                             
                             <div className="space-y-2">
@@ -325,17 +331,52 @@ const InvoiceDesigner: React.FC = () => {
                 </div>
             </div>
 
-            {/* Right Preview Panel - Hidden on Mobile when in Editor mode */}
+            {/* Right Preview Panel */}
             <div className={`flex-grow bg-gray-200 dark:bg-slate-900 rounded-xl border border-gray-300 dark:border-slate-700 flex-col relative overflow-hidden ${mobileView === 'preview' ? 'flex' : 'hidden md:flex'}`}>
                 <div className="absolute top-0 left-0 right-0 bg-white/80 dark:bg-slate-800/80 backdrop-blur p-2 flex justify-between items-center border-b border-gray-200 dark:border-slate-700 z-10">
                     <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Live Preview</span>
-                    {isGenerating && <span className="text-xs text-primary flex items-center gap-1"><RefreshCw size={12} className="animate-spin" /> Updating...</span>}
-                </div>
-                <div className="flex-grow flex items-center justify-center p-4 sm:p-8 overflow-auto">
-                    {pdfUrl ? (
-                        <iframe src={`${pdfUrl}#toolbar=0&navpanes=0&scrollbar=0`} className="w-full h-full max-w-[210mm] aspect-[210/297] shadow-2xl rounded-sm bg-white" title="PDF Preview" />
+                    {isGenerating ? (
+                        <span className="text-xs text-primary flex items-center gap-1"><RefreshCw size={12} className="animate-spin" /> Updating...</span>
                     ) : (
-                        <div className="text-gray-400 flex flex-col items-center">
+                        <span className="text-xs text-green-600 flex items-center gap-1"><Eye size={12} /> Ready</span>
+                    )}
+                </div>
+                
+                <div className="flex-grow flex flex-col items-center justify-center p-2 sm:p-8 overflow-auto bg-gray-200 dark:bg-slate-900 relative">
+                    
+                    {/* Desktop: PDF Overlay Button (Floating) */}
+                    <div className="hidden md:block absolute z-20 bottom-4 left-1/2 transform -translate-x-1/2 w-auto">
+                        <Button onClick={handleOpenPdf} className="shadow-xl bg-indigo-600 hover:bg-indigo-700 rounded-full px-6">
+                            <ExternalLink size={16} className="mr-2" /> Open PDF
+                        </Button>
+                    </div>
+
+                    {/* Mobile: Dedicated Download Card (No inline preview) */}
+                    <div className="md:hidden flex flex-col items-center justify-center p-6 bg-white dark:bg-slate-800 rounded-xl shadow-lg text-center max-w-[80%]">
+                        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                            <FileText size={32} className="text-red-600" />
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">PDF Ready</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                            Inline PDF preview is not supported on mobile devices. Please open the file to view it.
+                        </p>
+                        <Button onClick={handleOpenPdf} className="w-full bg-indigo-600 hover:bg-indigo-700 shadow-md">
+                            <ExternalLink size={16} className="mr-2" /> Open Invoice PDF
+                        </Button>
+                    </div>
+
+                    {pdfUrl ? (
+                        <object 
+                            data={`${pdfUrl}#toolbar=0&navpanes=0&scrollbar=0`} 
+                            type="application/pdf"
+                            className="hidden md:block w-full h-full max-w-[210mm] shadow-2xl rounded-sm bg-white min-h-[400px]"
+                        >
+                            <div className="flex flex-col items-center justify-center h-full bg-white p-4 text-center text-gray-500">
+                                <p className="mb-2">Preview not supported.</p>
+                            </div>
+                        </object>
+                    ) : (
+                        <div className="hidden md:flex text-gray-400 flex-col items-center">
                             <RefreshCw size={40} className="animate-spin mb-2" />
                             <p>Generating Preview...</p>
                         </div>

@@ -31,6 +31,7 @@ import { useOnClickOutside } from './hooks/useOnClickOutside';
 import { useSwipe } from './hooks/useSwipe';
 import ConfirmationModal from './components/ConfirmationModal';
 import PinModal from './components/PinModal';
+import ErrorBoundary from './components/ErrorBoundary';
 
 const Toast = () => {
     const { state } = useAppContext();
@@ -526,7 +527,9 @@ const MainApp: React.FC = () => {
         >
             <div key={currentPage} className={`animate-fade-in-up w-full ${currentPage === 'INVOICE_DESIGNER' ? 'h-full' : 'max-w-6xl mx-auto'}`}>
                 <Suspense fallback={<AppSkeletonLoader />}>
-                    {renderPage()}
+                    <ErrorBoundary>
+                        {renderPage()}
+                    </ErrorBoundary>
                 </Suspense>
             </div>
         </main>
