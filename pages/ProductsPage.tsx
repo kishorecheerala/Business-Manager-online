@@ -337,7 +337,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
         };
 
         return (
-            <div className="space-y-4 animate-fade-in-fast">
+            <div className="h-full flex flex-col animate-fade-in-fast fixed inset-0 z-50 bg-white dark:bg-slate-900 sm:relative sm:inset-auto sm:z-auto">
                 <BarcodeModal 
                     isOpen={isDownloadModalOpen} 
                     onClose={() => setIsDownloadModalOpen(false)} 
@@ -345,176 +345,177 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                     businessName={state.profile?.name || 'Business Manager'}
                 />
                 
-                <Button onClick={() => setSelectedProduct(null)}>&larr; Back to List</Button>
+                {/* Top Bar */}
+                <div className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 border-b dark:border-slate-700 shrink-0 z-20">
+                    <Button onClick={() => setSelectedProduct(null)} variant="secondary" className="text-xs h-8 px-2">&larr; Back</Button>
+                    <h2 className="text-sm font-bold text-gray-700 dark:text-white truncate flex-grow text-center">
+                        {isEditing ? 'Editing Product' : 'Product Details'}
+                    </h2>
+                    <div className="w-16"></div> {/* Spacer for alignment */}
+                </div>
                 
-                <Card className="overflow-hidden p-0 sm:p-0">
-                    <div className="flex flex-col md:flex-row">
-                        
-                        {/* LEFT: IMAGE SECTION (50%) */}
-                        <div className="w-full md:w-1/2 bg-gray-100 dark:bg-slate-700 relative group min-h-[300px] md:min-h-[500px]">
-                            <div className="absolute inset-0 flex items-center justify-center p-4">
-                                <div className="relative w-full h-full max-w-md mx-auto flex items-center justify-center rounded-xl overflow-hidden shadow-inner bg-white dark:bg-slate-800">
-                                    <ProductImage 
-                                        src={isEditing ? editedProduct.image : selectedProduct.image} 
-                                        alt={selectedProduct.name} 
-                                        className="w-full h-full object-contain"
-                                        onPreview={setPreviewImage}
-                                        enableInteract={false}
-                                    />
-                                </div>
+                {/* Main Content - Vertical Split Container */}
+                <div className="flex-grow flex flex-col overflow-hidden relative bg-gray-50 dark:bg-slate-900">
+                    
+                    {/* TOP: IMAGE SECTION (62% Height for max view) */}
+                    <div className="h-[62%] w-full bg-gray-100 dark:bg-slate-900 relative group flex-shrink-0">
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="relative w-full h-full flex items-center justify-center overflow-hidden bg-gray-50 dark:bg-slate-900">
+                                <ProductImage 
+                                    src={isEditing ? editedProduct.image : selectedProduct.image} 
+                                    alt={selectedProduct.name} 
+                                    className="w-full h-full object-contain p-4 transition-transform duration-500"
+                                    onPreview={setPreviewImage}
+                                    enableInteract={false}
+                                />
                             </div>
+                        </div>
 
-                            {/* Floating Actions on Image */}
-                            <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">
-                                <button 
-                                    onClick={() => setPreviewImage(isEditing ? (editedProduct.image || '') : (selectedProduct.image || ''))}
-                                    className="p-2 bg-white/90 text-gray-700 rounded-full shadow-lg hover:bg-white transition-all"
-                                    title="Full Screen"
-                                >
-                                    <Maximize2 size={20} />
-                                </button>
-                            </div>
+                        {/* Floating Actions on Image */}
+                        <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">
+                            <button 
+                                onClick={() => setPreviewImage(isEditing ? (editedProduct.image || '') : (selectedProduct.image || ''))}
+                                className="p-2 bg-white/90 text-gray-700 rounded-full shadow-lg hover:bg-white transition-all"
+                                title="Full Screen"
+                            >
+                                <Maximize2 size={20} />
+                            </button>
+                        </div>
 
-                            {/* Edit Overlay */}
-                            {isEditing && (
-                                <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 to-transparent pt-20 flex justify-center gap-4">
-                                    <input 
-                                        type="file" 
-                                        accept="image/*" 
-                                        ref={fileInputRef} 
-                                        className="hidden" 
-                                        onChange={handleImageUpload}
-                                    />
-                                    <Button onClick={() => fileInputRef.current?.click()} className="shadow-xl">
-                                        <Camera size={18} className="mr-2" /> 
-                                        {editedProduct.image ? 'Change Photo' : 'Add Photo'}
+                        {/* Edit Overlay */}
+                        {isEditing && (
+                            <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent pt-20 flex justify-center gap-3 pb-10">
+                                <input 
+                                    type="file" 
+                                    accept="image/*" 
+                                    ref={fileInputRef} 
+                                    className="hidden" 
+                                    onChange={handleImageUpload}
+                                />
+                                <Button onClick={() => fileInputRef.current?.click()} className="shadow-xl h-10 text-xs">
+                                    <Camera size={16} className="mr-2" /> 
+                                    {editedProduct.image ? 'Change' : 'Add Photo'}
+                                </Button>
+                                {editedProduct.image && (
+                                    <Button 
+                                        onClick={() => setEditedProduct({...editedProduct, image: undefined})} 
+                                        variant="danger"
+                                        className="shadow-xl h-10"
+                                    >
+                                        <Trash2 size={16} />
                                     </Button>
-                                    {editedProduct.image && (
-                                        <Button 
-                                            onClick={() => setEditedProduct({...editedProduct, image: undefined})} 
-                                            variant="danger"
-                                            className="shadow-xl"
-                                        >
-                                            <Trash2 size={18} />
-                                        </Button>
-                                    )}
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* BOTTOM: DETAILS SECTION (Flex grow to fill rest) */}
+                    <div className="flex-1 w-full bg-white dark:bg-slate-800 flex flex-col border-t dark:border-slate-700 shadow-[0_-10px_30px_-5px_rgba(0,0,0,0.15)] relative z-10 rounded-t-3xl -mt-6 overflow-hidden">
+                        
+                        {/* Scrollable Form Content */}
+                        <div className="flex-grow overflow-y-auto custom-scrollbar p-5 pt-6 space-y-4">
+                            {isEditing ? (
+                                <div className="space-y-4 animate-fade-in-fast">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Product Name</label>
+                                        <input type="text" name="name" value={editedProduct.name} onChange={handleInputChange} className="w-full p-3 border rounded-lg dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200 focus:ring-2 focus:ring-primary outline-none" />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Purchase Price</label>
+                                            <input type="number" name="purchasePrice" value={editedProduct.purchasePrice} onChange={handleInputChange} className="w-full p-3 border rounded-lg dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200 focus:ring-2 focus:ring-primary outline-none" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Sale Price</label>
+                                            <input type="number" name="salePrice" value={editedProduct.salePrice} onChange={handleInputChange} className="w-full p-3 border rounded-lg dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200 focus:ring-2 focus:ring-primary outline-none" />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">GST %</label>
+                                        <input type="number" name="gstPercent" value={editedProduct.gstPercent} onChange={handleInputChange} className="w-full p-3 border rounded-lg dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200 focus:ring-2 focus:ring-primary outline-none" />
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="space-y-4 animate-fade-in-fast">
+                                    <div className="flex justify-between items-start">
+                                        <h1 className="text-lg font-bold text-gray-800 dark:text-white leading-tight line-clamp-2">
+                                            {selectedProduct.name}
+                                        </h1>
+                                        <span className="text-[10px] font-mono bg-gray-100 dark:bg-slate-700 px-2 py-1 rounded text-gray-600 dark:text-gray-300 shrink-0 ml-2">
+                                            {selectedProduct.id}
+                                        </span>
+                                    </div>
+                                    
+                                    <div className="flex items-end gap-4 border-b dark:border-slate-700 pb-3">
+                                        <div>
+                                            <p className="text-[10px] text-gray-500 mb-0.5">Selling Price</p>
+                                            <p className="text-2xl font-extrabold text-primary">
+                                                ₹{selectedProduct.salePrice.toLocaleString('en-IN')}
+                                            </p>
+                                        </div>
+                                        <div className="pl-4 border-l dark:border-slate-700">
+                                            <p className="text-[10px] text-gray-500 mb-0.5">Stock Status</p>
+                                            <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-bold ${selectedProduct.quantity > 0 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                                                <Package size={14} />
+                                                {selectedProduct.quantity > 0 ? `${selectedProduct.quantity} Units` : 'Out of Stock'}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="p-2.5 bg-gray-50 dark:bg-slate-700/50 rounded-xl">
+                                            <p className="text-[10px] text-gray-500 uppercase font-bold mb-0.5">Purchase Price</p>
+                                            <p className="text-sm font-semibold dark:text-gray-200">₹{selectedProduct.purchasePrice.toLocaleString('en-IN')}</p>
+                                        </div>
+                                        <div className="p-2.5 bg-gray-50 dark:bg-slate-700/50 rounded-xl">
+                                            <p className="text-[10px] text-gray-500 uppercase font-bold mb-0.5">GST Rate</p>
+                                            <p className="text-sm font-semibold dark:text-gray-200">{selectedProduct.gstPercent}%</p>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Stock Correction */}
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1.5">Quick Stock Correction</label>
+                                        <div className="flex gap-2">
+                                            <input 
+                                                type="number" 
+                                                value={newQuantity} 
+                                                onChange={(e) => setNewQuantity(e.target.value)} 
+                                                className="flex-grow p-2 border rounded-lg dark:bg-slate-700 dark:border-slate-600 dark:text-white focus:ring-2 focus:ring-primary outline-none text-sm" 
+                                                placeholder="New Qty"
+                                            />
+                                            <Button onClick={handleStockAdjustment} variant="secondary" className="whitespace-nowrap h-auto text-xs px-3">Update</Button>
+                                        </div>
+                                    </div>
+                                    
+                                    <Button onClick={() => setIsDownloadModalOpen(true)} className="w-full py-2.5 bg-gray-800 text-white hover:bg-gray-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-sm">
+                                        <Barcode className="w-4 h-4 mr-2"/> Print Barcode
+                                    </Button>
                                 </div>
                             )}
                         </div>
 
-                        {/* RIGHT: DETAILS SECTION (50%) */}
-                        <div className="w-full md:w-1/2 p-6 md:p-8 flex flex-col h-auto md:h-[500px] overflow-y-auto custom-scrollbar bg-white dark:bg-slate-800">
-                            
-                            {/* Header */}
-                            <div className="flex justify-between items-start mb-6">
-                                <div>
-                                    <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">
-                                        {isEditing ? 'Editing Product' : 'Product Details'}
-                                    </h2>
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-xs font-mono bg-gray-100 dark:bg-slate-700 px-2 py-1 rounded text-gray-600 dark:text-gray-300 select-all">
-                                            {selectedProduct.id}
-                                        </span>
-                                    </div>
-                                </div>
-                                <div className="flex gap-2">
-                                    {isEditing ? (
-                                        <>
-                                            <Button onClick={handleUpdateProduct} className="h-9 px-4"><Save size={16} className="mr-2"/> Save</Button>
-                                            <button onClick={() => setIsEditing(false)} className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"><X size={20}/></button>
-                                        </>
-                                    ) : (
-                                        <Button onClick={() => setIsEditing(true)} variant="secondary"><Edit size={16} className="mr-2"/> Edit</Button>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Content */}
-                            <div className="flex-grow space-y-6">
+                        {/* Sticky Actions Footer inside Details */}
+                        <div className="p-3 bg-white dark:bg-slate-800 border-t dark:border-slate-700 shrink-0 pb-6 sm:pb-3">
+                            <div className="flex gap-3">
                                 {isEditing ? (
-                                    <div className="space-y-4 animate-fade-in-fast">
-                                        <div>
-                                            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Product Name</label>
-                                            <input type="text" name="name" value={editedProduct.name} onChange={handleInputChange} className="w-full p-3 border rounded-lg dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200 focus:ring-2 focus:ring-primary outline-none" />
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Purchase Price</label>
-                                                <input type="number" name="purchasePrice" value={editedProduct.purchasePrice} onChange={handleInputChange} className="w-full p-3 border rounded-lg dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200 focus:ring-2 focus:ring-primary outline-none" />
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Sale Price</label>
-                                                <input type="number" name="salePrice" value={editedProduct.salePrice} onChange={handleInputChange} className="w-full p-3 border rounded-lg dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200 focus:ring-2 focus:ring-primary outline-none" />
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">GST %</label>
-                                            <input type="number" name="gstPercent" value={editedProduct.gstPercent} onChange={handleInputChange} className="w-full p-3 border rounded-lg dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200 focus:ring-2 focus:ring-primary outline-none" />
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-6 animate-fade-in-fast">
-                                        <h1 className="text-2xl font-bold text-gray-800 dark:text-white leading-tight">
-                                            {selectedProduct.name}
-                                        </h1>
-                                        
-                                        <div className="flex items-end gap-4 border-b dark:border-slate-700 pb-6">
-                                            <div>
-                                                <p className="text-sm text-gray-500 mb-1">Selling Price</p>
-                                                <p className="text-3xl font-extrabold text-primary flex items-start">
-                                                    <span className="text-lg mt-1 mr-1">₹</span>
-                                                    {selectedProduct.salePrice.toLocaleString('en-IN')}
-                                                </p>
-                                            </div>
-                                            <div className="pl-4 border-l dark:border-slate-700">
-                                                <p className="text-sm text-gray-500 mb-1">Stock Status</p>
-                                                <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-bold ${selectedProduct.quantity > 0 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
-                                                    <Package size={16} />
-                                                    {selectedProduct.quantity > 0 ? `${selectedProduct.quantity} Units` : 'Out of Stock'}
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="p-4 bg-gray-50 dark:bg-slate-700/50 rounded-xl">
-                                                <p className="text-xs text-gray-500 uppercase font-bold mb-1">Purchase Price</p>
-                                                <p className="text-lg font-semibold dark:text-gray-200">₹{selectedProduct.purchasePrice.toLocaleString('en-IN')}</p>
-                                            </div>
-                                            <div className="p-4 bg-gray-50 dark:bg-slate-700/50 rounded-xl">
-                                                <p className="text-xs text-gray-500 uppercase font-bold mb-1">GST Rate</p>
-                                                <p className="text-lg font-semibold dark:text-gray-200">{selectedProduct.gstPercent}%</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Footer Controls */}
-                            <div className="mt-6 space-y-4 pt-6 border-t dark:border-slate-700">
-                                {!isEditing && (
-                                    <div className="space-y-4">
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Quick Stock Correction</label>
-                                            <div className="flex gap-2">
-                                                <input 
-                                                    type="number" 
-                                                    value={newQuantity} 
-                                                    onChange={(e) => setNewQuantity(e.target.value)} 
-                                                    className="flex-grow p-2 border rounded-lg dark:bg-slate-700 dark:border-slate-600 dark:text-white focus:ring-2 focus:ring-primary outline-none" 
-                                                    placeholder="New Qty"
-                                                />
-                                                <Button onClick={handleStockAdjustment} variant="secondary" className="whitespace-nowrap">Update Stock</Button>
-                                            </div>
-                                        </div>
-                                        <Button onClick={() => setIsDownloadModalOpen(true)} className="w-full py-3 bg-gray-800 text-white hover:bg-gray-900 dark:bg-slate-700 dark:hover:bg-slate-600">
-                                            <Barcode className="w-4 h-4 mr-2"/> Print / Download Barcode
+                                    <>
+                                        <button onClick={() => setIsEditing(false)} className="flex-1 py-2.5 rounded-xl font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600 transition-colors text-sm">
+                                            Cancel
+                                        </button>
+                                        <Button onClick={handleUpdateProduct} className="flex-[2] py-2.5 rounded-xl text-sm shadow-lg">
+                                            <Save size={16} className="mr-2"/> Save Changes
                                         </Button>
-                                    </div>
+                                    </>
+                                ) : (
+                                    <Button onClick={() => setIsEditing(true)} variant="secondary" className="w-full py-2.5 rounded-xl text-sm bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:text-indigo-300 border-indigo-200">
+                                        <Edit size={16} className="mr-2"/> Edit Details
+                                    </Button>
                                 )}
                             </div>
                         </div>
                     </div>
-                </Card>
+                </div>
             </div>
         );
     }
