@@ -8,10 +8,11 @@ import Button from '../components/Button';
 import { BarcodeModal } from '../components/BarcodeModal';
 import BatchBarcodeModal from '../components/BatchBarcodeModal';
 import DatePill from '../components/DatePill';
-import { compressImage } from '../utils/imageUtils';
+import { compressImage } from '../utils/imageUtils'; // Kept for other potential uses, but replaced in upload flow
 import { Html5Qrcode } from 'html5-qrcode';
 import EmptyState from '../components/EmptyState';
 import { useDialog } from '../context/DialogContext';
+import ImageCropperModal from '../components/ImageCropperModal';
 
 interface ProductsPageProps {
   setIsDirty: (isDirty: boolean) => void;
@@ -166,6 +167,10 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     const [isScanning, setIsScanning] = useState(false);
     const [previewImage, setPreviewImage] = useState<string | null>(null);
     
+    // Cropper State
+    const [cropModalOpen, setCropModalOpen] = useState(false);
+    const [tempImageSrc, setTempImageSrc] = useState<string | null>(null);
+    
     useEffect(() => {
         if (state.selection && state.selection.page === 'PRODUCTS') {
             const productToSelect = state.products.find(p => p.id === state.selection.id);
@@ -256,15 +261,29 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
         }
     };
     
-    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Updated Image Upload Handler
+    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0] && editedProduct) {
-            try {
-                const base64 = await compressImage(e.target.files[0]);
-                setEditedProduct({ ...editedProduct, image: base64 });
-            } catch (error) {
-                showToast("Error processing image.", 'error');
-            }
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                if (evt.target?.result) {
+                    setTempImageSrc(evt.target.result as string);
+                    setCropModalOpen(true);
+                }
+            };
+            reader.readAsDataURL(file);
+            // Reset input to allow re-selecting same file if needed
+            e.target.value = '';
         }
+    };
+    
+    const handleCropSave = (croppedBase64: string) => {
+        if (editedProduct) {
+            setEditedProduct({ ...editedProduct, image: croppedBase64 });
+        }
+        setCropModalOpen(false);
+        setTempImageSrc(null);
     };
     
     const handleScan = (scannedText: string) => {
@@ -325,40 +344,40 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                     product={selectedProduct} 
                     businessName={state.profile?.name || 'Business Manager'}
                 />
+                
                 <Button onClick={() => setSelectedProduct(null)}>&larr; Back to List</Button>
-                <Card>
-                    <div className="flex justify-between items-start mb-4">
-                         <div className="flex items-center gap-3">
-                            <div className="relative w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden border border-gray-200 dark:border-slate-600 bg-gray-100 dark:bg-slate-700">
-                                <ProductImage 
-                                    src={selectedProduct.image} 
-                                    alt={selectedProduct.name} 
-                                    className="w-full h-full object-cover cursor-pointer"
-                                    onPreview={setPreviewImage}
-                                />
+                
+                <Card className="overflow-hidden p-0 sm:p-0">
+                    <div className="flex flex-col md:flex-row">
+                        
+                        {/* LEFT: IMAGE SECTION (50%) */}
+                        <div className="w-full md:w-1/2 bg-gray-100 dark:bg-slate-700 relative group min-h-[300px] md:min-h-[500px]">
+                            <div className="absolute inset-0 flex items-center justify-center p-4">
+                                <div className="relative w-full h-full max-w-md mx-auto flex items-center justify-center rounded-xl overflow-hidden shadow-inner bg-white dark:bg-slate-800">
+                                    <ProductImage 
+                                        src={isEditing ? editedProduct.image : selectedProduct.image} 
+                                        alt={selectedProduct.name} 
+                                        className="w-full h-full object-contain"
+                                        onPreview={setPreviewImage}
+                                        enableInteract={false}
+                                    />
+                                </div>
                             </div>
-                            <div>
-                                <h2 className="text-lg font-bold text-primary">Product Details</h2>
-                                <span className="text-xs text-gray-500 dark:text-gray-400 font-mono bg-gray-100 dark:bg-slate-700 px-2 py-1 rounded">{selectedProduct.id}</span>
+
+                            {/* Floating Actions on Image */}
+                            <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">
+                                <button 
+                                    onClick={() => setPreviewImage(isEditing ? (editedProduct.image || '') : (selectedProduct.image || ''))}
+                                    className="p-2 bg-white/90 text-gray-700 rounded-full shadow-lg hover:bg-white transition-all"
+                                    title="Full Screen"
+                                >
+                                    <Maximize2 size={20} />
+                                </button>
                             </div>
-                        </div>
-                        <div className="flex gap-2 items-center">
-                             {isEditing ? (
-                                <>
-                                    <Button onClick={handleUpdateProduct} className="h-9 px-3"><Save size={16} /> Save</Button>
-                                    <button onClick={() => setIsEditing(false)} className="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"><X size={20}/></button>
-                                </>
-                            ) : (
-                                <Button onClick={() => setIsEditing(true)}><Edit size={16}/> Edit</Button>
-                            )}
-                        </div>
-                    </div>
-                    
-                     {isEditing ? (
-                        <div className="space-y-3">
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Product Image</label>
-                                <div className="flex gap-2 items-center">
+
+                            {/* Edit Overlay */}
+                            {isEditing && (
+                                <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 to-transparent pt-20 flex justify-center gap-4">
                                     <input 
                                         type="file" 
                                         accept="image/*" 
@@ -366,59 +385,134 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                         className="hidden" 
                                         onChange={handleImageUpload}
                                     />
-                                    <Button onClick={() => fileInputRef.current?.click()} variant="secondary" className="w-full">
-                                        <Camera size={16} className="mr-2" /> 
+                                    <Button onClick={() => fileInputRef.current?.click()} className="shadow-xl">
+                                        <Camera size={18} className="mr-2" /> 
                                         {editedProduct.image ? 'Change Photo' : 'Add Photo'}
                                     </Button>
                                     {editedProduct.image && (
-                                        <button 
-                                            onClick={() => setEditedProduct({...editedProduct, image: undefined})}
-                                            className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200"
+                                        <Button 
+                                            onClick={() => setEditedProduct({...editedProduct, image: undefined})} 
+                                            variant="danger"
+                                            className="shadow-xl"
                                         >
                                             <Trash2 size={18} />
-                                        </button>
+                                        </Button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* RIGHT: DETAILS SECTION (50%) */}
+                        <div className="w-full md:w-1/2 p-6 md:p-8 flex flex-col h-auto md:h-[500px] overflow-y-auto custom-scrollbar bg-white dark:bg-slate-800">
+                            
+                            {/* Header */}
+                            <div className="flex justify-between items-start mb-6">
+                                <div>
+                                    <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">
+                                        {isEditing ? 'Editing Product' : 'Product Details'}
+                                    </h2>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs font-mono bg-gray-100 dark:bg-slate-700 px-2 py-1 rounded text-gray-600 dark:text-gray-300 select-all">
+                                            {selectedProduct.id}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="flex gap-2">
+                                    {isEditing ? (
+                                        <>
+                                            <Button onClick={handleUpdateProduct} className="h-9 px-4"><Save size={16} className="mr-2"/> Save</Button>
+                                            <button onClick={() => setIsEditing(false)} className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"><X size={20}/></button>
+                                        </>
+                                    ) : (
+                                        <Button onClick={() => setIsEditing(true)} variant="secondary"><Edit size={16} className="mr-2"/> Edit</Button>
                                     )}
                                 </div>
                             </div>
-                            <div><label className="text-sm font-medium">Name</label><input type="text" name="name" value={editedProduct.name} onChange={handleInputChange} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" /></div>
-                            
-                            <div className="grid grid-cols-2 gap-4">
-                                <div><label className="text-sm font-medium">Purchase Price</label><input type="number" name="purchasePrice" value={editedProduct.purchasePrice} onChange={handleInputChange} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" /></div>
-                                <div><label className="text-sm font-medium">Sale Price</label><input type="number" name="salePrice" value={editedProduct.salePrice} onChange={handleInputChange} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" /></div>
+
+                            {/* Content */}
+                            <div className="flex-grow space-y-6">
+                                {isEditing ? (
+                                    <div className="space-y-4 animate-fade-in-fast">
+                                        <div>
+                                            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Product Name</label>
+                                            <input type="text" name="name" value={editedProduct.name} onChange={handleInputChange} className="w-full p-3 border rounded-lg dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200 focus:ring-2 focus:ring-primary outline-none" />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Purchase Price</label>
+                                                <input type="number" name="purchasePrice" value={editedProduct.purchasePrice} onChange={handleInputChange} className="w-full p-3 border rounded-lg dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200 focus:ring-2 focus:ring-primary outline-none" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Sale Price</label>
+                                                <input type="number" name="salePrice" value={editedProduct.salePrice} onChange={handleInputChange} className="w-full p-3 border rounded-lg dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200 focus:ring-2 focus:ring-primary outline-none" />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">GST %</label>
+                                            <input type="number" name="gstPercent" value={editedProduct.gstPercent} onChange={handleInputChange} className="w-full p-3 border rounded-lg dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200 focus:ring-2 focus:ring-primary outline-none" />
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-6 animate-fade-in-fast">
+                                        <h1 className="text-2xl font-bold text-gray-800 dark:text-white leading-tight">
+                                            {selectedProduct.name}
+                                        </h1>
+                                        
+                                        <div className="flex items-end gap-4 border-b dark:border-slate-700 pb-6">
+                                            <div>
+                                                <p className="text-sm text-gray-500 mb-1">Selling Price</p>
+                                                <p className="text-3xl font-extrabold text-primary flex items-start">
+                                                    <span className="text-lg mt-1 mr-1">₹</span>
+                                                    {selectedProduct.salePrice.toLocaleString('en-IN')}
+                                                </p>
+                                            </div>
+                                            <div className="pl-4 border-l dark:border-slate-700">
+                                                <p className="text-sm text-gray-500 mb-1">Stock Status</p>
+                                                <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-bold ${selectedProduct.quantity > 0 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                                                    <Package size={16} />
+                                                    {selectedProduct.quantity > 0 ? `${selectedProduct.quantity} Units` : 'Out of Stock'}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="p-4 bg-gray-50 dark:bg-slate-700/50 rounded-xl">
+                                                <p className="text-xs text-gray-500 uppercase font-bold mb-1">Purchase Price</p>
+                                                <p className="text-lg font-semibold dark:text-gray-200">₹{selectedProduct.purchasePrice.toLocaleString('en-IN')}</p>
+                                            </div>
+                                            <div className="p-4 bg-gray-50 dark:bg-slate-700/50 rounded-xl">
+                                                <p className="text-xs text-gray-500 uppercase font-bold mb-1">GST Rate</p>
+                                                <p className="text-lg font-semibold dark:text-gray-200">{selectedProduct.gstPercent}%</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                            <div><label className="text-sm font-medium">GST %</label><input type="number" name="gstPercent" value={editedProduct.gstPercent} onChange={handleInputChange} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" /></div>
+
+                            {/* Footer Controls */}
+                            <div className="mt-6 space-y-4 pt-6 border-t dark:border-slate-700">
+                                {!isEditing && (
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Quick Stock Correction</label>
+                                            <div className="flex gap-2">
+                                                <input 
+                                                    type="number" 
+                                                    value={newQuantity} 
+                                                    onChange={(e) => setNewQuantity(e.target.value)} 
+                                                    className="flex-grow p-2 border rounded-lg dark:bg-slate-700 dark:border-slate-600 dark:text-white focus:ring-2 focus:ring-primary outline-none" 
+                                                    placeholder="New Qty"
+                                                />
+                                                <Button onClick={handleStockAdjustment} variant="secondary" className="whitespace-nowrap">Update Stock</Button>
+                                            </div>
+                                        </div>
+                                        <Button onClick={() => setIsDownloadModalOpen(true)} className="w-full py-3 bg-gray-800 text-white hover:bg-gray-900 dark:bg-slate-700 dark:hover:bg-slate-600">
+                                            <Barcode className="w-4 h-4 mr-2"/> Print / Download Barcode
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                    ) : (
-                        <div className="space-y-2 text-gray-700 dark:text-gray-300">
-                             <p className="text-lg font-semibold">{selectedProduct.name}</p>
-                             <div className="grid grid-cols-2 gap-4 mt-2">
-                                <div className="flex items-center gap-2"><Package size={16} className="text-gray-400"/> <span>Stock: {selectedProduct.quantity}</span></div>
-                                <div className="flex items-center gap-2"><Percent size={16} className="text-gray-400"/> <span>GST: {selectedProduct.gstPercent}%</span></div>
-                                {/* Buying Price HIDDEN from view, visible only in Edit mode above */}
-                                <div className="flex items-center gap-2"><IndianRupee size={16} className="text-green-600"/> <span className="font-bold text-green-600 dark:text-green-400">Sell: ₹{selectedProduct.salePrice}</span></div>
-                             </div>
-                        </div>
-                    )}
-                    
-                    <div className="mt-6 pt-4 border-t dark:border-slate-700">
-                        <h4 className="font-semibold text-sm mb-2">Stock Adjustment</h4>
-                        <div className="flex gap-2 items-center">
-                            <input 
-                                type="number" 
-                                value={newQuantity} 
-                                onChange={(e) => setNewQuantity(e.target.value)} 
-                                className="p-2 border rounded w-32 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" 
-                                placeholder="New Qty"
-                            />
-                            <Button onClick={handleStockAdjustment} variant="secondary">Update Stock</Button>
-                        </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Use this for manual corrections only. For purchases, use the Purchases page.</p>
-                    </div>
-                    
-                    <div className="mt-4 pt-4 border-t dark:border-slate-700">
-                        <Button onClick={() => setIsDownloadModalOpen(true)} className="w-full">
-                            <Barcode className="w-4 h-4 mr-2"/> Print / Download Barcode
-                        </Button>
                     </div>
                 </Card>
             </div>
@@ -428,6 +522,19 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     return (
         <div className="space-y-4">
             {isScanning && <QRScannerModal onClose={() => setIsScanning(false)} onScanned={handleScan} />}
+            
+            {/* Image Cropper */}
+            {cropModalOpen && (
+                <ImageCropperModal 
+                    isOpen={cropModalOpen} 
+                    imageSrc={tempImageSrc} 
+                    onClose={() => {
+                        setCropModalOpen(false);
+                        setTempImageSrc(null);
+                    }} 
+                    onCrop={handleCropSave} 
+                />
+            )}
             
             {/* Full Screen Image Preview Modal */}
             {previewImage && (
@@ -538,14 +645,14 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                         enableInteract={false} // Disable click-to-preview on the image directly
                                     />
                                     
-                                    {/* Full Screen Button - Visible on Mobile, Hover on Desktop */}
+                                    {/* Full Screen Button - Visible Always on All Devices */}
                                     {product.image && (
                                         <button 
                                             onClick={(e) => { 
                                                 e.stopPropagation(); 
                                                 setPreviewImage(product.image!); 
                                             }}
-                                            className="absolute top-2 right-2 p-2 bg-black/40 hover:bg-black/60 text-white rounded-full opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-200 transform active:scale-95 md:hover:scale-110 z-10"
+                                            className="absolute top-2 right-2 p-2 bg-black/40 hover:bg-black/60 text-white rounded-full opacity-100 transition-all duration-200 transform active:scale-95 hover:scale-110 z-10"
                                             title="View Full Screen"
                                         >
                                             <Maximize2 size={16} />
