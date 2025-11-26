@@ -5,13 +5,11 @@ import { useAppContext } from '../context/AppContext';
 import { Sale, SaleItem, Customer, Product, Payment } from '../types';
 import Card from '../components/Card';
 import Button from '../components/Button';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { Html5Qrcode } from 'html5-qrcode';
 import DeleteButton from '../components/DeleteButton';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
-import { logoBase64 } from '../utils/logo';
 import DateInput from '../components/DateInput';
+import { generateA4InvoicePdf } from '../utils/pdfGenerator';
 
 
 const getLocalDateString = (date = new Date()) => {
@@ -20,16 +18,6 @@ const getLocalDateString = (date = new Date()) => {
   const day = date.getDate().toString().padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
-
-const fetchImageAsBase64 = (url: string): Promise<string> =>
-  fetch(url)
-    .then(response => response.blob())
-    .then(blob => new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-    }));
 
 interface SalesPageProps {
   setIsDirty: (isDirty: boolean) => void;
@@ -457,116 +445,15 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
 
     const generateAndSharePDF = async (sale: Sale, customer: Customer, paidAmountOnSale: number) => {
       try {
-        const doc = new jsPDF();
-        const profile = state.profile;
-        let currentY = 15;
-
-        // FIX: Change image format to PNG
-        doc.addImage(logoBase64, 'PNG', 14, 10, 25, 25);
-
-        if (profile) {
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(24);
-            doc.setTextColor('#0d9488');
-            doc.text(profile.name, 105, currentY, { align: 'center' });
-            currentY += 8;
-            doc.setFontSize(10);
-            doc.setTextColor('#333333');
-            const addressLines = doc.splitTextToSize(profile.address, 180);
-            doc.text(addressLines, 105, currentY, { align: 'center' });
-            currentY += (addressLines.length * 5);
-            doc.text(`Phone: ${profile.phone} | GSTIN: ${profile.gstNumber}`, 105, currentY, { align: 'center' });
-        }
-        
-        currentY = Math.max(currentY, 10 + 25) + 5;
-
-        doc.setDrawColor('#cccccc');
-        doc.line(14, currentY, 196, currentY);
-        currentY += 10;
-        
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
-        doc.text('TAX INVOICE', 105, currentY, { align: 'center' });
-        currentY += 10;
-        
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Billed To:', 14, currentY);
-        doc.text('Invoice Details:', 120, currentY);
-        currentY += 5;
-
-        doc.setFont('helvetica', 'normal');
-        doc.text(customer.name, 14, currentY);
-        doc.text(`Invoice ID: ${sale.id}`, 120, currentY);
-        currentY += 5;
-        
-        const customerAddressLines = doc.splitTextToSize(customer.address, 80);
-        doc.text(customerAddressLines, 14, currentY);
-        doc.text(`Date: ${new Date(sale.date).toLocaleString()}`, 120, currentY);
-        currentY += (customerAddressLines.length * 5) + 5;
-        
-        autoTable(doc, {
-            startY: currentY,
-            head: [['#', 'Item Description', 'Qty', 'Rate', 'Amount']],
-            body: sale.items.map((item, index) => [
-                index + 1,
-                item.productName,
-                item.quantity,
-                `Rs. ${Number(item.price).toLocaleString('en-IN')}`,
-                `Rs. ${(Number(item.quantity) * Number(item.price)).toLocaleString('en-IN')}`
-            ]),
-            theme: 'grid',
-            headStyles: { fillColor: [13, 148, 136] },
-            columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' } }
-        });
-        
-        currentY = (doc as any).lastAutoTable.finalY + 10;
-        
-        // FIX: Calculate values from the `sale` object, not stale component state. This also fixes the scope issue.
-        const subTotal = sale.items.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
-        const dueAmountOnSale = Number(sale.totalAmount) - paidAmountOnSale;
-        
-        const totalsX = 196;
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.text('Subtotal:', totalsX - 30, currentY, { align: 'right' });
-        doc.text(`Rs. ${subTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, totalsX, currentY, { align: 'right' });
-        currentY += 7;
-
-        doc.text('Discount:', totalsX - 30, currentY, { align: 'right' });
-        doc.text(`- Rs. ${Number(sale.discount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, totalsX, currentY, { align: 'right' });
-        currentY += 7;
-
-        doc.text('GST Included:', totalsX - 30, currentY, { align: 'right' });
-        doc.text(`Rs. ${Number(sale.gstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, totalsX, currentY, { align: 'right' });
-        currentY += 7;
-        
-        doc.setFont('helvetica', 'bold');
-        doc.text('Grand Total:', totalsX - 30, currentY, { align: 'right' });
-        doc.text(`Rs. ${Number(sale.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, totalsX, currentY, { align: 'right' });
-        currentY += 7;
-
-        doc.setFont('helvetica', 'normal');
-        doc.text('Paid:', totalsX - 30, currentY, { align: 'right' });
-        doc.text(`Rs. ${paidAmountOnSale.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, totalsX, currentY, { align: 'right' });
-        currentY += 7;
-
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(dueAmountOnSale > 0.01 ? '#dc2626' : '#16a34a');
-        doc.text('Amount Due:', totalsX - 30, currentY, { align: 'right' });
-        doc.text(`Rs. ${dueAmountOnSale.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, totalsX, currentY, { align: 'right' });
-        
-        currentY = doc.internal.pageSize.height - 20;
-        doc.setFontSize(10);
-        doc.setTextColor('#888888');
-        doc.text('Thank you for your business!', 105, currentY, { align: 'center' });
+        const doc = await generateA4InvoicePdf(sale, customer, state.profile);
         
         const pdfBlob = doc.output('blob');
         const pdfFile = new File([pdfBlob], `Invoice-${sale.id}.pdf`, { type: 'application/pdf' });
         const businessName = state.profile?.name || 'Your Business';
         
-        // FIX: Use locally scoped variables for whatsAppText instead of calculations from component state to ensure data consistency.
+        const subTotal = sale.items.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
+        const dueAmountOnSale = Number(sale.totalAmount) - paidAmountOnSale;
+
         const whatsAppText = `Thank you for your purchase from ${businessName}!\n\n*Invoice Summary:*\nInvoice ID: ${sale.id}\nDate: ${new Date(sale.date).toLocaleString()}\n\n*Items:*\n${sale.items.map(i => `- ${i.productName} (x${i.quantity}) - Rs. ${(Number(i.price) * Number(i.quantity)).toLocaleString('en-IN')}`).join('\n')}\n\nSubtotal: Rs. ${subTotal.toLocaleString('en-IN')}\nGST: Rs. ${Number(sale.gstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}\nDiscount: Rs. ${Number(sale.discount).toLocaleString('en-IN')}\n*Total: Rs. ${Number(sale.totalAmount).toLocaleString('en-IN')}*\nPaid: Rs. ${paidAmountOnSale.toLocaleString('en-IN')}\nDue: Rs. ${dueAmountOnSale.toLocaleString('en-IN', { minimumFractionDigits: 2 })}\n\nHave a blessed day!`;
         
         if (navigator.share && navigator.canShare({ files: [pdfFile] })) {
@@ -719,6 +606,56 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                     onCancel={handleCancelAddCustomer}
                 />
             }
+            {/* Unified Product Search Bar */}
+            <div className="relative z-20 mb-4" ref={productSearchRef}>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Add Items</label>
+                <div className="flex gap-2">
+                    <div className="relative flex-grow">
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                            <Search size={18} />
+                        </div>
+                        <input 
+                            type="text" 
+                            className="w-full pl-10 pr-4 py-2 border rounded-lg bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-white outline-none focus:ring-2 focus:ring-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed" 
+                            placeholder={customerId ? "Search products to add..." : "Select a customer first"}
+                            value={productSearch}
+                            onChange={e => { setProductSearch(e.target.value); setShowProductDropdown(true); }}
+                            onFocus={() => setShowProductDropdown(true)}
+                            disabled={!customerId}
+                        />
+                        {showProductDropdown && customerId && (
+                            <div className="absolute top-full left-0 w-full bg-white dark:bg-slate-800 shadow-xl border dark:border-slate-700 rounded-lg mt-1 max-h-60 overflow-y-auto animate-scale-in">
+                                {filteredProducts.map(p => (
+                                    <div 
+                                        key={p.id} 
+                                        onClick={() => handleSelectProduct(p)}
+                                        className="p-3 hover:bg-gray-100 dark:hover:bg-slate-700 cursor-pointer border-b dark:border-slate-700 last:border-0 flex justify-between items-center"
+                                    >
+                                        <div>
+                                            <p className="font-medium text-sm dark:text-white">{p.name}</p>
+                                            <p className="text-xs text-gray-500">Code: {p.id}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-sm font-bold text-primary">₹{Number(p.salePrice).toLocaleString('en-IN')}</p>
+                                            <p className="text-[10px] text-gray-500">Stock: {p.quantity}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                                {filteredProducts.length === 0 && <div className="p-3 text-sm text-gray-500 text-center">No products found.</div>}
+                            </div>
+                        )}
+                    </div>
+                    <Button 
+                        onClick={() => setIsScanning(true)} 
+                        variant="secondary" 
+                        className="px-3"
+                        title="Scan QR Code"
+                        disabled={!customerId}
+                    >
+                        <QrCode size={20} />
+                    </Button>
+                </div>
+            </div>
             {isScanning && 
                 <QRScannerModal 
                     onClose={() => setIsScanning(false)}
@@ -820,63 +757,6 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
 
 
             <Card title="Sale Items">
-                {/* Unified Product Search Bar */}
-                <div className="relative z-20 mb-4" ref={productSearchRef}>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Add Items</label>
-                    <div className="flex gap-2">
-                        <div className="relative flex-grow">
-                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-                                <Search size={18} />
-                            </div>
-                            <input 
-                                type="text" 
-                                className="w-full pl-10 pr-4 py-2 border rounded-lg bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-white outline-none focus:ring-2 focus:ring-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed" 
-                                placeholder={customerId ? "Search products to add..." : "Select a customer first"}
-                                value={productSearch}
-                                onChange={e => { setProductSearch(e.target.value); setShowProductDropdown(true); }}
-                                onFocus={() => setShowProductDropdown(true)}
-                                disabled={!customerId}
-                            />
-                            {showProductDropdown && customerId && (
-                                <div className="absolute top-full left-0 w-full bg-white dark:bg-slate-800 shadow-xl border dark:border-slate-700 rounded-lg mt-1 max-h-60 overflow-y-auto animate-scale-in">
-                                    {filteredProducts.map(p => (
-                                        <div 
-                                            key={p.id} 
-                                            onClick={() => handleSelectProduct(p)}
-                                            className="p-3 hover:bg-gray-100 dark:hover:bg-slate-700 cursor-pointer border-b dark:border-slate-700 last:border-0 flex justify-between items-center"
-                                        >
-                                            <div>
-                                                <p className="font-medium text-sm dark:text-white">{p.name}</p>
-                                                <p className="text-xs text-gray-500">Code: {p.id}</p>
-                                            </div>
-                                            <div className="text-right">
-                                                <p className="text-sm font-bold text-primary">₹{Number(p.salePrice).toLocaleString('en-IN')}</p>
-                                                <p className="text-[10px] text-gray-500">Stock: {p.quantity}</p>
-                                            </div>
-                                        </div>
-                                    ))}
-                                    {filteredProducts.length === 0 && <div className="p-3 text-sm text-gray-500 text-center">No products found.</div>}
-                                </div>
-                            )}
-                        </div>
-                        <Button 
-                            onClick={() => setIsScanning(true)} 
-                            variant="secondary" 
-                            className="px-3"
-                            title="Scan QR Code"
-                            disabled={!customerId}
-                        >
-                            <QrCode size={20} />
-                        </Button>
-                    </div>
-                </div>
-                {isScanning && 
-                    <QRScannerModal 
-                        onClose={() => setIsScanning(false)}
-                        onScanned={handleProductScanned}
-                    />
-                }
-
                 <div className="space-y-2 bg-gray-50 dark:bg-slate-700/30 p-3 rounded-lg border dark:border-slate-700">
                     {items.length === 0 && <p className="text-center text-sm text-gray-500">No items added yet.</p>}
                     {items.map(item => (
@@ -951,7 +831,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Payment Reference (Optional)</label>
-                                <input type="text" placeholder="e.g. UPI ID, Cheque No." value={paymentDetails.reference} onChange={e => setPaymentDetails({...paymentDetails, reference: e.target.value })} className="w-full p-2 border rounded mt-1 dark:bg-slate-700 dark:border-slate-600" />
+                                <input type="text" placeholder="e.g. UPI ID, Cheque No." value={paymentDetails.reference} onChange={e => setPaymentDetails({...paymentDetails, reference: e.target.value })} className="w-full p-2 border rounded mt-1 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
                             </div>
                         </div>
                     ) : (

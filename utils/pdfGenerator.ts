@@ -15,16 +15,18 @@ export const getQrCodeBase64 = async (data: string): Promise<string> => {
             reader.readAsDataURL(blob);
         });
     } catch (e) {
+        console.warn("Failed to generate QR code", e);
         return '';
     }
 };
 
 // --- Helper: Detect Image Type ---
 const getImageType = (dataUrl: string): string => {
+    if (!dataUrl) return 'PNG';
     if (dataUrl.startsWith('data:image/png')) return 'PNG';
     if (dataUrl.startsWith('data:image/jpeg')) return 'JPEG';
     if (dataUrl.startsWith('data:image/jpg')) return 'JPEG';
-    return 'JPEG'; // default fallback
+    return 'PNG'; // default fallback
 };
 
 // --- Helper: Add Header (Common for A4/Debit Note) ---
@@ -34,19 +36,13 @@ const addBusinessHeader = (doc: jsPDF, profile: ProfileData | null) => {
     let currentY = 10;
 
     // Add Logo if available
-    if (profile?.logo) {
+    const logoToUse = profile?.logo || logoBase64;
+    if (logoToUse) {
         try {
-            const format = getImageType(profile.logo);
-            doc.addImage(profile.logo, format, 14, 10, 25, 25);
+            const format = getImageType(logoToUse);
+            doc.addImage(logoToUse, format, 14, 10, 25, 25);
         } catch (e) {
-            console.warn("Failed to add custom logo to PDF", e);
-        }
-    } else {
-        // Use fallback generic logo
-        try {
-             doc.addImage(logoBase64, 'PNG', 14, 10, 25, 25);
-        } catch(e) {
-            console.warn("Failed to add generic logo", e);
+            console.warn("Failed to add logo to PDF. Skipping image.", e);
         }
     }
 
@@ -148,13 +144,16 @@ export const generateThermalInvoicePDF = async (sale: Sale, customer: Customer, 
     y += 4;
 
     // Right side: QR Code
-    const qrBase64 = await getQrCodeBase64(sale.id);
-    if (qrBase64) {
-        doc.addImage(qrBase64, 'PNG', qrX, startHeaderY, qrSize, qrSize);
+    try {
+        const qrBase64 = await getQrCodeBase64(sale.id);
+        if (qrBase64) {
+            doc.addImage(qrBase64, 'PNG', qrX, startHeaderY, qrSize, qrSize);
+        }
+    } catch (e) {
+        // Ignore QR error
     }
 
-    // Adjust Y to be below QR code or text, whichever is lower, but typically text is on left and QR on right
-    // We need some space before "Billed To"
+    // Adjust Y to be below QR code or text, whichever is lower
     y = Math.max(y + 2, startHeaderY + qrSize + 2);
 
     // 4. Billed To
