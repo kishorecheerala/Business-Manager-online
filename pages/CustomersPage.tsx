@@ -13,7 +13,6 @@ import { useOnClickOutside } from '../hooks/useOnClickOutside';
 import { generateA4InvoicePdf, generateThermalInvoicePDF, addBusinessHeader } from '../utils/pdfGenerator';
 import { useDialog } from '../context/DialogContext';
 
-// ... (getLocalDateString, fetchImageAsBase64, PaymentModal remain the same)
 const getLocalDateString = (date = new Date()) => {
   const year = date.getFullYear();
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -99,7 +98,6 @@ interface CustomersPageProps {
 }
 
 const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPage }) => {
-    // ... (same state logic) ...
     const { state, dispatch, showToast } = useAppContext();
     const { showConfirm } = useDialog();
     const [searchTerm, setSearchTerm] = useState('');
@@ -275,11 +273,10 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
         setPaymentDetails({ amount: '', method: 'CASH', date: getLocalDateString(), reference: '' });
     };
 
-    // Updated Handlers for PDF Generation
     const handleDownloadThermalReceipt = async (sale: Sale) => {
         if (!selectedCustomer) return;
         try {
-            const doc = await generateThermalInvoicePDF(sale, selectedCustomer, state.profile, state.receiptTemplate, state.customFonts);
+            const doc = await generateThermalInvoicePDF(sale, selectedCustomer, state.profile, state.invoiceTemplate);
             const cleanName = selectedCustomer.name.replace(/[^a-z0-9]/gi, '_');
             const dateStr = new Date(sale.date).toLocaleDateString('en-IN').replace(/\//g, '-');
             doc.save(`Receipt_${cleanName}_${dateStr}.pdf`);
@@ -291,7 +288,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
 
     const handlePrintA4Invoice = async (sale: Sale) => {
         if (!selectedCustomer) return;
-        const doc = await generateA4InvoicePdf(sale, selectedCustomer, state.profile, state.invoiceTemplate, state.customFonts);
+        const doc = await generateA4InvoicePdf(sale, selectedCustomer, state.profile, state.invoiceTemplate);
         doc.autoPrint();
         const pdfUrl = doc.output('bloburl');
         window.open(pdfUrl, '_blank');
@@ -300,7 +297,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
     const handleShareInvoice = async (sale: Sale) => {
         if (!selectedCustomer) return;
         try {
-            const doc = await generateA4InvoicePdf(sale, selectedCustomer, state.profile, state.invoiceTemplate, state.customFonts);
+            const doc = await generateA4InvoicePdf(sale, selectedCustomer, state.profile, state.invoiceTemplate);
             const pdfBlob = doc.output('blob');
             
             const cleanName = selectedCustomer.name.replace(/[^a-z0-9]/gi, '_');
@@ -324,7 +321,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
         }
     };
 
-    // ... (handleShareDuesSummary, filteredCustomers, render) ...
+
     const handleShareDuesSummary = async () => {
         if (!selectedCustomer) return;
 

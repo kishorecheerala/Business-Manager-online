@@ -10,7 +10,7 @@ import autoTable from 'jspdf-autotable';
 import { Html5Qrcode } from 'html5-qrcode';
 import DeleteButton from '../components/DeleteButton';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
-import { generateA4InvoicePdf } from '../utils/pdfGenerator';
+import { generateA4InvoicePdf, generateThermalInvoicePDF } from '../utils/pdfGenerator';
 
 
 const getLocalDateString = (date = new Date()) => {
@@ -36,7 +36,6 @@ interface SalesPageProps {
 
 const newCustomerInitialState = { id: '', name: '', phone: '', address: '', area: '', reference: '' };
 
-// ... (AddCustomerModal, ProductSearchModal, QRScannerModal remain unchanged)
 const AddCustomerModal: React.FC<{
     newCustomer: typeof newCustomerInitialState;
     onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -191,7 +190,6 @@ const QRScannerModal: React.FC<{
 };
 
 const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
-    // ... (state, effects, and handlers remain largely the same, just updating PDF call)
     const { state, dispatch, showToast } = useAppContext();
     
     const [mode, setMode] = useState<'add' | 'edit'>('add');
@@ -226,7 +224,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         }
     });
 
-    // ... (keep all useEffects) ...
+    // Effect to handle switching to edit mode from another page
     useEffect(() => {
         if (state.selection?.page === 'SALES' && state.selection.action === 'edit') {
             const sale = state.sales.find(s => s.id === state.selection.id);
@@ -254,13 +252,14 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         }
     }, [customerId, items, discount, paymentDetails.amount, isAddingCustomer, newCustomer, setIsDirty, saleDate, mode]);
 
+
+    // On unmount, we must always clean up.
     useEffect(() => {
         return () => {
             setIsDirty(false);
         };
     }, [setIsDirty]);
 
-    // ... (keep helper methods like resetForm, handleSelectProduct, etc.) ...
     const resetForm = () => {
         setCustomerId('');
         setItems([]);
@@ -292,13 +291,13 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
 
         if (existingItem) {
             if (existingItem.quantity + 1 > availableStock) {
-                 showToast(`Not enough stock for ${product.name}. Only ${availableStock} available.`, 'error');
+                 alert(`Not enough stock for ${product.name}. Only ${availableStock} available for this sale.`);
                  return;
             }
             setItems(items.map(i => i.productId === newItem.productId ? { ...i, quantity: i.quantity + 1 } : i));
         } else {
              if (1 > availableStock) {
-                 showToast(`Not enough stock for ${product.name}. Only ${availableStock} available.`, 'error');
+                 alert(`Not enough stock for ${product.name}. Only ${availableStock} available for this sale.`);
                  return;
             }
             setItems([...items, newItem]);
@@ -313,7 +312,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         if (product) {
             handleSelectProduct(product);
         } else {
-            showToast("Product not found in inventory.", 'error');
+            alert("Product not found in inventory.");
         }
     };
 
@@ -328,7 +327,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                     const originalQtyInSale = mode === 'edit' ? saleToEdit?.items.find(i => i.productId === productId)?.quantity || 0 : 0;
                     const availableStock = (Number(product?.quantity) || 0) + originalQtyInSale;
                     if (numValue > availableStock) {
-                        showToast(`Not enough stock for ${item.productName}. Only ${availableStock} available.`, 'error');
+                        alert(`Not enough stock for ${item.productName}. Only ${availableStock} available for this sale.`);
                         return { ...item, quantity: availableStock };
                     }
                 }
@@ -337,6 +336,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             return item;
         }));
     };
+
 
     const handleRemoveItem = (productId: string) => {
         setItems(items.filter(item => item.productId !== productId));
@@ -396,11 +396,11 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
     const handleAddCustomer = useCallback(() => {
         const trimmedId = newCustomer.id.trim();
         if (!trimmedId) {
-            showToast('Customer ID is required.', 'error');
+            alert('Customer ID is required.');
             return;
         }
         if (!newCustomer.name || !newCustomer.phone || !newCustomer.address || !newCustomer.area) {
-            showToast('Please fill all required fields (Name, Phone, Address, Area).', 'error');
+            alert('Please fill all required fields (Name, Phone, Address, Area).');
             return;
         }
 
@@ -408,7 +408,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         const isIdTaken = state.customers.some(c => c.id.toLowerCase() === finalId.toLowerCase());
 
         if (isIdTaken) {
-            showToast(`Customer ID "${finalId}" is already taken. Please choose another one.`, 'error');
+            alert(`Customer ID "${finalId}" is already taken. Please choose another one.`);
             return;
         }
 
@@ -430,8 +430,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
 
     const generateAndSharePDF = async (sale: Sale, customer: Customer, paidAmountOnSale: number) => {
       try {
-        // Pass custom fonts to generator
-        const doc = await generateA4InvoicePdf(sale, customer, state.profile, state.invoiceTemplate, state.customFonts);
+        const doc = await generateA4InvoicePdf(sale, customer, state.profile, state.invoiceTemplate);
         
         const pdfBlob = doc.output('blob');
         const pdfFile = new File([pdfBlob], `Invoice-${sale.id}.pdf`, { type: 'application/pdf' });
@@ -439,7 +438,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         
         const subTotal = sale.items.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
         const dueAmountOnSale = Number(sale.totalAmount) - paidAmountOnSale;
-
+        
         const whatsAppText = `Thank you for your purchase from ${businessName}!\n\n*Invoice Summary:*\nInvoice ID: ${sale.id}\nDate: ${new Date(sale.date).toLocaleString()}\n\n*Items:*\n${sale.items.map(i => `- ${i.productName} (x${i.quantity}) - Rs. ${(Number(i.price) * Number(i.quantity)).toLocaleString('en-IN')}`).join('\n')}\n\nSubtotal: Rs. ${subTotal.toLocaleString('en-IN')}\nGST: Rs. ${Number(sale.gstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}\nDiscount: Rs. ${Number(sale.discount).toLocaleString('en-IN')}\n*Total: Rs. ${Number(sale.totalAmount).toLocaleString('en-IN')}*\nPaid: Rs. ${paidAmountOnSale.toLocaleString('en-IN')}\nDue: Rs. ${dueAmountOnSale.toLocaleString('en-IN', { minimumFractionDigits: 2 })}\n\nHave a blessed day!`;
         
         if (navigator.share && navigator.canShare({ files: [pdfFile] })) {
@@ -461,20 +460,19 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         }
       } catch (error) {
         console.error("PDF generation or sharing failed:", error);
-        showToast(`Error generating PDF: ${(error as Error).message}`, 'error');
+        alert(`Sale created successfully, but the PDF invoice could not be generated or shared. Error: ${(error as Error).message}`);
       }
     };
 
-    // ... (handleSubmitSale, handleRecordStandalonePayment, etc.) ...
     const handleSubmitSale = async () => {
         if (!customerId || items.length === 0) {
-            showToast("Please select a customer and add at least one item.", 'error');
+            alert("Please select a customer and add at least one item.");
             return;
         }
 
         const customer = state.customers.find(c => c.id === customerId);
         if(!customer) {
-            showToast("Could not find the selected customer.", 'error');
+            alert("Could not find the selected customer.");
             return;
         }
         
@@ -483,7 +481,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         if (mode === 'add') {
             const paidAmount = parseFloat(paymentDetails.amount) || 0;
             if (paidAmount > totalAmount + 0.01) {
-                showToast(`Paid amount (₹${paidAmount.toLocaleString('en-IN')}) cannot be greater than the total amount (₹${totalAmount.toLocaleString('en-IN')}).`, 'error');
+                alert(`Paid amount (₹${paidAmount.toLocaleString('en-IN')}) cannot be greater than the total amount (₹${totalAmount.toLocaleString('en-IN')}).`);
                 return;
             }
             const payments: Payment[] = [];
@@ -514,7 +512,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             const totalPaid = existingPayments.reduce((sum, p) => sum + Number(p.amount), 0);
 
             if (totalAmount < totalPaid - 0.01) {
-                showToast(`The new total amount (₹${totalAmount.toLocaleString('en-IN')}) cannot be less than the amount already paid (₹${totalPaid.toLocaleString('en-IN')}).`, 'error');
+                alert(`The new total amount (₹${totalAmount.toLocaleString('en-IN')}) cannot be less than the amount already paid (₹${totalPaid.toLocaleString('en-IN')}).`);
                 return;
             }
 
@@ -530,13 +528,13 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
 
      const handleRecordStandalonePayment = () => {
         if (!customerId) {
-            showToast('Please select a customer to record a payment for.', 'error');
+            alert('Please select a customer to record a payment for.');
             return;
         }
 
         const paidAmount = parseFloat(paymentDetails.amount || '0');
         if (paidAmount <= 0) {
-            showToast('Please enter a valid payment amount.', 'error');
+            alert('Please enter a valid payment amount.');
             return;
         }
 
@@ -548,7 +546,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
         if (outstandingSales.length === 0) {
-            showToast('This customer has no outstanding dues.', 'info');
+            alert('This customer has no outstanding dues.');
             return;
         }
         
@@ -583,7 +581,6 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
     const canRecordPayment = customerId && items.length === 0 && parseFloat(paymentDetails.amount || '0') > 0 && customerTotalDue != null && customerTotalDue > 0.01 && mode === 'add';
     const pageTitle = mode === 'edit' ? `Edit Sale: ${saleToEdit?.id}` : 'New Sale / Payment';
 
-    // ... (Render JSX, update handleShareInvoice similarly) ...
     return (
         <div className="space-y-4">
             {isAddingCustomer && 

@@ -18,17 +18,28 @@ const InvoiceSettingsModal: React.FC<InvoiceSettingsModalProps> = ({ isOpen, onC
 
   useEffect(() => {
     if (isOpen) {
-      setTerms(state.invoiceSettings?.terms || '');
-      setFooter(state.invoiceSettings?.footer || 'Thank you for your business!');
-      setShowQr(state.invoiceSettings?.showQr ?? true);
+      setTerms(state.invoiceTemplate.content.termsText || '');
+      setFooter(state.invoiceTemplate.content.footerText || 'Thank you for your business!');
+      setShowQr(state.invoiceTemplate.content.showQr ?? true);
     }
-  }, [isOpen, state.invoiceSettings]);
+  }, [isOpen, state.invoiceTemplate]);
 
   const handleSave = () => {
+    const updatedTemplate = {
+        ...state.invoiceTemplate,
+        content: {
+            ...state.invoiceTemplate.content,
+            termsText: terms,
+            footerText: footer,
+            showQr: showQr
+        }
+    };
+
     dispatch({
-      type: 'UPDATE_INVOICE_SETTINGS',
-      payload: { terms, footer, showQr }
+      type: 'SET_INVOICE_TEMPLATE',
+      payload: updatedTemplate
     });
+    
     showToast('Invoice settings updated');
     onClose();
   };

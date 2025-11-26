@@ -21,7 +21,6 @@ const getLocalDateString = (date = new Date()) => {
   return `${year}-${month}-${day}`;
 };
 
-// ... (QRScannerModal component) ...
 const QRScannerModal: React.FC<{
     onClose: () => void;
     onScanned: (decodedText: string) => void;
@@ -140,7 +139,7 @@ const QuotationsPage: React.FC = () => {
         }
     }, [view, editingQuote]);
 
-    // ... (Handlers for addItem, updateItem, removeItem, saveQuote, deleteQuote, convertToSale) ...
+    // --- Handlers ---
     const handleAddItem = (product: Product) => {
         const existingItem = items.find(i => i.productId === product.id);
         if (existingItem) {
@@ -248,8 +247,7 @@ const QuotationsPage: React.FC = () => {
         const customer = state.customers.find(c => c.id === quote.customerId);
         if (!customer) return;
         try {
-            // Pass custom fonts here
-            const doc = await generateEstimatePDF(quote, customer, state.profile, state.estimateTemplate, state.customFonts);
+            const doc = await generateEstimatePDF(quote, customer, state.profile);
             const pdfBlob = doc.output('blob');
             const file = new File([pdfBlob], `Estimate-${quote.id}.pdf`, { type: 'application/pdf' });
             
@@ -264,7 +262,6 @@ const QuotationsPage: React.FC = () => {
         }
     };
 
-    // ... (Render logic remains mostly same) ...
     if (view === 'list') {
         return (
             <div className="space-y-4">
