@@ -823,15 +823,56 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       dispatch({ type: 'SET_SYNC_STATUS', payload: 'syncing' });
       
       try {
-          const { toast, selection, installPromptEvent, googleUser, syncStatus, lastSyncTime, devMode, restoreFromFileId, ...backupData } = state;
+          // 1. READ: Fetch latest data from Drive first
+          const remoteData = await DriveService.read(state.googleUser.accessToken);
           
+          // 2. MERGE: If remote data exists, import it into local DB (Merge Mode)
+          if (remoteData) {
+              console.log("Found remote backup. Merging with local data...");
+              await db.importData(remoteData, true); // true = Merge, do not overwrite/clear
+          }
+
+          // 3. REFRESH: Read fully merged data from Local DB to update State & prepare Upload
+          const [
+              cust, supp, prod, sale, pur, ret, exp, quot, font, meta, notif, prof, logs
+          ] = await Promise.all([
+              db.getAll('customers'), db.getAll('suppliers'), db.getAll('products'), db.getAll('sales'), 
+              db.getAll('purchases'), db.getAll('returns'), db.getAll('expenses'), db.getAll('quotes'), db.getAll('custom_fonts'),
+              db.getAll('app_metadata'), db.getAll('notifications'), db.getAll('profile'), db.getAll('audit_logs')
+          ]);
+
+          // Update App State to reflect merged data on UI
+          const mergedStatePayload: Partial<AppState> = {
+              customers: cust, suppliers: supp, products: prod, sales: sale,
+              purchases: pur, returns: ret, expenses: exp, quotes: quot,
+              customFonts: font, app_metadata: meta, notifications: notif,
+              profile: prof[0] || null, audit_logs: logs
+          };
+          dispatch({ type: 'SET_STATE', payload: mergedStatePayload });
+
+          // 4. WRITE: Prepare full payload for upload
+          // Filter out transient state
+          const { toast, selection, installPromptEvent, googleUser, syncStatus, lastSyncTime, devMode, restoreFromFileId, ...currentState } = state;
+          
+          const backupData = {
+              ...currentState,
+              ...mergedStatePayload, // Use the fresh merged data
+              lastLocalUpdate: Date.now()
+          };
+          
+          // Upload the unified dataset
           await DriveService.write(state.googleUser.accessToken, backupData);
           
           dispatch({ type: 'SET_SYNC_STATUS', payload: 'success' });
           const now = Date.now();
           dispatch({ type: 'SET_LAST_SYNC_TIME', payload: now });
           localStorage.setItem('lastSyncTime', now.toString());
-          showToast("Sync successful (Backup created).", 'success');
+          
+          if (remoteData) {
+              showToast("Sync complete (Merged with cloud).", 'success');
+          } else {
+              showToast("Sync complete (Backup created).", 'success');
+          }
 
       } catch (e: any) {
           console.error("Sync Error:", e);
