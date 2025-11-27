@@ -202,7 +202,7 @@ const InvoiceDesigner: React.FC = () => {
     // Resize Logic States
     const [sidebarWidth, setSidebarWidth] = useState(320);
     const [isResizing, setIsResizing] = useState(false);
-    // Using 640px (sm) as the breakpoint for Z Fold / Tablets to allow split view
+    // Lower breakpoint for Z Fold open state (often treated as > 600px)
     const [isMd, setIsMd] = useState(typeof window !== 'undefined' ? window.innerWidth >= 640 : true);
     
     const fontInputRef = useRef<HTMLInputElement>(null);
@@ -254,6 +254,13 @@ const InvoiceDesigner: React.FC = () => {
         return () => clearTimeout(timer);
     }, [config, selectedDocType, state.customFonts]);
 
+    // Clean up blob URL when unmounting or updating
+    useEffect(() => {
+        return () => {
+            if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+        };
+    }, [pdfUrl]);
+
     // Resize Handlers
     const startResizing = useCallback((e: React.MouseEvent | React.TouchEvent) => {
         if (e.type === 'mousedown') {
@@ -278,7 +285,7 @@ const InvoiceDesigner: React.FC = () => {
                 
                 // Account for padding/margins and allow a reasonable range
                 const newWidth = clientX - 16; 
-                // Permissive constraints: Min 100px, Max 90% of screen width
+                // Permissive constraints: Min 100px, Max 90% of screen width to allow full resize flexibility
                 const constrainedWidth = Math.max(100, Math.min(newWidth, window.innerWidth * 0.9));
                 setSidebarWidth(constrainedWidth);
             }
@@ -597,7 +604,7 @@ const InvoiceDesigner: React.FC = () => {
                 {/* Document Type Selector & Header */}
                 <div className="p-4 border-b dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50 shrink-0">
                     <div className="flex items-center gap-2 mb-4">
-                        <button onClick={handleExit} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-600 dark:text-gray-300 transition-colors" title="Exit Designer">
+                        <button onClick={handleExit} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-600 dark:text-gray-300 transition-colors" title="Back">
                             <ArrowLeft size={20} />
                         </button>
                         <h2 className="font-bold text-lg text-primary">Invoice Designer</h2>
@@ -943,14 +950,14 @@ const InvoiceDesigner: React.FC = () => {
 
             {/* Resizer - Visible on Desktop */}
             <div 
-                className="hidden sm:flex w-4 cursor-col-resize items-center justify-center hover:bg-blue-500/10 transition-colors z-20 -ml-2 mr-[-2px]"
+                className="hidden sm:flex w-4 cursor-col-resize items-center justify-center hover:bg-blue-500/10 transition-colors z-20 -ml-2 mr-[-2px] touch-none"
                 onMouseDown={startResizing}
                 onTouchStart={startResizing}
             >
-                <div className="w-1 h-8 bg-gray-300 dark:bg-slate-600 rounded-full"></div>
+                <div className="w-1 h-12 bg-gray-300 dark:bg-slate-600 rounded-full shadow-sm"></div>
             </div>
 
-            {/* Preview Panel - Flexible width, min-w-0 is crucial for preventing overflow */}
+            {/* Preview Panel */}
             <div className={`flex-grow min-w-0 bg-gray-100 dark:bg-slate-900 relative overflow-hidden flex flex-col ${mobileView === 'preview' ? 'flex' : 'hidden sm:flex'}`}>
                 <div className="h-12 bg-white dark:bg-slate-800 border-b dark:border-slate-700 flex justify-between items-center px-4 shrink-0">
                      <h3 className="font-bold text-sm text-gray-500 uppercase">Live Preview</h3>
@@ -958,20 +965,37 @@ const InvoiceDesigner: React.FC = () => {
                          <button onClick={generatePreview} disabled={isGenerating} className="p-1.5 hover:bg-gray-100 dark:hover:bg-slate-700 rounded text-gray-500" title="Refresh">
                              <RefreshCw size={16} className={isGenerating ? "animate-spin" : ""} />
                          </button>
-                         <button onClick={handleOpenPdf} disabled={!pdfUrl} className="p-1.5 hover:bg-gray-100 dark:hover:bg-slate-700 rounded text-gray-500" title="Open New Tab">
+                         <button onClick={handleOpenPdf} disabled={!pdfUrl} className="p-1.5 hover:bg-gray-100 dark:hover:bg-slate-700 rounded text-gray-500 text-sm flex items-center gap-1 font-medium" title="Open New Tab">
                              <ExternalLink size={16} />
+                             <span className="hidden md:inline">Open PDF</span>
                          </button>
                      </div>
                 </div>
                 
                 <div className="flex-grow relative bg-slate-200/50 dark:bg-slate-900/50 p-4 flex items-center justify-center overflow-hidden">
                      {isGenerating && (
-                         <div className="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-black/50 z-10 backdrop-blur-sm">
+                         <div className="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-black/80 z-20 backdrop-blur-sm flex-col gap-2">
                              <RefreshCw className="animate-spin text-primary w-8 h-8" />
+                             <span className="text-xs font-medium text-gray-500">Updating Preview...</span>
                          </div>
                      )}
+                     
+                     {/* PDF Iframe Container */}
                      {pdfUrl ? (
-                         <iframe src={`${pdfUrl}#toolbar=0&navpanes=0`} className="w-full h-full rounded shadow-lg border dark:border-slate-700 bg-white" title="Invoice Preview" />
+                         <div className="w-full h-full relative shadow-xl rounded-lg overflow-hidden bg-white">
+                             <iframe 
+                                key={pdfUrl} // Force re-render on URL change
+                                src={pdfUrl} 
+                                className="w-full h-full border-none" 
+                                title="Invoice Preview" 
+                            />
+                            {/* Overlay button for mobile where iframe might fail to render PDF */}
+                            <div className="absolute bottom-4 right-4 md:hidden">
+                                <Button onClick={handleOpenPdf} className="shadow-lg text-xs py-2">
+                                    <ExternalLink size={14} className="mr-1"/> Open PDF
+                                </Button>
+                            </div>
+                         </div>
                      ) : (
                          <div className="text-gray-400 text-sm">Generating preview...</div>
                      )}
