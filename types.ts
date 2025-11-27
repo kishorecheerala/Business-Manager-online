@@ -240,6 +240,7 @@ export interface InvoiceTemplateConfig {
     footerStyle?: 'standard' | 'banner'; // New: Footer Style
     showWatermark: boolean;
     watermarkOpacity: number; // 0.1 to 1.0
+    columnWidths?: { qty?: number; rate?: number; amount?: number; }; // Custom column widths
     tableOptions: {
         hideQty: boolean;
         hideRate: boolean;

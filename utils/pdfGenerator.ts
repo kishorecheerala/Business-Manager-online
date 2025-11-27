@@ -529,23 +529,26 @@ const _generateConfigurablePDF = async (
         return row;
     });
 
-    // Use columnWidths percentages from config if available
-    const itemColPercent = layout.tableOptions?.compact ? 0.5 : 0.4; // Fallback
-    // Convert percentages to roughly styles. Note: jspdf-autotable cellWidth is raw number or 'auto'/'wrap'
+    // Dynamic Column Width Calculation
+    // Defaults: # = 10, Amount = 35, Qty = 15, Rate = 25
+    const customWidths = layout.columnWidths || {};
+    const qtyWidth = customWidths.qty || 15;
+    const rateWidth = customWidths.rate || 25;
+    const amountWidth = customWidths.amount || 35;
     
     autoTable(doc, {
         startY: currentY,
         head: [tableHead],
         body: tableBody,
         theme: layout.tableOptions?.stripedRows ? 'striped' : 'plain',
-        styles: { font: fonts.bodyFont, fontSize: fonts.bodySize, cellPadding: 3, textColor: colors.text },
+        styles: { font: fonts.bodyFont, fontSize: fonts.bodySize, cellPadding: layout.tableOptions?.compact ? 2 : 3, textColor: colors.text },
         headStyles: { fillColor: colors.tableHeaderBg, textColor: colors.tableHeaderText, fontStyle: 'bold' },
         columnStyles: {
             0: { cellWidth: 10, halign: 'center' },
-            1: { cellWidth: 'auto' }, // Item takes remaining
-            [tableHead.length - 1]: { halign: 'right', cellWidth: 35 }, 
-            [tableHead.length - 2]: { halign: 'right', cellWidth: hideRate ? 15 : 25 }, 
-            [tableHead.length - 3]: { halign: 'right', cellWidth: 15 }, 
+            1: { cellWidth: 'auto' }, // Item takes remaining space
+            [tableHead.length - 1]: { halign: 'right', cellWidth: amountWidth }, 
+            [tableHead.length - 2]: { halign: 'right', cellWidth: hideRate ? qtyWidth : rateWidth }, 
+            [tableHead.length - 3]: { halign: 'right', cellWidth: qtyWidth }, 
         },
         margin: { left: margin, right: margin }
     });

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Save, RotateCcw, Type, Layout, Palette, FileText, Edit3, ChevronDown, Upload, Trash2, Wand2, Grid, QrCode, Printer, Eye, ArrowLeft, CheckSquare, Square, Type as TypeIcon, AlignLeft, AlignCenter, AlignRight, Move, GripVertical, Layers, ArrowUp, ArrowDown, Table, Monitor, Loader2, ZoomIn, ZoomOut, ExternalLink } from 'lucide-react';
+import { Save, RotateCcw, Type, Layout, Palette, FileText, Edit3, ChevronDown, Upload, Trash2, Wand2, Grid, QrCode, Printer, Eye, ArrowLeft, CheckSquare, Square, Type as TypeIcon, AlignLeft, AlignCenter, AlignRight, Move, GripVertical, Layers, ArrowUp, ArrowDown, Table, Monitor, Loader2, ZoomIn, ZoomOut, ExternalLink, Columns } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { InvoiceTemplateConfig, DocumentType, InvoiceLabels, CustomFont, ProfileData } from '../types';
 import Button from '../components/Button';
@@ -43,7 +43,7 @@ interface ExtendedLayoutConfig extends InvoiceTemplateConfig {
         sectionOrdering: string[];
         uppercaseHeadings?: boolean;
         boldBorders?: boolean;
-        columnWidths?: { item: number; qty: number; rate: number }; // Percentages
+        columnWidths?: { qty?: number; rate?: number; amount?: number; }; // Updated to match PDF generator needs
         tablePadding?: number; // mm
         tableHeaderAlign?: 'left' | 'center' | 'right';
         borderRadius?: number; // px
@@ -60,7 +60,7 @@ const PRESETS: Record<string, any> = {
             tableOptions: { hideQty: false, hideRate: false, stripedRows: true, bordered: false, compact: false },
             sectionOrdering: ['header', 'title', 'details', 'table', 'totals', 'terms', 'signature', 'footer'],
             uppercaseHeadings: true,
-            columnWidths: { item: 45, qty: 15, rate: 20 },
+            columnWidths: { qty: 15, rate: 20, amount: 35 },
             tablePadding: 3,
             borderRadius: 4
         } as any
@@ -73,7 +73,7 @@ const PRESETS: Record<string, any> = {
             tableOptions: { hideQty: false, hideRate: false, stripedRows: false, bordered: true, compact: false },
             sectionOrdering: ['header', 'title', 'details', 'table', 'totals', 'terms', 'signature', 'footer'],
             uppercaseHeadings: true,
-            columnWidths: { item: 40, qty: 15, rate: 20 },
+            columnWidths: { qty: 15, rate: 20, amount: 35 },
             tablePadding: 4,
             borderRadius: 0
         } as any,
@@ -87,7 +87,7 @@ const PRESETS: Record<string, any> = {
             tableOptions: { hideQty: false, hideRate: false, stripedRows: false, bordered: false, compact: true },
             sectionOrdering: ['header', 'details', 'title', 'table', 'totals', 'footer'],
             uppercaseHeadings: false,
-            columnWidths: { item: 50, qty: 10, rate: 20 },
+            columnWidths: { qty: 10, rate: 20, amount: 35 },
             tablePadding: 2,
             borderRadius: 0
         } as any
@@ -100,7 +100,7 @@ const PRESETS: Record<string, any> = {
             tableOptions: { hideQty: false, hideRate: false, stripedRows: true, bordered: true, compact: false },
             sectionOrdering: ['header', 'title', 'details', 'table', 'totals', 'signature', 'footer'],
             uppercaseHeadings: true,
-            columnWidths: { item: 40, qty: 15, rate: 20 },
+            columnWidths: { qty: 15, rate: 20, amount: 35 },
             tablePadding: 4,
             borderRadius: 8
         } as any,
@@ -211,23 +211,25 @@ const PDFCanvasPreview: React.FC<{
     }, [config, profile, docType, customFonts, zoomLevel]);
 
     return (
-        <div className="flex-1 bg-gray-100 dark:bg-slate-900 p-4 md:p-8 relative overflow-auto flex justify-center items-start" ref={containerRef}>
-            {loading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-black/50 z-10 backdrop-blur-sm">
-                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                </div>
-            )}
-            {error ? (
-                <div className="text-red-500">{error}</div>
-            ) : (
-                <div className="relative shadow-2xl rounded-sm overflow-hidden transition-transform duration-200 ease-out">
-                    <canvas ref={canvasRef} className="bg-white block" />
-                </div>
-            )}
-            
-            <div className="absolute bottom-6 right-6 flex gap-2 bg-white/90 dark:bg-slate-800/90 p-2 rounded-full shadow-lg backdrop-blur-sm border border-gray-200 dark:border-slate-700">
+        <div className="flex-1 relative h-full flex flex-col overflow-hidden">
+            <div className="flex-1 bg-gray-100 dark:bg-slate-900 p-4 md:p-8 overflow-auto flex justify-center items-start" ref={containerRef}>
+                {loading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-black/50 z-10 backdrop-blur-sm">
+                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                    </div>
+                )}
+                {error ? (
+                    <div className="text-red-500">{error}</div>
+                ) : (
+                    <div className="relative shadow-2xl rounded-sm overflow-hidden transition-transform duration-200 ease-out">
+                        <canvas ref={canvasRef} className="bg-white block" />
+                    </div>
+                )}
+            </div>
+            {/* Fixed Zoom Controls outside scroll area */}
+            <div className="absolute bottom-6 right-6 flex gap-2 bg-white/90 dark:bg-slate-800/90 p-2 rounded-full shadow-lg backdrop-blur-sm border border-gray-200 dark:border-slate-700 z-50">
                 <button onClick={() => setZoomLevel(prev => Math.max(0.5, prev - 0.1))} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full"><ZoomOut size={18}/></button>
-                <span className="text-xs font-mono self-center w-12 text-center">{(zoomLevel * 100).toFixed(0)}%</span>
+                <span className="text-xs font-mono self-center w-12 text-center text-gray-700 dark:text-gray-200">{(zoomLevel * 100).toFixed(0)}%</span>
                 <button onClick={() => setZoomLevel(prev => Math.min(2.0, prev + 0.1))} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full"><ZoomIn size={18}/></button>
             </div>
         </div>
@@ -316,7 +318,7 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty }) => {
             layout: {
                 ...baseConfig.layout,
                 sectionOrdering: ['header', 'title', 'details', 'table', 'totals', 'terms', 'signature', 'footer'],
-                columnWidths: { item: 40, qty: 15, rate: 20 },
+                columnWidths: baseConfig.layout.columnWidths || { qty: 15, rate: 20, amount: 35 },
                 tablePadding: 3,
                 borderRadius: 4,
                 uppercaseHeadings: true
@@ -427,7 +429,7 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty }) => {
             <aside 
                 ref={sidebarRef}
                 style={{ width: sidebarWidth }}
-                className="bg-white dark:bg-slate-900 border-r dark:border-slate-800 flex flex-col h-full shadow-xl z-20 flex-shrink-0 transition-width duration-75 ease-out"
+                className="relative bg-white dark:bg-slate-900 border-r dark:border-slate-800 flex flex-col h-full shadow-xl z-20 flex-shrink-0 transition-width duration-75 ease-out"
             >
                 {/* Header */}
                 <div className="p-4 border-b dark:border-slate-800 flex justify-between items-center bg-gray-50 dark:bg-slate-900">
@@ -581,28 +583,70 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty }) => {
                                 </select>
                             </div>
 
-                            {/* Table Layout */}
+                            {/* Table Column Sizes (New Separate Section) */}
                             <div className="space-y-3 border-t dark:border-slate-800 pt-4">
-                                <label className="text-xs font-bold text-slate-500 uppercase block">Table Columns</label>
-                                <div className="space-y-2">
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-xs text-slate-600 dark:text-slate-300">Item Width</span>
+                                <label className="text-xs font-bold text-slate-500 uppercase block flex items-center gap-2">
+                                    <Columns size={14} /> Table Dimensions
+                                </label>
+                                <div className="space-y-4 bg-gray-50 dark:bg-slate-800 p-3 rounded-lg border dark:border-slate-700">
+                                    <div>
+                                        <div className="flex justify-between items-center mb-1">
+                                            <span className="text-[10px] text-slate-500">Qty Column Width</span>
+                                            <span className="text-[10px] font-mono text-indigo-600">{localConfig.layout.columnWidths?.qty || 15}mm</span>
+                                        </div>
                                         <input 
-                                            type="range" min="20" max="70" 
-                                            value={localConfig.layout.columnWidths?.item || 40} 
-                                            onChange={e => handleConfigChange('layout', 'columnWidths', { ...localConfig.layout.columnWidths, item: parseInt(e.target.value) })} 
-                                            className="w-24 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                                            type="range" min="10" max="30" 
+                                            value={localConfig.layout.columnWidths?.qty || 15} 
+                                            onChange={e => handleConfigChange('layout', 'columnWidths', { ...localConfig.layout.columnWidths, qty: parseInt(e.target.value) })} 
+                                            className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
                                         />
                                     </div>
+                                    <div>
+                                        <div className="flex justify-between items-center mb-1">
+                                            <span className="text-[10px] text-slate-500">Rate Column Width</span>
+                                            <span className="text-[10px] font-mono text-indigo-600">{localConfig.layout.columnWidths?.rate || 20}mm</span>
+                                        </div>
+                                        <input 
+                                            type="range" min="15" max="40" 
+                                            value={localConfig.layout.columnWidths?.rate || 20} 
+                                            onChange={e => handleConfigChange('layout', 'columnWidths', { ...localConfig.layout.columnWidths, rate: parseInt(e.target.value) })} 
+                                            className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                                        />
+                                    </div>
+                                    <div>
+                                        <div className="flex justify-between items-center mb-1">
+                                            <span className="text-[10px] text-slate-500">Amount Column Width</span>
+                                            <span className="text-[10px] font-mono text-indigo-600">{localConfig.layout.columnWidths?.amount || 35}mm</span>
+                                        </div>
+                                        <input 
+                                            type="range" min="20" max="50" 
+                                            value={localConfig.layout.columnWidths?.amount || 35} 
+                                            onChange={e => handleConfigChange('layout', 'columnWidths', { ...localConfig.layout.columnWidths, amount: parseInt(e.target.value) })} 
+                                            className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                                        />
+                                    </div>
+                                    <p className="text-[10px] text-gray-400 italic mt-2 text-center">Note: Item Name column automatically takes remaining width.</p>
+                                </div>
+                            </div>
+
+                            {/* Table Options */}
+                            <div className="space-y-3 border-t dark:border-slate-800 pt-4">
+                                <label className="text-xs font-bold text-slate-500 uppercase block">Table Options</label>
+                                <div className="space-y-2">
                                     <div className="flex gap-2">
                                         <button onClick={() => handleConfigChange('layout', 'tableOptions', { ...localConfig.layout.tableOptions, hideQty: !localConfig.layout.tableOptions.hideQty })} className={`flex-1 py-1.5 text-xs border rounded ${!localConfig.layout.tableOptions.hideQty ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'border-slate-200 text-slate-400'}`}>
-                                            Qty
+                                            Show Qty
                                         </button>
                                         <button onClick={() => handleConfigChange('layout', 'tableOptions', { ...localConfig.layout.tableOptions, hideRate: !localConfig.layout.tableOptions.hideRate })} className={`flex-1 py-1.5 text-xs border rounded ${!localConfig.layout.tableOptions.hideRate ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'border-slate-200 text-slate-400'}`}>
-                                            Rate
+                                            Show Rate
                                         </button>
+                                    </div>
+                                    <div className="flex gap-2">
                                         <button onClick={() => handleConfigChange('layout', 'tableOptions', { ...localConfig.layout.tableOptions, compact: !localConfig.layout.tableOptions.compact })} className={`flex-1 py-1.5 text-xs border rounded ${localConfig.layout.tableOptions.compact ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'border-slate-200 text-slate-400'}`}>
-                                            Compact
+                                            Compact Padding
+                                        </button>
+                                        <button onClick={() => handleConfigChange('layout', 'tableOptions', { ...localConfig.layout.tableOptions, stripedRows: !localConfig.layout.tableOptions.stripedRows })} className={`flex-1 py-1.5 text-xs border rounded ${localConfig.layout.tableOptions.stripedRows ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'border-slate-200 text-slate-400'}`}>
+                                            Striped Rows
                                         </button>
                                     </div>
                                 </div>
@@ -791,18 +835,18 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty }) => {
                 
                 {/* Resize Handle */}
                 <div 
-                    className="resize-handle absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-indigo-500 active:bg-indigo-600 z-30 transition-colors flex flex-col justify-center items-center group"
+                    className="resize-handle absolute top-0 right-0 w-4 h-full cursor-col-resize z-30 transition-colors flex flex-col justify-center items-center group -mr-2"
                     onMouseDown={startResizing}
                     onTouchStart={startResizing}
                 >
-                    <div className="w-1 h-8 bg-gray-300 dark:bg-slate-600 rounded-full group-hover:bg-white"></div>
+                    <div className="w-1 h-8 bg-gray-300 dark:bg-slate-600 rounded-full group-hover:bg-indigo-500 transition-colors"></div>
                 </div>
             </aside>
 
             {/* Main Preview Area */}
             <main className="flex-1 flex flex-col h-full relative bg-gray-100 dark:bg-slate-900/50">
                 {/* Top Action Bar */}
-                <div className="bg-white dark:bg-slate-900 border-b dark:border-slate-800 p-3 flex justify-between items-center shadow-sm z-10">
+                <div className="bg-white dark:bg-slate-900 border-b dark:border-slate-800 p-3 flex justify-between items-center shadow-sm z-10 shrink-0">
                     <div className="flex gap-2">
                         <Button onClick={() => window.history.back()} variant="secondary" className="h-8 w-8 p-0 rounded-full flex items-center justify-center"><ArrowLeft size={16}/></Button>
                         <span className="text-sm font-semibold text-gray-500 self-center px-2 border-l ml-2">Live Preview</span>
