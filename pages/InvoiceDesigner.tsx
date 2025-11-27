@@ -1,110 +1,46 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Save, RotateCcw, Type, Layout, Palette, FileText, Edit3, ChevronDown, Upload, Trash2, Wand2, Grid, QrCode, Printer, Eye, ArrowLeft, CheckSquare, Square, Type as TypeIcon, AlignLeft, AlignCenter, AlignRight, Move, GripVertical, Layers, ArrowUp, ArrowDown, Table, Monitor, Loader2, ZoomIn, ZoomOut, ExternalLink, Columns } from 'lucide-react';
+import { Save, RotateCcw, Type, Layout, Palette, FileText, Edit3, ChevronDown, Upload, Trash2, Wand2, Grid, QrCode, Printer, Eye, ArrowLeft, CheckSquare, Square, Type as TypeIcon, AlignLeft, AlignCenter, AlignRight, Move, GripVertical, Layers, ArrowUp, ArrowDown, Table, Monitor, Loader2, ZoomIn, ZoomOut, ExternalLink, Columns, BookOpen, Scaling, Undo, Redo, Rows, EyeOff } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { InvoiceTemplateConfig, DocumentType, InvoiceLabels, CustomFont, ProfileData, Page } from '../types';
 import Button from '../components/Button';
 import ColorPickerModal from '../components/ColorPickerModal';
-import { generateA4InvoicePdf, generateEstimatePDF, generateDebitNotePDF, generateThermalInvoicePDF, generateGenericReportPDF } from '../utils/pdfGenerator';
+import { generateA4InvoicePdf, generateEstimatePDF, generateDebitNotePDF, generateThermalInvoicePDF, generateGenericReportPDF, defaultLabels } from '../utils/pdfGenerator';
 import { extractDominantColor } from '../utils/imageUtils';
 import * as pdfjsLib from 'pdfjs-dist';
 import { useDialog } from '../context/DialogContext';
 
-// Fix for PDF.js import structure in Vite/ESM environments
-// The namespace import might contain the library on the 'default' property
 const pdfjs = (pdfjsLib as any).default || pdfjsLib;
-
-// Setup PDF.js worker
 if (pdfjs.GlobalWorkerOptions) {
     pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
 }
 
-// --- Dummy Data for Previews ---
-const dummyCustomer = {
-    id: 'CUST-001',
-    name: 'John Doe Enterprises',
-    phone: '9876543210',
-    address: '123 Business Park, Tech City, Hyderabad, Telangana 500081',
-    area: 'Tech City',
-    reference: 'Walk-in'
-};
+// ... (Existing Dummy Data - Keep as is)
+const dummyCustomer = { id: 'CUST-001', name: 'John Doe Enterprises', phone: '9876543210', address: '123 Business Park, Tech City, Hyderabad, Telangana 500081', area: 'Tech City', reference: 'Walk-in' };
+const dummySale = { id: 'INV-2023-001', customerId: 'CUST-001', items: [{ productId: 'P1', productName: 'Premium Silk Saree - Kanchipuram', quantity: 2, price: 4500, gstPercent: 5 }, { productId: 'P2', productName: 'Cotton Kurti', quantity: 5, price: 850, gstPercent: 5 }, { productId: 'P3', productName: 'Designer Blouse - Gold', quantity: 3, price: 1200, gstPercent: 12 }], discount: 500, gstAmount: 1250, totalAmount: 16350, date: new Date().toISOString(), payments: [{ id: 'PAY-1', amount: 5000, date: new Date().toISOString(), method: 'UPI' as const }] };
 
-const dummySale = {
-    id: 'INV-2023-001',
-    customerId: 'CUST-001',
-    items: [
-        { productId: 'P1', productName: 'Premium Silk Saree - Kanchipuram', quantity: 2, price: 4500, gstPercent: 5 },
-        { productId: 'P2', productName: 'Cotton Kurti', quantity: 5, price: 850, gstPercent: 5 },
-        { productId: 'P3', productName: 'Designer Blouse - Gold', quantity: 3, price: 1200, gstPercent: 12 }
-    ],
-    discount: 500,
-    gstAmount: 1250,
-    totalAmount: 16350,
-    date: new Date().toISOString(),
-    payments: [{ id: 'PAY-1', amount: 5000, date: new Date().toISOString(), method: 'UPI' as const }]
-};
-
-// --- Report Dummy Data Scenarios ---
-const REPORT_SCENARIOS = {
-    'SALES_REPORT': {
-        title: "Sales Report",
-        subtitle: "Summary of monthly performance",
-        headers: ['Item Name', 'Category', 'Qty', 'Amount'],
-        data: [['Silk Saree', 'Apparel', '10', '45,000'], ['Cotton Shirt', 'Apparel', '25', '12,500'], ['Gold Jewellery', 'Accessories', '2', '80,000']],
-        summary: [{ label: 'Total Sales', value: 'Rs. 1,37,500' }]
-    },
-    'CUSTOMER_DUES': {
-        title: "Customer Dues Summary",
-        subtitle: "Statement For: John Doe Enterprises",
-        headers: ['Invoice ID', 'Date', 'Total', 'Paid', 'Due'],
-        data: [
-            ['INV-001', '01/10/2023', 'Rs. 15,000', 'Rs. 5,000', 'Rs. 10,000'],
-            ['INV-005', '15/10/2023', 'Rs. 8,500', 'Rs. 0', 'Rs. 8,500'],
-            ['INV-012', '20/10/2023', 'Rs. 22,000', 'Rs. 10,000', 'Rs. 12,000']
-        ],
-        summary: [{ label: 'Total Outstanding Due', value: 'Rs. 30,500', color: '#dc2626' }]
-    },
-    'LOW_STOCK': {
-        title: "Low Stock Reorder Report",
-        subtitle: "Items with quantity < 5",
-        headers: ['Product Name', 'Current Stock', 'Last Cost'],
-        data: [
-            ['Blue Cotton Saree', '2', 'Rs. 800'],
-            ['Kids Wear Set - Red', '0', 'Rs. 450'],
-            ['Silk Scarf', '4', 'Rs. 300']
-        ],
-        summary: []
-    }
-};
-
-type ReportScenarioKey = keyof typeof REPORT_SCENARIOS;
-
-// --- Extended Configuration Interface for Local State ---
 interface ExtendedLayoutConfig extends InvoiceTemplateConfig {
     layout: InvoiceTemplateConfig['layout'] & {
         sectionOrdering: string[];
         uppercaseHeadings?: boolean;
         boldBorders?: boolean;
-        columnWidths?: { qty?: number; rate?: number; amount?: number; }; // Updated to match PDF generator needs
-        tablePadding?: number; // mm
+        columnWidths?: { qty?: number; rate?: number; amount?: number; };
+        tablePadding?: number;
         tableHeaderAlign?: 'left' | 'center' | 'right';
-        borderRadius?: number; // px
+        borderRadius?: number;
     };
+    paperSize?: 'a4' | 'letter';
 }
 
-// --- Templates Presets ---
-const PRESETS: Record<string, any> = {
+const PRESETS: Record<string, Partial<ExtendedLayoutConfig>> = {
     'Modern': {
         colors: { primary: '#0f172a', secondary: '#64748b', text: '#334155', tableHeaderBg: '#f1f5f9', tableHeaderText: '#0f172a', borderColor: '#e2e8f0', alternateRowBg: '#f8fafc' },
         fonts: { titleFont: 'helvetica', bodyFont: 'helvetica', headerSize: 24, bodySize: 10 },
         layout: { 
             logoPosition: 'left', logoOffsetX: 0, logoOffsetY: 0, headerAlignment: 'right', headerStyle: 'minimal', margin: 10, logoSize: 25, showWatermark: false, watermarkOpacity: 0.1,
             tableOptions: { hideQty: false, hideRate: false, stripedRows: true, bordered: false, compact: false },
-            sectionOrdering: ['header', 'title', 'details', 'table', 'totals', 'terms', 'signature', 'footer'],
-            uppercaseHeadings: true,
-            columnWidths: { qty: 15, rate: 20, amount: 35 },
-            tablePadding: 3,
-            borderRadius: 4
+            sectionOrdering: ['header', 'title', 'details', 'table', 'totals', 'terms', 'bankDetails', 'signature', 'footer'],
+            uppercaseHeadings: true, columnWidths: { qty: 15, rate: 20, amount: 35 }, tablePadding: 3, borderRadius: 4
         } as any
     },
     'Corporate': {
@@ -113,881 +49,333 @@ const PRESETS: Record<string, any> = {
         layout: { 
             logoPosition: 'center', logoOffsetX: 0, logoOffsetY: 0, headerAlignment: 'center', headerStyle: 'banner', margin: 15, logoSize: 30, showWatermark: true, watermarkOpacity: 0.05,
             tableOptions: { hideQty: false, hideRate: false, stripedRows: false, bordered: true, compact: false },
-            sectionOrdering: ['header', 'title', 'details', 'table', 'totals', 'terms', 'signature', 'footer'],
-            uppercaseHeadings: true,
-            columnWidths: { qty: 15, rate: 20, amount: 35 },
-            tablePadding: 4,
-            borderRadius: 0
-        } as any,
-        content: { showAmountInWords: true }
-    },
-    'Minimal': {
-        colors: { primary: '#000000', secondary: '#52525b', text: '#27272a', tableHeaderBg: '#ffffff', tableHeaderText: '#000000', borderColor: '#d4d4d8' },
-        fonts: { titleFont: 'courier', bodyFont: 'courier', headerSize: 20, bodySize: 9 },
-        layout: { 
-            logoPosition: 'right', logoOffsetX: 0, logoOffsetY: 0, headerAlignment: 'left', headerStyle: 'minimal', margin: 12, logoSize: 20, showWatermark: false, watermarkOpacity: 0.1,
-            tableOptions: { hideQty: false, hideRate: false, stripedRows: false, bordered: false, compact: true },
-            sectionOrdering: ['header', 'details', 'title', 'table', 'totals', 'footer'],
-            uppercaseHeadings: false,
-            columnWidths: { qty: 10, rate: 20, amount: 35 },
-            tablePadding: 2,
-            borderRadius: 0
+            sectionOrdering: ['header', 'title', 'details', 'table', 'totals', 'terms', 'bankDetails', 'signature', 'footer'],
+            uppercaseHeadings: true, columnWidths: { qty: 15, rate: 20, amount: 35 }, tablePadding: 4, borderRadius: 0
         } as any
     },
-    'Bold': {
-        colors: { primary: '#dc2626', secondary: '#1f2937', text: '#111827', tableHeaderBg: '#dc2626', tableHeaderText: '#ffffff', bannerBg: '#dc2626', bannerText: '#ffffff' },
-        fonts: { titleFont: 'helvetica', bodyFont: 'helvetica', headerSize: 28, bodySize: 10 },
-        layout: { 
-            logoPosition: 'left', logoOffsetX: 0, logoOffsetY: 0, headerAlignment: 'left', headerStyle: 'banner', margin: 10, logoSize: 35, showWatermark: true, watermarkOpacity: 0.15,
-            tableOptions: { hideQty: false, hideRate: false, stripedRows: true, bordered: true, compact: false },
-            sectionOrdering: ['header', 'title', 'details', 'table', 'totals', 'signature', 'footer'],
-            uppercaseHeadings: true,
-            columnWidths: { qty: 15, rate: 20, amount: 35 },
-            tablePadding: 4,
-            borderRadius: 8
-        } as any,
-        content: { showStatusStamp: true }
-    }
 };
 
-const defaultLabels: InvoiceLabels = {
-    billedTo: "Billed To",
-    invoiceNo: "Invoice No",
-    date: "Date",
-    item: "Item",
-    qty: "Qty",
-    rate: "Rate",
-    amount: "Amount",
-    subtotal: "Subtotal",
-    discount: "Discount",
-    gst: "GST",
-    grandTotal: "Grand Total",
-    paid: "Paid",
-    balance: "Balance"
+const SECTIONS_INFO: Record<string, { label: string, toggle: keyof InvoiceTemplateConfig['content'] | null }> = {
+    header: { label: 'Header (Logo & Business)', toggle: 'showBusinessDetails' },
+    title: { label: 'Document Title', toggle: null },
+    details: { label: 'Customer & Invoice Info', toggle: 'showCustomerDetails' },
+    table: { label: 'Item Table', toggle: null },
+    totals: { label: 'Totals & Tax', toggle: null },
+    words: { label: 'Amount in Words', toggle: 'showAmountInWords' },
+    bankDetails: { label: 'Bank Details', toggle: null }, 
+    terms: { label: 'Terms & Conditions', toggle: 'showTerms' },
+    signature: { label: 'Signature', toggle: 'showSignature' },
+    footer: { label: 'Footer', toggle: null }
 };
 
-// --- PDF Canvas Preview Component (PDF.js Based) ---
-const PDFCanvasPreview: React.FC<{ 
-    config: ExtendedLayoutConfig; 
-    profile: ProfileData | null;
-    docType: DocumentType;
-    customFonts: CustomFont[];
-    reportScenario?: ReportScenarioKey;
-}> = ({ config, profile, docType, customFonts, reportScenario = 'SALES_REPORT' }) => {
+const PDFCanvasPreview: React.FC<{ config: ExtendedLayoutConfig; profile: ProfileData | null; docType: DocumentType; customFonts: CustomFont[]; }> = ({ config, profile, docType, customFonts }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
     const renderTaskRef = useRef<any>(null);
     const [zoomLevel, setZoomLevel] = useState(1.0);
 
     useEffect(() => {
         let active = true;
-        let timeoutId: ReturnType<typeof setTimeout>;
-
         const render = async () => {
             if (!containerRef.current || !canvasRef.current) return;
             setLoading(true);
-            setError(null);
-
             try {
-                let doc;
-                switch (docType) {
-                    case 'INVOICE': doc = await generateA4InvoicePdf(dummySale, dummyCustomer, profile, config, customFonts); break;
-                    case 'ESTIMATE': doc = await generateEstimatePDF(dummySale as any, dummyCustomer, profile, config, customFonts); break;
-                    case 'DEBIT_NOTE': doc = await generateDebitNotePDF(dummySale as any, dummyCustomer as any, profile, config, customFonts); break;
-                    case 'RECEIPT': doc = await generateThermalInvoicePDF(dummySale, dummyCustomer, profile, config, customFonts); break;
-                    case 'REPORT': 
-                        const scenario = REPORT_SCENARIOS[reportScenario];
-                        doc = await generateGenericReportPDF(
-                            scenario.title, 
-                            scenario.subtitle,
-                            scenario.headers,
-                            scenario.data,
-                            scenario.summary,
-                            profile, 
-                            config, 
-                            customFonts
-                        ); 
-                        break;
-                    default: doc = await generateA4InvoicePdf(dummySale, dummyCustomer, profile, config, customFonts);
-                }
+                let doc = docType === 'RECEIPT' 
+                    ? await generateThermalInvoicePDF(dummySale, dummyCustomer, profile, config, customFonts)
+                    : await generateA4InvoicePdf(dummySale, dummyCustomer, profile, config, customFonts);
 
                 if (!active) return;
-
                 const blob = doc.output('blob');
                 const url = URL.createObjectURL(blob);
-
-                // Use the correct pdfjs object
                 const loadingTask = pdfjs.getDocument(url);
                 const pdf = await loadingTask.promise;
                 const page = await pdf.getPage(1);
-
                 if (!active) { URL.revokeObjectURL(url); return; }
 
-                const containerWidth = containerRef.current.clientWidth;
-                const baseViewport = page.getViewport({ scale: 1 });
-                const fitScale = (containerWidth - 40) / baseViewport.width; 
-                const scale = fitScale * zoomLevel;
-                const viewport = page.getViewport({ scale });
-
+                const viewport = page.getViewport({ scale: zoomLevel * 1.5 });
                 const canvas = canvasRef.current;
                 const context = canvas.getContext('2d');
                 canvas.height = viewport.height;
                 canvas.width = viewport.width;
 
-                if (renderTaskRef.current) {
-                    await renderTaskRef.current.cancel();
-                }
-
-                const renderContext = {
-                    canvasContext: context!,
-                    viewport: viewport,
-                };
-                
-                renderTaskRef.current = page.render(renderContext);
+                if (renderTaskRef.current) await renderTaskRef.current.cancel();
+                renderTaskRef.current = page.render({ canvasContext: context!, viewport: viewport });
                 await renderTaskRef.current.promise;
-
                 URL.revokeObjectURL(url);
-            } catch (e: any) {
-                if (e.name !== 'RenderingCancelledException') {
-                    console.error("Preview Render Error:", e);
-                    setError("Failed to render preview. " + (e.message || ''));
-                }
-            } finally {
-                if (active) setLoading(false);
-            }
+            } catch (e) { console.error(e); } finally { if (active) setLoading(false); }
         };
-
-        timeoutId = setTimeout(render, 500); // Debounce render
-        return () => {
-            active = false;
-            clearTimeout(timeoutId);
-            if (renderTaskRef.current) renderTaskRef.current.cancel();
-        };
-    }, [config, profile, docType, customFonts, zoomLevel, reportScenario]);
+        const t = setTimeout(render, 500);
+        return () => { active = false; clearTimeout(t); if(renderTaskRef.current) renderTaskRef.current.cancel(); };
+    }, [config, profile, docType, customFonts, zoomLevel]);
 
     return (
-        <div className="flex-1 relative h-full flex flex-col overflow-hidden min-h-0">
-            <div className="flex-1 bg-gray-100 dark:bg-slate-900 p-4 md:p-8 overflow-auto flex justify-center items-start" ref={containerRef}>
-                {loading && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-black/50 z-10 backdrop-blur-sm">
-                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                    </div>
-                )}
-                {error ? (
-                    <div className="text-red-500 p-4 text-center">{error}</div>
-                ) : (
-                    <div className="relative shadow-2xl rounded-sm overflow-hidden transition-transform duration-200 ease-out">
-                        <canvas ref={canvasRef} className="bg-white block" />
-                    </div>
-                )}
+        <div className="flex-1 relative h-full flex flex-col overflow-hidden bg-gray-100 dark:bg-slate-900">
+            <div className="flex-1 p-8 overflow-auto flex justify-center items-start" ref={containerRef}>
+                {loading && <div className="absolute inset-0 flex items-center justify-center bg-white/50 z-10"><Loader2 className="w-8 h-8 animate-spin" /></div>}
+                <canvas ref={canvasRef} className="bg-white shadow-2xl" />
             </div>
-            {/* Fixed Zoom Controls outside scroll area */}
-            <div className="absolute bottom-6 right-6 flex gap-2 bg-white/90 dark:bg-slate-800/90 p-2 rounded-full shadow-lg backdrop-blur-sm border border-gray-200 dark:border-slate-700 z-50">
-                <button onClick={() => setZoomLevel(prev => Math.max(0.5, prev - 0.1))} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full"><ZoomOut size={18}/></button>
-                <span className="text-xs font-mono self-center w-12 text-center text-gray-700 dark:text-gray-200">{(zoomLevel * 100).toFixed(0)}%</span>
-                <button onClick={() => setZoomLevel(prev => Math.min(2.0, prev + 0.1))} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full"><ZoomIn size={18}/></button>
+            <div className="absolute bottom-6 right-6 flex gap-2 bg-white/90 p-2 rounded-full shadow-lg z-50">
+                <button onClick={() => setZoomLevel(p => Math.max(0.5, p - 0.1))} className="p-2 hover:bg-gray-100 rounded-full"><ZoomOut size={18}/></button>
+                <span className="text-xs font-mono self-center w-12 text-center">{(zoomLevel * 100).toFixed(0)}%</span>
+                <button onClick={() => setZoomLevel(p => Math.min(2.0, p + 0.1))} className="p-2 hover:bg-gray-100 rounded-full"><ZoomIn size={18}/></button>
             </div>
         </div>
     );
 };
 
-// --- Main Editor Component ---
-interface InvoiceDesignerProps {
-    setIsDirty: (isDirty: boolean) => void;
-    setCurrentPage: (page: Page) => void;
-}
+interface InvoiceDesignerProps { setIsDirty: (isDirty: boolean) => void; setCurrentPage: (page: Page) => void; }
 
 const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurrentPage }) => {
     const { state, dispatch, showToast } = useAppContext();
     const { showConfirm } = useDialog();
-    
     const [docType, setDocType] = useState<DocumentType>('INVOICE');
-    const [activeTab, setActiveTab] = useState<'layout' | 'content' | 'branding' | 'fonts'>('layout');
+    const [activeTab, setActiveTab] = useState<'layout' | 'sections' | 'content' | 'labels' | 'branding' | 'fonts'>('layout');
     const [showColorPicker, setShowColorPicker] = useState(false);
     const [activeColorKey, setActiveColorKey] = useState<keyof InvoiceTemplateConfig['colors'] | null>(null);
-    const [reportScenario, setReportScenario] = useState<ReportScenarioKey>('SALES_REPORT');
-    
-    // Sidebar Resizing Logic
-    const [sidebarWidth, setSidebarWidth] = useState(350);
-    const sidebarRef = useRef<HTMLDivElement>(null);
-    const isResizing = useRef(false);
+    const fontFileInputRef = useRef<HTMLInputElement>(null);
 
-    const startResizing = (e: React.MouseEvent | React.TouchEvent) => {
-        // Stop scrolling while resizing
-        document.body.style.overflow = 'hidden';
-        
-        if ('touches' in e && e.touches.length > 0) {
-            // Only start touch resize if touching the handle specifically
-            const target = e.target as HTMLElement;
-            if(target.closest('.resize-handle')) {
-                isResizing.current = true;
-            }
-        } else {
-            isResizing.current = true;
+    // Initial State & History for Undo/Redo
+    const getInitialConfig = () => {
+        const conf = JSON.parse(JSON.stringify(state.invoiceTemplate));
+        if (!conf.layout.sectionOrdering) {
+            conf.layout.sectionOrdering = ['header', 'title', 'details', 'table', 'totals', 'words', 'bankDetails', 'terms', 'signature', 'footer'];
+        }
+        return conf;
+    };
+    const [localConfig, setLocalConfig] = useState<ExtendedLayoutConfig>(getInitialConfig());
+    const [history, setHistory] = useState<ExtendedLayoutConfig[]>([getInitialConfig()]);
+    const [historyIndex, setHistoryIndex] = useState(0);
+
+    const updateConfig = (newConfig: ExtendedLayoutConfig) => {
+        const newHistory = history.slice(0, historyIndex + 1);
+        newHistory.push(newConfig);
+        setHistory(newHistory);
+        setHistoryIndex(newHistory.length - 1);
+        setLocalConfig(newConfig);
+        setIsDirty(true);
+    };
+
+    const undo = () => {
+        if (historyIndex > 0) {
+            setHistoryIndex(historyIndex - 1);
+            setLocalConfig(history[historyIndex - 1]);
         }
     };
 
-    const stopResizing = useCallback(() => {
-        isResizing.current = false;
-        document.body.style.overflow = '';
-    }, []);
-
-    const resize = useCallback((e: MouseEvent | TouchEvent) => {
-        if (isResizing.current) {
-            e.preventDefault(); // Prevent scrolling/selection
-            let clientX = 0;
-            if ('touches' in e) {
-                clientX = e.touches[0].clientX;
-            } else {
-                clientX = (e as MouseEvent).clientX;
-            }
-            
-            // Limit width
-            const newWidth = Math.max(280, Math.min(clientX, 600));
-            setSidebarWidth(newWidth);
+    const redo = () => {
+        if (historyIndex < history.length - 1) {
+            setHistoryIndex(historyIndex + 1);
+            setLocalConfig(history[historyIndex + 1]);
         }
-    }, []);
-
-    useEffect(() => {
-        // Attach global listeners for smoother drag
-        window.addEventListener('mousemove', resize);
-        window.addEventListener('mouseup', stopResizing);
-        window.addEventListener('touchmove', resize, { passive: false }); // passive:false to allow preventDefault
-        window.addEventListener('touchend', stopResizing);
-        return () => {
-            window.removeEventListener('mousemove', resize);
-            window.removeEventListener('mouseup', stopResizing);
-            window.removeEventListener('touchmove', resize);
-            window.removeEventListener('touchend', stopResizing);
-        };
-    }, [resize, stopResizing]);
-
-    const getInitialConfig = (type: DocumentType): ExtendedLayoutConfig => {
-        let baseConfig: InvoiceTemplateConfig;
-        switch (type) {
-            case 'ESTIMATE': baseConfig = state.estimateTemplate; break;
-            case 'DEBIT_NOTE': baseConfig = state.debitNoteTemplate; break;
-            case 'RECEIPT': baseConfig = state.receiptTemplate; break;
-            case 'REPORT': baseConfig = state.reportTemplate; break;
-            default: baseConfig = state.invoiceTemplate; break;
-        }
-        return {
-            ...baseConfig,
-            layout: {
-                ...baseConfig.layout,
-                sectionOrdering: ['header', 'title', 'details', 'table', 'totals', 'terms', 'signature', 'footer'],
-                columnWidths: baseConfig.layout.columnWidths || { qty: 15, rate: 20, amount: 35 },
-                tablePadding: 3,
-                borderRadius: 4,
-                uppercaseHeadings: true
-            }
-        };
     };
-
-    const [localConfig, setLocalConfig] = useState<ExtendedLayoutConfig>(getInitialConfig('INVOICE'));
-    const [initialConfigJson, setInitialConfigJson] = useState('');
-    
-    // Load initial config when docType changes
-    useEffect(() => {
-        const conf = getInitialConfig(docType);
-        setLocalConfig(conf);
-        setInitialConfigJson(JSON.stringify(conf));
-        setIsDirty(false);
-    }, [docType]);
-
-    // Track dirty state by comparing current localConfig with initial snapshot
-    useEffect(() => {
-        if (!initialConfigJson) return;
-        const isChanged = JSON.stringify(localConfig) !== initialConfigJson;
-        setIsDirty(isChanged);
-    }, [localConfig, initialConfigJson, setIsDirty]);
 
     const handleConfigChange = (section: keyof ExtendedLayoutConfig, key: string, value: any) => {
-        setLocalConfig(prev => ({
-            ...prev,
-            [section]: {
-                ...prev[section],
-                [key]: value
-            }
-        }));
+        const newConfig = { ...localConfig, [section]: { ...localConfig[section], [key]: value } };
+        updateConfig(newConfig);
     };
 
     const applyPreset = (presetName: string) => {
         const preset = PRESETS[presetName];
-        if (preset) {
-            setLocalConfig(prev => ({
-                ...prev,
-                colors: { ...prev.colors, ...preset.colors },
-                fonts: { ...prev.fonts, ...preset.fonts },
-                layout: { ...prev.layout, ...preset.layout },
-                content: { ...prev.content, ...preset.content }
-            }));
-        }
-    };
-
-    const handleSave = () => {
-        dispatch({ 
-            type: 'SET_DOCUMENT_TEMPLATE', 
-            payload: { type: docType, config: localConfig } 
-        });
-        showToast(`${docType} template saved successfully!`);
+        if (!preset) return;
         
-        // Update baseline for dirty checking
-        setInitialConfigJson(JSON.stringify(localConfig));
-        setIsDirty(false);
-    };
-
-    const handleOpenPdf = async () => {
-        try {
-            let doc;
-            switch (docType) {
-                case 'INVOICE': doc = await generateA4InvoicePdf(dummySale, dummyCustomer, state.profile, localConfig, state.customFonts); break;
-                case 'ESTIMATE': doc = await generateEstimatePDF(dummySale as any, dummyCustomer, state.profile, localConfig, state.customFonts); break;
-                case 'DEBIT_NOTE': doc = await generateDebitNotePDF(dummySale as any, dummyCustomer as any, state.profile, localConfig, state.customFonts); break;
-                case 'RECEIPT': doc = await generateThermalInvoicePDF(dummySale, dummyCustomer, state.profile, localConfig, state.customFonts); break;
-                case 'REPORT': 
-                    const scenario = REPORT_SCENARIOS[reportScenario];
-                    doc = await generateGenericReportPDF(
-                        scenario.title, 
-                        scenario.subtitle,
-                        scenario.headers,
-                        scenario.data,
-                        scenario.summary,
-                        state.profile, 
-                        localConfig, 
-                        state.customFonts
-                    ); 
-                    break;
-                default: doc = await generateA4InvoicePdf(dummySale, dummyCustomer, state.profile, localConfig, state.customFonts);
+        // Merge preset with current config but PRESERVE content fields
+        // We only want to overwrite colors, fonts, and layout structure
+        const newConfig = {
+            ...localConfig,
+            colors: { ...localConfig.colors, ...preset.colors },
+            fonts: { ...localConfig.fonts, ...preset.fonts },
+            layout: { ...localConfig.layout, ...preset.layout }, // Overwrite layout structure (sectionOrdering)
+            // Content is PRESERVED, except strictly visual toggles if defined in preset (e.g. showAmountInWords)
+            content: { 
+                ...localConfig.content, 
+                ...preset.content 
             }
-            const blob = doc.output('blob');
-            const url = URL.createObjectURL(blob);
-            window.open(url, '_blank');
-        } catch (e) {
-            console.error(e);
-            showToast("Failed to open PDF.", "error");
-        }
+        };
+        updateConfig(newConfig);
+        showToast(`Applied ${presetName} preset`);
     };
 
-    const handleDownloadTestPdf = async () => {
-        try {
-            let doc;
-            switch (docType) {
-                case 'INVOICE': doc = await generateA4InvoicePdf(dummySale, dummyCustomer, state.profile, localConfig, state.customFonts); break;
-                case 'ESTIMATE': doc = await generateEstimatePDF(dummySale as any, dummyCustomer, state.profile, localConfig, state.customFonts); break;
-                case 'DEBIT_NOTE': doc = await generateDebitNotePDF(dummySale as any, dummyCustomer as any, state.profile, localConfig, state.customFonts); break;
-                case 'RECEIPT': doc = await generateThermalInvoicePDF(dummySale, dummyCustomer, state.profile, localConfig, state.customFonts); break;
-                case 'REPORT': 
-                    const scenario = REPORT_SCENARIOS[reportScenario];
-                    doc = await generateGenericReportPDF(
-                        scenario.title, 
-                        scenario.subtitle,
-                        scenario.headers,
-                        scenario.data,
-                        scenario.summary,
-                        state.profile, 
-                        localConfig, 
-                        state.customFonts
-                    ); 
-                    break;
-                default: doc = await generateA4InvoicePdf(dummySale, dummyCustomer, state.profile, localConfig, state.customFonts);
-            }
-            doc.save(`Test_${docType}.pdf`);
-        } catch (e) {
-            console.error(e);
-            showToast("Failed to generate PDF.", "error");
+    const moveSection = (index: number, direction: 'up' | 'down') => {
+        const sections = [...(localConfig.layout.sectionOrdering || [])];
+        if (direction === 'up' && index > 0) {
+            [sections[index], sections[index - 1]] = [sections[index - 1], sections[index]];
+        } else if (direction === 'down' && index < sections.length - 1) {
+            [sections[index], sections[index + 1]] = [sections[index + 1], sections[index]];
         }
+        handleConfigChange('layout', 'sectionOrdering', sections);
     };
 
-    const handleColorPick = (key: keyof InvoiceTemplateConfig['colors']) => {
-        setActiveColorKey(key);
-        setShowColorPicker(true);
+    const handleFontUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                if (event.target?.result) {
+                    const fontName = file.name.replace(/\.[^/.]+$/, "");
+                    dispatch({ type: 'ADD_CUSTOM_FONT', payload: { id: `font-${Date.now()}`, name: fontName, data: event.target.result as string } });
+                    showToast(`Font "${fontName}" added.`);
+                }
+            };
+            reader.readAsDataURL(file);
+        }
     };
 
     return (
         <div className="flex h-full bg-gray-50 dark:bg-slate-950 overflow-hidden font-sans relative">
-            {/* Color Picker Modal */}
-            <ColorPickerModal
-                isOpen={showColorPicker}
-                onClose={() => setShowColorPicker(false)}
-                initialColor={activeColorKey ? localConfig.colors[activeColorKey] : '#000000'}
-                onChange={(color) => {
-                    if (activeColorKey) {
-                        handleConfigChange('colors', activeColorKey, color);
-                    }
-                }}
-            />
-
-            {/* Sidebar */}
-            <aside 
-                ref={sidebarRef}
-                style={{ width: sidebarWidth }}
-                className="relative bg-white dark:bg-slate-900 border-r dark:border-slate-800 flex flex-col h-full shadow-xl z-20 flex-shrink-0 transition-width duration-75 ease-out"
-            >
-                {/* Header */}
-                <div className="p-4 border-b dark:border-slate-800 flex justify-between items-center bg-gray-50 dark:bg-slate-900">
+            <ColorPickerModal isOpen={showColorPicker} onClose={() => setShowColorPicker(false)} initialColor={activeColorKey ? localConfig.colors[activeColorKey] : '#000'} onChange={(c) => activeColorKey && handleConfigChange('colors', activeColorKey, c)} />
+            
+            <aside className="w-[350px] bg-white dark:bg-slate-900 border-r dark:border-slate-800 flex flex-col h-full z-20">
+                <div className="p-4 border-b flex justify-between items-center bg-gray-50 dark:bg-slate-900">
                     <div className="flex items-center gap-2">
-                        <button 
-                            onClick={() => setCurrentPage('DASHBOARD')} 
-                            className="p-2 rounded-lg hover:bg-white dark:hover:bg-slate-700 text-slate-500 transition-colors mr-1"
-                            title="Exit to Dashboard"
-                        >
-                             <ArrowLeft size={20} />
-                        </button>
-                        <div className="p-2 bg-indigo-600 rounded-lg text-white shadow-lg">
-                            <Wand2 size={18} />
-                        </div>
-                        <div>
-                            <h2 className="font-bold text-sm text-slate-800 dark:text-white">Invoice Designer</h2>
-                            <p className="text-[10px] text-slate-500">Visual Editor</p>
-                        </div>
+                        <button onClick={() => setCurrentPage('DASHBOARD')}><ArrowLeft size={20}/></button>
+                        <h2 className="font-bold text-sm">Invoice Designer</h2>
                     </div>
                     <div className="flex gap-1">
-                        <Button onClick={handleSave} className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 shadow-md">
-                            <Save size={14} className="mr-1.5" /> Save
-                        </Button>
+                        <button onClick={undo} disabled={historyIndex === 0} className="p-1 disabled:opacity-30"><Undo size={16}/></button>
+                        <button onClick={redo} disabled={historyIndex === history.length - 1} className="p-1 disabled:opacity-30"><Redo size={16}/></button>
+                        <Button onClick={() => { dispatch({ type: 'SET_DOCUMENT_TEMPLATE', payload: { type: docType, config: localConfig } }); showToast("Saved!"); setIsDirty(false); }} className="h-8 px-3 text-xs bg-emerald-600"><Save size={14} className="mr-1" /> Save</Button>
                     </div>
                 </div>
 
-                {/* Document Type Selector */}
-                <div className="px-4 py-3 border-b dark:border-slate-800">
-                    <label className="text-xs font-bold text-slate-500 uppercase mb-1.5 block">Document Type</label>
-                    <div className="grid grid-cols-2 gap-2">
-                        {['INVOICE', 'ESTIMATE', 'DEBIT_NOTE', 'RECEIPT', 'REPORT'].map(t => (
-                            <button
-                                key={t}
-                                onClick={() => setDocType(t as DocumentType)}
-                                className={`px-2 py-1.5 rounded text-xs font-semibold transition-all border ${docType === t ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-900/30 dark:border-indigo-700 dark:text-indigo-300' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-gray-50'}`}
-                            >
-                                {t.replace('_', ' ')}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Tabs */}
-                <div className="flex border-b dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-0 z-10">
+                <div className="flex border-b bg-white dark:bg-slate-900 overflow-x-auto">
                     {[
                         { id: 'layout', icon: Layout, label: 'Layout' },
+                        { id: 'sections', icon: Layers, label: 'Sections' },
                         { id: 'branding', icon: Palette, label: 'Style' },
                         { id: 'content', icon: FileText, label: 'Content' },
-                        { id: 'fonts', icon: Type, label: 'Text' },
+                        { id: 'labels', icon: Edit3, label: 'Labels' },
+                        { id: 'fonts', icon: Type, label: 'Fonts' },
                     ].map(tab => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id as any)}
-                            className={`flex-1 py-3 flex flex-col items-center justify-center gap-1 text-[10px] font-medium transition-colors border-b-2 ${activeTab === tab.id ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50 dark:bg-slate-800' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800'}`}
-                        >
-                            <tab.icon size={16} />
-                            {tab.label}
+                        <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`flex-1 min-w-[60px] py-3 flex flex-col items-center justify-center gap-1 text-[10px] font-medium border-b-2 ${activeTab === tab.id ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500'}`}>
+                            <tab.icon size={16} />{tab.label}
                         </button>
                     ))}
                 </div>
 
-                {/* Tab Content */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar pb-20">
-                    
-                    {/* LAYOUT TAB */}
                     {activeTab === 'layout' && (
-                        <div className="space-y-6 animate-fade-in-fast">
-                            {/* Presets */}
-                            <div>
-                                <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Quick Presets</label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    {Object.keys(PRESETS).map(name => (
-                                        <button key={name} onClick={() => applyPreset(name)} className="px-3 py-2 text-xs font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-sm transition-all text-left">
-                                            {name}
-                                        </button>
-                                    ))}
-                                </div>
+                        <div className="space-y-4">
+                            <label className="text-xs font-bold text-slate-500 uppercase">Presets (Colors & Layout Only)</label>
+                            <div className="grid grid-cols-2 gap-2">
+                                {Object.keys(PRESETS).map(name => <button key={name} onClick={() => applyPreset(name)} className="px-3 py-2 text-xs border rounded">{name}</button>)}
                             </div>
+                            <div className="space-y-2 pt-2 border-t">
+                                <div className="flex justify-between"><span className="text-xs">Border Radius</span><span className="text-xs">{localConfig.layout.borderRadius || 0}px</span></div>
+                                <input type="range" min="0" max="20" value={localConfig.layout.borderRadius || 0} onChange={e => handleConfigChange('layout', 'borderRadius', parseInt(e.target.value))} className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"/>
+                            </div>
+                            <div className="space-y-2">
+                                <div className="flex justify-between"><span className="text-xs">Table Padding</span><span className="text-xs">{localConfig.layout.tablePadding || 3}mm</span></div>
+                                <input type="range" min="1" max="10" value={localConfig.layout.tablePadding || 3} onChange={e => handleConfigChange('layout', 'tablePadding', parseInt(e.target.value))} className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"/>
+                            </div>
+                        </div>
+                    )}
 
-                            {/* Header Style */}
-                            <div className="space-y-3">
-                                <label className="text-xs font-bold text-slate-500 uppercase block">Header Layout</label>
-                                <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
-                                    {['standard', 'banner', 'minimal'].map(s => (
-                                        <button 
-                                            key={s} 
-                                            onClick={() => handleConfigChange('layout', 'headerStyle', s)}
-                                            className={`flex-1 py-1.5 text-xs font-medium rounded capitalize ${localConfig.layout.headerStyle === s ? 'bg-white dark:bg-slate-600 shadow-sm text-slate-900 dark:text-white' : 'text-slate-500'}`}
-                                        >
-                                            {s}
-                                        </button>
-                                    ))}
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xs text-slate-600 dark:text-slate-400">Alignment</span>
-                                    <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded">
-                                        {[
-                                            { v: 'left', i: AlignLeft }, 
-                                            { v: 'center', i: AlignCenter }, 
-                                            { v: 'right', i: AlignRight }
-                                        ].map(({v, i: Icon}) => (
+                    {activeTab === 'sections' && (
+                        <div className="space-y-2">
+                            <p className="text-xs text-gray-500 mb-2">Drag sections to reorder. Toggle visibility with the eye icon.</p>
+                            {(localConfig.layout.sectionOrdering || []).map((section, idx) => {
+                                const info = SECTIONS_INFO[section];
+                                const isVisible = info.toggle ? (localConfig.content as any)[info.toggle] !== false : true;
+                                
+                                return (
+                                <div key={section} className={`flex items-center justify-between p-2 bg-white border rounded shadow-sm ${!isVisible ? 'opacity-50' : ''}`}>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs font-medium">{info?.label || section}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        {info.toggle && (
                                             <button 
-                                                key={v} 
-                                                onClick={() => handleConfigChange('layout', 'headerAlignment', v)}
-                                                className={`p-1.5 rounded ${localConfig.layout.headerAlignment === v ? 'bg-white dark:bg-slate-600 shadow-sm text-indigo-600 dark:text-white' : 'text-slate-400'}`}
+                                                onClick={() => handleConfigChange('content', info.toggle!, !isVisible)}
+                                                className={`p-1 rounded hover:bg-gray-100 ${isVisible ? 'text-indigo-600' : 'text-gray-400'}`}
+                                                title={isVisible ? 'Hide Section' : 'Show Section'}
                                             >
-                                                <Icon size={14} />
+                                                {isVisible ? <Eye size={14}/> : <EyeOff size={14}/>}
                                             </button>
-                                        ))}
+                                        )}
+                                        <div className="w-px h-4 bg-gray-200 mx-1"></div>
+                                        <button onClick={() => moveSection(idx, 'up')} disabled={idx === 0} className="p-1 hover:bg-gray-100 rounded disabled:opacity-30"><ArrowUp size={14}/></button>
+                                        <button onClick={() => moveSection(idx, 'down')} disabled={idx === (localConfig.layout.sectionOrdering?.length || 0) - 1} className="p-1 hover:bg-gray-100 rounded disabled:opacity-30"><ArrowDown size={14}/></button>
                                     </div>
                                 </div>
-                            </div>
-
-                            {/* Logo Config */}
-                            <div className="space-y-3 border-t dark:border-slate-800 pt-4">
-                                <label className="text-xs font-bold text-slate-500 uppercase block">Logo Settings</label>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <span className="text-[10px] text-slate-500 block mb-1">Size (mm)</span>
-                                        <input 
-                                            type="range" min="10" max="60" 
-                                            value={localConfig.layout.logoSize} 
-                                            onChange={e => handleConfigChange('layout', 'logoSize', parseInt(e.target.value))} 
-                                            className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                                        />
-                                    </div>
-                                    <div>
-                                        <span className="text-[10px] text-slate-500 block mb-1">Position</span>
-                                        <div className="flex gap-1">
-                                            {['left', 'center', 'right'].map(p => (
-                                                <button 
-                                                    key={p} 
-                                                    onClick={() => handleConfigChange('layout', 'logoPosition', p)}
-                                                    className={`flex-1 py-1 text-[10px] uppercase font-bold border rounded ${localConfig.layout.logoPosition === p ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'border-slate-200 text-slate-500'}`}
-                                                >
-                                                    {p[0]}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            {/* QR Code Position */}
-                            <div className="space-y-3 border-t dark:border-slate-800 pt-4">
-                                <label className="text-xs font-bold text-slate-500 uppercase block flex items-center gap-2">
-                                    <QrCode size={14} /> QR Code Position
-                                </label>
-                                <select 
-                                    value={localConfig.layout.qrPosition || 'details-right'} 
-                                    onChange={e => handleConfigChange('layout', 'qrPosition', e.target.value)}
-                                    className="w-full p-2 text-xs border rounded bg-white dark:bg-slate-800 dark:border-slate-700"
-                                >
-                                    <option value="header-right">Header Right (Near Logo)</option>
-                                    <option value="details-right">Details Section (Right)</option>
-                                    <option value="footer-left">Footer Left</option>
-                                    <option value="footer-right">Footer Right</option>
-                                </select>
-                            </div>
-
-                            {/* Table Column Sizes (New Separate Section) */}
-                            <div className="space-y-3 border-t dark:border-slate-800 pt-4">
-                                <label className="text-xs font-bold text-slate-500 uppercase block flex items-center gap-2">
-                                    <Columns size={14} /> Table Dimensions
-                                </label>
-                                <div className="space-y-4 bg-gray-50 dark:bg-slate-800 p-3 rounded-lg border dark:border-slate-700">
-                                    <div>
-                                        <div className="flex justify-between items-center mb-1">
-                                            <span className="text-[10px] text-slate-500">Qty Column Width</span>
-                                            <span className="text-[10px] font-mono text-indigo-600">{localConfig.layout.columnWidths?.qty || 15}mm</span>
-                                        </div>
-                                        <input 
-                                            type="range" min="10" max="30" 
-                                            value={localConfig.layout.columnWidths?.qty || 15} 
-                                            onChange={e => handleConfigChange('layout', 'columnWidths', { ...localConfig.layout.columnWidths, qty: parseInt(e.target.value) })} 
-                                            className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                                        />
-                                    </div>
-                                    <div>
-                                        <div className="flex justify-between items-center mb-1">
-                                            <span className="text-[10px] text-slate-500">Rate Column Width</span>
-                                            <span className="text-[10px] font-mono text-indigo-600">{localConfig.layout.columnWidths?.rate || 20}mm</span>
-                                        </div>
-                                        <input 
-                                            type="range" min="15" max="40" 
-                                            value={localConfig.layout.columnWidths?.rate || 20} 
-                                            onChange={e => handleConfigChange('layout', 'columnWidths', { ...localConfig.layout.columnWidths, rate: parseInt(e.target.value) })} 
-                                            className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                                        />
-                                    </div>
-                                    <div>
-                                        <div className="flex justify-between items-center mb-1">
-                                            <span className="text-[10px] text-slate-500">Amount Column Width</span>
-                                            <span className="text-[10px] font-mono text-indigo-600">{localConfig.layout.columnWidths?.amount || 35}mm</span>
-                                        </div>
-                                        <input 
-                                            type="range" min="20" max="50" 
-                                            value={localConfig.layout.columnWidths?.amount || 35} 
-                                            onChange={e => handleConfigChange('layout', 'columnWidths', { ...localConfig.layout.columnWidths, amount: parseInt(e.target.value) })} 
-                                            className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                                        />
-                                    </div>
-                                    <p className="text-[10px] text-gray-400 italic mt-2 text-center">Note: Item Name column automatically takes remaining width.</p>
-                                </div>
-                            </div>
-
-                            {/* Table Options */}
-                            <div className="space-y-3 border-t dark:border-slate-800 pt-4">
-                                <label className="text-xs font-bold text-slate-500 uppercase block">Table Options</label>
-                                <div className="space-y-2">
-                                    <div className="flex gap-2">
-                                        <button onClick={() => handleConfigChange('layout', 'tableOptions', { ...localConfig.layout.tableOptions, hideQty: !localConfig.layout.tableOptions.hideQty })} className={`flex-1 py-1.5 text-xs border rounded ${!localConfig.layout.tableOptions.hideQty ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'border-slate-200 text-slate-400'}`}>
-                                            Show Qty
-                                        </button>
-                                        <button onClick={() => handleConfigChange('layout', 'tableOptions', { ...localConfig.layout.tableOptions, hideRate: !localConfig.layout.tableOptions.hideRate })} className={`flex-1 py-1.5 text-xs border rounded ${!localConfig.layout.tableOptions.hideRate ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'border-slate-200 text-slate-400'}`}>
-                                            Show Rate
-                                        </button>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <button onClick={() => handleConfigChange('layout', 'tableOptions', { ...localConfig.layout.tableOptions, compact: !localConfig.layout.tableOptions.compact })} className={`flex-1 py-1.5 text-xs border rounded ${localConfig.layout.tableOptions.compact ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'border-slate-200 text-slate-400'}`}>
-                                            Compact Padding
-                                        </button>
-                                        <button onClick={() => handleConfigChange('layout', 'tableOptions', { ...localConfig.layout.tableOptions, stripedRows: !localConfig.layout.tableOptions.stripedRows })} className={`flex-1 py-1.5 text-xs border rounded ${localConfig.layout.tableOptions.stripedRows ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'border-slate-200 text-slate-400'}`}>
-                                            Striped Rows
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
+                            )})}
                         </div>
                     )}
 
-                    {/* BRANDING TAB */}
                     {activeTab === 'branding' && (
-                        <div className="space-y-6 animate-fade-in-fast">
-                            {/* Colors */}
-                            <div>
-                                <label className="text-xs font-bold text-slate-500 uppercase mb-3 block">Theme Colors</label>
-                                <div className="grid grid-cols-2 gap-3">
-                                    {[
-                                        { k: 'primary', l: 'Primary Brand' },
-                                        { k: 'secondary', l: 'Secondary Text' },
-                                        { k: 'tableHeaderBg', l: 'Table Header' },
-                                        { k: 'tableHeaderText', l: 'Header Text' },
-                                        { k: 'borderColor', l: 'Borders' },
-                                        { k: 'alternateRowBg', l: 'Striped Rows' },
-                                    ].map(({k, l}) => (
-                                        <button 
-                                            key={k}
-                                            onClick={() => handleColorPick(k as any)}
-                                            className="flex items-center gap-3 p-2 rounded border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left"
-                                        >
-                                            <div className="w-8 h-8 rounded-full shadow-sm border border-black/10" style={{ background: localConfig.colors[k as keyof typeof localConfig.colors] || '#fff' }}></div>
-                                            <div>
-                                                <span className="text-xs font-medium text-slate-700 dark:text-slate-300 block">{l}</span>
-                                                <span className="text-[10px] text-slate-400 font-mono uppercase">{localConfig.colors[k as keyof typeof localConfig.colors]}</span>
-                                            </div>
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Watermark */}
-                            <div className="space-y-3 border-t dark:border-slate-800 pt-4">
-                                <div className="flex justify-between items-center">
-                                    <label className="text-xs font-bold text-slate-500 uppercase">Watermark</label>
-                                    <input 
-                                        type="checkbox" 
-                                        checked={localConfig.layout.showWatermark} 
-                                        onChange={e => handleConfigChange('layout', 'showWatermark', e.target.checked)}
-                                        className="toggle-checkbox"
-                                    />
-                                </div>
-                                {localConfig.layout.showWatermark && (
-                                    <div>
-                                        <span className="text-[10px] text-slate-500 block mb-1">Opacity</span>
-                                        <input 
-                                            type="range" min="0" max="100" 
-                                            value={(localConfig.layout.watermarkOpacity || 0.1) * 100} 
-                                            onChange={e => handleConfigChange('layout', 'watermarkOpacity', parseInt(e.target.value) / 100)} 
-                                            className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                                        />
-                                    </div>
-                                )}
-                            </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            {['primary', 'secondary', 'tableHeaderBg', 'tableHeaderText', 'borderColor', 'alternateRowBg'].map(k => (
+                                <button key={k} onClick={() => { setActiveColorKey(k as any); setShowColorPicker(true); }} className="flex items-center gap-2 p-2 border rounded hover:bg-gray-50">
+                                    <div className="w-6 h-6 rounded-full border" style={{ background: (localConfig.colors as any)[k] }}></div>
+                                    <span className="text-xs capitalize">{k.replace(/([A-Z])/g, ' $1')}</span>
+                                </button>
+                            ))}
                         </div>
                     )}
 
-                    {/* CONTENT TAB */}
                     {activeTab === 'content' && (
-                        <div className="space-y-6 animate-fade-in-fast">
+                        <div className="space-y-4">
                             <div>
-                                <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Labels & Titles</label>
-                                <div className="space-y-3">
-                                    <div>
-                                        <span className="text-[10px] text-slate-500 block mb-1">Document Title</span>
-                                        <input 
-                                            type="text" value={localConfig.content.titleText} 
-                                            onChange={e => handleConfigChange('content', 'titleText', e.target.value)}
-                                            className="w-full p-2 text-xs border rounded dark:bg-slate-800 dark:border-slate-700 dark:text-white"
-                                        />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div>
-                                            <span className="text-[10px] text-slate-500 block mb-1">Total Label</span>
-                                            <input 
-                                                type="text" value={localConfig.content.labels?.grandTotal} 
-                                                onChange={e => handleConfigChange('content', 'labels', { ...localConfig.content.labels, grandTotal: e.target.value })}
-                                                className="w-full p-2 text-xs border rounded dark:bg-slate-800 dark:border-slate-700 dark:text-white"
-                                            />
-                                        </div>
-                                        <div>
-                                            <span className="text-[10px] text-slate-500 block mb-1">Balance Label</span>
-                                            <input 
-                                                type="text" value={localConfig.content.labels?.balance} 
-                                                onChange={e => handleConfigChange('content', 'labels', { ...localConfig.content.labels, balance: e.target.value })}
-                                                className="w-full p-2 text-xs border rounded dark:bg-slate-800 dark:border-slate-700 dark:text-white"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
+                                <label className="text-xs font-bold text-slate-500 uppercase mb-1">Bank Details</label>
+                                <textarea value={localConfig.content.bankDetails || ''} onChange={e => handleConfigChange('content', 'bankDetails', e.target.value)} rows={4} className="w-full p-2 text-xs border rounded" placeholder="Bank Name, Account No, IFSC..." />
                             </div>
-
-                            <div className="space-y-2 border-t dark:border-slate-800 pt-4">
-                                <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Show / Hide</label>
-                                {[
-                                    { k: 'showTerms', l: 'Terms & Conditions' },
-                                    { k: 'showSignature', l: 'Signature Line' },
-                                    { k: 'showQr', l: 'QR Code' },
-                                    { k: 'showAmountInWords', l: 'Amount In Words' },
-                                    { k: 'showStatusStamp', l: 'Status Stamp (PAID/DUE)' },
-                                    { k: 'showTaxBreakdown', l: 'Tax Breakdown Table' },
-                                    { k: 'showGst', l: 'GST Line in Totals' }
-                                ].map(({k, l}) => (
-                                    <div key={k} className="flex justify-between items-center p-2 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded hover:bg-slate-50 dark:hover:bg-slate-700/50">
-                                        <span className="text-xs font-medium text-slate-700 dark:text-slate-300">{l}</span>
-                                        <input 
-                                            type="checkbox" 
-                                            checked={(localConfig.content as any)[k] !== false} // default true check
-                                            onChange={e => handleConfigChange('content', k, e.target.checked)}
-                                            className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
-                                        />
-                                    </div>
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 uppercase mb-1">Terms & Conditions</label>
+                                <textarea value={localConfig.content.termsText || ''} onChange={e => handleConfigChange('content', 'termsText', e.target.value)} rows={3} className="w-full p-2 text-xs border rounded" />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 uppercase mb-1">Footer Text</label>
+                                <textarea value={localConfig.content.footerText} onChange={e => handleConfigChange('content', 'footerText', e.target.value)} rows={2} className="w-full p-2 text-xs border rounded" />
+                            </div>
+                            <div className="space-y-2">
+                                {['showTerms', 'showSignature', 'showQr', 'showAmountInWords'].map(k => (
+                                    <label key={k} className="flex items-center gap-2 text-xs">
+                                        <input type="checkbox" checked={(localConfig.content as any)[k] !== false} onChange={e => handleConfigChange('content', k, e.target.checked)} />
+                                        {k.replace(/([A-Z])/g, ' $1').replace('show ', '')}
+                                    </label>
                                 ))}
                             </div>
-                            
-                            <div className="space-y-3 border-t dark:border-slate-800 pt-4">
-                                <label className="text-xs font-bold text-slate-500 uppercase block">Footer Text</label>
-                                <textarea 
-                                    value={localConfig.content.footerText} 
-                                    onChange={e => handleConfigChange('content', 'footerText', e.target.value)}
-                                    rows={2}
-                                    className="w-full p-2 text-xs border rounded dark:bg-slate-800 dark:border-slate-700 dark:text-white resize-none"
-                                />
-                            </div>
                         </div>
                     )}
 
-                    {/* FONTS TAB */}
+                    {activeTab === 'labels' && (
+                        <div className="space-y-3">
+                            {Object.keys(defaultLabels).map(key => (
+                                <div key={key}>
+                                    <span className="text-[10px] text-slate-500 block mb-1 capitalize">{key.replace(/([A-Z])/g, ' $1')}</span>
+                                    <input type="text" value={(localConfig.content.labels as any)?.[key] || ''} onChange={e => handleConfigChange('content', 'labels', { ...localConfig.content.labels, [key]: e.target.value })} className="w-full p-2 text-xs border rounded" />
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
                     {activeTab === 'fonts' && (
-                        <div className="space-y-6 animate-fade-in-fast">
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Header Font</label>
-                                    <select 
-                                        value={localConfig.fonts.titleFont} 
-                                        onChange={e => handleConfigChange('fonts', 'titleFont', e.target.value)}
-                                        className="w-full p-2 text-xs border rounded dark:bg-slate-800 dark:border-slate-700 dark:text-white"
-                                    >
-                                        <option value="helvetica">Helvetica (Clean)</option>
-                                        <option value="times">Times New Roman (Serif)</option>
-                                        <option value="courier">Courier (Mono)</option>
-                                        {state.customFonts.map(f => <option key={f.id} value={f.name}>{f.name} (Custom)</option>)}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Body Font</label>
-                                    <select 
-                                        value={localConfig.fonts.bodyFont} 
-                                        onChange={e => handleConfigChange('fonts', 'bodyFont', e.target.value)}
-                                        className="w-full p-2 text-xs border rounded dark:bg-slate-800 dark:border-slate-700 dark:text-white"
-                                    >
-                                        <option value="helvetica">Helvetica (Clean)</option>
-                                        <option value="times">Times New Roman (Serif)</option>
-                                        <option value="courier">Courier (Mono)</option>
-                                        {state.customFonts.map(f => <option key={f.id} value={f.name}>{f.name} (Custom)</option>)}
-                                    </select>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Header Size</label>
-                                        <input 
-                                            type="number" value={localConfig.fonts.headerSize} 
-                                            onChange={e => handleConfigChange('fonts', 'headerSize', parseInt(e.target.value))}
-                                            className="w-full p-2 text-xs border rounded dark:bg-slate-800 dark:border-slate-700 dark:text-white"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Body Size</label>
-                                        <input 
-                                            type="number" value={localConfig.fonts.bodySize} 
-                                            onChange={e => handleConfigChange('fonts', 'bodySize', parseInt(e.target.value))}
-                                            className="w-full p-2 text-xs border rounded dark:bg-slate-800 dark:border-slate-700 dark:text-white"
-                                        />
-                                    </div>
-                                </div>
+                        <div className="space-y-4">
+                            <div className="p-3 border border-dashed rounded bg-gray-50">
+                                <Button onClick={() => fontFileInputRef.current?.click()} variant="secondary" className="w-full text-xs"><Upload size={14} className="mr-2"/> Upload .ttf Font</Button>
+                                <input type="file" accept=".ttf" ref={fontFileInputRef} className="hidden" onChange={handleFontUpload} />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 uppercase mb-1">Header Font</label>
+                                <select value={localConfig.fonts.titleFont} onChange={e => handleConfigChange('fonts', 'titleFont', e.target.value)} className="w-full p-2 text-xs border rounded">
+                                    <option value="helvetica">Helvetica</option><option value="times">Times</option><option value="courier">Courier</option>
+                                    {state.customFonts.map(f => <option key={f.id} value={f.name}>{f.name}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 uppercase mb-1">Body Font</label>
+                                <select value={localConfig.fonts.bodyFont} onChange={e => handleConfigChange('fonts', 'bodyFont', e.target.value)} className="w-full p-2 text-xs border rounded">
+                                    <option value="helvetica">Helvetica</option><option value="times">Times</option><option value="courier">Courier</option>
+                                    {state.customFonts.map(f => <option key={f.id} value={f.name}>{f.name}</option>)}
+                                </select>
                             </div>
                         </div>
                     )}
-                </div>
-                
-                {/* Resize Handle */}
-                <div 
-                    className="resize-handle absolute top-0 right-0 w-4 h-full cursor-col-resize z-30 transition-colors flex flex-col justify-center items-center group -mr-2"
-                    onMouseDown={startResizing}
-                    onTouchStart={startResizing}
-                >
-                    <div className="w-1 h-8 bg-gray-300 dark:bg-slate-600 rounded-full group-hover:bg-indigo-50 transition-colors"></div>
                 </div>
             </aside>
 
-            {/* Main Preview Area */}
             <main className="flex-1 flex flex-col h-full relative bg-gray-100 dark:bg-slate-900/50">
-                {/* Top Action Bar */}
-                <div className="bg-white dark:bg-slate-900 border-b dark:border-slate-800 p-3 flex justify-between items-center shadow-sm z-10 shrink-0">
-                    <div className="flex gap-2">
-                        <Button onClick={() => setCurrentPage('DASHBOARD')} variant="secondary" className="h-8 w-8 p-0 rounded-full flex items-center justify-center" title="Back to Dashboard"><ArrowLeft size={16}/></Button>
-                        <span className="text-sm font-semibold text-gray-500 self-center px-2 border-l ml-2">Live Preview</span>
-                    </div>
-                    
-                    {/* Add Preview Scenario Toggle if DocType is REPORT */}
-                    {docType === 'REPORT' && (
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-500 font-bold uppercase">Preview Scenario:</span>
-                            <select 
-                                value={reportScenario} 
-                                onChange={(e) => setReportScenario(e.target.value as ReportScenarioKey)}
-                                className="p-1 text-xs border rounded bg-white dark:bg-slate-800 dark:border-slate-700 dark:text-white"
-                            >
-                                <option value="SALES_REPORT">Sales Report</option>
-                                <option value="CUSTOMER_DUES">Customer Dues Report</option>
-                                <option value="LOW_STOCK">Low Stock Report</option>
-                            </select>
-                        </div>
-                    )}
-
-                    <div className="flex gap-2">
-                        <Button onClick={handleOpenPdf} variant="secondary" className="h-8 text-xs">
-                            <ExternalLink size={14} className="mr-1.5" /> Open PDF
-                        </Button>
-                        <Button onClick={handleDownloadTestPdf} className="h-8 text-xs">
-                            <Printer size={14} className="mr-1.5" /> Test Print
-                        </Button>
-                    </div>
-                </div>
-
-                {/* Canvas */}
-                <PDFCanvasPreview 
-                    config={localConfig} 
-                    profile={state.profile} 
-                    docType={docType}
-                    customFonts={state.customFonts}
-                    reportScenario={reportScenario}
-                />
+                <PDFCanvasPreview config={localConfig} profile={state.profile} docType={docType} customFonts={state.customFonts} />
             </main>
         </div>
     );

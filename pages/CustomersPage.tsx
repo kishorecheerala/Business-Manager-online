@@ -10,7 +10,7 @@ import DeleteButton from '../components/DeleteButton';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
-import { generateA4InvoicePdf, generateThermalInvoicePDF, addBusinessHeader, generateGenericReportPDF } from '../utils/pdfGenerator';
+import { generateA4InvoicePdf, generateThermalInvoicePDF, generateGenericReportPDF } from '../utils/pdfGenerator';
 import { useDialog } from '../context/DialogContext';
 
 // ... (getLocalDateString, fetchImageAsBase64, PaymentModal remain the same)

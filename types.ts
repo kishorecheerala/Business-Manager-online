@@ -1,4 +1,5 @@
 
+
 import { ReactNode } from "react";
 
 export type Page = 'DASHBOARD' | 'CUSTOMERS' | 'SALES' | 'PURCHASES' | 'REPORTS' | 'RETURNS' | 'PRODUCTS' | 'INSIGHTS' | 'EXPENSES' | 'QUOTATIONS' | 'INVOICE_DESIGNER';
@@ -248,6 +249,8 @@ export interface InvoiceTemplateConfig {
         bordered?: boolean; // New: Table Border
         compact?: boolean; // New: Compact Padding
     };
+    tableHeaderAlign?: 'left' | 'center' | 'right';
+    sectionOrdering?: string[];
   };
   content: {
     titleText: string; // e.g. "TAX INVOICE"
