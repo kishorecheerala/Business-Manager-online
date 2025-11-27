@@ -10,6 +10,7 @@ import { extractDominantColor } from '../utils/imageUtils';
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Set worker source for PDF.js (CDN version matching the library)
+// Using explicit version to match package if possible, or fallback to latest compatible
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
 
 // --- Dummy Data for Previews ---
@@ -175,7 +176,6 @@ const PDFCanvasPreview: React.FC<{
                 const containerWidth = containerRef.current.clientWidth;
                 const baseViewport = page.getViewport({ scale: 1 });
                 // Add padding (32px total for margins)
-                // Use zoomLevel to allow user scaling
                 const fitScale = (containerWidth - 32) / baseViewport.width;
                 const finalScale = fitScale * zoomLevel;
                 
@@ -199,9 +199,9 @@ const PDFCanvasPreview: React.FC<{
                 }
 
                 const renderContext = {
-                    canvasContext: context,
+                    canvasContext: context as any,
                     viewport: viewport,
-                    transform: transform
+                    transform: transform as any
                 };
                 
                 renderTaskRef.current = page.render(renderContext);
@@ -375,7 +375,8 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty }) => {
     };
 
     const startResizing = useCallback((e: React.MouseEvent | React.TouchEvent) => {
-        if (e.type === 'mousedown') e.preventDefault();
+        e.preventDefault(); // Prevent text selection
+        e.stopPropagation(); // Prevent bubbling to parent click handlers
         setIsResizing(true);
     }, []);
     const stopResizing = useCallback(() => setIsResizing(false), []);
