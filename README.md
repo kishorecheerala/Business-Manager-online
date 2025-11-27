@@ -13,12 +13,13 @@ A comprehensive, offline-first Progressive Web App (PWA) designed to streamline 
 - **🔐 Secured Analytics:** The Business Insights section is protected by a 4-digit PIN to keep sensitive financial data safe.
 - **👥 Customer Management:** Maintain a detailed directory of customers, view their complete sales history, risk status, and manage their due payments.
 - **🛒 Sales Management:** Create new sales invoices, add products by searching or scanning QR codes, apply discounts, and record payments.
-- **🧾 PDF Invoice Generation:** Automatically generate and share a thermal-printer-friendly (80mm) PDF invoice via the native device sharing options (e.g., WhatsApp, Email).
+- **🎨 Invoice Designer:** Design professional invoices with a real-time visual editor. Customize layouts, colors, fonts, and content to match your brand. Supports both A4 and Thermal Receipt formats with live preview.
+- **🧾 PDF Invoice Generation:** Automatically generate and share invoices (A4 or Thermal) via the native device sharing options (e.g., WhatsApp, Email).
 - **📦 Purchase & Supplier Management:** Track purchases from suppliers, manage supplier information, and record payments made to them.
 - **👔 Product & Inventory Control:** Manage a complete product catalog. Stock is automatically updated with every sale, purchase, and return. Manual stock adjustments are also supported.
 - **🔄 Returns Processing:** Handle both customer returns (crediting their account and adding stock back) and returns to suppliers (reducing stock and creating a credit).
 - **📈 Dues Reporting:** Generate and export a filterable list of customer dues by area and date range. Export options include PDF and CSV for easy collection tracking.
-- **🔒 Data Backup & Restore:** Since all data is stored locally on the device, a robust backup (download JSON) and restore (upload JSON) system ensures data safety and portability.
+- **🔒 Data Backup & Restore:** Since all data is stored locally on the device, a robust backup (download JSON) and restore (upload JSON) system ensures data safety and portability. Also supports **Google Drive Sync** for cloud backups.
 - **🌐 Offline First (PWA):** Built as a Progressive Web App, it can be "installed" on a device's home screen and works seamlessly offline.
 - **📷 QR Code Scanning:** Utilize the device camera to quickly scan product QR codes when creating sales or purchase orders.
 
@@ -62,7 +63,7 @@ The project is organized into a modular and scalable structure:
 
 The application is architected to be fully client-side. All data—customers, sales, products, etc.—is stored in the browser's `localStorage` as a single JSON object. This approach ensures that the app is fast and works perfectly offline.
 
-**⚠️ Important:** Because data is stored only on the user's device, the **Backup & Restore** feature is critical. Users should be encouraged to back up their data regularly.
+**⚠️ Important:** Because data is stored only on the user's device, the **Backup & Restore** feature is critical. Users should be encouraged to back up their data regularly via JSON download or Google Drive Sync.
 
 ### State Management
 
