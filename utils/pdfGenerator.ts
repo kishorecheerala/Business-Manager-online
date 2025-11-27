@@ -141,7 +141,14 @@ export const addBusinessHeader = (doc: jsPDF, profile: ProfileData | null, title
     if (logoToUse) {
         try {
             const format = getImageType(logoToUse);
-            doc.addImage(logoToUse, format, 14, 10, 25, 25);
+            const width = 25;
+            let height = 25;
+            // Attempt to maintain aspect ratio if possible
+            try {
+                const props = doc.getImageProperties(logoToUse);
+                height = width / (props.width / props.height);
+            } catch(e) {}
+            doc.addImage(logoToUse, format, 14, 10, width, height);
         } catch (e) {
             console.warn("Failed to add logo", e);
         }
@@ -231,12 +238,20 @@ export const generateThermalInvoicePDF = async (
     let y = 5;
     const centerX = 40; // Center of 80mm
 
-    // Logo
+    // Logo with Aspect Ratio Check
     if (profile?.logo) {
         try {
-            const logoSize = 18;
-            doc.addImage(profile.logo, getImageType(profile.logo), centerX - (logoSize/2), y, logoSize, logoSize);
-            y += logoSize + 3;
+            const logoWidth = 18;
+            let logoHeight = 18;
+            try {
+                const props = doc.getImageProperties(profile.logo);
+                if (props.width > 0 && props.height > 0) {
+                    logoHeight = logoWidth / (props.width / props.height);
+                }
+            } catch(e) {}
+            
+            doc.addImage(profile.logo, getImageType(profile.logo), centerX - (logoWidth/2), y, logoWidth, logoHeight);
+            y += logoHeight + 3;
         } catch(e) {}
     }
 
@@ -594,7 +609,11 @@ const _generateConfigurablePDF = async (
             // Placeholder line or image
             if (content.signatureImage) {
                 try {
-                    doc.addImage(content.signatureImage, getImageType(content.signatureImage), pageWidth - margin - 40, sigY - 10, 40, 20);
+                    const sigProps = doc.getImageProperties(content.signatureImage);
+                    const sigRatio = sigProps.width / sigProps.height;
+                    const sigWidth = 40;
+                    const sigHeight = sigWidth / sigRatio;
+                    doc.addImage(content.signatureImage, getImageType(content.signatureImage), pageWidth - margin - 40, sigY - 10, sigWidth, sigHeight);
                 } catch(e) {}
             } else {
                 doc.text("___________________", pageWidth - margin, sigY, { align: 'right' });

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Save, RotateCcw, Type, Layout, Palette, FileText, Image as ImageIcon, RefreshCw, Eye, Edit3, ExternalLink, ChevronDown, Upload, Trash2, Wand2, Sparkles, Grid, Languages, PenTool, QrCode, Download, FileUp, Stamp, Banknote, TableProperties, EyeOff, GripVertical } from 'lucide-react';
+import { Save, RotateCcw, Type, Layout, Palette, FileText, Image as ImageIcon, RefreshCw, Eye, Edit3, ExternalLink, ChevronDown, Upload, Trash2, Wand2, Sparkles, Grid, Languages, PenTool, QrCode, Download, FileUp, Stamp, Banknote, TableProperties, EyeOff, GripVertical, ArrowLeft } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { useAppContext } from '../context/AppContext';
 import { InvoiceTemplateConfig, DocumentType, InvoiceLabels } from '../types';
@@ -200,7 +200,7 @@ const InvoiceDesigner: React.FC = () => {
     const [targetLanguage, setTargetLanguage] = useState('Telugu');
     
     // Resize Logic States
-    const [sidebarWidth, setSidebarWidth] = useState(380);
+    const [sidebarWidth, setSidebarWidth] = useState(320);
     const [isResizing, setIsResizing] = useState(false);
     // Using 640px (sm) as the breakpoint for Z Fold / Tablets to allow split view
     const [isMd, setIsMd] = useState(typeof window !== 'undefined' ? window.innerWidth >= 640 : true);
@@ -277,9 +277,9 @@ const InvoiceDesigner: React.FC = () => {
                 }
                 
                 // Account for padding/margins and allow a reasonable range
-                // Min 200px, Max almost full screen (window.innerWidth - 50) to allow shrinking preview
                 const newWidth = clientX - 16; 
-                const constrainedWidth = Math.max(200, Math.min(newWidth, window.innerWidth - 50));
+                // Permissive constraints: Min 100px, Max 90% of screen width
+                const constrainedWidth = Math.max(100, Math.min(newWidth, window.innerWidth * 0.9));
                 setSidebarWidth(constrainedWidth);
             }
         },
@@ -345,6 +345,14 @@ const InvoiceDesigner: React.FC = () => {
     const handleReset = () => {
         if (window.confirm("Reset to default settings?")) {
             setConfig({ ...defaults, id: config.id });
+        }
+    };
+
+    const handleExit = () => {
+        if (window.history.length > 1) {
+            window.history.back();
+        } else {
+            window.location.href = '/'; // Fallback if accessed directly
         }
     };
 
@@ -575,7 +583,7 @@ const InvoiceDesigner: React.FC = () => {
         <div className="h-full w-full flex flex-col md:flex-row overflow-hidden relative">
             
             {/* Mobile View Switcher */}
-            <div className="md:hidden flex bg-gray-100 dark:bg-slate-800 p-1 rounded-lg shrink-0 border dark:border-slate-700 mb-2">
+            <div className="md:hidden flex bg-gray-100 dark:bg-slate-800 p-1 rounded-lg shrink-0 border dark:border-slate-700 mb-2 mx-2 mt-2">
                 <button onClick={() => setMobileView('editor')} className={`flex-1 py-2 rounded-md text-sm font-bold flex items-center justify-center gap-2 transition-all ${mobileView === 'editor' ? 'bg-white dark:bg-slate-600 text-primary shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}><Edit3 size={16} /> Editor</button>
                 <button onClick={() => setMobileView('preview')} className={`flex-1 py-2 rounded-md text-sm font-bold flex items-center justify-center gap-2 transition-all ${mobileView === 'preview' ? 'bg-white dark:bg-slate-600 text-primary shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}><Eye size={16} /> Preview</button>
             </div>
@@ -583,11 +591,20 @@ const InvoiceDesigner: React.FC = () => {
             {/* Left Control Panel */}
             <div 
                 style={isMd ? { width: sidebarWidth } : {}}
-                className={`flex-col bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-gray-200 dark:border-slate-700 overflow-hidden ${mobileView === 'editor' ? 'flex flex-grow w-full' : 'hidden sm:flex'} shrink-0`}
+                className={`flex-col bg-white dark:bg-slate-800 md:rounded-r-xl shadow-lg border-r border-gray-200 dark:border-slate-700 overflow-hidden ${mobileView === 'editor' ? 'flex flex-grow w-full' : 'hidden sm:flex'} shrink-0 z-10`}
             >
                 
-                {/* Document Type Selector */}
+                {/* Document Type Selector & Header */}
                 <div className="p-4 border-b dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50 shrink-0">
+                    <div className="flex items-center gap-2 mb-4">
+                        <button onClick={handleExit} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-600 dark:text-gray-300 transition-colors" title="Exit Designer">
+                            <ArrowLeft size={20} />
+                        </button>
+                        <h2 className="font-bold text-lg text-primary">Invoice Designer</h2>
+                        <div className="flex-grow"></div>
+                        <button onClick={handleExit} className="text-sm text-red-500 font-medium hover:underline px-2">Exit</button>
+                    </div>
+
                     <div className="mb-3">
                         <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Document Type</label>
                         <div className="relative">
@@ -600,12 +617,9 @@ const InvoiceDesigner: React.FC = () => {
                             <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
                         </div>
                     </div>
-                    <div className="flex justify-between items-center">
-                        <h2 className="font-bold text-lg text-primary">Designer</h2>
-                        <div className="flex gap-2">
-                            <button onClick={handleReset} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-500" title="Reset Default"><RotateCcw size={18} /></button>
-                            <Button onClick={handleSave} className="h-8 px-3 text-xs"><Save size={14} className="mr-1" /> Save</Button>
-                        </div>
+                    <div className="flex justify-end items-center gap-2">
+                        <button onClick={handleReset} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-500" title="Reset Default"><RotateCcw size={18} /></button>
+                        <Button onClick={handleSave} className="h-8 px-3 text-xs"><Save size={14} className="mr-1" /> Save</Button>
                     </div>
                     <div className="flex gap-2 mt-2">
                         <Button onClick={handleExportTemplate} variant="secondary" className="h-7 px-2 text-[10px] w-1/2"><Download size={12} className="mr-1"/> Export</Button>
@@ -927,7 +941,7 @@ const InvoiceDesigner: React.FC = () => {
                 </div>
             </div>
 
-            {/* Resizer */}
+            {/* Resizer - Visible on Desktop */}
             <div 
                 className="hidden sm:flex w-4 cursor-col-resize items-center justify-center hover:bg-blue-500/10 transition-colors z-20 -ml-2 mr-[-2px]"
                 onMouseDown={startResizing}
@@ -936,8 +950,8 @@ const InvoiceDesigner: React.FC = () => {
                 <div className="w-1 h-8 bg-gray-300 dark:bg-slate-600 rounded-full"></div>
             </div>
 
-            {/* Preview Panel */}
-            <div className={`flex-grow bg-gray-100 dark:bg-slate-900 relative overflow-hidden flex flex-col ${mobileView === 'preview' ? 'flex' : 'hidden sm:flex'}`}>
+            {/* Preview Panel - Flexible width, min-w-0 is crucial for preventing overflow */}
+            <div className={`flex-grow min-w-0 bg-gray-100 dark:bg-slate-900 relative overflow-hidden flex flex-col ${mobileView === 'preview' ? 'flex' : 'hidden sm:flex'}`}>
                 <div className="h-12 bg-white dark:bg-slate-800 border-b dark:border-slate-700 flex justify-between items-center px-4 shrink-0">
                      <h3 className="font-bold text-sm text-gray-500 uppercase">Live Preview</h3>
                      <div className="flex gap-2">
