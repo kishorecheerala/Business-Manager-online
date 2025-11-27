@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Save, RotateCcw, Type, Layout, Palette, FileText, Edit3, ChevronDown, Upload, Trash2, Wand2, Grid, QrCode, Printer, Eye, ArrowLeft, CheckSquare, Square, Type as TypeIcon, AlignLeft, AlignCenter, AlignRight, Move, GripVertical, Layers, ArrowUp, ArrowDown, Table, Monitor, Loader2, ZoomIn, ZoomOut } from 'lucide-react';
+import { Save, RotateCcw, Type, Layout, Palette, FileText, Edit3, ChevronDown, Upload, Trash2, Wand2, Grid, QrCode, Printer, Eye, ArrowLeft, CheckSquare, Square, Type as TypeIcon, AlignLeft, AlignCenter, AlignRight, Move, GripVertical, Layers, ArrowUp, ArrowDown, Table, Monitor, Loader2, ZoomIn, ZoomOut, ExternalLink } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { InvoiceTemplateConfig, DocumentType, InvoiceLabels, CustomFont, ProfileData } from '../types';
 import Button from '../components/Button';
@@ -8,9 +8,8 @@ import ColorPickerModal from '../components/ColorPickerModal';
 import { generateA4InvoicePdf, generateEstimatePDF, generateDebitNotePDF, generateThermalInvoicePDF } from '../utils/pdfGenerator';
 import { extractDominantColor } from '../utils/imageUtils';
 import * as pdfjsLib from 'pdfjs-dist';
+import { useDialog } from '../context/DialogContext';
 
-// Set worker source for PDF.js (CDN version matching the library)
-// Using explicit version to match package if possible, or fallback to latest compatible
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
 
 // --- Dummy Data for Previews ---
@@ -139,7 +138,6 @@ const PDFCanvasPreview: React.FC<{
     const renderTaskRef = useRef<any>(null);
     const [zoomLevel, setZoomLevel] = useState(1.0);
 
-    // Debounced Render Logic
     useEffect(() => {
         let active = true;
         let timeoutId: ReturnType<typeof setTimeout>;
@@ -150,7 +148,6 @@ const PDFCanvasPreview: React.FC<{
             setError(null);
 
             try {
-                // 1. Generate PDF Blob using jsPDF (simulating real output)
                 let doc;
                 switch (docType) {
                     case 'INVOICE': doc = await generateA4InvoicePdf(dummySale, dummyCustomer, profile, config, customFonts); break;
@@ -165,456 +162,669 @@ const PDFCanvasPreview: React.FC<{
                 const blob = doc.output('blob');
                 const url = URL.createObjectURL(blob);
 
-                // 2. Load PDF with PDF.js
                 const loadingTask = pdfjsLib.getDocument(url);
                 const pdf = await loadingTask.promise;
                 const page = await pdf.getPage(1);
 
                 if (!active) { URL.revokeObjectURL(url); return; }
 
-                // 3. Calculate Scale to fit container
                 const containerWidth = containerRef.current.clientWidth;
                 const baseViewport = page.getViewport({ scale: 1 });
-                // Add padding (32px total for margins)
-                const fitScale = (containerWidth - 32) / baseViewport.width;
-                const finalScale = fitScale * zoomLevel;
-                
-                const viewport = page.getViewport({ scale: finalScale });
+                const fitScale = (containerWidth - 40) / baseViewport.width; 
+                const scale = fitScale * zoomLevel;
+                const viewport = page.getViewport({ scale });
 
-                // 4. Render to Canvas (High DPI support)
                 const canvas = canvasRef.current;
                 const context = canvas.getContext('2d');
-                const outputScale = window.devicePixelRatio || 1;
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
 
-                canvas.width = Math.floor(viewport.width * outputScale);
-                canvas.height = Math.floor(viewport.height * outputScale);
-                canvas.style.width = Math.floor(viewport.width) + "px";
-                canvas.style.height = Math.floor(viewport.height) + "px";
-
-                const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null;
-
-                // Cancel previous render if any
                 if (renderTaskRef.current) {
-                    renderTaskRef.current.cancel();
+                    await renderTaskRef.current.cancel();
                 }
 
                 const renderContext = {
-                    canvasContext: context as any,
+                    canvasContext: context!,
                     viewport: viewport,
-                    transform: transform as any
                 };
                 
                 renderTaskRef.current = page.render(renderContext);
                 await renderTaskRef.current.promise;
 
                 URL.revokeObjectURL(url);
-                setLoading(false);
-
-            } catch (err: any) {
-                if (err.name !== 'RenderingCancelledException') {
-                    console.error("Preview Render Error", err);
-                    setError("Preview generation failed.");
-                    setLoading(false);
+            } catch (e: any) {
+                if (e.name !== 'RenderingCancelledException') {
+                    console.error("Preview Render Error:", e);
+                    setError("Failed to render preview.");
                 }
+            } finally {
+                if (active) setLoading(false);
             }
         };
 
-        // Debounce by 500ms to avoid jank during sliders movement
-        timeoutId = setTimeout(render, 500);
-
+        timeoutId = setTimeout(render, 500); // Debounce render
         return () => {
             active = false;
             clearTimeout(timeoutId);
-            if (renderTaskRef.current) {
-                renderTaskRef.current.cancel();
-            }
+            if (renderTaskRef.current) renderTaskRef.current.cancel();
         };
     }, [config, profile, docType, customFonts, zoomLevel]);
 
     return (
-        <div ref={containerRef} className="relative w-full h-full flex flex-col items-center justify-start pt-8 pb-20 overflow-auto bg-gray-200 dark:bg-slate-950">
-            {/* Zoom Controls */}
-            <div className="absolute top-4 right-4 z-20 flex bg-white dark:bg-slate-800 rounded-lg shadow-md border dark:border-slate-700">
-                <button onClick={() => setZoomLevel(z => Math.max(0.5, z - 0.1))} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-l-lg border-r dark:border-slate-700" title="Zoom Out"><ZoomOut size={16} /></button>
-                <span className="px-2 py-2 text-xs font-mono w-12 text-center">{Math.round(zoomLevel * 100)}%</span>
-                <button onClick={() => setZoomLevel(z => Math.min(2, z + 0.1))} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-r-lg border-l dark:border-slate-700" title="Zoom In"><ZoomIn size={16} /></button>
-            </div>
-
-            {/* Canvas Container */}
-            <div className={`shadow-2xl transition-all duration-300 ${loading ? 'opacity-50 blur-[1px]' : 'opacity-100'}`}>
-                <canvas ref={canvasRef} className="bg-white" />
-            </div>
-
-            {/* Loading Overlay */}
+        <div className="flex-1 bg-gray-100 dark:bg-slate-900 p-4 md:p-8 relative overflow-auto flex justify-center items-start" ref={containerRef}>
             {loading && (
-                <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-                    <div className="bg-white/80 dark:bg-black/60 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
-                        <Loader2 className="animate-spin text-primary" size={20} />
-                        <span className="text-sm font-bold text-gray-700 dark:text-gray-200">Rendering...</span>
-                    </div>
+                <div className="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-black/50 z-10 backdrop-blur-sm">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                </div>
+            )}
+            {error ? (
+                <div className="text-red-500">{error}</div>
+            ) : (
+                <div className="relative shadow-2xl rounded-sm overflow-hidden transition-transform duration-200 ease-out">
+                    <canvas ref={canvasRef} className="bg-white block" />
                 </div>
             )}
             
-            {error && (
-                <div className="absolute inset-0 flex items-center justify-center z-10">
-                    <div className="bg-red-100 text-red-800 px-4 py-3 rounded-lg shadow-lg border border-red-200">
-                        <p className="font-bold">Error</p>
-                        <p className="text-sm">{error}</p>
-                        <button onClick={() => window.location.reload()} className="text-xs underline mt-2">Retry</button>
-                    </div>
-                </div>
-            )}
+            <div className="absolute bottom-6 right-6 flex gap-2 bg-white/90 dark:bg-slate-800/90 p-2 rounded-full shadow-lg backdrop-blur-sm border border-gray-200 dark:border-slate-700">
+                <button onClick={() => setZoomLevel(prev => Math.max(0.5, prev - 0.1))} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full"><ZoomOut size={18}/></button>
+                <span className="text-xs font-mono self-center w-12 text-center">{(zoomLevel * 100).toFixed(0)}%</span>
+                <button onClick={() => setZoomLevel(prev => Math.min(2.0, prev + 0.1))} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full"><ZoomIn size={18}/></button>
+            </div>
         </div>
     );
 };
 
-// --- Editor Components ---
-const DraggableSectionItem: React.FC<{ 
-    id: string; 
-    label: string; 
-    index: number; 
-    moveSection: (dragIndex: number, hoverIndex: number) => void 
-}> = ({ id, label, index, moveSection }) => {
-    const ref = useRef<HTMLDivElement>(null);
-    const handleDragStart = (e: React.DragEvent) => {
-        e.dataTransfer.setData('text/plain', index.toString());
-        e.dataTransfer.effectAllowed = 'move';
-        if (ref.current) ref.current.style.opacity = '0.5';
-    };
-    const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
-    const handleDrop = (e: React.DragEvent) => {
-        e.preventDefault();
-        const dragIndex = parseInt(e.dataTransfer.getData('text/plain'));
-        if (dragIndex !== index) moveSection(dragIndex, index);
-        if (ref.current) ref.current.style.opacity = '1';
-    };
-    const handleDragEnd = () => { if (ref.current) ref.current.style.opacity = '1'; };
-
-    return (
-        <div 
-            ref={ref}
-            draggable
-            onDragStart={handleDragStart}
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-            onDragEnd={handleDragEnd}
-            className="flex items-center gap-3 p-3 bg-white dark:bg-slate-700 rounded-lg border border-gray-200 dark:border-slate-600 shadow-sm cursor-move hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors group"
-        >
-            <GripVertical className="text-gray-400 group-hover:text-primary" size={18} />
-            <span className="text-sm font-medium dark:text-gray-200 capitalize">{label}</span>
-        </div>
-    );
-};
-
+// --- Main Editor Component ---
 interface InvoiceDesignerProps {
-    setIsDirty?: (dirty: boolean) => void;
+    setIsDirty: (isDirty: boolean) => void;
 }
 
 const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty }) => {
     const { state, dispatch, showToast } = useAppContext();
-    const [selectedDocType, setSelectedDocType] = useState<DocumentType>('INVOICE');
+    const { showConfirm } = useDialog();
+    
+    const [docType, setDocType] = useState<DocumentType>('INVOICE');
+    const [activeTab, setActiveTab] = useState<'layout' | 'content' | 'branding' | 'fonts'>('layout');
+    const [showColorPicker, setShowColorPicker] = useState(false);
+    const [activeColorKey, setActiveColorKey] = useState<keyof InvoiceTemplateConfig['colors'] | null>(null);
+    
+    // Sidebar Resizing Logic
+    const [sidebarWidth, setSidebarWidth] = useState(350);
+    const sidebarRef = useRef<HTMLDivElement>(null);
+    const isResizing = useRef(false);
 
-    const defaults: ExtendedLayoutConfig = {
-        id: 'invoiceTemplateConfig', currencySymbol: '₹', dateFormat: 'DD/MM/YYYY',
-        colors: { primary: '#0d9488', secondary: '#333333', text: '#000000', tableHeaderBg: '#0d9488', tableHeaderText: '#ffffff', bannerBg: '#0d9488', bannerText: '#ffffff', footerBg: '#f3f4f6', footerText: '#374151', borderColor: '#e5e7eb', alternateRowBg: '#f9fafb' },
-        fonts: { headerSize: 22, bodySize: 10, titleFont: 'helvetica', bodyFont: 'helvetica' },
-        layout: { 
-            margin: 10, logoSize: 25, logoPosition: 'center', logoOffsetX: 0, logoOffsetY: 0, headerAlignment: 'center', headerStyle: 'standard', footerStyle: 'standard',
-            showWatermark: false, watermarkOpacity: 0.1, tableOptions: { hideQty: false, hideRate: false, stripedRows: false, bordered: false, compact: false },
-            sectionOrdering: ['header', 'title', 'details', 'table', 'totals', 'terms', 'signature', 'footer'], uppercaseHeadings: true, boldBorders: false,
-            columnWidths: { item: 45, qty: 15, rate: 20 }, tablePadding: 3, tableHeaderAlign: 'left', borderRadius: 4
-        },
-        content: { titleText: 'TAX INVOICE', showTerms: true, showQr: true, termsText: '', footerText: 'Thank you for your business!', showBusinessDetails: true, showCustomerDetails: true, showSignature: true, signatureText: 'Authorized Signatory', showAmountInWords: false, showStatusStamp: false, showTaxBreakdown: false, showGst: true, labels: defaultLabels, qrType: 'INVOICE_ID', bankDetails: '' }
+    const startResizing = (e: React.MouseEvent | React.TouchEvent) => {
+        // Stop scrolling while resizing
+        document.body.style.overflow = 'hidden';
+        
+        if ('touches' in e && e.touches.length > 0) {
+            // Only start touch resize if touching the handle specifically
+            const target = e.target as HTMLElement;
+            if(target.closest('.resize-handle')) {
+                isResizing.current = true;
+            }
+        } else {
+            isResizing.current = true;
+        }
     };
 
-    const [config, setConfig] = useState<ExtendedLayoutConfig>(defaults);
-    const [activeTab, setActiveTab] = useState<'structure' | 'layout' | 'table' | 'colors' | 'fonts' | 'content' | 'labels'>('layout');
-    const [mobileView, setMobileView] = useState<'editor' | 'preview'>('editor');
-    const [colorPickerTarget, setColorPickerTarget] = useState<keyof InvoiceTemplateConfig['colors'] | null>(null);
-    const [sidebarWidth, setSidebarWidth] = useState(320);
-    const [isResizing, setIsResizing] = useState(false);
-    const [isMd, setIsMd] = useState(typeof window !== 'undefined' ? window.innerWidth >= 640 : true);
-    
-    const isDirtyRef = useRef(false);
-
-    useEffect(() => {
-        const handleResize = () => setIsMd(window.innerWidth >= 640);
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
+    const stopResizing = useCallback(() => {
+        isResizing.current = false;
+        document.body.style.overflow = '';
     }, []);
 
-    useEffect(() => {
-        let sourceConfig = state.invoiceTemplate;
-        if (selectedDocType === 'ESTIMATE') sourceConfig = state.estimateTemplate;
-        if (selectedDocType === 'DEBIT_NOTE') sourceConfig = state.debitNoteTemplate;
-        if (selectedDocType === 'RECEIPT') sourceConfig = state.receiptTemplate;
-
-        const newConfig = {
-            ...defaults, ...sourceConfig,
-            layout: { 
-                ...defaults.layout, ...sourceConfig?.layout,
-                sectionOrdering: (sourceConfig?.layout as any)?.sectionOrdering || defaults.layout.sectionOrdering,
-                uppercaseHeadings: (sourceConfig?.layout as any)?.uppercaseHeadings ?? defaults.layout.uppercaseHeadings,
-                boldBorders: (sourceConfig?.layout as any)?.boldBorders ?? defaults.layout.boldBorders,
-                columnWidths: (sourceConfig?.layout as any)?.columnWidths ?? defaults.layout.columnWidths,
-                tablePadding: (sourceConfig?.layout as any)?.tablePadding ?? defaults.layout.tablePadding,
-                tableHeaderAlign: (sourceConfig?.layout as any)?.tableHeaderAlign ?? defaults.layout.tableHeaderAlign,
-                borderRadius: (sourceConfig?.layout as any)?.borderRadius ?? defaults.layout.borderRadius,
-            },
-            content: { ...defaults.content, ...sourceConfig?.content }
-        };
-        setConfig(newConfig);
-        isDirtyRef.current = false;
-        if (setIsDirty) setIsDirty(false);
-    }, [selectedDocType, state.invoiceTemplate, setIsDirty]);
-
-    const updateConfig = (section: keyof ExtendedLayoutConfig | 'root', key: string, value: any) => {
-        if (section === 'root') setConfig(prev => ({ ...prev, [key]: value }));
-        else setConfig(prev => ({ ...prev, [section]: { ...(prev[section] as any), [key]: value } }));
-        if (!isDirtyRef.current) { isDirtyRef.current = true; if (setIsDirty) setIsDirty(true); }
-    };
-
-    const startResizing = useCallback((e: React.MouseEvent | React.TouchEvent) => {
-        e.preventDefault(); 
-        e.stopPropagation(); 
-        setIsResizing(true);
-    }, []);
-    
-    const stopResizing = useCallback(() => setIsResizing(false), []);
-    
     const resize = useCallback((e: MouseEvent | TouchEvent) => {
-        if (isResizing) {
-            let clientX;
+        if (isResizing.current) {
+            e.preventDefault(); // Prevent scrolling/selection
+            let clientX = 0;
             if ('touches' in e) {
                 clientX = e.touches[0].clientX;
             } else {
                 clientX = (e as MouseEvent).clientX;
             }
             
-            // Ensure we have a valid coordinate
-            if (typeof clientX === 'number') {
-                setSidebarWidth(Math.max(200, Math.min(clientX, window.innerWidth * 0.9)));
-            }
+            // Limit width
+            const newWidth = Math.max(280, Math.min(clientX, 600));
+            setSidebarWidth(newWidth);
         }
-    }, [isResizing]);
+    }, []);
 
     useEffect(() => {
-        const handleTouchMove = (e: TouchEvent) => {
-             if (isResizing) {
-                 e.preventDefault(); // Prevent scrolling on touch devices
-                 resize(e);
-             }
+        // Attach global listeners for smoother drag
+        window.addEventListener('mousemove', resize);
+        window.addEventListener('mouseup', stopResizing);
+        window.addEventListener('touchmove', resize, { passive: false }); // passive:false to allow preventDefault
+        window.addEventListener('touchend', stopResizing);
+        return () => {
+            window.removeEventListener('mousemove', resize);
+            window.removeEventListener('mouseup', stopResizing);
+            window.removeEventListener('touchmove', resize);
+            window.removeEventListener('touchend', stopResizing);
         };
+    }, [resize, stopResizing]);
 
-        if (isResizing) {
-            window.addEventListener("mousemove", resize); 
-            window.addEventListener("mouseup", stopResizing);
-            window.addEventListener("touchmove", handleTouchMove, { passive: false }); 
-            window.addEventListener("touchend", stopResizing);
-            
-            document.body.style.cursor = 'col-resize'; 
-            document.body.style.userSelect = 'none';
+    const getInitialConfig = (type: DocumentType): ExtendedLayoutConfig => {
+        let baseConfig: InvoiceTemplateConfig;
+        switch (type) {
+            case 'ESTIMATE': baseConfig = state.estimateTemplate; break;
+            case 'DEBIT_NOTE': baseConfig = state.debitNoteTemplate; break;
+            case 'RECEIPT': baseConfig = state.receiptTemplate; break;
+            default: baseConfig = state.invoiceTemplate; break;
         }
-
-        return () => { 
-            window.removeEventListener("mousemove", resize); 
-            window.removeEventListener("mouseup", stopResizing);
-            window.removeEventListener("touchmove", handleTouchMove); 
-            window.removeEventListener("touchend", stopResizing);
-            document.body.style.cursor = ''; 
-            document.body.style.userSelect = '';
+        return {
+            ...baseConfig,
+            layout: {
+                ...baseConfig.layout,
+                sectionOrdering: ['header', 'title', 'details', 'table', 'totals', 'terms', 'signature', 'footer'],
+                columnWidths: { item: 40, qty: 15, rate: 20 },
+                tablePadding: 3,
+                borderRadius: 4,
+                uppercaseHeadings: true
+            }
         };
-    }, [isResizing, resize, stopResizing]);
+    };
+
+    const [localConfig, setLocalConfig] = useState<ExtendedLayoutConfig>(getInitialConfig('INVOICE'));
+    
+    useEffect(() => {
+        setLocalConfig(getInitialConfig(docType));
+    }, [docType]);
+
+    useEffect(() => {
+        // Simple dirty check (could be improved with deep compare)
+        setIsDirty(true);
+        return () => setIsDirty(false);
+    }, [localConfig, setIsDirty]);
+
+    const handleConfigChange = (section: keyof ExtendedLayoutConfig, key: string, value: any) => {
+        setLocalConfig(prev => ({
+            ...prev,
+            [section]: {
+                ...prev[section],
+                [key]: value
+            }
+        }));
+    };
+
+    const applyPreset = (presetName: string) => {
+        const preset = PRESETS[presetName];
+        if (preset) {
+            setLocalConfig(prev => ({
+                ...prev,
+                colors: { ...prev.colors, ...preset.colors },
+                fonts: { ...prev.fonts, ...preset.fonts },
+                layout: { ...prev.layout, ...preset.layout },
+                content: { ...prev.content, ...preset.content }
+            }));
+        }
+    };
 
     const handleSave = () => {
-        dispatch({ type: 'SET_DOCUMENT_TEMPLATE', payload: { type: selectedDocType, config } });
-        showToast(`${selectedDocType} template saved!`);
-        isDirtyRef.current = false;
-        if (setIsDirty) setIsDirty(false);
+        dispatch({ 
+            type: 'SET_DOCUMENT_TEMPLATE', 
+            payload: { type: docType, config: localConfig } 
+        });
+        showToast(`${docType} template saved successfully!`);
+        setIsDirty(false);
     };
 
-    const handleExportPdf = async () => {
+    const handleOpenPdf = async () => {
         try {
-            showToast("Generating PDF...");
             let doc;
-            const fonts = state.customFonts;
-            if (selectedDocType === 'INVOICE') doc = await generateA4InvoicePdf(dummySale, dummyCustomer, state.profile, config, fonts);
-            else if (selectedDocType === 'ESTIMATE') doc = await generateEstimatePDF(dummySale as any, dummyCustomer, state.profile, config, fonts);
-            else if (selectedDocType === 'DEBIT_NOTE') doc = await generateDebitNotePDF(dummySale as any, dummyCustomer as any, state.profile, config, fonts);
-            else if (selectedDocType === 'RECEIPT') doc = await generateThermalInvoicePDF(dummySale, dummyCustomer, state.profile, config, fonts);
-            if (doc) doc.save(`${selectedDocType}_Preview.pdf`);
+            switch (docType) {
+                case 'INVOICE': doc = await generateA4InvoicePdf(dummySale, dummyCustomer, state.profile, localConfig, state.customFonts); break;
+                case 'ESTIMATE': doc = await generateEstimatePDF(dummySale as any, dummyCustomer, state.profile, localConfig, state.customFonts); break;
+                case 'DEBIT_NOTE': doc = await generateDebitNotePDF(dummySale as any, dummyCustomer as any, state.profile, localConfig, state.customFonts); break;
+                case 'RECEIPT': doc = await generateThermalInvoicePDF(dummySale, dummyCustomer, state.profile, localConfig, state.customFonts); break;
+                default: doc = await generateA4InvoicePdf(dummySale, dummyCustomer, state.profile, localConfig, state.customFonts);
+            }
+            const blob = doc.output('blob');
+            const url = URL.createObjectURL(blob);
+            window.open(url, '_blank');
         } catch (e) {
             console.error(e);
-            showToast("Failed to generate PDF", 'error');
+            showToast("Failed to open PDF.", "error");
         }
     };
 
-    const moveSection = (dragIndex: number, hoverIndex: number) => {
-        const newOrder = [...config.layout.sectionOrdering];
-        const draggedItem = newOrder[dragIndex];
-        newOrder.splice(dragIndex, 1);
-        newOrder.splice(hoverIndex, 0, draggedItem);
-        updateConfig('layout', 'sectionOrdering', newOrder);
+    const handleDownloadTestPdf = async () => {
+        try {
+            let doc;
+            switch (docType) {
+                case 'INVOICE': doc = await generateA4InvoicePdf(dummySale, dummyCustomer, state.profile, localConfig, state.customFonts); break;
+                case 'ESTIMATE': doc = await generateEstimatePDF(dummySale as any, dummyCustomer, state.profile, localConfig, state.customFonts); break;
+                case 'DEBIT_NOTE': doc = await generateDebitNotePDF(dummySale as any, dummyCustomer as any, state.profile, localConfig, state.customFonts); break;
+                case 'RECEIPT': doc = await generateThermalInvoicePDF(dummySale, dummyCustomer, state.profile, localConfig, state.customFonts); break;
+                default: doc = await generateA4InvoicePdf(dummySale, dummyCustomer, state.profile, localConfig, state.customFonts);
+            }
+            doc.save(`Test_${docType}.pdf`);
+        } catch (e) {
+            console.error(e);
+            showToast("Failed to generate PDF.", "error");
+        }
     };
 
-    const moveSectionArrow = (index: number, direction: 'up' | 'down') => {
-        const newOrder = [...config.layout.sectionOrdering];
-        if (direction === 'up' && index > 0) { [newOrder[index], newOrder[index - 1]] = [newOrder[index - 1], newOrder[index]]; }
-        else if (direction === 'down' && index < newOrder.length - 1) { [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]]; }
-        updateConfig('layout', 'sectionOrdering', newOrder);
+    const handleColorPick = (key: keyof InvoiceTemplateConfig['colors']) => {
+        setActiveColorKey(key);
+        setShowColorPicker(true);
     };
-
-    const tabs = [{ id: 'layout', icon: Layout, label: 'Layout' }, { id: 'table', icon: Table, label: 'Table' }, { id: 'structure', icon: Layers, label: 'Structure' }, { id: 'colors', icon: Palette, label: 'Colors' }, { id: 'fonts', icon: TypeIcon, label: 'Fonts' }, { id: 'content', icon: FileText, label: 'Content' }, { id: 'labels', icon: Edit3, label: 'Labels' }];
 
     return (
-        <div className="h-full w-full flex flex-col sm:flex-row overflow-hidden relative">
-            <div className="sm:hidden flex bg-gray-100 dark:bg-slate-800 p-1 rounded-lg shrink-0 border dark:border-slate-700 mb-2 mx-2 mt-2">
-                <button onClick={() => setMobileView('editor')} className={`flex-1 py-2 rounded-md text-sm font-bold flex items-center justify-center gap-2 transition-all ${mobileView === 'editor' ? 'bg-white dark:bg-slate-600 text-primary shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}><Edit3 size={16} /> Editor</button>
-                <button onClick={() => setMobileView('preview')} className={`flex-1 py-2 rounded-md text-sm font-bold flex items-center justify-center gap-2 transition-all ${mobileView === 'preview' ? 'bg-white dark:bg-slate-600 text-primary shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}><Eye size={16} /> Preview</button>
-            </div>
+        <div className="flex h-screen bg-gray-50 dark:bg-slate-950 overflow-hidden font-sans">
+            {/* Color Picker Modal */}
+            <ColorPickerModal
+                isOpen={showColorPicker}
+                onClose={() => setShowColorPicker(false)}
+                initialColor={activeColorKey ? localConfig.colors[activeColorKey] : '#000000'}
+                onChange={(color) => {
+                    if (activeColorKey) {
+                        handleConfigChange('colors', activeColorKey, color);
+                    }
+                }}
+            />
 
-            <div style={isMd ? { width: sidebarWidth } : {}} className={`flex-col bg-white dark:bg-slate-800 sm:rounded-r-xl shadow-lg border-r border-gray-200 dark:border-slate-700 overflow-hidden ${mobileView === 'editor' ? 'flex flex-grow w-full' : 'hidden sm:flex'} shrink-0 z-10`}>
-                <div className="p-4 border-b dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50 shrink-0">
-                    <div className="flex items-center gap-2 mb-4">
-                        <button onClick={() => window.history.back()} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors"><ArrowLeft size={20} /></button>
-                        <h2 className="font-bold text-lg text-primary">Invoice Designer</h2>
-                        <div className="flex-grow"></div>
-                        <button onClick={() => window.history.back()} className="text-sm text-red-500 font-bold hover:bg-red-50 px-3 py-1 rounded">Exit</button>
+            {/* Sidebar */}
+            <aside 
+                ref={sidebarRef}
+                style={{ width: sidebarWidth }}
+                className="bg-white dark:bg-slate-900 border-r dark:border-slate-800 flex flex-col h-full shadow-xl z-20 flex-shrink-0 transition-width duration-75 ease-out"
+            >
+                {/* Header */}
+                <div className="p-4 border-b dark:border-slate-800 flex justify-between items-center bg-gray-50 dark:bg-slate-900">
+                    <div className="flex items-center gap-2">
+                        <div className="p-2 bg-indigo-600 rounded-lg text-white shadow-lg">
+                            <Wand2 size={18} />
+                        </div>
+                        <div>
+                            <h2 className="font-bold text-sm text-slate-800 dark:text-white">Invoice Designer</h2>
+                            <p className="text-[10px] text-slate-500">Visual Editor</p>
+                        </div>
                     </div>
-                    <select value={selectedDocType} onChange={(e) => setSelectedDocType(e.target.value as any)} className="w-full p-2 pr-8 border rounded-lg bg-white dark:bg-slate-700 font-bold outline-none mb-3">
-                        <option value="INVOICE">Sales Invoice</option>
-                        <option value="RECEIPT">Thermal Receipt</option>
-                        <option value="ESTIMATE">Estimate</option>
-                        <option value="DEBIT_NOTE">Debit Note</option>
-                    </select>
-                    <div className="flex gap-2">
-                        <button onClick={() => setConfig(defaults)} className="p-2 rounded-full hover:bg-gray-200 text-gray-500"><RotateCcw size={18} /></button>
-                        <Button onClick={handleSave} className="h-8 px-4 text-xs flex-grow"><Save size={14} className="mr-1" /> Save</Button>
+                    <div className="flex gap-1">
+                        <Button onClick={handleSave} className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 shadow-md">
+                            <Save size={14} className="mr-1.5" /> Save
+                        </Button>
                     </div>
                 </div>
 
-                <div className="flex border-b dark:border-slate-700 overflow-x-auto shrink-0 scrollbar-hide">
-                    {tabs.map(tab => (
-                        <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`flex-1 py-3 px-4 text-sm font-medium flex flex-col items-center justify-center gap-1 ${activeTab === tab.id ? 'text-primary border-b-2 border-primary bg-primary/5' : 'text-gray-500 hover:bg-gray-50'}`}>
-                            <tab.icon size={18}/> <span className="text-[10px]">{tab.label}</span>
+                {/* Document Type Selector */}
+                <div className="px-4 py-3 border-b dark:border-slate-800">
+                    <label className="text-xs font-bold text-slate-500 uppercase mb-1.5 block">Document Type</label>
+                    <div className="grid grid-cols-2 gap-2">
+                        {['INVOICE', 'ESTIMATE', 'DEBIT_NOTE', 'RECEIPT'].map(t => (
+                            <button
+                                key={t}
+                                onClick={() => setDocType(t as DocumentType)}
+                                className={`px-2 py-1.5 rounded text-xs font-semibold transition-all border ${docType === t ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-900/30 dark:border-indigo-700 dark:text-indigo-300' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-gray-50'}`}
+                            >
+                                {t.replace('_', ' ')}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Tabs */}
+                <div className="flex border-b dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-0 z-10">
+                    {[
+                        { id: 'layout', icon: Layout, label: 'Layout' },
+                        { id: 'branding', icon: Palette, label: 'Style' },
+                        { id: 'content', icon: FileText, label: 'Content' },
+                        { id: 'fonts', icon: Type, label: 'Text' },
+                    ].map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id as any)}
+                            className={`flex-1 py-3 flex flex-col items-center justify-center gap-1 text-[10px] font-medium transition-colors border-b-2 ${activeTab === tab.id ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50 dark:bg-slate-800' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800'}`}
+                        >
+                            <tab.icon size={16} />
+                            {tab.label}
                         </button>
                     ))}
                 </div>
 
-                <div className="flex-grow overflow-y-auto p-4 space-y-6 custom-scrollbar pb-20 md:pb-4">
-                    {activeTab === 'structure' && (
-                        <div className="space-y-4">
-                            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg text-xs text-blue-700 dark:text-blue-300 mb-4">
-                                Drag items to reorder them on the document. Use arrows if touch dragging is difficult.
+                {/* Tab Content */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar pb-20">
+                    
+                    {/* LAYOUT TAB */}
+                    {activeTab === 'layout' && (
+                        <div className="space-y-6 animate-fade-in-fast">
+                            {/* Presets */}
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Quick Presets</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {Object.keys(PRESETS).map(name => (
+                                        <button key={name} onClick={() => applyPreset(name)} className="px-3 py-2 text-xs font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-sm transition-all text-left">
+                                            {name}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
-                            <div className="space-y-2">
-                                {config.layout.sectionOrdering.map((section, index) => (
-                                    <div key={section} className="flex items-center gap-2">
-                                        <div className="flex-grow"><DraggableSectionItem id={section} label={section} index={index} moveSection={moveSection} /></div>
-                                        <div className="flex flex-col gap-1">
-                                            <button onClick={() => moveSectionArrow(index, 'up')} disabled={index === 0} className="p-1 bg-gray-100 dark:bg-slate-700 rounded hover:bg-gray-200 disabled:opacity-30"><ArrowUp size={14}/></button>
-                                            <button onClick={() => moveSectionArrow(index, 'down')} disabled={index === config.layout.sectionOrdering.length - 1} className="p-1 bg-gray-100 dark:bg-slate-700 rounded hover:bg-gray-200 disabled:opacity-30"><ArrowDown size={14}/></button>
+
+                            {/* Header Style */}
+                            <div className="space-y-3">
+                                <label className="text-xs font-bold text-slate-500 uppercase block">Header Layout</label>
+                                <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+                                    {['standard', 'banner', 'minimal'].map(s => (
+                                        <button 
+                                            key={s} 
+                                            onClick={() => handleConfigChange('layout', 'headerStyle', s)}
+                                            className={`flex-1 py-1.5 text-xs font-medium rounded capitalize ${localConfig.layout.headerStyle === s ? 'bg-white dark:bg-slate-600 shadow-sm text-slate-900 dark:text-white' : 'text-slate-500'}`}
+                                        >
+                                            {s}
+                                        </button>
+                                    ))}
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs text-slate-600 dark:text-slate-400">Alignment</span>
+                                    <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded">
+                                        {[
+                                            { v: 'left', i: AlignLeft }, 
+                                            { v: 'center', i: AlignCenter }, 
+                                            { v: 'right', i: AlignRight }
+                                        ].map(({v, i: Icon}) => (
+                                            <button 
+                                                key={v} 
+                                                onClick={() => handleConfigChange('layout', 'headerAlignment', v)}
+                                                className={`p-1.5 rounded ${localConfig.layout.headerAlignment === v ? 'bg-white dark:bg-slate-600 shadow-sm text-indigo-600 dark:text-white' : 'text-slate-400'}`}
+                                            >
+                                                <Icon size={14} />
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Logo Config */}
+                            <div className="space-y-3 border-t dark:border-slate-800 pt-4">
+                                <label className="text-xs font-bold text-slate-500 uppercase block">Logo Settings</label>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <span className="text-[10px] text-slate-500 block mb-1">Size (mm)</span>
+                                        <input 
+                                            type="range" min="10" max="60" 
+                                            value={localConfig.layout.logoSize} 
+                                            onChange={e => handleConfigChange('layout', 'logoSize', parseInt(e.target.value))} 
+                                            className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                                        />
+                                    </div>
+                                    <div>
+                                        <span className="text-[10px] text-slate-500 block mb-1">Position</span>
+                                        <div className="flex gap-1">
+                                            {['left', 'center', 'right'].map(p => (
+                                                <button 
+                                                    key={p} 
+                                                    onClick={() => handleConfigChange('layout', 'logoPosition', p)}
+                                                    className={`flex-1 py-1 text-[10px] uppercase font-bold border rounded ${localConfig.layout.logoPosition === p ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'border-slate-200 text-slate-500'}`}
+                                                >
+                                                    {p[0]}
+                                                </button>
+                                            ))}
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {/* QR Code Position */}
+                            <div className="space-y-3 border-t dark:border-slate-800 pt-4">
+                                <label className="text-xs font-bold text-slate-500 uppercase block flex items-center gap-2">
+                                    <QrCode size={14} /> QR Code Position
+                                </label>
+                                <select 
+                                    value={localConfig.layout.qrPosition || 'details-right'} 
+                                    onChange={e => handleConfigChange('layout', 'qrPosition', e.target.value)}
+                                    className="w-full p-2 text-xs border rounded bg-white dark:bg-slate-800 dark:border-slate-700"
+                                >
+                                    <option value="header-right">Header Right (Near Logo)</option>
+                                    <option value="details-right">Details Section (Right)</option>
+                                    <option value="footer-left">Footer Left</option>
+                                    <option value="footer-right">Footer Right</option>
+                                </select>
+                            </div>
+
+                            {/* Table Layout */}
+                            <div className="space-y-3 border-t dark:border-slate-800 pt-4">
+                                <label className="text-xs font-bold text-slate-500 uppercase block">Table Columns</label>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs text-slate-600 dark:text-slate-300">Item Width</span>
+                                        <input 
+                                            type="range" min="20" max="70" 
+                                            value={localConfig.layout.columnWidths?.item || 40} 
+                                            onChange={e => handleConfigChange('layout', 'columnWidths', { ...localConfig.layout.columnWidths, item: parseInt(e.target.value) })} 
+                                            className="w-24 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                                        />
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => handleConfigChange('layout', 'tableOptions', { ...localConfig.layout.tableOptions, hideQty: !localConfig.layout.tableOptions.hideQty })} className={`flex-1 py-1.5 text-xs border rounded ${!localConfig.layout.tableOptions.hideQty ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'border-slate-200 text-slate-400'}`}>
+                                            Qty
+                                        </button>
+                                        <button onClick={() => handleConfigChange('layout', 'tableOptions', { ...localConfig.layout.tableOptions, hideRate: !localConfig.layout.tableOptions.hideRate })} className={`flex-1 py-1.5 text-xs border rounded ${!localConfig.layout.tableOptions.hideRate ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'border-slate-200 text-slate-400'}`}>
+                                            Rate
+                                        </button>
+                                        <button onClick={() => handleConfigChange('layout', 'tableOptions', { ...localConfig.layout.tableOptions, compact: !localConfig.layout.tableOptions.compact })} className={`flex-1 py-1.5 text-xs border rounded ${localConfig.layout.tableOptions.compact ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'border-slate-200 text-slate-400'}`}>
+                                            Compact
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* BRANDING TAB */}
+                    {activeTab === 'branding' && (
+                        <div className="space-y-6 animate-fade-in-fast">
+                            {/* Colors */}
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 uppercase mb-3 block">Theme Colors</label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {[
+                                        { k: 'primary', l: 'Primary Brand' },
+                                        { k: 'secondary', l: 'Secondary Text' },
+                                        { k: 'tableHeaderBg', l: 'Table Header' },
+                                        { k: 'tableHeaderText', l: 'Header Text' },
+                                        { k: 'borderColor', l: 'Borders' },
+                                        { k: 'alternateRowBg', l: 'Striped Rows' },
+                                    ].map(({k, l}) => (
+                                        <button 
+                                            key={k}
+                                            onClick={() => handleColorPick(k as any)}
+                                            className="flex items-center gap-3 p-2 rounded border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left"
+                                        >
+                                            <div className="w-8 h-8 rounded-full shadow-sm border border-black/10" style={{ background: localConfig.colors[k as keyof typeof localConfig.colors] || '#fff' }}></div>
+                                            <div>
+                                                <span className="text-xs font-medium text-slate-700 dark:text-slate-300 block">{l}</span>
+                                                <span className="text-[10px] text-slate-400 font-mono uppercase">{localConfig.colors[k as keyof typeof localConfig.colors]}</span>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Watermark */}
+                            <div className="space-y-3 border-t dark:border-slate-800 pt-4">
+                                <div className="flex justify-between items-center">
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Watermark</label>
+                                    <input 
+                                        type="checkbox" 
+                                        checked={localConfig.layout.showWatermark} 
+                                        onChange={e => handleConfigChange('layout', 'showWatermark', e.target.checked)}
+                                        className="toggle-checkbox"
+                                    />
+                                </div>
+                                {localConfig.layout.showWatermark && (
+                                    <div>
+                                        <span className="text-[10px] text-slate-500 block mb-1">Opacity</span>
+                                        <input 
+                                            type="range" min="0" max="100" 
+                                            value={(localConfig.layout.watermarkOpacity || 0.1) * 100} 
+                                            onChange={e => handleConfigChange('layout', 'watermarkOpacity', parseInt(e.target.value) / 100)} 
+                                            className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* CONTENT TAB */}
+                    {activeTab === 'content' && (
+                        <div className="space-y-6 animate-fade-in-fast">
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Labels & Titles</label>
+                                <div className="space-y-3">
+                                    <div>
+                                        <span className="text-[10px] text-slate-500 block mb-1">Document Title</span>
+                                        <input 
+                                            type="text" value={localConfig.content.titleText} 
+                                            onChange={e => handleConfigChange('content', 'titleText', e.target.value)}
+                                            className="w-full p-2 text-xs border rounded dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <span className="text-[10px] text-slate-500 block mb-1">Total Label</span>
+                                            <input 
+                                                type="text" value={localConfig.content.labels?.grandTotal} 
+                                                onChange={e => handleConfigChange('content', 'labels', { ...localConfig.content.labels, grandTotal: e.target.value })}
+                                                className="w-full p-2 text-xs border rounded dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                                            />
+                                        </div>
+                                        <div>
+                                            <span className="text-[10px] text-slate-500 block mb-1">Balance Label</span>
+                                            <input 
+                                                type="text" value={localConfig.content.labels?.balance} 
+                                                onChange={e => handleConfigChange('content', 'labels', { ...localConfig.content.labels, balance: e.target.value })}
+                                                className="w-full p-2 text-xs border rounded dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2 border-t dark:border-slate-800 pt-4">
+                                <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Show / Hide</label>
+                                {[
+                                    { k: 'showTerms', l: 'Terms & Conditions' },
+                                    { k: 'showSignature', l: 'Signature Line' },
+                                    { k: 'showQr', l: 'QR Code' },
+                                    { k: 'showAmountInWords', l: 'Amount In Words' },
+                                    { k: 'showStatusStamp', l: 'Status Stamp (PAID/DUE)' },
+                                    { k: 'showTaxBreakdown', l: 'Tax Breakdown Table' },
+                                    { k: 'showGst', l: 'GST Line in Totals' }
+                                ].map(({k, l}) => (
+                                    <div key={k} className="flex justify-between items-center p-2 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                                        <span className="text-xs font-medium text-slate-700 dark:text-slate-300">{l}</span>
+                                        <input 
+                                            type="checkbox" 
+                                            checked={(localConfig.content as any)[k] !== false} // default true check
+                                            onChange={e => handleConfigChange('content', k, e.target.checked)}
+                                            className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                                        />
                                     </div>
                                 ))}
                             </div>
-                        </div>
-                    )}
-                    {activeTab === 'layout' && (
-                        <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-2 mb-4">
-                                {Object.keys(PRESETS).map(name => (
-                                    <button key={name} onClick={() => { const preset = PRESETS[name]; if(preset) setConfig(prev => ({ ...prev, ...preset, layout: { ...prev.layout, ...preset.layout, tableOptions: { ...prev.layout.tableOptions, ...preset.layout?.tableOptions } }, content: { ...prev.content, ...preset.content } })); updateConfig('root', 'id', config.id); }} className="p-2 border rounded-lg text-xs font-medium hover:bg-primary/5 hover:border-primary dark:text-white">{name}</button>
-                                ))}
-                            </div>
-                            <div className="space-y-4 border-t pt-4">
-                                <div><label className="text-xs font-bold">Logo Size</label><input type="range" min="5" max="60" value={config.layout.logoSize} onChange={(e) => updateConfig('layout', 'logoSize', parseInt(e.target.value))} className="w-full accent-primary" /></div>
-                                <div><label className="text-xs font-bold">Vertical Margin</label><input type="range" min="5" max="50" value={config.layout.margin} onChange={(e) => updateConfig('layout', 'margin', parseInt(e.target.value))} className="w-full accent-primary" /></div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div><label className="text-xs font-bold">Logo X</label><input type="range" min="-50" max="50" value={config.layout.logoOffsetX || 0} onChange={(e) => updateConfig('layout', 'logoOffsetX', parseInt(e.target.value))} className="w-full accent-primary" /></div>
-                                    <div><label className="text-xs font-bold">Logo Y</label><input type="range" min="-50" max="50" value={config.layout.logoOffsetY || 0} onChange={(e) => updateConfig('layout', 'logoOffsetY', parseInt(e.target.value))} className="w-full accent-primary" /></div>
-                                </div>
-                                <div><label className="text-xs font-bold">Corner Radius</label><input type="range" min="0" max="20" value={config.layout.borderRadius || 0} onChange={(e) => updateConfig('layout', 'borderRadius', parseInt(e.target.value))} className="w-full accent-primary" /></div>
-                                <div className="space-y-2 border-t pt-4">
-                                    <label className="flex items-center gap-2 text-sm p-2 hover:bg-gray-50 rounded"><input type="checkbox" checked={config.layout.tableOptions.bordered} onChange={(e) => updateConfig('layout', 'tableOptions', { ...config.layout.tableOptions, bordered: e.target.checked })} /> Content Borders</label>
-                                    <label className="flex items-center gap-2 text-sm p-2 hover:bg-gray-50 rounded"><input type="checkbox" checked={config.layout.boldBorders} onChange={(e) => updateConfig('layout', 'boldBorders', e.target.checked)} /> Bold Section Borders</label>
-                                    <label className="flex items-center gap-2 text-sm p-2 hover:bg-gray-50 rounded"><input type="checkbox" checked={config.layout.uppercaseHeadings} onChange={(e) => updateConfig('layout', 'uppercaseHeadings', e.target.checked)} /> Uppercase Headings</label>
-                                </div>
+                            
+                            <div className="space-y-3 border-t dark:border-slate-800 pt-4">
+                                <label className="text-xs font-bold text-slate-500 uppercase block">Footer Text</label>
+                                <textarea 
+                                    value={localConfig.content.footerText} 
+                                    onChange={e => handleConfigChange('content', 'footerText', e.target.value)}
+                                    rows={2}
+                                    className="w-full p-2 text-xs border rounded dark:bg-slate-800 dark:border-slate-700 dark:text-white resize-none"
+                                />
                             </div>
                         </div>
                     )}
-                    {activeTab === 'table' && (
-                        <div className="space-y-4">
-                            <div className="space-y-4">
-                                <div><label className="text-xs flex justify-between"><span>Item Description</span> <span>{config.layout.columnWidths?.item}%</span></label><input type="range" min="20" max="70" value={config.layout.columnWidths?.item} onChange={(e) => updateConfig('layout', 'columnWidths', { ...config.layout.columnWidths, item: parseInt(e.target.value) })} className="w-full accent-primary" /></div>
-                                <div><label className="text-xs flex justify-between"><span>Quantity</span> <span>{config.layout.columnWidths?.qty}%</span></label><input type="range" min="5" max="20" value={config.layout.columnWidths?.qty} onChange={(e) => updateConfig('layout', 'columnWidths', { ...config.layout.columnWidths, qty: parseInt(e.target.value) })} className="w-full accent-primary" /></div>
-                                <div><label className="text-xs flex justify-between"><span>Rate</span> <span>{config.layout.columnWidths?.rate}%</span></label><input type="range" min="10" max="30" value={config.layout.columnWidths?.rate} onChange={(e) => updateConfig('layout', 'columnWidths', { ...config.layout.columnWidths, rate: parseInt(e.target.value) })} className="w-full accent-primary" /></div>
-                            </div>
-                            <div className="border-t pt-4 space-y-4">
-                                <div><label className="text-xs font-bold mb-2 block">Cell Padding</label><input type="range" min="1" max="8" step="0.5" value={config.layout.tablePadding || 3} onChange={(e) => updateConfig('layout', 'tablePadding', parseFloat(e.target.value))} className="w-full accent-primary" /></div>
-                                <div><label className="text-xs font-bold mb-2 block">Header Alignment</label><div className="flex bg-gray-100 dark:bg-slate-700 rounded-lg p-1"><button onClick={() => updateConfig('layout', 'tableHeaderAlign', 'left')} className={`flex-1 p-1 rounded ${config.layout.tableHeaderAlign === 'left' ? 'bg-white shadow text-primary' : 'text-gray-500'}`}><AlignLeft size={16}/></button><button onClick={() => updateConfig('layout', 'tableHeaderAlign', 'center')} className={`flex-1 p-1 rounded ${config.layout.tableHeaderAlign === 'center' ? 'bg-white shadow text-primary' : 'text-gray-500'}`}><AlignCenter size={16}/></button><button onClick={() => updateConfig('layout', 'tableHeaderAlign', 'right')} className={`flex-1 p-1 rounded ${config.layout.tableHeaderAlign === 'right' ? 'bg-white shadow text-primary' : 'text-gray-500'}`}><AlignRight size={16}/></button></div></div>
-                                <label className="flex items-center gap-2 text-sm p-2 hover:bg-gray-50 rounded bg-gray-50 dark:bg-slate-700/50 mt-2"><input type="checkbox" checked={config.layout.tableOptions.stripedRows} onChange={(e) => updateConfig('layout', 'tableOptions', { ...config.layout.tableOptions, stripedRows: e.target.checked })} /> Zebra Stripes</label>
-                                <label className="flex items-center gap-2 text-sm p-2 hover:bg-gray-50 rounded bg-gray-50 dark:bg-slate-700/50"><input type="checkbox" checked={config.layout.tableOptions.compact} onChange={(e) => updateConfig('layout', 'tableOptions', { ...config.layout.tableOptions, compact: e.target.checked })} /> Remove Inner Borders</label>
-                            </div>
-                        </div>
-                    )}
-                    {activeTab === 'colors' && (
-                        <div className="space-y-4">
-                            <Button onClick={async () => { if (state.profile?.logo) { const c = await extractDominantColor(state.profile.logo); updateConfig('colors', 'primary', c); updateConfig('colors', 'tableHeaderBg', c); updateConfig('colors', 'bannerBg', c); } }} variant="secondary" className="w-full mb-2 text-xs"><Wand2 size={14} className="mr-2"/> Auto-Brand from Logo</Button>
-                            {Object.entries({ primary: "Brand Color", secondary: "Secondary Text", text: "Body Text", tableHeaderBg: "Table Header Bg", tableHeaderText: "Table Header Text", bannerBg: "Banner Bg", bannerText: "Banner Text", borderColor: "Lines & Borders", alternateRowBg: "Striped Rows" }).map(([key, label]) => (
-                                <div key={key} className="flex items-center justify-between p-2 border rounded-lg bg-white dark:bg-slate-700"><span className="text-sm font-medium">{label}</span><button onClick={() => setColorPickerTarget(key as any)} className="w-8 h-8 rounded-full border-2 border-white shadow-sm" style={{ backgroundColor: (config.colors as any)[key] }} /></div>
-                            ))}
-                            <ColorPickerModal isOpen={!!colorPickerTarget} onClose={() => setColorPickerTarget(null)} initialColor={colorPickerTarget ? (config.colors as any)[colorPickerTarget] : '#000000'} onChange={(color) => { if (colorPickerTarget) updateConfig('colors', colorPickerTarget, color); }} />
-                        </div>
-                    )}
+
+                    {/* FONTS TAB */}
                     {activeTab === 'fonts' && (
-                        <div className="space-y-4">
-                             <div><label className="text-xs font-bold block mb-1">Title Font</label><select value={config.fonts.titleFont} onChange={(e) => updateConfig('fonts', 'titleFont', e.target.value)} className="w-full p-2 border rounded dark:bg-slate-700"><option value="helvetica">Helvetica</option><option value="times">Times New Roman</option><option value="courier">Courier New</option>{state.customFonts.map(f => <option key={f.id} value={f.name}>{f.name}</option>)}</select></div>
-                             <div><label className="text-xs font-bold block mb-1">Body Font</label><select value={config.fonts.bodyFont} onChange={(e) => updateConfig('fonts', 'bodyFont', e.target.value)} className="w-full p-2 border rounded dark:bg-slate-700"><option value="helvetica">Helvetica</option><option value="times">Times New Roman</option><option value="courier">Courier New</option>{state.customFonts.map(f => <option key={f.id} value={f.name}>{f.name}</option>)}</select></div>
-                             <div><label className="text-xs">Header Size</label><input type="range" min="10" max="40" value={config.fonts.headerSize} onChange={(e) => updateConfig('fonts', 'headerSize', parseInt(e.target.value))} className="w-full accent-primary" /></div>
-                             <div><label className="text-xs">Body Size</label><input type="range" min="6" max="16" value={config.fonts.bodySize} onChange={(e) => updateConfig('fonts', 'bodySize', parseInt(e.target.value))} className="w-full accent-primary" /></div>
-                        </div>
-                    )}
-                    {activeTab === 'content' && (
-                        <div className="space-y-4">
-                            <div><label className="text-xs font-bold block mb-1">Title Text</label><input type="text" value={config.content.titleText} onChange={(e) => updateConfig('content', 'titleText', e.target.value)} className="w-full p-2 border rounded" /></div>
-                            <div className="space-y-2 border-t pt-4">
-                                {[{ k: 'showBusinessDetails', l: 'Show Business Info' }, { k: 'showCustomerDetails', l: 'Show Customer Info' }, { k: 'showQr', l: 'Show QR Code' }, { k: 'showTerms', l: 'Show Terms' }, { k: 'showSignature', l: 'Show Signature Line' }, { k: 'showAmountInWords', l: 'Total In Words' }, { k: 'showStatusStamp', l: 'Paid/Due Stamp' }, { k: 'showGst', l: 'Show GST Column' }].map(({k, l}) => (
-                                    <label key={k} className="flex items-center justify-between text-sm p-2 bg-gray-50 dark:bg-slate-700 rounded">{l}<input type="checkbox" checked={(config.content as any)[k]} onChange={(e) => updateConfig('content', k, e.target.checked)} className="w-4 h-4 text-primary rounded" /></label>
-                                ))}
+                        <div className="space-y-6 animate-fade-in-fast">
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Header Font</label>
+                                    <select 
+                                        value={localConfig.fonts.titleFont} 
+                                        onChange={e => handleConfigChange('fonts', 'titleFont', e.target.value)}
+                                        className="w-full p-2 text-xs border rounded dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                                    >
+                                        <option value="helvetica">Helvetica (Clean)</option>
+                                        <option value="times">Times New Roman (Serif)</option>
+                                        <option value="courier">Courier (Mono)</option>
+                                        {state.customFonts.map(f => <option key={f.id} value={f.name}>{f.name} (Custom)</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Body Font</label>
+                                    <select 
+                                        value={localConfig.fonts.bodyFont} 
+                                        onChange={e => handleConfigChange('fonts', 'bodyFont', e.target.value)}
+                                        className="w-full p-2 text-xs border rounded dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                                    >
+                                        <option value="helvetica">Helvetica (Clean)</option>
+                                        <option value="times">Times New Roman (Serif)</option>
+                                        <option value="courier">Courier (Mono)</option>
+                                        {state.customFonts.map(f => <option key={f.id} value={f.name}>{f.name} (Custom)</option>)}
+                                    </select>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Header Size</label>
+                                        <input 
+                                            type="number" value={localConfig.fonts.headerSize} 
+                                            onChange={e => handleConfigChange('fonts', 'headerSize', parseInt(e.target.value))}
+                                            className="w-full p-2 text-xs border rounded dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Body Size</label>
+                                        <input 
+                                            type="number" value={localConfig.fonts.bodySize} 
+                                            onChange={e => handleConfigChange('fonts', 'bodySize', parseInt(e.target.value))}
+                                            className="w-full p-2 text-xs border rounded dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                                        />
+                                    </div>
+                                </div>
                             </div>
-                            <div><label className="text-xs font-bold block mb-1">Terms</label><textarea value={config.content.termsText} onChange={(e) => updateConfig('content', 'termsText', e.target.value)} className="w-full p-2 border rounded h-20 text-xs" /></div>
-                            <div><label className="text-xs font-bold block mb-1">Footer</label><input type="text" value={config.content.footerText} onChange={(e) => updateConfig('content', 'footerText', e.target.value)} className="w-full p-2 border rounded" /></div>
-                        </div>
-                    )}
-                    {activeTab === 'labels' && (
-                        <div className="space-y-3">
-                            {Object.keys(defaultLabels).map((key) => (
-                                <div key={key}><label className="text-xs font-bold block mb-1 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</label><input type="text" value={(config.content.labels as any)?.[key] || (defaultLabels as any)[key]} onChange={(e) => updateConfig('content', 'labels', { ...config.content.labels, [key]: e.target.value })} className="w-full p-2 border rounded text-sm" /></div>
-                            ))}
                         </div>
                     )}
                 </div>
-            </div>
-
-            <div 
-                className="hidden sm:flex w-4 cursor-col-resize items-center justify-center hover:bg-blue-500/10 transition-colors z-20 -ml-2 mr-[-2px] touch-none select-none" 
-                onMouseDown={startResizing}
-                onTouchStart={startResizing}
-            >
-                <div className="w-1 h-12 bg-gray-300 dark:bg-slate-600 rounded-full shadow-sm pointer-events-none"></div>
-            </div>
-
-            <div className={`flex-grow min-w-0 bg-gray-100 dark:bg-slate-900 relative overflow-hidden flex flex-col ${mobileView === 'preview' ? 'flex' : 'hidden sm:flex'}`}>
-                <div className="h-12 bg-white dark:bg-slate-800 border-b dark:border-slate-700 flex justify-between items-center px-4 shrink-0">
-                     <h3 className="font-bold text-sm text-gray-500 uppercase">Live PDF Preview</h3>
-                     <button onClick={handleExportPdf} className="p-1.5 hover:bg-gray-100 dark:hover:bg-slate-700 rounded text-primary flex items-center gap-1 font-bold text-sm"><Printer size={16} /> Print / PDF</button>
+                
+                {/* Resize Handle */}
+                <div 
+                    className="resize-handle absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-indigo-500 active:bg-indigo-600 z-30 transition-colors flex flex-col justify-center items-center group"
+                    onMouseDown={startResizing}
+                    onTouchStart={startResizing}
+                >
+                    <div className="w-1 h-8 bg-gray-300 dark:bg-slate-600 rounded-full group-hover:bg-white"></div>
                 </div>
-                <div className="flex-grow relative bg-slate-200/50 dark:bg-slate-950/50 overflow-hidden">
-                     {/* Replace LiveInvoicePreview with PDFCanvasPreview */}
-                     <PDFCanvasPreview config={config} profile={state.profile} docType={selectedDocType} customFonts={state.customFonts} />
+            </aside>
+
+            {/* Main Preview Area */}
+            <main className="flex-1 flex flex-col h-full relative bg-gray-100 dark:bg-slate-900/50">
+                {/* Top Action Bar */}
+                <div className="bg-white dark:bg-slate-900 border-b dark:border-slate-800 p-3 flex justify-between items-center shadow-sm z-10">
+                    <div className="flex gap-2">
+                        <Button onClick={() => window.history.back()} variant="secondary" className="h-8 w-8 p-0 rounded-full flex items-center justify-center"><ArrowLeft size={16}/></Button>
+                        <span className="text-sm font-semibold text-gray-500 self-center px-2 border-l ml-2">Live Preview</span>
+                    </div>
+                    <div className="flex gap-2">
+                        <Button onClick={handleOpenPdf} variant="secondary" className="h-8 text-xs">
+                            <ExternalLink size={14} className="mr-1.5" /> Open PDF
+                        </Button>
+                        <Button onClick={handleDownloadTestPdf} className="h-8 text-xs">
+                            <Printer size={14} className="mr-1.5" /> Test Print
+                        </Button>
+                    </div>
                 </div>
-            </div>
+
+                {/* Canvas */}
+                <PDFCanvasPreview 
+                    config={localConfig} 
+                    profile={state.profile} 
+                    docType={docType}
+                    customFonts={state.customFonts}
+                />
+            </main>
         </div>
     );
 };

@@ -327,6 +327,8 @@ const MainApp: React.FC = () => {
 
   useSwipe({
     onSwipeRight: () => {
+        // Disable swipe on specific pages or when modals/overlays are open
+        if (currentPage === 'INVOICE_DESIGNER') return;
         if (isMenuOpen || isSearchOpen || isNotificationsOpen || isQuickAddOpen || isMobileQuickAddOpen || isMoreMenuOpen || isAppLocked) return;
 
         if (currentPage === 'DASHBOARD') {

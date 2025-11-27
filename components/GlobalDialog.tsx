@@ -24,7 +24,7 @@ const GlobalDialog: React.FC<GlobalDialogProps> = ({ isOpen, type, message, opti
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4 animate-fade-in-fast">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000] p-4 animate-fade-in-fast">
       <Card title={options.title} className="w-full max-w-md animate-scale-in shadow-2xl">
         <div className="space-y-4">
           <p className="text-gray-700 dark:text-gray-300 text-base leading-relaxed">{message}</p>

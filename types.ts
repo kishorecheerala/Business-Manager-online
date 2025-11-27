@@ -234,6 +234,7 @@ export interface InvoiceTemplateConfig {
     logoPosition: 'left' | 'center' | 'right';
     logoOffsetX?: number; // mm
     logoOffsetY?: number; // mm
+    qrPosition?: 'header-right' | 'details-right' | 'footer-left' | 'footer-right';
     headerAlignment: 'left' | 'center' | 'right';
     headerStyle?: 'standard' | 'banner' | 'minimal'; // New: Header Style
     footerStyle?: 'standard' | 'banner'; // New: Footer Style

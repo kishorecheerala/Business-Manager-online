@@ -71,39 +71,6 @@ const formatDate = (dateString: string, format: 'DD/MM/YYYY' | 'MM/DD/YYYY' | 'Y
     return `${day}/${month}/${year}`; // Default DD/MM/YYYY
 };
 
-// --- Helper: Convert Number to Words (Indian format) ---
-const convertNumberToWords = (amount: number): string => {
-    const a = [
-        '', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '
-    ];
-    const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
-
-    const numToWords = (n: number): string => {
-        if (n < 20) return a[n];
-        const digit = n % 10;
-        if (n < 100) return b[Math.floor(n / 10)] + (digit ? " " + a[digit] : "");
-        if (n < 1000) return a[Math.floor(n / 100)] + "Hundred " + (n % 100 === 0 ? "" : "and " + numToWords(n % 100));
-        return "";
-    };
-
-    if (amount === 0) return "Zero Rupees Only";
-
-    const crore = Math.floor(amount / 10000000);
-    amount -= crore * 10000000;
-    const lakh = Math.floor(amount / 100000);
-    amount -= lakh * 100000;
-    const thousand = Math.floor(amount / 1000);
-    amount -= thousand * 1000;
-    
-    let str = "";
-    if (crore > 0) str += numToWords(crore) + "Crore ";
-    if (lakh > 0) str += numToWords(lakh) + "Lakh ";
-    if (thousand > 0) str += numToWords(thousand) + "Thousand ";
-    if (amount > 0) str += numToWords(amount);
-
-    return str.trim() + " Rupees Only";
-};
-
 // --- Helper: Safe Currency Formatting ---
 const formatCurrency = (amount: number, symbol: string, fontName: string): string => {
     const isStandardFont = ['helvetica', 'times', 'courier'].includes(fontName.toLowerCase());
@@ -142,7 +109,6 @@ export const addBusinessHeader = (doc: jsPDF, profile: ProfileData | null, title
             const format = getImageType(logoToUse);
             const width = 25;
             let height = 25;
-            // Attempt to maintain aspect ratio
             try {
                 const props = doc.getImageProperties(logoToUse);
                 if (props.width > 0 && props.height > 0) {
@@ -150,14 +116,7 @@ export const addBusinessHeader = (doc: jsPDF, profile: ProfileData | null, title
                 }
             } catch(e) {}
             
-            // Constrain height if aspect ratio is wild
-            if (height > 40) {
-                const scale = 40 / height;
-                height = 40;
-                // width will be smaller, but we fixed width. 
-                // Actually better to fix max dimension. 
-                // For simplified headers, let's just clamp height.
-            }
+            if (height > 40) height = 40;
             
             doc.addImage(logoToUse, format, 14, 10, width, height);
         } catch (e) {
@@ -214,7 +173,7 @@ export const addBusinessHeader = (doc: jsPDF, profile: ProfileData | null, title
     return currentY + 8; 
 };
 
-// --- Thermal Receipt Generator ---
+// --- Thermal Receipt Generator (Dynamic Height) ---
 export const generateThermalInvoicePDF = async (
     sale: Sale, 
     customer: Customer, 
@@ -228,140 +187,142 @@ export const generateThermalInvoicePDF = async (
     const currencySymbol = templateConfig?.currencySymbol || 'Rs.';
     const dateFormat = templateConfig?.dateFormat || 'DD/MM/YYYY';
     const labels = { ...defaultLabels, ...templateConfig?.content.labels };
-
-    // Force 'Rs.' for thermal if no custom font, standard thermal printers often fail with special chars
     const currency = customFonts?.length ? currencySymbol : 'Rs.';
-
     const margin = 2;
-    const pageWidth = 72; // 80mm paper usually has ~72mm printable width
-    
-    // Calculate estimated height to initialize doc
-    const estimatedHeight = 200 + (sale.items.length * 10);
-    const doc = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: [80, estimatedHeight] 
-    });
-
-    if (customFonts) registerCustomFonts(doc, customFonts);
-
-    let y = 5;
+    const pageWidth = 72; // Approx printable width on 80mm paper
     const centerX = 40; // Center of 80mm
 
-    // Logo with Aspect Ratio Check
-    if (profile?.logo) {
-        try {
-            const logoWidth = 18;
-            let logoHeight = 18;
+    // Renders content to a doc and returns the final Y position
+    const renderContent = (doc: jsPDF) => {
+        let y = 5;
+
+        if (customFonts) registerCustomFonts(doc, customFonts);
+
+        // Logo
+        if (profile?.logo) {
             try {
-                const props = doc.getImageProperties(profile.logo);
-                if (props.width > 0 && props.height > 0) {
-                    logoHeight = logoWidth / (props.width / props.height);
-                }
+                const logoWidth = 18;
+                let logoHeight = 18;
+                try {
+                    const props = doc.getImageProperties(profile.logo);
+                    if (props.width > 0 && props.height > 0) {
+                        logoHeight = logoWidth / (props.width / props.height);
+                    }
+                } catch(e) {}
+                
+                doc.addImage(profile.logo, getImageType(profile.logo), centerX - (logoWidth/2), y, logoWidth, logoHeight);
+                y += logoHeight + 3;
             } catch(e) {}
-            
-            doc.addImage(profile.logo, getImageType(profile.logo), centerX - (logoWidth/2), y, logoWidth, logoHeight);
-            y += logoHeight + 3;
-        } catch(e) {}
-    }
+        }
 
-    // Business Info
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.setTextColor('#000000');
-    const busName = doc.splitTextToSize(profile?.name || 'Business Name', pageWidth);
-    doc.text(busName, centerX, y, { align: 'center' });
-    y += (busName.length * 4) + 1;
-
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-    if (profile?.address) {
-        const addr = doc.splitTextToSize(profile.address, pageWidth);
-        doc.text(addr, centerX, y, { align: 'center' });
-        y += (addr.length * 3.5) + 1;
-    }
-    if (profile?.phone) {
-        doc.text(`Ph: ${profile.phone}`, centerX, y, { align: 'center' });
-        y += 4;
-    }
-
-    // Divider
-    doc.setDrawColor(0);
-    doc.setLineWidth(0.2);
-    doc.line(margin, y, 80 - margin, y);
-    y += 4;
-
-    // Invoice Meta
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.text(templateConfig?.content.titleText || 'TAX INVOICE', centerX, y, { align: 'center' });
-    y += 5;
-
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`${labels.invoiceNo}: ${sale.id}`, margin, y);
-    y += 4;
-    doc.text(`${labels.date}: ${formatDate(sale.date, dateFormat)}`, margin, y);
-    y += 4;
-    doc.text(`${labels.billedTo}: ${customer.name}`, margin, y);
-    y += 5;
-
-    // Items Header
-    doc.line(margin, y, 80 - margin, y);
-    y += 4;
-    doc.setFont('helvetica', 'bold');
-    doc.text(labels.item, margin, y);
-    doc.text(labels.amount, 80 - margin, y, { align: 'right' });
-    y += 2;
-    doc.line(margin, y, 80 - margin, y);
-    y += 4;
-
-    // Items
-    doc.setFont('helvetica', 'normal');
-    sale.items.forEach(item => {
-        const itemTotal = Number(item.price) * Number(item.quantity);
-        const name = doc.splitTextToSize(item.productName, 50);
-        doc.text(name, margin, y);
-        doc.text(itemTotal.toLocaleString('en-IN'), 80 - margin, y, { align: 'right' });
-        y += (name.length * 3.5);
-        
-        // Sub-detail
-        doc.setFontSize(7);
-        doc.setTextColor('#555555');
-        doc.text(`${item.quantity} x ${Number(item.price).toLocaleString('en-IN')}`, margin, y);
-        doc.setFontSize(8);
+        // Business Info
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
         doc.setTextColor('#000000');
+        const busName = doc.splitTextToSize(profile?.name || 'Business Name', pageWidth);
+        doc.text(busName, centerX, y, { align: 'center' });
+        y += (busName.length * 4) + 1;
+
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        if (profile?.address) {
+            const addr = doc.splitTextToSize(profile.address, pageWidth);
+            doc.text(addr, centerX, y, { align: 'center' });
+            y += (addr.length * 3.5) + 1;
+        }
+        if (profile?.phone) {
+            doc.text(`Ph: ${profile.phone}`, centerX, y, { align: 'center' });
+            y += 4;
+        }
+
+        // Divider
+        doc.setDrawColor(0);
+        doc.setLineWidth(0.2);
+        doc.line(margin, y, 80 - margin, y);
         y += 4;
-    });
 
-    doc.line(margin, y, 80 - margin, y);
-    y += 4;
+        // Invoice Meta
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'bold');
+        doc.text(templateConfig?.content.titleText || 'TAX INVOICE', centerX, y, { align: 'center' });
+        y += 5;
 
-    // Totals
-    const subTotal = sale.items.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
-    const paid = (sale.payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
-    
-    const addRow = (label: string, value: string, bold = false) => {
-        doc.setFont('helvetica', bold ? 'bold' : 'normal');
-        doc.text(label, 45, y, { align: 'right' });
-        doc.text(value, 80 - margin, y, { align: 'right' });
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`${labels.invoiceNo}: ${sale.id}`, margin, y);
         y += 4;
-    }
+        doc.text(`${labels.date}: ${formatDate(sale.date, dateFormat)}`, margin, y);
+        y += 4;
+        doc.text(`${labels.billedTo}: ${customer.name}`, margin, y);
+        y += 5;
 
-    addRow(labels.subtotal, subTotal.toLocaleString('en-IN'));
-    if (sale.discount > 0) addRow(labels.discount, `-${Number(sale.discount).toLocaleString('en-IN')}`);
-    addRow(labels.grandTotal, `${currency} ${Number(sale.totalAmount).toLocaleString('en-IN')}`, true);
-    
-    if (paid < Number(sale.totalAmount)) {
-        addRow(labels.balance, `${currency} ${(Number(sale.totalAmount) - paid).toLocaleString('en-IN')}`, true);
-    }
+        // Items Header
+        doc.line(margin, y, 80 - margin, y);
+        y += 4;
+        doc.setFont('helvetica', 'bold');
+        doc.text(labels.item, margin, y);
+        doc.text(labels.amount, 80 - margin, y, { align: 'right' });
+        y += 2;
+        doc.line(margin, y, 80 - margin, y);
+        y += 4;
 
-    // Footer
-    y += 5;
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'italic');
-    const footerLines = doc.splitTextToSize(footer, pageWidth);
-    doc.text(footerLines, centerX, y, { align: 'center' });
+        // Items
+        doc.setFont('helvetica', 'normal');
+        sale.items.forEach(item => {
+            const itemTotal = Number(item.price) * Number(item.quantity);
+            const name = doc.splitTextToSize(item.productName, 50);
+            doc.text(name, margin, y);
+            doc.text(itemTotal.toLocaleString('en-IN'), 80 - margin, y, { align: 'right' });
+            y += (name.length * 3.5);
+            
+            doc.setFontSize(7);
+            doc.setTextColor('#555555');
+            doc.text(`${item.quantity} x ${Number(item.price).toLocaleString('en-IN')}`, margin, y);
+            doc.setFontSize(8);
+            doc.setTextColor('#000000');
+            y += 4;
+        });
+
+        doc.line(margin, y, 80 - margin, y);
+        y += 4;
+
+        // Totals
+        const subTotal = sale.items.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
+        const paid = (sale.payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
+        
+        const addRow = (label: string, value: string, bold = false) => {
+            doc.setFont('helvetica', bold ? 'bold' : 'normal');
+            doc.text(label, 45, y, { align: 'right' });
+            doc.text(value, 80 - margin, y, { align: 'right' });
+            y += 4;
+        }
+
+        addRow(labels.subtotal, subTotal.toLocaleString('en-IN'));
+        if (sale.discount > 0) addRow(labels.discount, `-${Number(sale.discount).toLocaleString('en-IN')}`);
+        addRow(labels.grandTotal, `${currency} ${Number(sale.totalAmount).toLocaleString('en-IN')}`, true);
+        
+        if (paid < Number(sale.totalAmount)) {
+            addRow(labels.balance, `${currency} ${(Number(sale.totalAmount) - paid).toLocaleString('en-IN')}`, true);
+        }
+
+        // Footer
+        y += 5;
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'italic');
+        const footerLines = doc.splitTextToSize(footer, pageWidth);
+        doc.text(footerLines, centerX, y, { align: 'center' });
+        y += (footerLines.length * 4);
+
+        return y + 5; // Return total height including bottom padding
+    };
+
+    // 1. Calculate exact height required
+    const dummyDoc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [80, 2000] }); // High height
+    const requiredHeight = renderContent(dummyDoc);
+
+    // 2. Generate actual document with correct height
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [80, requiredHeight] });
+    renderContent(doc);
     
     return doc;
 };
@@ -403,16 +364,12 @@ const _generateConfigurablePDF = async (
     const isBanner = layout.headerStyle === 'banner';
     if (isBanner) {
         doc.setFillColor(colors.bannerBg || colors.primary);
-        // Reserve space but draw rect dynamically based on content height
-        // Initial rect, will redraw if needed or assume height
         doc.rect(0, 0, pageWidth, 40 + (layout.logoSize/2), 'F');
         currentY += 5;
     }
 
-    // Logo & Text Positioning
     const logoUrl = profile?.logo || logoBase64;
     const hasLogo = !!logoUrl && layout.logoSize > 5;
-    
     let logoX = margin;
     let logoY = currentY + (layout.logoOffsetY || 0);
     let textX = margin;
@@ -420,31 +377,15 @@ const _generateConfigurablePDF = async (
     let textAlign: 'left' | 'center' | 'right' = 'left';
     let renderedLogoHeight = 0;
 
-    // Calculate Logo Aspect Ratio and Dimensions
     if (hasLogo) {
         try {
             const imgProps = doc.getImageProperties(logoUrl);
             const ratio = imgProps.width / imgProps.height;
-            // layout.logoSize acts as Width constraint.
             renderedLogoHeight = layout.logoSize / ratio;
-            
-            // Safety cap for logo height to prevent overlap
-            if (renderedLogoHeight > 60) { 
-                const capRatio = 60 / renderedLogoHeight;
-                renderedLogoHeight = 60;
-                // Width will be reduced proportionally if we were rendering by height, 
-                // but here we set width fixed. If height is capped, we should probably adjust width to maintain aspect ratio
-                // But `doc.addImage` takes w,h. We just need to pass consistent values.
-                // If we cap height, effective width must shrink.
-                // But user slider controls width. Let's just use calculated height but cap it for layout flow purposes.
-            }
-        } catch (e) {
-            // Fallback to square if props fail
-            renderedLogoHeight = layout.logoSize;
-        }
+            if (renderedLogoHeight > 60) renderedLogoHeight = 60;
+        } catch (e) { renderedLogoHeight = layout.logoSize; }
     }
 
-    // Robust layout logic
     if (layout.logoPosition === 'center') {
         logoX = (pageWidth - layout.logoSize) / 2;
         if (hasLogo) {
@@ -458,22 +399,19 @@ const _generateConfigurablePDF = async (
         if (hasLogo) {
             doc.addImage(logoUrl, getImageType(logoUrl), logoX + (layout.logoOffsetX || 0), logoY, layout.logoSize, renderedLogoHeight);
         }
-        // Text stays left
         textAlign = 'left';
         textX = margin;
         textY += 5; 
-    } else { // Left Logo
+    } else { 
         logoX = margin;
         if (hasLogo) {
             doc.addImage(logoUrl, getImageType(logoUrl), logoX + (layout.logoOffsetX || 0), logoY, layout.logoSize, renderedLogoHeight);
         }
-        // Text goes right
         textAlign = 'right';
         textX = pageWidth - margin;
         textY += 5;
     }
 
-    // Draw Business Text
     if (profile) {
         doc.setFont(fonts.titleFont, 'bold');
         doc.setFontSize(fonts.headerSize);
@@ -492,11 +430,25 @@ const _generateConfigurablePDF = async (
         const contact = [profile.phone && `Ph: ${profile.phone}`, profile.gstNumber && `GST: ${profile.gstNumber}`].filter(Boolean).join(' | ');
         doc.text(contact, textX, textY, { align: textAlign });
         
-        // Update currentY to be below the lowest element (Logo or Text)
         const contentBottom = Math.max(textY + 5, hasLogo ? logoY + renderedLogoHeight + 5 : textY + 5);
         currentY = contentBottom;
     } else {
         currentY += 20;
+    }
+
+    // Header QR (Right Aligned with Business Info)
+    if (content.showQr && layout.qrPosition === 'header-right') {
+        try {
+            const qrData = data.qrString || data.id;
+            const qrImg = await getQrCodeBase64(qrData);
+            if (qrImg) {
+                // Calculate position: Top Right of header area
+                const qrSize = 20;
+                const qrX = pageWidth - margin - qrSize;
+                const qrY = margin + 5; // Approximate top
+                doc.addImage(qrImg, 'PNG', qrX, qrY, qrSize, qrSize);
+            }
+        } catch(e) {}
     }
 
     if (!isBanner && layout.headerStyle !== 'minimal') {
@@ -514,11 +466,11 @@ const _generateConfigurablePDF = async (
     doc.text(content.titleText, pageWidth / 2, currentY, { align: 'center' });
     currentY += 10;
 
-    // --- DETAILS GRID (Recipient & Invoice Info) ---
+    // --- DETAILS GRID ---
     const gridY = currentY;
     const colWidth = (pageWidth - (margin * 3)) / 2;
     
-    // Left Column: Recipient
+    // Left Column
     doc.setFont(fonts.bodyFont, 'bold');
     doc.setFontSize(11);
     doc.setTextColor(colors.primary);
@@ -531,7 +483,7 @@ const _generateConfigurablePDF = async (
     const recipientAddr = doc.splitTextToSize(data.recipient.address, colWidth);
     doc.text(recipientAddr, margin, gridY + 11);
     
-    // Right Column: Invoice Details & QR
+    // Right Column
     const rightColX = pageWidth - margin;
     doc.setFont(fonts.bodyFont, 'bold');
     doc.setFontSize(11);
@@ -547,15 +499,12 @@ const _generateConfigurablePDF = async (
     infoY += 5;
     doc.text(`${labels.date}: ${formatDate(data.date, templateConfig.dateFormat)}`, rightColX, infoY, { align: 'right' });
     
-    // QR Code
-    if (content.showQr) {
-        const qrData = data.qrString || data.id;
+    // Details Right QR
+    if (content.showQr && (!layout.qrPosition || layout.qrPosition === 'details-right')) {
         try {
+            const qrData = data.qrString || data.id;
             const qrImg = await getQrCodeBase64(qrData);
             if (qrImg) {
-                // Place QR to the left of the text block in right column
-                // QR Size 22mm. Text aligns right at rightColX.
-                // Place QR at rightColX - width_of_qr - spacing
                 doc.addImage(qrImg, 'PNG', rightColX - 22, infoY + 2, 22, 22);
             }
         } catch(e) {}
@@ -580,6 +529,10 @@ const _generateConfigurablePDF = async (
         return row;
     });
 
+    // Use columnWidths percentages from config if available
+    const itemColPercent = layout.tableOptions?.compact ? 0.5 : 0.4; // Fallback
+    // Convert percentages to roughly styles. Note: jspdf-autotable cellWidth is raw number or 'auto'/'wrap'
+    
     autoTable(doc, {
         startY: currentY,
         head: [tableHead],
@@ -589,23 +542,22 @@ const _generateConfigurablePDF = async (
         headStyles: { fillColor: colors.tableHeaderBg, textColor: colors.tableHeaderText, fontStyle: 'bold' },
         columnStyles: {
             0: { cellWidth: 10, halign: 'center' },
-            1: { cellWidth: 'auto' }, // Item
-            [tableHead.length - 1]: { halign: 'right', cellWidth: 35 }, // Amount
-            [tableHead.length - 2]: { halign: 'right', cellWidth: hideRate ? 15 : 25 }, // Rate/Qty
-            [tableHead.length - 3]: { halign: 'right', cellWidth: 15 }, // Qty (if rate exists)
+            1: { cellWidth: 'auto' }, // Item takes remaining
+            [tableHead.length - 1]: { halign: 'right', cellWidth: 35 }, 
+            [tableHead.length - 2]: { halign: 'right', cellWidth: hideRate ? 15 : 25 }, 
+            [tableHead.length - 3]: { halign: 'right', cellWidth: 15 }, 
         },
         margin: { left: margin, right: margin }
     });
 
-    // --- TOTALS ---
     let finalY = (doc as any).lastAutoTable.finalY + 5;
     
-    // Ensure we don't split totals page awkwardly
     if (pageHeight - finalY < 50) {
         doc.addPage();
         finalY = margin;
     }
 
+    // --- TOTALS ---
     const totalsX = pageWidth - margin;
     const totalsLabelX = totalsX - 40;
 
@@ -629,7 +581,6 @@ const _generateConfigurablePDF = async (
             doc.setFontSize(10);
             doc.setTextColor(colors.text);
             doc.text("Authorized Signatory", pageWidth - margin, sigY + 10, { align: 'right' });
-            // Placeholder line or image
             if (content.signatureImage) {
                 try {
                     const sigProps = doc.getImageProperties(content.signatureImage);
@@ -644,7 +595,20 @@ const _generateConfigurablePDF = async (
         }
     }
 
-    // Terms (Bottom Left)
+    // Footer QR Logic
+    if (content.showQr && (layout.qrPosition === 'footer-left' || layout.qrPosition === 'footer-right')) {
+        try {
+            const qrData = data.qrString || data.id;
+            const qrImg = await getQrCodeBase64(qrData);
+            if (qrImg) {
+                const qrSize = 20;
+                const qrY = footerY - 15;
+                const qrX = layout.qrPosition === 'footer-left' ? margin : pageWidth - margin - qrSize;
+                doc.addImage(qrImg, 'PNG', qrX, qrY, qrSize, qrSize);
+            }
+        } catch(e) {}
+    }
+
     if (content.showTerms && content.termsText) {
         doc.setFontSize(8);
         doc.setTextColor(colors.secondary);
@@ -653,7 +617,6 @@ const _generateConfigurablePDF = async (
         doc.text(terms, margin, footerY - 10);
     }
 
-    // Bottom Bar
     if (layout.footerStyle === 'banner') {
         doc.setFillColor(colors.footerBg || '#f3f4f6');
         doc.rect(0, pageHeight - 15, pageWidth, 15, 'F');
@@ -684,7 +647,6 @@ const calculateTaxBreakdown = (items: any[]) => {
     items.forEach(item => {
         const rate = Number(item.gstPercent) || 0;
         const itemTotal = Number(item.price) * Number(item.quantity);
-        // Back-calculate taxable value from total assuming inclusive tax
         const taxable = itemTotal / (1 + (rate / 100));
         const tax = itemTotal - taxable;
         
@@ -708,11 +670,11 @@ export const generateA4InvoicePdf = async (
     sale: Sale, 
     customer: Customer, 
     profile: ProfileData | null, 
-    templateConfig?: InvoiceTemplateConfig, // Made optional for backward compat
+    templateConfig?: InvoiceTemplateConfig, 
     customFonts?: CustomFont[]
 ): Promise<jsPDF> => {
     
-    // Fallback to default config if not provided (e.g. from legacy calls)
+    // Fallback to default config if not provided
     const defaultConfig: InvoiceTemplateConfig = {
         id: 'default', 
         currencySymbol: 'Rs.', 
@@ -728,7 +690,7 @@ export const generateA4InvoicePdf = async (
         layout: { 
             margin: 10, logoSize: 25, logoPosition: 'center', logoOffsetX: 0, logoOffsetY: 0, 
             headerAlignment: 'center', headerStyle: 'standard', footerStyle: 'standard',
-            showWatermark: false, watermarkOpacity: 0.1,
+            showWatermark: false, watermarkOpacity: 0.1, qrPosition: 'details-right',
             tableOptions: { hideQty: false, hideRate: false, stripedRows: false, bordered: false, compact: false }
         },
         content: { 
