@@ -131,7 +131,7 @@ const QRScannerModal: React.FC<{
     }, [onScanned]);
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-75 backdrop-blur-sm flex flex-col items-center justify-center z-[600] p-4 animate-fade-in-fast">
+        <div className="fixed inset-0 bg-black bg-opacity-75 backdrop-blur-sm flex flex-col items-center justify-center z-[2100] p-4 animate-fade-in-fast">
             <Card title="Scan Product QR Code" className="w-full max-w-md relative animate-scale-in">
                  <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
                     <X size={20}/>
@@ -337,7 +337,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
         };
 
         return (
-            <div className="fixed inset-0 top-0 left-0 w-full h-full z-[500] bg-white dark:bg-slate-900 flex flex-col md:flex-row animate-fade-in-fast overflow-hidden">
+            <div className="fixed inset-0 top-0 left-0 w-full h-full z-[2000] bg-white dark:bg-slate-900 flex flex-col md:flex-row animate-fade-in-fast overflow-hidden">
                 {/* REQUIRED MODALS INJECTED INTO DETAILS VIEW */}
                 <BarcodeModal 
                     isOpen={isDownloadModalOpen} 
@@ -359,7 +359,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                 
                 {/* Lightbox Overlay for Details View */}
                 {previewImage && (
-                    <div className="fixed inset-0 bg-black bg-opacity-95 z-[700] flex items-center justify-center p-4 animate-fade-in-fast" onClick={() => setPreviewImage(null)}>
+                    <div className="fixed inset-0 bg-black bg-opacity-95 z-[2100] flex items-center justify-center p-4 animate-fade-in-fast" onClick={() => setPreviewImage(null)}>
                         <div className="relative max-w-full max-h-full w-full h-full flex items-center justify-center">
                              <button 
                                 onClick={(e) => { e.stopPropagation(); setPreviewImage(null); }}
@@ -375,7 +375,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                 {/* Floating Back Button - Visible always on top left, z-index above everything */}
                 <button 
                     onClick={() => setSelectedProduct(null)} 
-                    className="absolute top-4 left-4 z-[510] p-3 bg-black/30 hover:bg-black/50 backdrop-blur-md text-white rounded-full transition-all shadow-lg transform active:scale-90"
+                    className="absolute top-4 left-4 z-[2010] p-3 bg-black/30 hover:bg-black/50 backdrop-blur-md text-white rounded-full transition-all shadow-lg transform active:scale-90"
                     aria-label="Back to Inventory"
                 >
                     <ArrowLeft size={24} strokeWidth={2.5} />
@@ -397,7 +397,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                     </div>
 
                     {/* Floating Toggle on Image (Top Right) */}
-                    <div className="absolute top-4 right-4 flex flex-col gap-2 z-[510]">
+                    <div className="absolute top-4 right-4 flex flex-col gap-2 z-[2010]">
                         <button 
                             onClick={() => setPreviewImage(isEditing ? (editedProduct.image || '') : (selectedProduct.image || ''))}
                             className="p-2 bg-white/90 dark:bg-slate-800/90 text-gray-700 dark:text-white rounded-full shadow-lg hover:bg-white dark:hover:bg-slate-700 transition-all"
@@ -565,7 +565,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
             
             {/* Full Screen Image Preview Modal - Use for Grid Mode Only & Details View */}
             {previewImage && (
-                <div className="fixed inset-0 bg-black bg-opacity-95 z-[700] flex items-center justify-center p-4 animate-fade-in-fast" onClick={() => setPreviewImage(null)}>
+                <div className="fixed inset-0 bg-black bg-opacity-95 z-[2100] flex items-center justify-center p-4 animate-fade-in-fast" onClick={() => setPreviewImage(null)}>
                     <div className="relative max-w-full max-h-full w-full h-full flex items-center justify-center">
                         <button 
                             onClick={(e) => { e.stopPropagation(); setPreviewImage(null); }}

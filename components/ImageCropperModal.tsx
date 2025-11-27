@@ -78,18 +78,6 @@ const ImageCropperModal: React.FC<ImageCropperModalProps> = ({ isOpen, imageSrc,
         ctx.translate(position.x * ratio, position.y * ratio);
         
         // Draw image centered at origin
-        // We use the natural dimensions of the image, but we must account for how it's rendered on screen.
-        // On screen, the image is unstyled (intrinsic size) BUT scaled by CSS transform? 
-        // No, ideally we draw it based on natural size.
-        // If the image is huge on screen, `scale` might need adjustment if we want 1.0 to mean "fit".
-        // But for simplicity: The visual transform is directly mapped to canvas transform.
-        
-        // However, `drawImage` draws using source image pixels.
-        // To match visual "1:1 pixel mapping", we draw it centered.
-        
-        // Logic: The user sees the image transformed by T(x,y) * S(scale).
-        // We replicated T and S on the canvas context.
-        // Now we just draw the image centered at (0,0).
         ctx.drawImage(
             img, 
             -img.naturalWidth / 2, 
@@ -114,7 +102,7 @@ const ImageCropperModal: React.FC<ImageCropperModalProps> = ({ isOpen, imageSrc,
     if (!isOpen || !imageSrc) return null;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-90 z-[600] flex items-center justify-center p-4 animate-fade-in-fast">
+        <div className="fixed inset-0 bg-black bg-opacity-90 z-[3000] flex items-center justify-center p-4 animate-fade-in-fast">
             <Card className="w-full max-w-md p-0 overflow-hidden flex flex-col h-auto shadow-2xl bg-white dark:bg-slate-800">
                 <div className="p-4 border-b dark:border-slate-700 flex justify-between items-center bg-white dark:bg-slate-800 z-10">
                     <h3 className="font-bold text-lg text-gray-800 dark:text-white">Adjust Product Image</h3>
