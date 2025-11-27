@@ -14,7 +14,6 @@ import { generateA4InvoicePdf, generateThermalInvoicePDF, generateGenericReportP
 import { useDialog } from '../context/DialogContext';
 import PaymentModal from '../components/PaymentModal';
 
-// ... (getLocalDateString, fetchImageAsBase64 remain the same)
 const getLocalDateString = (date = new Date()) => {
   const year = date.getFullYear();
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -28,7 +27,6 @@ interface CustomersPageProps {
 }
 
 const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPage }) => {
-    // ... (same state logic) ...
     const { state, dispatch, showToast } = useAppContext();
     const { showConfirm } = useDialog();
     const [searchTerm, setSearchTerm] = useState('');
@@ -253,7 +251,6 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
         }
     };
 
-    // Updated to use the new generic report configuration
     const handleShareDuesSummary = async () => {
         if (!selectedCustomer) return;
 
@@ -316,7 +313,6 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
         }
     };
 
-    // Optimized filtering using useMemo to prevent lag during typing
     const filteredCustomers = useMemo(() => {
         const lowerTerm = searchTerm.toLowerCase();
         return state.customers.filter(c =>

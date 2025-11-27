@@ -11,7 +11,7 @@ import { Html5Qrcode } from 'html5-qrcode';
 import DeleteButton from '../components/DeleteButton';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
 import { logoBase64 } from '../utils/logo';
-import AddCustomerModal from '../components/AddCustomerModal'; // Imported shared component
+import AddCustomerModal from '../components/AddCustomerModal';
 import { generateA4InvoicePdf } from '../utils/pdfGenerator';
 
 const getLocalDateString = (date = new Date()) => {
@@ -90,7 +90,6 @@ const QRScannerModal: React.FC<{
                     onScanned(decodedText);
                 }).catch(err => {
                     console.error("Error stopping scanner", err);
-                    // Still call onScanned even if stopping fails, to proceed with logic
                     onScanned(decodedText);
                 });
             }
@@ -100,7 +99,7 @@ const QRScannerModal: React.FC<{
         html5QrCodeRef.current.start({ facingMode: "environment" }, config, qrCodeSuccessCallback, undefined)
             .then(() => setScanStatus("Scanning for QR Code..."))
             .catch(err => {
-                setScanStatus(`Camera Permission Error. Please allow camera access for this site in your browser's settings.`);
+                setScanStatus(`Camera Permission Error. Please allow camera access.`);
                 console.error("Camera start failed.", err);
             });
             
@@ -159,7 +158,6 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         }
     });
 
-    // Effect to handle switching to edit mode from another page
     useEffect(() => {
         if (state.selection?.page === 'SALES' && state.selection.action === 'edit') {
             const sale = state.sales.find(s => s.id === state.selection.id);
@@ -186,8 +184,6 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         }
     }, [customerId, items, discount, paymentDetails.amount, isAddingCustomer, setIsDirty, saleDate, mode]);
 
-
-    // On unmount, we must always clean up.
     useEffect(() => {
         return () => {
             setIsDirty(false);
@@ -225,13 +221,13 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
 
         if (existingItem) {
             if (existingItem.quantity + 1 > availableStock) {
-                 showToast(`Not enough stock for ${product.name}. Only ${availableStock} available for this sale.`, 'error');
+                 showToast(`Not enough stock for ${product.name}. Only ${availableStock} available.`, 'error');
                  return;
             }
             setItems(items.map(i => i.productId === newItem.productId ? { ...i, quantity: i.quantity + 1 } : i));
         } else {
              if (1 > availableStock) {
-                 showToast(`Not enough stock for ${product.name}. Only ${availableStock} available for this sale.`, 'error');
+                 showToast(`Not enough stock for ${product.name}. Only ${availableStock} available.`, 'error');
                  return;
             }
             setItems([...items, newItem]);
@@ -261,7 +257,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                     const originalQtyInSale = mode === 'edit' ? saleToEdit?.items.find(i => i.productId === productId)?.quantity || 0 : 0;
                     const availableStock = (Number(product?.quantity) || 0) + originalQtyInSale;
                     if (numValue > availableStock) {
-                        showToast(`Not enough stock for ${item.productName}. Only ${availableStock} available for this sale.`, 'error');
+                        showToast(`Not enough stock for ${item.productName}. Only ${availableStock} available.`, 'error');
                         return { ...item, quantity: availableStock };
                     }
                 }
@@ -270,7 +266,6 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             return item;
         }));
     };
-
 
     const handleRemoveItem = (productId: string) => {
         setItems(items.filter(item => item.productId !== productId));
@@ -377,7 +372,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         if (mode === 'add') {
             const paidAmount = parseFloat(paymentDetails.amount) || 0;
             if (paidAmount > totalAmount + 0.01) {
-                showToast(`Paid amount (₹${paidAmount.toLocaleString('en-IN')}) cannot be greater than the total amount (₹${totalAmount.toLocaleString('en-IN')}).`, 'error');
+                showToast(`Paid amount cannot be greater than the total amount.`, 'error');
                 return;
             }
             const payments: Payment[] = [];
@@ -408,7 +403,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             const totalPaid = existingPayments.reduce((sum, p) => sum + Number(p.amount), 0);
 
             if (totalAmount < totalPaid - 0.01) {
-                showToast(`The new total amount (₹${totalAmount.toLocaleString('en-IN')}) cannot be less than the amount already paid (₹${totalPaid.toLocaleString('en-IN')}).`, 'error');
+                showToast(`New total cannot be less than amount already paid.`, 'error');
                 return;
             }
 
@@ -633,7 +628,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                         </div>
                         <div className="flex justify-between items-center text-gray-700 dark:text-gray-300">
                             <span>Discount:</span>
-                            <input type="number" value={discount} onChange={e => setDiscount(e.target.value)} className="w-28 p-1 border rounded text-right dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
+                            <input type="number" value={discount} onChange={e => setDiscount(e.target.value)} className="w-28 p-1 border rounded text-right dark:bg-slate-700 dark:border-slate-600" />
                         </div>
                         <div className="flex justify-between items-center text-gray-700 dark:text-gray-300">
                             <span>GST Included:</span>
