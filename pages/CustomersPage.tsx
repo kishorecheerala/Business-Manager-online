@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Plus, User, Phone, MapPin, Search, Edit, Save, X, Trash2, IndianRupee, ShoppingCart, Download, Share2, ChevronDown, FileText, MessageCircle } from 'lucide-react';
+import { Plus, User, Phone, MapPin, Search, Edit, Save, X, Trash2, IndianRupee, ShoppingCart, Download, Share2, ChevronDown, FileText, MessageCircle, Crown, ShieldAlert, BadgeCheck } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Customer, Payment, Sale, Page } from '../types';
 import Card from '../components/Card';
@@ -19,6 +19,44 @@ const getLocalDateString = (date = new Date()) => {
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
   const day = date.getDate().toString().padStart(2, '0');
   return `${year}-${month}-${day}`;
+};
+
+// --- Customer Segmentation Helper ---
+type CustomerSegment = 'VIP' | 'Regular' | 'New' | 'At-Risk';
+
+const getCustomerSegment = (sales: Sale[]): CustomerSegment => {
+    if (!sales || sales.length === 0) return 'New';
+    
+    const totalSpent = sales.reduce((acc, sale) => acc + Number(sale.totalAmount), 0);
+    const orderCount = sales.length;
+    
+    // Check At-Risk (Last order > 60 days ago AND significant spend previously)
+    const lastOrderDate = sales.reduce((latest, sale) => {
+        const d = new Date(sale.date);
+        return d > latest ? d : latest;
+    }, new Date(0));
+    
+    const daysSinceLastOrder = (new Date().getTime() - lastOrderDate.getTime()) / (1000 * 3600 * 24);
+    
+    if (daysSinceLastOrder > 60 && totalSpent > 5000) return 'At-Risk';
+    
+    if (totalSpent > 50000 || orderCount > 10) return 'VIP';
+    if (orderCount > 2) return 'Regular';
+    
+    return 'New';
+};
+
+const SegmentBadge: React.FC<{ segment: CustomerSegment }> = ({ segment }) => {
+    switch (segment) {
+        case 'VIP':
+            return <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200"><Crown size={10} className="mr-1"/> VIP</span>;
+        case 'At-Risk':
+            return <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-800 border border-red-200"><ShieldAlert size={10} className="mr-1"/> At-Risk</span>;
+        case 'Regular':
+            return <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200"><BadgeCheck size={10} className="mr-1"/> Regular</span>;
+        default:
+            return <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-800 border border-green-200">New</span>;
+    }
 };
 
 interface CustomersPageProps {
@@ -357,7 +395,10 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                 <Card>
                     <div className="flex justify-between items-start mb-4">
                         <div>
-                            <h2 className="text-lg font-bold text-primary">Customer Details: {selectedCustomer.name}</h2>
+                            <h2 className="text-lg font-bold text-primary flex items-center gap-2">
+                                {selectedCustomer.name}
+                                <SegmentBadge segment={getCustomerSegment(customerSales)} />
+                            </h2>
                         </div>
                         <div className="flex gap-2 items-center flex-shrink-0">
                             {isEditing ? (
@@ -592,6 +633,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                     const totalPurchase = customerSales.reduce((sum, s) => sum + Number(s.totalAmount), 0);
                     const totalPaid = customerSales.reduce((sum, s) => sum + s.payments.reduce((pSum, p) => pSum + Number(p.amount), 0), 0);
                     const totalDue = totalPurchase - totalPaid;
+                    const segment = getCustomerSegment(customerSales);
 
                     return (
                         <Card 
@@ -602,7 +644,10 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                         >
                             <div className="flex justify-between items-start">
                                 <div>
-                                    <p className="font-bold text-lg text-primary flex items-center gap-2"><User size={16}/> {customer.name}</p>
+                                    <p className="font-bold text-lg text-primary flex items-center gap-2">
+                                        <User size={16}/> {customer.name}
+                                        <SegmentBadge segment={segment} />
+                                    </p>
                                     <p className="text-sm text-gray-600 flex items-center gap-2"><Phone size={14}/> {customer.phone}</p>
                                     <p className="text-sm text-gray-500 flex items-center gap-2"><MapPin size={14}/> {customer.area}</p>
                                 </div>

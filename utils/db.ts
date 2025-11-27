@@ -1,13 +1,15 @@
 
+
+
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
-import { Customer, Supplier, Product, Sale, Purchase, Return, Notification, ProfileData, AppMetadata, AuditLogEntry, Expense, Quote, CustomFont } from '../types';
+import { Customer, Supplier, Product, Sale, Purchase, Return, Notification, ProfileData, AppMetadata, AuditLogEntry, Expense, Quote, CustomFont, Snapshot } from '../types';
 import { AppState } from '../context/AppContext';
 
 const DB_NAME = 'business-manager-db';
-const DB_VERSION = 9; // Bumped for Custom Fonts
+const DB_VERSION = 10; // Bumped for Snapshots
 
-export type StoreName = 'customers' | 'suppliers' | 'products' | 'sales' | 'purchases' | 'returns' | 'app_metadata' | 'notifications' | 'profile' | 'audit_logs' | 'expenses' | 'quotes' | 'custom_fonts';
-const STORE_NAMES: StoreName[] = ['customers', 'suppliers', 'products', 'sales', 'purchases', 'returns', 'app_metadata', 'notifications', 'profile', 'audit_logs', 'expenses', 'quotes', 'custom_fonts'];
+export type StoreName = 'customers' | 'suppliers' | 'products' | 'sales' | 'purchases' | 'returns' | 'app_metadata' | 'notifications' | 'profile' | 'audit_logs' | 'expenses' | 'quotes' | 'custom_fonts' | 'snapshots';
+const STORE_NAMES: StoreName[] = ['customers', 'suppliers', 'products', 'sales', 'purchases', 'returns', 'app_metadata', 'notifications', 'profile', 'audit_logs', 'expenses', 'quotes', 'custom_fonts', 'snapshots'];
 
 interface BusinessManagerDB extends DBSchema {
   customers: { key: string; value: Customer; };
@@ -23,6 +25,7 @@ interface BusinessManagerDB extends DBSchema {
   expenses: { key: string; value: Expense; };
   quotes: { key: string; value: Quote; };
   custom_fonts: { key: string; value: CustomFont; };
+  snapshots: { key: string; value: Snapshot; };
 }
 
 let dbPromise: Promise<IDBPDatabase<BusinessManagerDB>>;
@@ -79,8 +82,8 @@ export async function exportData(): Promise<Omit<AppState, 'toast' | 'selection'
     const db = await getDb();
     const data: any = {};
     for (const storeName of STORE_NAMES) {
-        // Exclude notifications from the main data backup
-        if (storeName === 'notifications') continue;
+        // Exclude notifications and snapshots from the main data export to keep it clean
+        if (storeName === 'notifications' || storeName === 'snapshots') continue;
         data[storeName] = await db.getAll(storeName);
     }
     return data;
@@ -92,7 +95,7 @@ export async function importData(data: any, merge: boolean = false): Promise<voi
     
     // Execute sequentially for stores to keep logic clean, but parallelize items within store for robustness
     for (const storeName of STORE_NAMES) {
-        if (storeName === 'notifications') continue;
+        if (storeName === 'notifications' || storeName === 'snapshots') continue;
         
         const store = tx.objectStore(storeName);
         
@@ -128,4 +131,42 @@ export async function clearDatabase(): Promise<void> {
   const tx = db.transaction(STORE_NAMES, 'readwrite');
   await Promise.all(STORE_NAMES.map(storeName => tx.objectStore(storeName).clear()));
   await tx.done;
+}
+
+// --- Snapshot Functions ---
+
+export async function createSnapshot(name: string = 'Auto Checkpoint'): Promise<string> {
+    const data = await exportData();
+    const db = await getDb();
+    const id = `snap-${Date.now()}`;
+    const snapshot: Snapshot = {
+        id,
+        timestamp: new Date().toISOString(),
+        name,
+        data
+    };
+    await db.put('snapshots', snapshot);
+    return id;
+}
+
+export async function getSnapshots(): Promise<Snapshot[]> {
+    const db = await getDb();
+    const snaps = await db.getAll('snapshots');
+    return snaps.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+}
+
+export async function restoreSnapshot(id: string): Promise<void> {
+    const db = await getDb();
+    const snap = await db.get('snapshots', id);
+    if (snap) {
+        // Snapshot restores are destructive (overwrite) by nature to get back to exact state
+        await importData(snap.data, false); 
+    } else {
+        throw new Error("Snapshot not found");
+    }
+}
+
+export async function deleteSnapshot(id: string): Promise<void> {
+    const db = await getDb();
+    await db.delete('snapshots', id);
 }

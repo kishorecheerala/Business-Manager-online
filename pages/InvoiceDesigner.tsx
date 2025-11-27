@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Save, RotateCcw, Type, Layout, Palette, FileText, Edit3, ChevronDown, Upload, Trash2, Wand2, Grid, QrCode, Printer, Eye, ArrowLeft, CheckSquare, Square, Type as TypeIcon, AlignLeft, AlignCenter, AlignRight, Move, GripVertical, Layers, ArrowUp, ArrowDown, Table, Monitor, Loader2, ZoomIn, ZoomOut, ExternalLink, Columns, Download, FileJson, Image as ImageIcon, Plus, Landmark, Calendar, Coins, Zap } from 'lucide-react';
+import { Save, RotateCcw, Type, Layout, Palette, FileText, Edit3, ChevronDown, Upload, Trash2, Wand2, Grid, QrCode, Printer, Eye, ArrowLeft, CheckSquare, Square, Type as TypeIcon, AlignLeft, AlignCenter, AlignRight, Move, GripVertical, Layers, ArrowUp, ArrowDown, Table, Monitor, Loader2, ZoomIn, ZoomOut, ExternalLink, Columns, Download, FileJson, Image as ImageIcon, Plus, Landmark, Calendar, Coins, Zap, RotateCw } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { InvoiceTemplateConfig, DocumentType, InvoiceLabels, CustomFont, ProfileData, Page } from '../types';
 import Button from '../components/Button';
@@ -245,8 +245,8 @@ const PDFCanvasPreview: React.FC<{
             }
         };
 
-        // Aggressive debounce for draft mode to keep UI responsive
-        const delay = isDraftMode ? 800 : 500;
+        // Increased debounce for better typing performance
+        const delay = isDraftMode ? 800 : 1200;
         timeoutId = setTimeout(render, delay);
         return () => {
             active = false;
@@ -374,55 +374,95 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
         };
     };
 
+    // --- State & History Management ---
     const [localConfig, setLocalConfig] = useState<ExtendedLayoutConfig>(getInitialConfig('INVOICE'));
     const [initialConfigJson, setInitialConfigJson] = useState('');
     
+    // History Stack
+    const [history, setHistory] = useState<ExtendedLayoutConfig[]>([getInitialConfig('INVOICE')]);
+    const [historyIndex, setHistoryIndex] = useState(0);
+
+    // Update localConfig when history changes
+    useEffect(() => {
+        setLocalConfig(history[historyIndex]);
+    }, [historyIndex, history]);
+
+    // Initialize on mount or docType change
     useEffect(() => {
         const conf = getInitialConfig(docType);
-        setLocalConfig(conf);
+        setHistory([conf]);
+        setHistoryIndex(0);
         setInitialConfigJson(JSON.stringify(conf));
         setIsDirty(false);
     }, [docType]);
 
+    // Check dirty state
     useEffect(() => {
         if (!initialConfigJson) return;
         const isChanged = JSON.stringify(localConfig) !== initialConfigJson;
         setIsDirty(isChanged);
     }, [localConfig, initialConfigJson, setIsDirty]);
 
+    // --- Actions ---
+
+    const pushToHistory = (newConfig: ExtendedLayoutConfig) => {
+        const newHistory = history.slice(0, historyIndex + 1);
+        newHistory.push(newConfig);
+        // Limit history size to 50
+        if (newHistory.length > 50) newHistory.shift();
+        
+        setHistory(newHistory);
+        setHistoryIndex(newHistory.length - 1);
+    };
+
+    const handleUndo = () => {
+        if (historyIndex > 0) {
+            setHistoryIndex(historyIndex - 1);
+        }
+    };
+
+    const handleRedo = () => {
+        if (historyIndex < history.length - 1) {
+            setHistoryIndex(historyIndex + 1);
+        }
+    };
+
     const handleConfigChange = (section: keyof ExtendedLayoutConfig, key: string, value: any) => {
-        setLocalConfig(prev => ({
-            ...prev,
+        const newConfig = {
+            ...localConfig,
             [section]: {
-                ...prev[section],
+                ...localConfig[section],
                 [key]: value
             }
-        }));
+        };
+        pushToHistory(newConfig);
     };
 
     const handleLabelsChange = (key: string, value: string) => {
-        setLocalConfig(prev => ({
-            ...prev,
+        const newConfig = {
+            ...localConfig,
             content: {
-                ...prev.content,
+                ...localConfig.content,
                 labels: {
-                    ...prev.content.labels,
+                    ...localConfig.content.labels,
                     [key]: value
                 }
             }
-        }));
+        };
+        pushToHistory(newConfig);
     };
 
     const applyPreset = (presetName: string) => {
         const preset = PRESETS[presetName];
         if (preset) {
-            setLocalConfig(prev => ({
-                ...prev,
-                colors: { ...prev.colors, ...preset.colors },
-                fonts: { ...prev.fonts, ...preset.fonts },
-                layout: { ...prev.layout, ...preset.layout },
-                content: { ...prev.content, ...preset.content }
-            }));
+            const newConfig = {
+                ...localConfig,
+                colors: { ...localConfig.colors, ...preset.colors },
+                fonts: { ...localConfig.fonts, ...preset.fonts },
+                layout: { ...localConfig.layout, ...preset.layout },
+                content: { ...localConfig.content, ...preset.content }
+            };
+            pushToHistory(newConfig);
         }
     };
 
@@ -532,7 +572,7 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
             try {
                 const json = JSON.parse(event.target?.result as string);
                 if (json && json.id && json.colors) {
-                    setLocalConfig(json);
+                    pushToHistory(json);
                     showToast("Template imported successfully!");
                 } else {
                     showToast("Invalid template file.", "error");
@@ -612,15 +652,21 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
                         <button onClick={() => setCurrentPage('DASHBOARD')} className="p-2 rounded-lg hover:bg-white dark:hover:bg-slate-700 text-slate-500 transition-colors mr-1" title="Exit to Dashboard">
                              <ArrowLeft size={20} />
                         </button>
-                        <div className="p-2 bg-indigo-600 rounded-lg text-white shadow-lg">
-                            <Wand2 size={18} />
-                        </div>
                         <div>
-                            <h2 className="font-bold text-sm text-slate-800 dark:text-white">Invoice Designer</h2>
-                            <p className="text-[10px] text-slate-500">Visual Editor</p>
+                            <h2 className="font-bold text-sm text-slate-800 dark:text-white">Designer</h2>
                         </div>
                     </div>
-                    <div className="flex gap-1">
+                    <div className="flex gap-1 items-center">
+                        {/* Undo / Redo */}
+                        <div className="flex bg-slate-200 dark:bg-slate-800 rounded-lg p-0.5 mr-2">
+                            <button onClick={handleUndo} disabled={historyIndex === 0} className="p-1.5 rounded hover:bg-white dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 disabled:opacity-30 transition-all">
+                                <RotateCcw size={14} />
+                            </button>
+                            <button onClick={handleRedo} disabled={historyIndex === history.length - 1} className="p-1.5 rounded hover:bg-white dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 disabled:opacity-30 transition-all">
+                                <RotateCw size={14} />
+                            </button>
+                        </div>
+
                         <button onClick={() => templateInputRef.current?.click()} className="p-2 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300" title="Import Template">
                             <Upload size={14} />
                         </button>

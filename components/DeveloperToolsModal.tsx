@@ -1,12 +1,15 @@
 
+
+
 import React, { useState, useEffect } from 'react';
-import { X, Database, Terminal, CloudLightning, Zap, Trash2, RefreshCw, HardDrive, Save, AlertTriangle, Bell, Bug } from 'lucide-react';
+import { X, Database, Terminal, CloudLightning, Zap, Trash2, RefreshCw, HardDrive, Save, AlertTriangle, Bell, Bug, History, RotateCcw, PlusCircle } from 'lucide-react';
 import Card from './Card';
 import Button from './Button';
 import { useAppContext } from '../context/AppContext';
 import * as db from '../utils/db';
 import { testData, testProfile } from '../utils/testData';
 import { useDialog } from '../context/DialogContext';
+import { Snapshot } from '../types';
 
 interface DeveloperToolsModalProps {
   isOpen: boolean;
@@ -19,16 +22,76 @@ const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({ isOpen, onClo
   const { showConfirm } = useDialog();
   const [activeTab, setActiveTab] = useState<'general' | 'state' | 'db' | 'danger'>('general');
   const [storageEstimate, setStorageEstimate] = useState<{ usage: number, quota: number } | null>(null);
+  const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
+  const [isSnapshotLoading, setIsSnapshotLoading] = useState(false);
 
   useEffect(() => {
-    if (isOpen && navigator.storage && navigator.storage.estimate) {
-      navigator.storage.estimate().then(estimate => {
-        if (estimate.usage !== undefined && estimate.quota !== undefined) {
-          setStorageEstimate({ usage: estimate.usage, quota: estimate.quota });
+    if (isOpen) {
+        if (navigator.storage && navigator.storage.estimate) {
+            navigator.storage.estimate().then(estimate => {
+                if (estimate.usage !== undefined && estimate.quota !== undefined) {
+                setStorageEstimate({ usage: estimate.usage, quota: estimate.quota });
+                }
+            });
         }
-      });
+        loadSnapshots();
     }
   }, [isOpen]);
+
+  const loadSnapshots = async () => {
+      setIsSnapshotLoading(true);
+      try {
+          const snaps = await db.getSnapshots();
+          setSnapshots(snaps);
+      } catch (e) {
+          console.error("Failed to load snapshots", e);
+      } finally {
+          setIsSnapshotLoading(false);
+      }
+  };
+
+  const handleCreateSnapshot = async () => {
+      const name = prompt("Enter a name for this checkpoint:", `Checkpoint ${new Date().toLocaleTimeString()}`);
+      if (name) {
+          setIsSnapshotLoading(true);
+          try {
+              await db.createSnapshot(name);
+              showToast("Checkpoint created successfully.", "success");
+              await loadSnapshots();
+          } catch (e) {
+              console.error(e);
+              showToast("Failed to create checkpoint.", "error");
+          } finally {
+              setIsSnapshotLoading(false);
+          }
+      }
+  };
+
+  const handleRestoreSnapshot = async (snap: Snapshot) => {
+      const confirmed = await showConfirm(`Restore "${snap.name}"? Current data will be replaced by this snapshot.`, {
+          title: "Restore Checkpoint",
+          confirmText: "Restore",
+          variant: "danger"
+      });
+
+      if (confirmed) {
+          try {
+              await db.restoreSnapshot(snap.id);
+              window.location.reload();
+          } catch (e) {
+              console.error(e);
+              showToast("Failed to restore.", "error");
+          }
+      }
+  };
+
+  const handleDeleteSnapshot = async (id: string) => {
+      if (await showConfirm("Delete this checkpoint?")) {
+          await db.deleteSnapshot(id);
+          setSnapshots(prev => prev.filter(s => s.id !== id));
+          showToast("Checkpoint deleted.");
+      }
+  };
 
   const handleLoadTestData = async () => {
     const confirmed = await showConfirm("This will OVERWRITE your current data with sample test data. Proceed?", {
@@ -133,7 +196,7 @@ const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({ isOpen, onClo
                     <Database size={16} /> State Viewer
                 </button>
                 <button onClick={() => setActiveTab('db')} className={`p-4 text-left text-sm font-semibold flex items-center gap-2 hover:bg-white dark:hover:bg-slate-700 ${activeTab === 'db' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 border-r-2 border-indigo-600' : 'text-slate-600 dark:text-slate-400'}`}>
-                    <HardDrive size={16} /> Storage
+                    <HardDrive size={16} /> Storage & Snaps
                 </button>
                 <button onClick={() => setActiveTab('danger')} className={`p-4 text-left text-sm font-semibold flex items-center gap-2 hover:bg-red-50 dark:hover:bg-red-900/20 ${activeTab === 'danger' ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-r-2 border-red-600' : 'text-slate-600 dark:text-slate-400'}`}>
                     <AlertTriangle size={16} /> Danger Zone
@@ -215,6 +278,47 @@ const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({ isOpen, onClo
                             ) : (
                                 <p className="text-xs text-blue-600">Estimating...</p>
                             )}
+                        </div>
+
+                        <div>
+                            <div className="flex justify-between items-center mb-3">
+                                <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                                    <History size={16} /> System Checkpoints
+                                </h3>
+                                <Button onClick={handleCreateSnapshot} className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700">
+                                    <PlusCircle size={12} className="mr-1.5" /> Create Checkpoint
+                                </Button>
+                            </div>
+                            
+                            <div className="bg-slate-50 dark:bg-slate-800 rounded-lg border dark:border-slate-700 overflow-hidden">
+                                {isSnapshotLoading ? (
+                                    <div className="p-4 text-center text-xs text-slate-500">Loading snapshots...</div>
+                                ) : snapshots.length === 0 ? (
+                                    <div className="p-4 text-center text-xs text-slate-500">No checkpoints created.</div>
+                                ) : (
+                                    <div className="divide-y dark:divide-slate-700 max-h-48 overflow-y-auto">
+                                        {snapshots.map(snap => (
+                                            <div key={snap.id} className="p-3 flex justify-between items-center hover:bg-white dark:hover:bg-slate-700/50 transition-colors">
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 truncate">{snap.name}</p>
+                                                    <p className="text-[10px] text-slate-500 font-mono">{new Date(snap.timestamp).toLocaleString()}</p>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <Button onClick={() => handleRestoreSnapshot(snap)} variant="secondary" className="h-7 text-xs px-2">
+                                                        <RotateCcw size={12} className="mr-1" /> Restore
+                                                    </Button>
+                                                    <Button onClick={() => handleDeleteSnapshot(snap.id)} variant="secondary" className="h-7 text-xs px-2 text-red-600 hover:bg-red-50 border-red-100">
+                                                        <Trash2 size={12} />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            <p className="text-[10px] text-slate-400 mt-2">
+                                Snapshots save the entire database state locally. Use before major operations.
+                            </p>
                         </div>
 
                         <div>

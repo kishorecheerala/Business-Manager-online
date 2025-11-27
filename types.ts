@@ -2,6 +2,8 @@
 
 
 
+
+
 import { ReactNode } from "react";
 
 export type Page = 'DASHBOARD' | 'CUSTOMERS' | 'SALES' | 'PURCHASES' | 'REPORTS' | 'RETURNS' | 'PRODUCTS' | 'INSIGHTS' | 'EXPENSES' | 'QUOTATIONS' | 'INVOICE_DESIGNER' | 'SYSTEM_OPTIMIZER';
@@ -321,3 +323,10 @@ export interface AppMetadataInvoiceSettings {
 }
 
 export type AppMetadata = AppMetadataPin | AppMetadataBackup | AppMetadataRevenueGoal | AppMetadataLastModified | AppMetadataTheme | AppMetadataInvoiceSettings | InvoiceTemplateConfig;
+
+export interface Snapshot {
+  id: string;
+  timestamp: string; // ISO string
+  name: string;
+  data: any; // The exported data object
+}

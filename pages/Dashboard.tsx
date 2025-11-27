@@ -1,7 +1,6 @@
 
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { IndianRupee, User, AlertTriangle, Download, Upload, ShoppingCart, Package, XCircle, CheckCircle, Info, ShieldCheck, ShieldX, Archive, PackageCheck, TestTube2, Sparkles, TrendingUp, ArrowRight, Zap, BrainCircuit, TrendingDown, Wallet, CalendarClock, Tag, Undo2, Crown, Calendar, Receipt, MessageCircle } from 'lucide-react';
+import { IndianRupee, User, AlertTriangle, Download, Upload, ShoppingCart, Package, XCircle, CheckCircle, Info, ShieldCheck, ShieldX, Archive, PackageCheck, TestTube2, Sparkles, TrendingUp, ArrowRight, Zap, BrainCircuit, TrendingDown, Wallet, CalendarClock, Tag, Undo2, Crown, Calendar, Receipt, MessageCircle, Clock, History, PenTool, FileText } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import * as db from '../utils/db';
 import Card from '../components/Card';
@@ -12,6 +11,7 @@ import { testData, testProfile } from '../utils/testData';
 import { useDialog } from '../context/DialogContext';
 import PinModal from '../components/PinModal';
 import DatePill from '../components/DatePill';
+import CheckpointsModal from '../components/CheckpointsModal';
 
 interface DashboardProps {
     setCurrentPage: (page: Page) => void;
@@ -629,6 +629,8 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
     const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
 
     const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+    
+    const [isCheckpointsModalOpen, setIsCheckpointsModalOpen] = useState(false);
 
     const lastBackupDate = (app_metadata.find(m => m.id === 'lastBackup') as AppMetadataBackup | undefined)?.date || null;
     
@@ -755,6 +757,19 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
         }
     };
 
+    const handleCreateCheckpoint = async () => {
+        const name = prompt("Enter a name for this checkpoint:", `Backup ${new Date().toLocaleTimeString()}`);
+        if (name) {
+            try {
+                await db.createSnapshot(name);
+                showToast("Checkpoint created successfully.", 'success');
+            } catch (e) {
+                console.error(e);
+                showToast("Failed to create checkpoint.", 'error');
+            }
+        }
+    };
+
     const handleNavigate = (page: Page, id: string) => {
         dispatch({ type: 'SET_SELECTION', payload: { page, id } });
         setCurrentPage(page);
@@ -790,6 +805,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
     return (
         <div className="space-y-6 animate-fade-in-fast">
             <DataImportModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} />
+            <CheckpointsModal isOpen={isCheckpointsModalOpen} onClose={() => setIsCheckpointsModalOpen(false)} />
             
             {isPinModalOpen && (
                 <PinModal
@@ -911,6 +927,19 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                  <LowStockCard products={products} onNavigate={(id) => handleNavigate('PRODUCTS', id)} />
                  <div className="space-y-6">
+                    <Card title="Quick Tools" className="mb-6">
+                        <div className="grid grid-cols-2 gap-4">
+                            <Button onClick={() => setCurrentPage('INVOICE_DESIGNER')} className="h-auto py-4 flex flex-col items-center justify-center gap-2">
+                                <PenTool size={24} />
+                                <span>Invoice Designer</span>
+                            </Button>
+                            <Button onClick={() => setCurrentPage('QUOTATIONS')} variant="secondary" className="h-auto py-4 flex flex-col items-center justify-center gap-2">
+                                <FileText size={24} />
+                                <span>Estimates</span>
+                            </Button>
+                        </div>
+                    </Card>
+
                     <Card title="Data Management">
                         <BackupStatusAlert lastBackupDate={lastBackupDate} />
                         <div className="space-y-4 mt-4">
@@ -940,6 +969,25 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                                     </Button>
                                 )}
                             </div>
+                            
+                            {/* Checkpoints Section */}
+                            <div className="pt-4 border-t dark:border-slate-700">
+                                <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                                    <History size={16} /> Local Checkpoints
+                                </h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <Button onClick={handleCreateCheckpoint} className="w-full bg-indigo-600 hover:bg-indigo-700">
+                                        <Clock className="w-4 h-4 mr-2" /> Create Checkpoint
+                                    </Button>
+                                    <Button onClick={() => setIsCheckpointsModalOpen(true)} variant="secondary" className="w-full">
+                                        View Checkpoints
+                                    </Button>
+                                </div>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                                    Create instant restore points before making major changes.
+                                </p>
+                            </div>
+
                              <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-md border border-yellow-200 dark:border-yellow-700">
                                 <div className="flex gap-2">
                                     <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
