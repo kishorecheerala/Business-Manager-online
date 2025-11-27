@@ -10,7 +10,7 @@ import DeleteButton from '../components/DeleteButton';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
-import { generateA4InvoicePdf, generateThermalInvoicePDF, addBusinessHeader } from '../utils/pdfGenerator';
+import { generateA4InvoicePdf, generateThermalInvoicePDF, addBusinessHeader, generateGenericReportPDF } from '../utils/pdfGenerator';
 import { useDialog } from '../context/DialogContext';
 
 // ... (getLocalDateString, fetchImageAsBase64, PaymentModal remain the same)
@@ -324,7 +324,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
         }
     };
 
-    // ... (handleShareDuesSummary, filteredCustomers, render) ...
+    // Updated to use the new generic report configuration
     const handleShareDuesSummary = async () => {
         if (!selectedCustomer) return;
 
@@ -343,65 +343,47 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
             return total + (Number(sale.totalAmount) - paid);
         }, 0);
         
-        const doc = new jsPDF();
-        const profile = state.profile;
-        
-        // Use centralized header logic with Logo
-        let currentY = addBusinessHeader(doc, profile, "Customer Dues Summary");
+        try {
+            const doc = await generateGenericReportPDF(
+                "Customer Dues Summary",
+                `Statement For: ${selectedCustomer.name}`,
+                ['Invoice ID', 'Date', 'Total', 'Paid', 'Due'],
+                overdueSales.map(sale => {
+                    const paid = (sale.payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
+                    const due = Number(sale.totalAmount) - paid;
+                    return [
+                        sale.id,
+                        new Date(sale.date).toLocaleDateString(),
+                        `Rs. ${Number(sale.totalAmount).toLocaleString('en-IN')}`,
+                        `Rs. ${paid.toLocaleString('en-IN')}`,
+                        `Rs. ${due.toLocaleString('en-IN')}`
+                    ];
+                }),
+                [{ label: 'Total Outstanding Due', value: `Rs. ${totalDue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, color: '#dc2626' }],
+                state.profile,
+                state.reportTemplate,
+                state.customFonts
+            );
 
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor('#000000');
-        doc.text(`Statement For: ${selectedCustomer.name}`, 14, currentY);
-        currentY += 6;
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.text(`Date Generated: ${new Date().toLocaleDateString()}`, 14, currentY);
-        currentY += 10;
+            const pdfBlob = doc.output('blob');
+            const cleanName = selectedCustomer.name.replace(/[^a-z0-9]/gi, '_');
+            const dateStr = new Date().toLocaleDateString('en-IN').replace(/\//g, '-');
+            const filename = `Dues_${cleanName}_${dateStr}.pdf`;
+            
+            const pdfFile = new File([pdfBlob], filename, { type: 'application/pdf' });
+            const businessName = state.profile?.name || 'Dues Summary';
 
-        autoTable(doc, {
-            startY: currentY,
-            head: [['Invoice ID', 'Date', 'Total', 'Paid', 'Due']],
-            body: overdueSales.map(sale => {
-                const paid = (sale.payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
-                const due = Number(sale.totalAmount) - paid;
-                return [
-                    sale.id,
-                    new Date(sale.date).toLocaleDateString(),
-                    `Rs. ${Number(sale.totalAmount).toLocaleString('en-IN')}`,
-                    `Rs. ${paid.toLocaleString('en-IN')}`,
-                    `Rs. ${due.toLocaleString('en-IN')}`
-                ];
-            }),
-            theme: 'grid',
-            headStyles: { fillColor: [13, 148, 136] }, // Primary color
-            columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' } }
-        });
-        
-        currentY = (doc as any).lastAutoTable.finalY + 15;
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor('#0d9488');
-        doc.text(
-            `Total Outstanding Due: Rs. ${totalDue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
-            196, currentY, { align: 'right' }
-        );
-
-        const pdfBlob = doc.output('blob');
-        const cleanName = selectedCustomer.name.replace(/[^a-z0-9]/gi, '_');
-        const dateStr = new Date().toLocaleDateString('en-IN').replace(/\//g, '-');
-        const filename = `Dues_${cleanName}_${dateStr}.pdf`;
-        
-        const pdfFile = new File([pdfBlob], filename, { type: 'application/pdf' });
-        const businessName = state.profile?.name || 'Dues Summary';
-
-        if (navigator.share && navigator.canShare({ files: [pdfFile] })) {
-          await navigator.share({
-            title: `${businessName} - Dues for ${selectedCustomer.name}`,
-            files: [pdfFile],
-          });
-        } else {
-          doc.save(filename);
+            if (navigator.share && navigator.canShare({ files: [pdfFile] })) {
+              await navigator.share({
+                title: `${businessName} - Dues for ${selectedCustomer.name}`,
+                files: [pdfFile],
+              });
+            } else {
+              doc.save(filename);
+            }
+        } catch (e) {
+            console.error("PDF Report Error", e);
+            showToast("Failed to generate report.", 'error');
         }
     };
 

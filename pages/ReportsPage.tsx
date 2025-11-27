@@ -4,12 +4,10 @@ import { Download, XCircle, Users, Package, AlertTriangle } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import Card from '../components/Card';
 import Button from '../components/Button';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { Customer, Sale, Supplier, Page, Product } from '../types';
 import Dropdown from '../components/Dropdown';
 import DatePill from '../components/DatePill';
-import { addBusinessHeader } from '../utils/pdfGenerator';
+import { generateGenericReportPDF } from '../utils/pdfGenerator';
 
 interface CustomerWithDue extends Customer {
   dueAmount: number;
@@ -21,7 +19,7 @@ interface ReportsPageProps {
 }
 
 const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
-    const { state, dispatch } = useAppContext();
+    const { state, dispatch, showToast } = useAppContext();
     const [activeTab, setActiveTab] = useState<'customer' | 'supplier' | 'stock'>('customer');
 
     // --- Customer Filters ---
@@ -85,35 +83,31 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
     const uniqueAreas = useMemo(() => [...new Set(state.customers.map(c => c.area).filter(Boolean))], [state.customers]);
     const totalDuesFiltered = useMemo(() => customerDues.reduce((sum, c) => sum + c.dueAmount, 0), [customerDues]);
 
-    const generateDuesPDF = () => {
-        if (customerDues.length === 0) return alert("No customer dues data to export.");
-        const doc = new jsPDF();
+    const generateDuesPDF = async () => {
+        if (customerDues.length === 0) { showToast("No data to export.", 'error'); return; }
         
-        // Add Header
-        let currentY = addBusinessHeader(doc, state.profile, "Customer Dues Report");
-        
-        // Filters Info
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        const filterText = `Filter: Area=${areaFilter}, Age=${duesAgeFilter === 'custom' ? customDuesAge + ' days' : duesAgeFilter}`;
-        doc.text(filterText, 14, currentY);
-        currentY += 6;
-
-        autoTable(doc, {
-            startY: currentY,
-            head: [['Customer Name', 'Area', 'Last Paid Date', 'Due Amount (Rs.)']],
-            body: customerDues.map(c => [ c.name, c.area, c.lastPaidDate || 'N/A', c.dueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 }) ]),
-            theme: 'grid', headStyles: { fillColor: [13, 148, 136] }, columnStyles: { 3: { halign: 'right' } }
-        });
-        const finalY = (doc as any).lastAutoTable.finalY + 10;
-        doc.text(`Total Due: Rs. ${totalDuesFiltered.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 196, finalY, { align: 'right' });
-        
-        const dateStr = new Date().toLocaleDateString('en-IN').replace(/\//g, '-');
-        doc.save(`Report_CustomerDues_${dateStr}.pdf`);
+        try {
+            const doc = await generateGenericReportPDF(
+                "Customer Dues Report",
+                `Filter: Area=${areaFilter}, Age=${duesAgeFilter === 'custom' ? customDuesAge + ' days' : duesAgeFilter}`,
+                ['Customer Name', 'Area', 'Last Paid Date', 'Due Amount'],
+                customerDues.map(c => [ c.name, c.area, c.lastPaidDate || 'N/A', `Rs. ${c.dueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` ]),
+                [{ label: 'Total Outstanding Due', value: `Rs. ${totalDuesFiltered.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, color: '#dc2626' }],
+                state.profile,
+                state.reportTemplate,
+                state.customFonts
+            );
+            
+            const dateStr = new Date().toLocaleDateString('en-IN').replace(/\//g, '-');
+            doc.save(`Report_CustomerDues_${dateStr}.pdf`);
+        } catch (e) {
+            console.error(e);
+            showToast("Failed to generate PDF", 'error');
+        }
     };
 
     const generateDuesCSV = () => {
-        if (customerDues.length === 0) return alert("No customer dues data to export.");
+        if (customerDues.length === 0) { showToast("No data to export.", 'error'); return; }
         const headers = ['Customer Name', 'Area', 'Last Paid Date', 'Due Amount'];
         const rows = customerDues.map(c => `"${c.name}","${c.area}","${c.lastPaidDate || 'N/A'}","${c.dueAmount}"`);
         const csv = [headers.join(','), ...rows].join('\n');
@@ -143,32 +137,37 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
         });
     }, [state.customers, state.sales]);
 
-    const generateCustomerSummaryPDF = () => {
-        if (customerAccountSummary.length === 0) return alert("No customer account data to export.");
-        const doc = new jsPDF();
+    const generateCustomerSummaryPDF = async () => {
+        if (customerAccountSummary.length === 0) { showToast("No data to export.", 'error'); return; }
         
-        const currentY = addBusinessHeader(doc, state.profile, "Customer Account Summary");
-
-        autoTable(doc, {
-            startY: currentY,
-            head: [['Customer Name', 'Last Purchase Date', 'Total Purchased', 'Total Paid', 'Outstanding Due']],
-            body: customerAccountSummary.map(s => [
-                s.customer.name,
-                s.lastPurchaseDate || 'N/A',
-                s.totalPurchased.toLocaleString('en-IN', { minimumFractionDigits: 2 }),
-                s.totalPaid.toLocaleString('en-IN', { minimumFractionDigits: 2 }),
-                s.outstandingDue.toLocaleString('en-IN', { minimumFractionDigits: 2 })
-            ]),
-            theme: 'grid', headStyles: { fillColor: [13, 148, 136] },
-            columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' } }
-        });
-        
-        const dateStr = new Date().toLocaleDateString('en-IN').replace(/\//g, '-');
-        doc.save(`Report_CustomerSummary_${dateStr}.pdf`);
+        try {
+            const doc = await generateGenericReportPDF(
+                "Customer Account Summary",
+                `Generated on: ${new Date().toLocaleDateString()}`,
+                ['Customer Name', 'Last Purchase', 'Total Billed', 'Total Paid', 'Balance'],
+                customerAccountSummary.map(s => [
+                    s.customer.name,
+                    s.lastPurchaseDate || 'N/A',
+                    `Rs. ${s.totalPurchased.toLocaleString('en-IN')}`,
+                    `Rs. ${s.totalPaid.toLocaleString('en-IN')}`,
+                    `Rs. ${s.outstandingDue.toLocaleString('en-IN')}`
+                ]),
+                [], // No grand totals summary needed here as it's a list
+                state.profile,
+                state.reportTemplate,
+                state.customFonts
+            );
+            
+            const dateStr = new Date().toLocaleDateString('en-IN').replace(/\//g, '-');
+            doc.save(`Report_CustomerSummary_${dateStr}.pdf`);
+        } catch (e) {
+            console.error(e);
+            showToast("Failed to generate PDF", 'error');
+        }
     };
 
     const generateCustomerSummaryCSV = () => {
-        if (customerAccountSummary.length === 0) return alert("No customer account data to export.");
+        if (customerAccountSummary.length === 0) { showToast("No data to export.", 'error'); return; }
         const headers = ['Customer Name', 'Last Purchase Date', 'Total Purchased', 'Total Paid', 'Outstanding Due'];
         const rows = customerAccountSummary.map(s => `"${s.customer.name}","${s.lastPurchaseDate || 'N/A'}",${s.totalPurchased},${s.totalPaid},${s.outstandingDue}`);
         const csv = [headers.join(','), ...rows].join('\n');
@@ -224,30 +223,37 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
         });
     }, [state.suppliers, state.purchases]);
 
-    const generateSupplierDuesPDF = () => {
-        if (supplierDues.length === 0) return alert("No supplier dues data to export.");
-        const doc = new jsPDF();
-        const currentY = addBusinessHeader(doc, state.profile, "Supplier Dues Report");
-
-        autoTable(doc, {
-            startY: currentY,
-            head: [['Supplier', 'Purchase ID', 'Next Due Date', 'Due Amount']],
-            body: supplierDues.map(p => [
-                p.supplierName,
-                p.id,
-                p.nextDueDate || 'N/A',
-                p.dueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })
-            ]),
-            theme: 'grid', headStyles: { fillColor: [13, 148, 136] },
-            columnStyles: { 3: { halign: 'right' } }
-        });
+    const generateSupplierDuesPDF = async () => {
+        if (supplierDues.length === 0) { showToast("No data to export.", 'error'); return; }
         
-        const dateStr = new Date().toLocaleDateString('en-IN').replace(/\//g, '-');
-        doc.save(`Report_SupplierDues_${dateStr}.pdf`);
+        try {
+            const totalDue = supplierDues.reduce((sum, p) => sum + p.dueAmount, 0);
+            const doc = await generateGenericReportPDF(
+                "Supplier Dues Report",
+                `Filter: Supplier=${supplierFilter === 'all' ? 'All' : state.suppliers.find(s=>s.id===supplierFilter)?.name}`,
+                ['Supplier', 'Purchase ID', 'Next Due Date', 'Due Amount'],
+                supplierDues.map(p => [
+                    p.supplierName,
+                    p.id,
+                    p.nextDueDate || 'N/A',
+                    `Rs. ${p.dueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                ]),
+                [{ label: 'Total Payable', value: `Rs. ${totalDue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, color: '#dc2626' }],
+                state.profile,
+                state.reportTemplate,
+                state.customFonts
+            );
+            
+            const dateStr = new Date().toLocaleDateString('en-IN').replace(/\//g, '-');
+            doc.save(`Report_SupplierDues_${dateStr}.pdf`);
+        } catch (e) {
+            console.error(e);
+            showToast("Failed to generate PDF", 'error');
+        }
     };
 
     const generateSupplierDuesCSV = () => {
-        if (supplierDues.length === 0) return alert("No supplier dues data to export.");
+        if (supplierDues.length === 0) { showToast("No data to export.", 'error'); return; }
         const headers = ['Supplier', 'Purchase ID', 'Next Due Date', 'Due Amount'];
         const rows = supplierDues.map(p => `"${p.supplierName}","${p.id}","${p.nextDueDate || 'N/A'}",${p.dueAmount}`);
         const csv = [headers.join(','), ...rows].join('\n');
@@ -257,30 +263,36 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
         link.click();
     };
 
-    const generateSupplierSummaryPDF = () => {
-        if (supplierAccountSummary.length === 0) return alert("No supplier account data to export.");
-        const doc = new jsPDF();
-        const currentY = addBusinessHeader(doc, state.profile, "Supplier Account Summary");
-
-        autoTable(doc, {
-            startY: currentY,
-            head: [['Supplier Name', 'Total Purchased', 'Total Paid', 'Outstanding Due']],
-            body: supplierAccountSummary.map(s => [
-                s.supplier.name,
-                s.totalPurchased.toLocaleString('en-IN', { minimumFractionDigits: 2 }),
-                s.totalPaid.toLocaleString('en-IN', { minimumFractionDigits: 2 }),
-                s.outstandingDue.toLocaleString('en-IN', { minimumFractionDigits: 2 })
-            ]),
-            theme: 'grid', headStyles: { fillColor: [13, 148, 136] },
-            columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' } }
-        });
+    const generateSupplierSummaryPDF = async () => {
+        if (supplierAccountSummary.length === 0) { showToast("No data to export.", 'error'); return; }
         
-        const dateStr = new Date().toLocaleDateString('en-IN').replace(/\//g, '-');
-        doc.save(`Report_SupplierSummary_${dateStr}.pdf`);
+        try {
+            const doc = await generateGenericReportPDF(
+                "Supplier Account Summary",
+                `Generated on: ${new Date().toLocaleDateString()}`,
+                ['Supplier Name', 'Total Purchased', 'Total Paid', 'Outstanding Due'],
+                supplierAccountSummary.map(s => [
+                    s.supplier.name,
+                    `Rs. ${s.totalPurchased.toLocaleString('en-IN')}`,
+                    `Rs. ${s.totalPaid.toLocaleString('en-IN')}`,
+                    `Rs. ${s.outstandingDue.toLocaleString('en-IN')}`
+                ]),
+                [],
+                state.profile,
+                state.reportTemplate,
+                state.customFonts
+            );
+            
+            const dateStr = new Date().toLocaleDateString('en-IN').replace(/\//g, '-');
+            doc.save(`Report_SupplierSummary_${dateStr}.pdf`);
+        } catch (e) {
+            console.error(e);
+            showToast("Failed to generate PDF", 'error');
+        }
     };
 
     const generateSupplierSummaryCSV = () => {
-        if (supplierAccountSummary.length === 0) return alert("No supplier account data to export.");
+        if (supplierAccountSummary.length === 0) { showToast("No data to export.", 'error'); return; }
         const headers = ['Supplier Name', 'Total Purchased', 'Total Paid', 'Outstanding Due'];
         const rows = supplierAccountSummary.map(s => `"${s.supplier.name}",${s.totalPurchased},${s.totalPaid},${s.outstandingDue}`);
         const csv = [headers.join(','), ...rows].join('\n');
@@ -297,31 +309,31 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
             .sort((a, b) => a.quantity - b.quantity);
     }, [state.products]);
 
-    const generateLowStockPDF = () => {
-        if (lowStockItems.length === 0) return alert("No low stock items found.");
-        const doc = new jsPDF();
+    const generateLowStockPDF = async () => {
+        if (lowStockItems.length === 0) { showToast("No low stock items found.", 'info'); return; }
         
-        const currentY = addBusinessHeader(doc, state.profile, "Low Stock Reorder Report");
-        
-        doc.setFontSize(10);
-        doc.setTextColor('#666666');
-        doc.text(`Generated: ${new Date().toLocaleString()}`, 14, currentY + 5);
-        
-        autoTable(doc, {
-            startY: currentY + 10,
-            head: [['Product Name', 'Current Stock', 'Last Cost']],
-            body: lowStockItems.map(p => [
-                p.name,
-                p.quantity,
-                `Rs. ${p.purchasePrice.toLocaleString('en-IN')}`
-            ]),
-            theme: 'striped',
-            headStyles: { fillColor: [220, 38, 38] }, // Red header
-            columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 2: { halign: 'right' } }
-        });
-        
-        const dateStr = new Date().toLocaleDateString('en-IN').replace(/\//g, '-');
-        doc.save(`Report_LowStock_${dateStr}.pdf`);
+        try {
+            const doc = await generateGenericReportPDF(
+                "Low Stock Reorder Report",
+                "Items with quantity < 5",
+                ['Product Name', 'Current Stock', 'Last Cost'],
+                lowStockItems.map(p => [
+                    p.name,
+                    p.quantity.toString(),
+                    `Rs. ${p.purchasePrice.toLocaleString('en-IN')}`
+                ]),
+                [],
+                state.profile,
+                state.reportTemplate,
+                state.customFonts
+            );
+            
+            const dateStr = new Date().toLocaleDateString('en-IN').replace(/\//g, '-');
+            doc.save(`Report_LowStock_${dateStr}.pdf`);
+        } catch (e) {
+            console.error(e);
+            showToast("Failed to generate PDF", 'error');
+        }
     };
 
     return (

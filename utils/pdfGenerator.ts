@@ -96,13 +96,14 @@ const defaultLabels: InvoiceLabels = {
     balance: "Balance"
 };
 
-// --- Helper: Add Header (Legacy support for Reports) ---
+// --- Helper: Add Business Header (Common Logic) ---
 export const addBusinessHeader = (doc: jsPDF, profile: ProfileData | null, title?: string) => {
+    // This is the LEGACY helper used by some direct calls. 
+    // We are keeping it for backward compatibility but moving logic to configuration-aware functions below.
     const pageWidth = doc.internal.pageSize.getWidth();
     const centerX = pageWidth / 2;
     let currentY = 10;
 
-    // Add Logo if available
     const logoToUse = profile?.logo || logoBase64;
     if (logoToUse) {
         try {
@@ -115,9 +116,7 @@ export const addBusinessHeader = (doc: jsPDF, profile: ProfileData | null, title
                     height = width / (props.width / props.height);
                 }
             } catch(e) {}
-            
             if (height > 40) height = 40;
-            
             doc.addImage(logoToUse, format, 14, 10, width, height);
         } catch (e) {
             console.warn("Failed to add logo", e);
@@ -633,79 +632,35 @@ const _generateConfigurablePDF = async (
     return doc;
 };
 
-// Helper: Convert hex to RGB array for jspdf-autotable
-const hexToRgbArray = (hex: string): [number, number, number] => {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result ? [
-        parseInt(result[1], 16),
-        parseInt(result[2], 16),
-        parseInt(result[3], 16)
-    ] : [0, 0, 0];
-};
-
-// --- Helper: Calculate Tax Breakdown ---
+// --- Calculate Tax Breakdown ---
 const calculateTaxBreakdown = (items: any[]) => {
     const breakdown: Record<number, { taxable: number, tax: number }> = {};
-    
     items.forEach(item => {
         const rate = Number(item.gstPercent) || 0;
         const itemTotal = Number(item.price) * Number(item.quantity);
         const taxable = itemTotal / (1 + (rate / 100));
         const tax = itemTotal - taxable;
-        
-        if (!breakdown[rate]) {
-            breakdown[rate] = { taxable: 0, tax: 0 };
-        }
+        if (!breakdown[rate]) breakdown[rate] = { taxable: 0, tax: 0 };
         breakdown[rate].taxable += taxable;
         breakdown[rate].tax += tax;
     });
-    
     return Object.entries(breakdown).map(([rate, val]) => ({
-        rate: Number(rate),
-        taxable: val.taxable,
-        tax: val.tax
+        rate: Number(rate), taxable: val.taxable, tax: val.tax
     })).sort((a,b) => a.rate - b.rate);
 };
 
 // --- Public Generators ---
 
-export const generateA4InvoicePdf = async (
-    sale: Sale, 
-    customer: Customer, 
-    profile: ProfileData | null, 
-    templateConfig?: InvoiceTemplateConfig, 
-    customFonts?: CustomFont[]
-): Promise<jsPDF> => {
-    
-    // Fallback to default config if not provided
+export const generateA4InvoicePdf = async (sale: Sale, customer: Customer, profile: ProfileData | null, templateConfig?: InvoiceTemplateConfig, customFonts?: CustomFont[]) => {
+    // Default fallback config
     const defaultConfig: InvoiceTemplateConfig = {
-        id: 'default', 
-        currencySymbol: 'Rs.', 
-        dateFormat: 'DD/MM/YYYY',
-        colors: { 
-            primary: '#0d9488', secondary: '#333333', text: '#000000', 
-            tableHeaderBg: '#0d9488', tableHeaderText: '#ffffff', 
-            bannerBg: '#0d9488', bannerText: '#ffffff',
-            footerBg: '#f3f4f6', footerText: '#374151', 
-            borderColor: '#e5e7eb', alternateRowBg: '#f9fafb'
-        },
+        id: 'default', currencySymbol: 'Rs.', dateFormat: 'DD/MM/YYYY',
+        colors: { primary: '#0d9488', secondary: '#333333', text: '#000000', tableHeaderBg: '#0d9488', tableHeaderText: '#ffffff', bannerBg: '#0d9488', bannerText: '#ffffff', footerBg: '#f3f4f6', footerText: '#374151', borderColor: '#e5e7eb', alternateRowBg: '#f9fafb' },
         fonts: { headerSize: 22, bodySize: 10, titleFont: 'helvetica', bodyFont: 'helvetica' },
-        layout: { 
-            margin: 10, logoSize: 25, logoPosition: 'center', logoOffsetX: 0, logoOffsetY: 0, 
-            headerAlignment: 'center', headerStyle: 'standard', footerStyle: 'standard',
-            showWatermark: false, watermarkOpacity: 0.1, qrPosition: 'details-right',
-            tableOptions: { hideQty: false, hideRate: false, stripedRows: false, bordered: false, compact: false }
-        },
-        content: { 
-            titleText: 'TAX INVOICE', labels: defaultLabels, showQr: true, showTerms: true, showSignature: true, 
-            termsText: '', footerText: '', showBusinessDetails: true, showCustomerDetails: true,
-            signatureText: '', showAmountInWords: false, showStatusStamp: false, showTaxBreakdown: false, showGst: true,
-            qrType: 'INVOICE_ID', bankDetails: ''
-        }
+        layout: { margin: 10, logoSize: 25, logoPosition: 'center', logoOffsetX: 0, logoOffsetY: 0, headerAlignment: 'center', headerStyle: 'standard', footerStyle: 'standard', showWatermark: false, watermarkOpacity: 0.1, qrPosition: 'details-right', tableOptions: { hideQty: false, hideRate: false, stripedRows: false, bordered: false, compact: false } },
+        content: { titleText: 'TAX INVOICE', labels: defaultLabels, showQr: true, showTerms: true, showSignature: true, termsText: '', footerText: '', showBusinessDetails: true, showCustomerDetails: true, signatureText: '', showAmountInWords: false, showStatusStamp: false, showTaxBreakdown: false, showGst: true, qrType: 'INVOICE_ID', bankDetails: '' }
     };
-
     const config = templateConfig || defaultConfig;
-
     const labels = { ...defaultLabels, ...config.content.labels };
     const currency = config.currencySymbol || 'Rs.';
     const fontName = config.fonts.bodyFont;
@@ -729,11 +684,7 @@ export const generateA4InvoicePdf = async (
         { label: labels.subtotal, value: formatCurrency(subTotal, currency, fontName) },
         { label: labels.discount, value: `- ${formatCurrency(Number(sale.discount), currency, fontName)}` },
     ];
-
-    if (config.content.showGst !== false) {
-        totals.push({ label: labels.gst, value: formatCurrency(Number(sale.gstAmount), currency, fontName) });
-    }
-
+    if (config.content.showGst !== false) totals.push({ label: labels.gst, value: formatCurrency(Number(sale.gstAmount), currency, fontName) });
     totals.push(
         { label: labels.grandTotal, value: formatCurrency(Number(sale.totalAmount), currency, fontName), isBold: true, color: config.colors.primary, size: config.fonts.bodySize + 2 },
         { label: labels.paid, value: formatCurrency(paidAmount, currency, fontName) },
@@ -744,117 +695,208 @@ export const generateA4InvoicePdf = async (
     const taxBreakdown = calculateTaxBreakdown(enrichedItems);
 
     const data: GenericDocumentData = {
-        id: sale.id,
-        date: sale.date,
-        recipient: {
-            label: labels.billedTo,
-            name: customer.name,
-            address: customer.address
-        },
-        sender: {
-            label: 'Invoice Details:',
-            idLabel: labels.invoiceNo
-        },
-        items: sale.items.map(item => ({
-            name: item.productName,
-            quantity: item.quantity,
-            rate: Number(item.price),
-            amount: Number(item.quantity) * Number(item.price)
-        })),
-        totals: totals,
-        qrString: qrString,
-        grandTotalNumeric: Number(sale.totalAmount),
-        balanceDue: dueAmount,
+        id: sale.id, date: sale.date,
+        recipient: { label: labels.billedTo, name: customer.name, address: customer.address },
+        sender: { label: 'Invoice Details:', idLabel: labels.invoiceNo },
+        items: sale.items.map(item => ({ name: item.productName, quantity: item.quantity, rate: Number(item.price), amount: Number(item.quantity) * Number(item.price) })),
+        totals: totals, qrString: qrString, grandTotalNumeric: Number(sale.totalAmount), balanceDue: dueAmount,
         taxBreakdown: config.content.showTaxBreakdown ? taxBreakdown : undefined
     };
-
     return _generateConfigurablePDF(data, profile, config, customFonts);
 };
 
-export const generateEstimatePDF = async (
-    quote: Quote, 
-    customer: Customer, 
-    profile: ProfileData | null,
-    templateConfig: InvoiceTemplateConfig,
-    customFonts?: CustomFont[]
-): Promise<jsPDF> => {
+export const generateEstimatePDF = async (quote: Quote, customer: Customer, profile: ProfileData | null, templateConfig: InvoiceTemplateConfig, customFonts?: CustomFont[]) => {
     const labels = { ...defaultLabels, ...templateConfig.content.labels };
     const currency = templateConfig.currencySymbol || 'Rs.';
     const fontName = templateConfig.fonts.bodyFont;
     const subTotal = quote.items.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
-
     const totals: GenericDocumentData['totals'] = [
         { label: labels.subtotal, value: formatCurrency(subTotal, currency, fontName) },
         { label: labels.discount, value: `- ${formatCurrency(Number(quote.discount), currency, fontName)}` },
     ];
-
-    if (templateConfig.content.showGst !== false) {
-        totals.push({ label: labels.gst, value: formatCurrency(Number(quote.gstAmount), currency, fontName) });
-    }
-
+    if (templateConfig.content.showGst !== false) totals.push({ label: labels.gst, value: formatCurrency(Number(quote.gstAmount), currency, fontName) });
     totals.push({ label: labels.grandTotal, value: formatCurrency(Number(quote.totalAmount), currency, fontName), isBold: true, color: templateConfig.colors.primary, size: templateConfig.fonts.bodySize + 2 });
 
     const data: GenericDocumentData = {
-        id: quote.id,
-        date: quote.date,
-        recipient: {
-            label: 'Estimate For:',
-            name: customer.name,
-            address: customer.address
-        },
-        sender: {
-            label: 'Estimate Details:',
-            idLabel: labels.invoiceNo
-        },
-        items: quote.items.map(item => ({
-            name: item.productName,
-            quantity: item.quantity,
-            rate: Number(item.price),
-            amount: Number(item.quantity) * Number(item.price)
-        })),
-        totals: totals,
-        watermarkText: 'ESTIMATE',
-        grandTotalNumeric: Number(quote.totalAmount)
+        id: quote.id, date: quote.date,
+        recipient: { label: 'Estimate For:', name: customer.name, address: customer.address },
+        sender: { label: 'Estimate Details:', idLabel: labels.invoiceNo },
+        items: quote.items.map(item => ({ name: item.productName, quantity: item.quantity, rate: Number(item.price), amount: Number(item.quantity) * Number(item.price) })),
+        totals: totals, watermarkText: 'ESTIMATE', grandTotalNumeric: Number(quote.totalAmount)
     };
-
     return _generateConfigurablePDF(data, profile, templateConfig, customFonts);
 };
 
-export const generateDebitNotePDF = async (
-    returnData: Return, 
-    supplier: Supplier | undefined, 
+export const generateDebitNotePDF = async (returnData: Return, supplier: Supplier | undefined, profile: ProfileData | null, templateConfig: InvoiceTemplateConfig, customFonts?: CustomFont[]) => {
+    const labels = { ...defaultLabels, ...templateConfig.content.labels };
+    const currency = templateConfig.currencySymbol || 'Rs.';
+    const fontName = templateConfig.fonts.bodyFont;
+    const data: GenericDocumentData = {
+        id: returnData.id, date: returnData.returnDate,
+        recipient: { label: labels.billedTo, name: supplier?.name || 'Unknown Supplier', address: supplier?.location || '' },
+        sender: { label: 'Reference Details:', idLabel: labels.invoiceNo },
+        items: returnData.items.map(item => ({ name: item.productName, quantity: item.quantity, rate: Number(item.price), amount: Number(item.quantity) * Number(item.price) })),
+        totals: [{ label: 'Total Debit Value:', value: formatCurrency(Number(returnData.amount), currency, fontName), isBold: true, size: templateConfig.fonts.bodySize + 2 }],
+        watermarkText: 'DEBIT NOTE', grandTotalNumeric: Number(returnData.amount)
+    };
+    return _generateConfigurablePDF(data, profile, templateConfig, customFonts);
+};
+
+// --- Generic Report PDF Generator ---
+export const generateGenericReportPDF = async (
+    title: string,
+    subtitle: string,
+    tableHeaders: string[],
+    tableData: (string | number)[][],
+    summary: { label: string, value: string, color?: string }[],
     profile: ProfileData | null,
     templateConfig: InvoiceTemplateConfig,
     customFonts?: CustomFont[]
 ): Promise<jsPDF> => {
-    const labels = { ...defaultLabels, ...templateConfig.content.labels };
-    const currency = templateConfig.currencySymbol || 'Rs.';
-    const fontName = templateConfig.fonts.bodyFont;
-    
-    const data: GenericDocumentData = {
-        id: returnData.id,
-        date: returnData.returnDate,
-        recipient: {
-            label: labels.billedTo,
-            name: supplier?.name || 'Unknown Supplier',
-            address: supplier?.location || ''
-        },
-        sender: {
-            label: 'Reference Details:',
-            idLabel: labels.invoiceNo
-        },
-        items: returnData.items.map(item => ({
-            name: item.productName,
-            quantity: item.quantity,
-            rate: Number(item.price),
-            amount: Number(item.quantity) * Number(item.price)
-        })),
-        totals: [
-            { label: 'Total Debit Value:', value: formatCurrency(Number(returnData.amount), currency, fontName), isBold: true, size: templateConfig.fonts.bodySize + 2 }
-        ],
-        watermarkText: 'DEBIT NOTE',
-        grandTotalNumeric: Number(returnData.amount)
-    };
+    const doc = new jsPDF();
+    if (customFonts) registerCustomFonts(doc, customFonts);
 
-    return _generateConfigurablePDF(data, profile, templateConfig, customFonts);
+    const { colors, fonts, layout, content } = templateConfig;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = layout.margin;
+    let currentY = margin;
+
+    // --- HEADER (Reused Logic) ---
+    const isBanner = layout.headerStyle === 'banner';
+    if (isBanner) {
+        doc.setFillColor(colors.bannerBg || colors.primary);
+        doc.rect(0, 0, pageWidth, 40 + (layout.logoSize/2), 'F');
+        currentY += 5;
+    }
+
+    const logoUrl = profile?.logo || logoBase64;
+    const hasLogo = !!logoUrl && layout.logoSize > 5;
+    let textX = margin;
+    let textY = currentY;
+    let textAlign: 'left' | 'center' | 'right' = 'left';
+    let logoY = currentY + (layout.logoOffsetY || 0);
+    let renderedLogoHeight = 0;
+
+    if (hasLogo) {
+        try {
+            const imgProps = doc.getImageProperties(logoUrl);
+            const ratio = imgProps.width / imgProps.height;
+            renderedLogoHeight = layout.logoSize / ratio;
+            if (renderedLogoHeight > 60) renderedLogoHeight = 60;
+        } catch (e) { renderedLogoHeight = layout.logoSize; }
+    }
+
+    // Header Layout Logic (Simplified for Report)
+    if (layout.logoPosition === 'center') {
+        if (hasLogo) {
+            doc.addImage(logoUrl, getImageType(logoUrl), (pageWidth - layout.logoSize)/2, logoY, layout.logoSize, renderedLogoHeight);
+            textY = logoY + renderedLogoHeight + 5;
+        }
+        textAlign = 'center';
+        textX = pageWidth / 2;
+    } else if (layout.logoPosition === 'right') {
+        if (hasLogo) doc.addImage(logoUrl, getImageType(logoUrl), pageWidth - margin - layout.logoSize, logoY, layout.logoSize, renderedLogoHeight);
+        textAlign = 'left';
+        textX = margin;
+    } else { // Left
+        if (hasLogo) doc.addImage(logoUrl, getImageType(logoUrl), margin, logoY, layout.logoSize, renderedLogoHeight);
+        textAlign = 'right';
+        textX = pageWidth - margin;
+    }
+
+    if (profile) {
+        doc.setFont(fonts.titleFont, 'bold');
+        doc.setFontSize(fonts.headerSize);
+        doc.setTextColor(isBanner ? (colors.bannerText || '#fff') : colors.primary);
+        doc.text(profile.name, textX, textY, { align: textAlign });
+        
+        textY += fonts.headerSize * 0.4 + 2;
+        doc.setFont(fonts.bodyFont, 'normal');
+        doc.setFontSize(fonts.bodySize);
+        doc.setTextColor(isBanner ? (colors.bannerText || '#fff') : colors.secondary);
+        
+        const addr = doc.splitTextToSize(profile.address, 120);
+        doc.text(addr, textX, textY, { align: textAlign });
+        textY += (addr.length * 4) + 1;
+        
+        const contact = [profile.phone && `Ph: ${profile.phone}`, profile.gstNumber && `GST: ${profile.gstNumber}`].filter(Boolean).join(' | ');
+        doc.text(contact, textX, textY, { align: textAlign });
+        
+        currentY = Math.max(textY + 10, hasLogo ? logoY + renderedLogoHeight + 10 : textY + 10);
+    } else {
+        currentY += 20;
+    }
+
+    if (!isBanner && layout.headerStyle !== 'minimal') {
+        doc.setDrawColor(colors.borderColor || '#ccc');
+        doc.line(margin, currentY, pageWidth - margin, currentY);
+        currentY += 10;
+    } else {
+        currentY += 5;
+    }
+
+    // --- TITLE & SUBTITLE ---
+    doc.setFont(fonts.titleFont, 'bold');
+    doc.setFontSize(16);
+    doc.setTextColor(colors.text);
+    doc.text(title, pageWidth / 2, currentY, { align: 'center' });
+    currentY += 7;
+    
+    if (subtitle) {
+        doc.setFont(fonts.bodyFont, 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(colors.secondary);
+        doc.text(subtitle, pageWidth / 2, currentY, { align: 'center' });
+        currentY += 10;
+    }
+
+    // --- TABLE ---
+    autoTable(doc, {
+        startY: currentY,
+        head: [tableHeaders],
+        body: tableData,
+        theme: layout.tableOptions?.stripedRows ? 'striped' : 'plain',
+        styles: { font: fonts.bodyFont, fontSize: fonts.bodySize, cellPadding: layout.tableOptions?.compact ? 2 : 3, textColor: colors.text },
+        headStyles: { fillColor: colors.tableHeaderBg, textColor: colors.tableHeaderText, fontStyle: 'bold' },
+        margin: { left: margin, right: margin },
+        // Simple heuristic for column alignment: Last column usually Amount (Right), others Left
+        columnStyles: { [tableHeaders.length - 1]: { halign: 'right' } }
+    });
+
+    let finalY = (doc as any).lastAutoTable.finalY + 10;
+
+    // --- SUMMARY ---
+    if (summary && summary.length > 0) {
+        if (pageHeight - finalY < (summary.length * 7) + 20) {
+            doc.addPage();
+            finalY = margin;
+        }
+        
+        const summaryX = pageWidth - margin;
+        
+        summary.forEach(item => {
+            doc.setFont(fonts.bodyFont, 'bold');
+            doc.setFontSize(fonts.bodySize + 1);
+            doc.setTextColor(item.color || colors.text);
+            doc.text(`${item.label}: ${item.value}`, summaryX, finalY, { align: 'right' });
+            finalY += 7;
+        });
+    }
+
+    // --- FOOTER ---
+    const footerY = pageHeight - 15;
+    if (layout.footerStyle === 'banner') {
+        doc.setFillColor(colors.footerBg || '#f3f4f6');
+        doc.rect(0, pageHeight - 15, pageWidth, 15, 'F');
+        doc.setTextColor(colors.footerText || colors.secondary);
+    } else {
+        doc.setTextColor(colors.secondary);
+    }
+    
+    doc.setFontSize(9);
+    doc.setFont(fonts.bodyFont, 'normal');
+    doc.text(content.footerText || `Generated on ${new Date().toLocaleString()}`, pageWidth / 2, pageHeight - 6, { align: 'center' });
+
+    return doc;
 };

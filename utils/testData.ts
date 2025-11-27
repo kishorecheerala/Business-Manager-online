@@ -227,4 +227,35 @@ export const testData: Omit<AppState, 'toast' | 'selection' | 'installPromptEven
     },
     content: { titleText: 'RECEIPT', showTerms: true, showQr: true, termsText: '', footerText: 'Thank You!', showBusinessDetails: true, showCustomerDetails: true, showSignature: false }
   },
+  reportTemplate: {
+    id: 'reportTemplateConfig',
+    currencySymbol: '₹',
+    dateFormat: 'DD/MM/YYYY',
+    colors: { primary: '#0d9488', secondary: '#333333', text: '#000000', tableHeaderBg: '#0d9488', tableHeaderText: '#ffffff', bannerBg: '#0d9488', bannerText: '#ffffff', footerBg: '#f3f4f6', footerText: '#374151', borderColor: '#e5e7eb', alternateRowBg: '#f9fafb' },
+    fonts: { headerSize: 22, bodySize: 10, titleFont: 'helvetica', bodyFont: 'helvetica' },
+    layout: { 
+        margin: 10, logoSize: 25, logoPosition: 'center', logoOffsetX: 0, logoOffsetY: 0, headerAlignment: 'center', headerStyle: 'standard', footerStyle: 'standard', showWatermark: false, watermarkOpacity: 0.1,
+        tableOptions: { hideQty: false, hideRate: false, stripedRows: true, bordered: true, compact: true }
+    },
+    content: { 
+        titleText: 'REPORT', showTerms: false, showQr: false, termsText: '', footerText: 'Generated Report', showBusinessDetails: true, showCustomerDetails: true, showSignature: false, signatureText: '', showAmountInWords: false, showStatusStamp: false, showTaxBreakdown: false, showGst: false,
+        labels: {
+            billedTo: "Billed To",
+            invoiceNo: "Report No",
+            date: "Date",
+            item: "Item",
+            qty: "Qty",
+            rate: "Rate",
+            amount: "Amount",
+            subtotal: "Subtotal",
+            discount: "Discount",
+            gst: "GST",
+            grandTotal: "Grand Total",
+            paid: "Paid",
+            balance: "Balance"
+        },
+        qrType: 'INVOICE_ID',
+        bankDetails: ''
+    }
+  },
 };

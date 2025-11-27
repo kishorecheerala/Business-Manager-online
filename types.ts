@@ -187,7 +187,7 @@ export interface ProfileData {
 }
 
 // --- Invoice Template Configuration ---
-export type DocumentType = 'INVOICE' | 'ESTIMATE' | 'DEBIT_NOTE' | 'RECEIPT';
+export type DocumentType = 'INVOICE' | 'ESTIMATE' | 'DEBIT_NOTE' | 'RECEIPT' | 'REPORT';
 
 export interface InvoiceLabels {
     billedTo: string;

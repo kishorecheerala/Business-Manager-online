@@ -54,28 +54,36 @@ const ImageCropperModal: React.FC<ImageCropperModalProps> = ({ isOpen, imageSrc,
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        // Output size (Square)
-        const size = 500; 
-        canvas.width = size;
-        canvas.height = size;
+        // Visual Mask Size is hardcoded to 256px in the UI (w-64)
+        const MASK_SIZE = 256;
+        // Output Size
+        const OUTPUT_SIZE = 500; 
+        
+        canvas.width = OUTPUT_SIZE;
+        canvas.height = OUTPUT_SIZE;
 
         // Fill white background
         ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(0, 0, size, size);
+        ctx.fillRect(0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
 
-        const viewportRect = containerRef.current.getBoundingClientRect();
         const img = imageRef.current;
         
-        // Ratio: output pixels per screen pixel
-        const ratio = size / viewportRect.width; 
+        // Calculate the scale factor from Visual Mask pixels to Output Canvas pixels
+        const globalScale = OUTPUT_SIZE / MASK_SIZE;
 
         ctx.save();
-        // Move context origin to center
-        ctx.translate(size / 2, size / 2);
-        // Apply user scale
+        
+        // Move context origin to center of output canvas
+        ctx.translate(OUTPUT_SIZE / 2, OUTPUT_SIZE / 2);
+        
+        // 1. Scale up everything to map the small visual mask to the large output canvas
+        ctx.scale(globalScale, globalScale);
+        
+        // 2. Apply user translation (position is in screen pixels, which map 1:1 to mask pixels)
+        ctx.translate(position.x, position.y);
+        
+        // 3. Apply user zoom
         ctx.scale(scale, scale);
-        // Apply user translation (scaled to output size)
-        ctx.translate(position.x * ratio, position.y * ratio);
         
         // Draw image centered at origin
         ctx.drawImage(
@@ -109,7 +117,7 @@ const ImageCropperModal: React.FC<ImageCropperModalProps> = ({ isOpen, imageSrc,
                     <button onClick={onClose} className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"><X size={24}/></button>
                 </div>
                 
-                <div className="relative bg-gray-900 flex items-center justify-center touch-none select-none overflow-hidden" 
+                <div ref={containerRef} className="relative bg-gray-900 flex items-center justify-center touch-none select-none overflow-hidden" 
                      style={{ height: '350px' }}
                      onPointerDown={handlePointerDown}
                      onPointerMove={handlePointerMove}

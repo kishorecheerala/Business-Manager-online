@@ -29,6 +29,7 @@ export interface AppState {
   estimateTemplate: InvoiceTemplateConfig;
   debitNoteTemplate: InvoiceTemplateConfig;
   receiptTemplate: InvoiceTemplateConfig;
+  reportTemplate: InvoiceTemplateConfig;
   invoiceSettings?: AppMetadataInvoiceSettings;
   toast: ToastState;
   selection: { page: Page; id: string; action?: 'edit' | 'new'; data?: any } | null;
@@ -317,6 +318,37 @@ const defaultReceiptTemplate: InvoiceTemplateConfig = {
     }
 };
 
+const defaultReportTemplate: InvoiceTemplateConfig = {
+    ...defaultInvoiceTemplate,
+    id: 'reportTemplateConfig',
+    colors: {
+        ...defaultInvoiceTemplate.colors,
+        primary: '#0d9488',
+        tableHeaderBg: '#0d9488',
+        bannerBg: '#0d9488'
+    },
+    layout: {
+        ...defaultInvoiceTemplate.layout,
+        headerStyle: 'standard',
+        tableOptions: {
+            hideQty: false,
+            hideRate: false,
+            stripedRows: true,
+            bordered: true,
+            compact: true
+        }
+    },
+    content: {
+        ...defaultInvoiceTemplate.content,
+        titleText: 'REPORT',
+        showTerms: false,
+        showQr: false,
+        showSignature: false,
+        footerText: `Generated on ${new Date().toLocaleDateString()}`,
+        showGst: false
+    }
+};
+
 // Deep merge helper
 const mergeTemplate = (defaultTmpl: InvoiceTemplateConfig, storedTmpl: Partial<InvoiceTemplateConfig>): InvoiceTemplateConfig => {
     return {
@@ -355,6 +387,7 @@ const initialState: AppState = {
   estimateTemplate: defaultEstimateTemplate,
   debitNoteTemplate: defaultDebitNoteTemplate,
   receiptTemplate: defaultReceiptTemplate,
+  reportTemplate: defaultReportTemplate,
   toast: { message: '', show: false, type: 'info' },
   selection: null,
   installPromptEvent: null,
@@ -449,6 +482,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
         else if (type === 'ESTIMATE') newState.estimateTemplate = config;
         else if (type === 'DEBIT_NOTE') newState.debitNoteTemplate = config;
         else if (type === 'RECEIPT') newState.receiptTemplate = config;
+        else if (type === 'REPORT') newState.reportTemplate = config;
 
         return {
             ...newState,
@@ -729,6 +763,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const estimateConfig = app_metadata.find(m => m.id === 'estimateTemplateConfig') as InvoiceTemplateConfig | undefined;
         const debitNoteConfig = app_metadata.find(m => m.id === 'debitNoteTemplateConfig') as InvoiceTemplateConfig | undefined;
         const receiptConfig = app_metadata.find(m => m.id === 'receiptTemplateConfig') as InvoiceTemplateConfig | undefined;
+        const reportConfig = app_metadata.find(m => m.id === 'reportTemplateConfig') as InvoiceTemplateConfig | undefined;
 
         if (pinMeta) payload.pin = pinMeta.pin;
         if (themeMeta) {
@@ -742,6 +777,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (estimateConfig) payload.estimateTemplate = mergeTemplate(defaultEstimateTemplate, estimateConfig);
         if (debitNoteConfig) payload.debitNoteTemplate = mergeTemplate(defaultDebitNoteTemplate, debitNoteConfig);
         if (receiptConfig) payload.receiptTemplate = mergeTemplate(defaultReceiptTemplate, receiptConfig);
+        if (reportConfig) payload.reportTemplate = mergeTemplate(defaultReportTemplate, reportConfig);
 
         dispatch({ type: 'SET_STATE', payload });
         setIsDbLoaded(true);
@@ -905,11 +941,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     <AppContext.Provider value={{ 
         state: { ...state, restoreFromFileId }, 
         dispatch, 
-        isDbLoaded, 
-        showToast, 
-        googleSignIn, 
-        googleSignOut, 
-        syncData 
+        isDbLoaded,
+        showToast,
+        googleSignIn,
+        googleSignOut,
+        syncData
     }}>
       {children}
     </AppContext.Provider>
@@ -918,7 +954,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
 export const useAppContext = () => {
   const context = useContext(AppContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useAppContext must be used within an AppProvider');
   }
   return context;

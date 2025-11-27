@@ -5,7 +5,7 @@ import { useAppContext } from '../context/AppContext';
 import { InvoiceTemplateConfig, DocumentType, InvoiceLabels, CustomFont, ProfileData } from '../types';
 import Button from '../components/Button';
 import ColorPickerModal from '../components/ColorPickerModal';
-import { generateA4InvoicePdf, generateEstimatePDF, generateDebitNotePDF, generateThermalInvoicePDF } from '../utils/pdfGenerator';
+import { generateA4InvoicePdf, generateEstimatePDF, generateDebitNotePDF, generateThermalInvoicePDF, generateGenericReportPDF } from '../utils/pdfGenerator';
 import { extractDominantColor } from '../utils/imageUtils';
 import * as pdfjsLib from 'pdfjs-dist';
 import { useDialog } from '../context/DialogContext';
@@ -43,6 +43,41 @@ const dummySale = {
     date: new Date().toISOString(),
     payments: [{ id: 'PAY-1', amount: 5000, date: new Date().toISOString(), method: 'UPI' as const }]
 };
+
+// --- Report Dummy Data Scenarios ---
+const REPORT_SCENARIOS = {
+    'SALES_REPORT': {
+        title: "Sales Report",
+        subtitle: "Summary of monthly performance",
+        headers: ['Item Name', 'Category', 'Qty', 'Amount'],
+        data: [['Silk Saree', 'Apparel', '10', '45,000'], ['Cotton Shirt', 'Apparel', '25', '12,500'], ['Gold Jewellery', 'Accessories', '2', '80,000']],
+        summary: [{ label: 'Total Sales', value: 'Rs. 1,37,500' }]
+    },
+    'CUSTOMER_DUES': {
+        title: "Customer Dues Summary",
+        subtitle: "Statement For: John Doe Enterprises",
+        headers: ['Invoice ID', 'Date', 'Total', 'Paid', 'Due'],
+        data: [
+            ['INV-001', '01/10/2023', 'Rs. 15,000', 'Rs. 5,000', 'Rs. 10,000'],
+            ['INV-005', '15/10/2023', 'Rs. 8,500', 'Rs. 0', 'Rs. 8,500'],
+            ['INV-012', '20/10/2023', 'Rs. 22,000', 'Rs. 10,000', 'Rs. 12,000']
+        ],
+        summary: [{ label: 'Total Outstanding Due', value: 'Rs. 30,500', color: '#dc2626' }]
+    },
+    'LOW_STOCK': {
+        title: "Low Stock Reorder Report",
+        subtitle: "Items with quantity < 5",
+        headers: ['Product Name', 'Current Stock', 'Last Cost'],
+        data: [
+            ['Blue Cotton Saree', '2', 'Rs. 800'],
+            ['Kids Wear Set - Red', '0', 'Rs. 450'],
+            ['Silk Scarf', '4', 'Rs. 300']
+        ],
+        summary: []
+    }
+};
+
+type ReportScenarioKey = keyof typeof REPORT_SCENARIOS;
 
 // --- Extended Configuration Interface for Local State ---
 interface ExtendedLayoutConfig extends InvoiceTemplateConfig {
@@ -137,7 +172,8 @@ const PDFCanvasPreview: React.FC<{
     profile: ProfileData | null;
     docType: DocumentType;
     customFonts: CustomFont[];
-}> = ({ config, profile, docType, customFonts }) => {
+    reportScenario?: ReportScenarioKey;
+}> = ({ config, profile, docType, customFonts, reportScenario = 'SALES_REPORT' }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const [loading, setLoading] = useState(true);
@@ -161,6 +197,19 @@ const PDFCanvasPreview: React.FC<{
                     case 'ESTIMATE': doc = await generateEstimatePDF(dummySale as any, dummyCustomer, profile, config, customFonts); break;
                     case 'DEBIT_NOTE': doc = await generateDebitNotePDF(dummySale as any, dummyCustomer as any, profile, config, customFonts); break;
                     case 'RECEIPT': doc = await generateThermalInvoicePDF(dummySale, dummyCustomer, profile, config, customFonts); break;
+                    case 'REPORT': 
+                        const scenario = REPORT_SCENARIOS[reportScenario];
+                        doc = await generateGenericReportPDF(
+                            scenario.title, 
+                            scenario.subtitle,
+                            scenario.headers,
+                            scenario.data,
+                            scenario.summary,
+                            profile, 
+                            config, 
+                            customFonts
+                        ); 
+                        break;
                     default: doc = await generateA4InvoicePdf(dummySale, dummyCustomer, profile, config, customFonts);
                 }
 
@@ -216,7 +265,7 @@ const PDFCanvasPreview: React.FC<{
             clearTimeout(timeoutId);
             if (renderTaskRef.current) renderTaskRef.current.cancel();
         };
-    }, [config, profile, docType, customFonts, zoomLevel]);
+    }, [config, profile, docType, customFonts, zoomLevel, reportScenario]);
 
     return (
         <div className="flex-1 relative h-full flex flex-col overflow-hidden min-h-0">
@@ -257,6 +306,7 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty }) => {
     const [activeTab, setActiveTab] = useState<'layout' | 'content' | 'branding' | 'fonts'>('layout');
     const [showColorPicker, setShowColorPicker] = useState(false);
     const [activeColorKey, setActiveColorKey] = useState<keyof InvoiceTemplateConfig['colors'] | null>(null);
+    const [reportScenario, setReportScenario] = useState<ReportScenarioKey>('SALES_REPORT');
     
     // Sidebar Resizing Logic
     const [sidebarWidth, setSidebarWidth] = useState(350);
@@ -319,6 +369,7 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty }) => {
             case 'ESTIMATE': baseConfig = state.estimateTemplate; break;
             case 'DEBIT_NOTE': baseConfig = state.debitNoteTemplate; break;
             case 'RECEIPT': baseConfig = state.receiptTemplate; break;
+            case 'REPORT': baseConfig = state.reportTemplate; break;
             default: baseConfig = state.invoiceTemplate; break;
         }
         return {
@@ -386,6 +437,19 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty }) => {
                 case 'ESTIMATE': doc = await generateEstimatePDF(dummySale as any, dummyCustomer, state.profile, localConfig, state.customFonts); break;
                 case 'DEBIT_NOTE': doc = await generateDebitNotePDF(dummySale as any, dummyCustomer as any, state.profile, localConfig, state.customFonts); break;
                 case 'RECEIPT': doc = await generateThermalInvoicePDF(dummySale, dummyCustomer, state.profile, localConfig, state.customFonts); break;
+                case 'REPORT': 
+                    const scenario = REPORT_SCENARIOS[reportScenario];
+                    doc = await generateGenericReportPDF(
+                        scenario.title, 
+                        scenario.subtitle,
+                        scenario.headers,
+                        scenario.data,
+                        scenario.summary,
+                        state.profile, 
+                        localConfig, 
+                        state.customFonts
+                    ); 
+                    break;
                 default: doc = await generateA4InvoicePdf(dummySale, dummyCustomer, state.profile, localConfig, state.customFonts);
             }
             const blob = doc.output('blob');
@@ -405,6 +469,19 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty }) => {
                 case 'ESTIMATE': doc = await generateEstimatePDF(dummySale as any, dummyCustomer, state.profile, localConfig, state.customFonts); break;
                 case 'DEBIT_NOTE': doc = await generateDebitNotePDF(dummySale as any, dummyCustomer as any, state.profile, localConfig, state.customFonts); break;
                 case 'RECEIPT': doc = await generateThermalInvoicePDF(dummySale, dummyCustomer, state.profile, localConfig, state.customFonts); break;
+                case 'REPORT': 
+                    const scenario = REPORT_SCENARIOS[reportScenario];
+                    doc = await generateGenericReportPDF(
+                        scenario.title, 
+                        scenario.subtitle,
+                        scenario.headers,
+                        scenario.data,
+                        scenario.summary,
+                        state.profile, 
+                        localConfig, 
+                        state.customFonts
+                    ); 
+                    break;
                 default: doc = await generateA4InvoicePdf(dummySale, dummyCustomer, state.profile, localConfig, state.customFonts);
             }
             doc.save(`Test_${docType}.pdf`);
@@ -461,7 +538,7 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty }) => {
                 <div className="px-4 py-3 border-b dark:border-slate-800">
                     <label className="text-xs font-bold text-slate-500 uppercase mb-1.5 block">Document Type</label>
                     <div className="grid grid-cols-2 gap-2">
-                        {['INVOICE', 'ESTIMATE', 'DEBIT_NOTE', 'RECEIPT'].map(t => (
+                        {['INVOICE', 'ESTIMATE', 'DEBIT_NOTE', 'RECEIPT', 'REPORT'].map(t => (
                             <button
                                 key={t}
                                 onClick={() => setDocType(t as DocumentType)}
@@ -859,6 +936,23 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty }) => {
                         <Button onClick={() => window.history.back()} variant="secondary" className="h-8 w-8 p-0 rounded-full flex items-center justify-center"><ArrowLeft size={16}/></Button>
                         <span className="text-sm font-semibold text-gray-500 self-center px-2 border-l ml-2">Live Preview</span>
                     </div>
+                    
+                    {/* Add Preview Scenario Toggle if DocType is REPORT */}
+                    {docType === 'REPORT' && (
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500 font-bold uppercase">Preview Scenario:</span>
+                            <select 
+                                value={reportScenario} 
+                                onChange={(e) => setReportScenario(e.target.value as ReportScenarioKey)}
+                                className="p-1 text-xs border rounded bg-white dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                            >
+                                <option value="SALES_REPORT">Sales Report</option>
+                                <option value="CUSTOMER_DUES">Customer Dues Report</option>
+                                <option value="LOW_STOCK">Low Stock Report</option>
+                            </select>
+                        </div>
+                    )}
+
                     <div className="flex gap-2">
                         <Button onClick={handleOpenPdf} variant="secondary" className="h-8 text-xs">
                             <ExternalLink size={14} className="mr-1.5" /> Open PDF
@@ -875,6 +969,7 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty }) => {
                     profile={state.profile} 
                     docType={docType}
                     customFonts={state.customFonts}
+                    reportScenario={reportScenario}
                 />
             </main>
         </div>
