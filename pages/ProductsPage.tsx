@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, Edit, Save, X, Package, IndianRupee, Percent, PackageCheck, Barcode, Printer, Filter, Grid, List, Camera, Image as ImageIcon, Eye, Trash2, QrCode, Boxes, Maximize2, Minimize2, ArrowLeft, CheckSquare, Plus } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -574,21 +573,38 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                     className={`bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden border dark:border-slate-700 hover:shadow-md transition-all duration-300 flex flex-col group relative ${isSelectMode && selectedProductIds.includes(product.id) ? 'ring-2 ring-primary' : ''}`}
                                     onClick={() => handleProductClick(product)}
                                 >
-                                    <div className="aspect-square w-full bg-gray-100 dark:bg-slate-900 relative">
+                                    <div className="aspect-square w-full relative overflow-hidden bg-gray-50 dark:bg-slate-900">
                                         {product.image ? (
-                                            <img src={product.image} alt={product.name} className="w-full h-full object-cover" loading="lazy" />
+                                            <>
+                                                {/* Ambient Blurred Background */}
+                                                <div 
+                                                    className="absolute inset-0 bg-cover bg-center blur-xl scale-150 opacity-50 dark:opacity-40"
+                                                    style={{ backgroundImage: `url(${product.image})` }}
+                                                />
+                                                {/* Main Image */}
+                                                <div className="absolute inset-0 flex items-center justify-center p-4">
+                                                    <img 
+                                                        src={product.image} 
+                                                        alt={product.name} 
+                                                        className="w-full h-full object-contain drop-shadow-xl transition-transform duration-500 group-hover:scale-105" 
+                                                        loading="lazy" 
+                                                    />
+                                                </div>
+                                            </>
                                         ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-gray-300 dark:text-gray-600">
-                                                <ImageIcon size={24} />
+                                            /* Empty State with Pattern */
+                                            <div className="w-full h-full flex items-center justify-center text-gray-300 dark:text-gray-600 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(#334155_1px,transparent_1px)] [background-size:16px_16px]">
+                                                <ImageIcon size={32} className="opacity-50" />
                                             </div>
                                         )}
+                                        
                                         {/* Stock Badge */}
-                                        <div className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-[10px] font-bold shadow-sm ${product.quantity > 0 ? 'bg-white/90 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                        <div className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-[10px] font-bold shadow-sm z-10 ${product.quantity > 0 ? 'bg-white/90 text-green-700' : 'bg-red-100 text-red-700'}`}>
                                             {product.quantity}
                                         </div>
                                         
                                         {isSelectMode && (
-                                            <div className="absolute top-2 left-2">
+                                            <div className="absolute top-2 left-2 z-10">
                                                 <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${selectedProductIds.includes(product.id) ? 'bg-primary border-primary' : 'bg-white/50 border-gray-400'}`}>
                                                     {selectedProductIds.includes(product.id) && <CheckSquare size={12} className="text-white" />}
                                                 </div>
