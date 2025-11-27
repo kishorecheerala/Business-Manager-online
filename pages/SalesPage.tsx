@@ -11,7 +11,7 @@ import { Html5Qrcode } from 'html5-qrcode';
 import DeleteButton from '../components/DeleteButton';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
 import { logoBase64 } from '../utils/logo';
-import AddCustomerModal from '../components/AddCustomerModal';
+import AddCustomerModal from '../components/AddCustomerModal'; // Imported shared component
 import { generateA4InvoicePdf } from '../utils/pdfGenerator';
 
 const getLocalDateString = (date = new Date()) => {
@@ -99,7 +99,7 @@ const QRScannerModal: React.FC<{
         html5QrCodeRef.current.start({ facingMode: "environment" }, config, qrCodeSuccessCallback, undefined)
             .then(() => setScanStatus("Scanning for QR Code..."))
             .catch(err => {
-                setScanStatus(`Camera Permission Error. Please allow camera access.`);
+                setScanStatus(`Camera Permission Error. Please allow camera access for this site in your browser's settings.`);
                 console.error("Camera start failed.", err);
             });
             
@@ -312,6 +312,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         return totalBilled - totalPaid;
     }, [customerId, state.sales]);
 
+    // Use the shared component handler
     const handleAddCustomer = (customer: Customer) => {
         dispatch({ type: 'ADD_CUSTOMER', payload: customer });
         setIsAddingCustomer(false);

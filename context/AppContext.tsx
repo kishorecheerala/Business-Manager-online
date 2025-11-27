@@ -1,5 +1,6 @@
 
 
+
 import React, { createContext, useReducer, useContext, useEffect, ReactNode, useState, useRef } from 'react';
 import { Customer, Supplier, Product, Sale, Purchase, Return, Payment, BeforeInstallPromptEvent, Notification, ProfileData, Page, AppMetadata, AppMetadataPin, Theme, GoogleUser, AuditLogEntry, SyncStatus, AppMetadataTheme, Expense, Quote, AppMetadataInvoiceSettings, InvoiceTemplateConfig, DocumentType, CustomFont, InvoiceLabels } from '../types';
 import * as db from '../utils/db';
@@ -44,6 +45,7 @@ export interface AppState {
   lastSyncTime: number | null;
   lastLocalUpdate: number;
   devMode: boolean;
+  performanceMode: boolean;
   restoreFromFileId?: (fileId: string) => Promise<void>;
 }
 
@@ -67,6 +69,7 @@ type Action =
   | { type: 'UPDATE_SUPPLIER'; payload: Supplier }
   | { type: 'ADD_PRODUCT'; payload: Product }
   | { type: 'UPDATE_PRODUCT'; payload: Product }
+  | { type: 'BATCH_UPDATE_PRODUCTS'; payload: Product[] }
   | { type: 'UPDATE_PRODUCT_STOCK'; payload: { productId: string; change: number } }
   | { type: 'ADD_SALE'; payload: Sale }
   | { type: 'UPDATE_SALE'; payload: { oldSale: Sale, updatedSale: Sale } }
@@ -94,12 +97,14 @@ type Action =
   | { type: 'ADD_NOTIFICATION'; payload: Notification }
   | { type: 'MARK_NOTIFICATION_AS_READ'; payload: string }
   | { type: 'MARK_ALL_NOTIFICATIONS_AS_READ' }
+  | { type: 'CLEANUP_OLD_DATA' }
   | { type: 'REPLACE_COLLECTION'; payload: { storeName: StoreName, data: any[] } }
   | { type: 'SET_GOOGLE_USER'; payload: GoogleUser | null }
   | { type: 'SET_SYNC_STATUS'; payload: SyncStatus }
   | { type: 'SET_LAST_SYNC_TIME'; payload: number }
   | { type: 'ADD_AUDIT_LOG'; payload: AuditLogEntry }
   | { type: 'TOGGLE_DEV_MODE' }
+  | { type: 'TOGGLE_PERFORMANCE_MODE' }
   | { type: 'RESET_APP' };
 
 
@@ -149,6 +154,14 @@ const getInitialSyncTime = (): number | null => {
 const getInitialDevMode = (): boolean => {
     try {
         return localStorage.getItem('devMode') === 'true';
+    } catch (e) {
+        return false;
+    }
+}
+
+const getInitialPerformanceMode = (): boolean => {
+    try {
+        return localStorage.getItem('performanceMode') === 'true';
     } catch (e) {
         return false;
     }
@@ -401,6 +414,7 @@ const initialState: AppState = {
   lastSyncTime: getInitialSyncTime(),
   lastLocalUpdate: 0,
   devMode: getInitialDevMode(),
+  performanceMode: getInitialPerformanceMode(),
 };
 
 // Helper to update theme metadata
@@ -431,6 +445,10 @@ const appReducer = (state: AppState, action: Action): AppState => {
         const newDevMode = !state.devMode;
         localStorage.setItem('devMode', String(newDevMode));
         return { ...state, devMode: newDevMode };
+    case 'TOGGLE_PERFORMANCE_MODE':
+        const newPerfMode = !state.performanceMode;
+        localStorage.setItem('performanceMode', String(newPerfMode));
+        return { ...state, performanceMode: newPerfMode };
     case 'RESET_APP':
         // Resetting to defaults, NOT preserving old theme state
         return { 
@@ -527,6 +545,13 @@ const appReducer = (state: AppState, action: Action): AppState => {
         return { ...state, products: [...state.products, action.payload], ...touch };
     case 'UPDATE_PRODUCT':
         return { ...state, products: state.products.map(p => p.id === action.payload.id ? action.payload : p), ...touch };
+    case 'BATCH_UPDATE_PRODUCTS':
+        const updatedMap = new Map(action.payload.map(p => [p.id, p]));
+        return { 
+            ...state, 
+            products: state.products.map(p => updatedMap.has(p.id) ? updatedMap.get(p.id)! : p), 
+            ...touch 
+        };
     case 'UPDATE_PRODUCT_STOCK':
         return {
             ...state,
@@ -704,6 +729,15 @@ const appReducer = (state: AppState, action: Action): AppState => {
       return { ...state, notifications: state.notifications.map(n => n.id === action.payload ? { ...n, read: true } : n) };
     case 'MARK_ALL_NOTIFICATIONS_AS_READ':
       return { ...state, notifications: state.notifications.map(n => ({ ...n, read: true })) };
+    case 'CLEANUP_OLD_DATA':
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - 30); // 30 days retention for non-essential logs
+        return {
+            ...state,
+            notifications: state.notifications.filter(n => !n.read || new Date(n.createdAt) > cutoffDate),
+            audit_logs: state.audit_logs.filter(log => new Date(log.timestamp) > cutoffDate),
+            ...touch
+        };
     case 'SET_GOOGLE_USER':
       return { ...state, googleUser: action.payload };
     case 'SET_SYNC_STATUS':

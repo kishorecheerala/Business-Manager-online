@@ -1,5 +1,8 @@
+
+
+
 import React, { useState, useEffect, useRef, useMemo, Suspense } from 'react';
-import { Home, Users, ShoppingCart, Package, FileText, Undo2, Boxes, Search, HelpCircle, Bell, Menu, Plus, UserPlus, PackagePlus, Download, X, Sun, Moon, Cloud, CloudOff, RefreshCw, Sparkles, BarChart2, Receipt, Lock, AlertCircle, CheckCircle, Info, PenTool } from 'lucide-react';
+import { Home, Users, ShoppingCart, Package, FileText, Undo2, Boxes, Search, HelpCircle, Bell, Menu, Plus, UserPlus, PackagePlus, Download, X, Sun, Moon, Cloud, CloudOff, RefreshCw, Sparkles, BarChart2, Receipt, Lock, AlertCircle, CheckCircle, Info, PenTool, Gauge } from 'lucide-react';
 
 import { AppProvider, useAppContext } from './context/AppContext';
 import { DialogProvider } from './context/DialogContext';
@@ -15,6 +18,7 @@ const InsightsPage = React.lazy(() => import('./pages/InsightsPage'));
 const ExpensesPage = React.lazy(() => import('./pages/ExpensesPage'));
 const QuotationsPage = React.lazy(() => import('./pages/QuotationsPage'));
 const InvoiceDesigner = React.lazy(() => import('./pages/InvoiceDesigner'));
+const SystemOptimizerPage = React.lazy(() => import('./pages/SystemOptimizerPage'));
 
 import UniversalSearch from './components/UniversalSearch';
 import HelpModal from './components/HelpModal';
@@ -167,7 +171,7 @@ const MainApp: React.FC = () => {
   const [isAppLocked, setIsAppLocked] = useState(false);
 
   const { state, dispatch, isDbLoaded, showToast, googleSignIn, syncData } = useAppContext();
-  const { installPromptEvent, theme, themeColor, themeGradient } = state;
+  const { installPromptEvent, theme, themeColor, themeGradient, performanceMode } = state;
   const [isInstallBannerVisible, setIsInstallBannerVisible] = useState(true);
 
   const menuRef = useRef<HTMLDivElement>(null);
@@ -220,6 +224,15 @@ const MainApp: React.FC = () => {
     
     localStorage.setItem('theme', theme);
   }, [theme]);
+
+  // Performance Mode Body Class
+  useEffect(() => {
+      if (performanceMode) {
+          document.body.classList.add('performance-mode');
+      } else {
+          document.body.classList.remove('performance-mode');
+      }
+  }, [performanceMode]);
 
   // Apply dynamic theme color with Adaptive Lightening for Dark Mode
   useEffect(() => {
@@ -363,6 +376,7 @@ const MainApp: React.FC = () => {
       case 'EXPENSES': return <ExpensesPage {...commonProps} />;
       case 'QUOTATIONS': return <QuotationsPage />;
       case 'INVOICE_DESIGNER': return <InvoiceDesigner {...commonProps} setCurrentPage={setCurrentPage} />;
+      case 'SYSTEM_OPTIMIZER': return <SystemOptimizerPage />;
       default: return <Dashboard setCurrentPage={setCurrentPage} />;
     }
   };
@@ -382,6 +396,7 @@ const MainApp: React.FC = () => {
       { page: 'REPORTS' as Page, label: 'Reports', icon: FileText },
       { page: 'INSIGHTS' as Page, label: 'Insights', icon: BarChart2 },
       { page: 'INVOICE_DESIGNER' as Page, label: 'Inv. Designer', icon: PenTool },
+      { page: 'SYSTEM_OPTIMIZER' as Page, label: 'Optimizer', icon: Gauge },
   ];
 
   const mobileMoreItems = moreNavItems;

@@ -88,3 +88,30 @@ export const extractDominantColor = (base64Image: string): Promise<string> => {
         };
     });
 };
+
+export const optimizeBase64 = (base64Str: string, maxWidth: number = 800, quality: number = 0.7): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.src = base64Str;
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            // If image is smaller than max width, keep original dimensions but re-encode
+            const scaleSize = img.width > maxWidth ? maxWidth / img.width : 1;
+            canvas.width = img.width * scaleSize;
+            canvas.height = img.height * scaleSize;
+            
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                // Convert to WebP for better compression
+                resolve(canvas.toDataURL('image/webp', quality));
+            } else {
+                resolve(base64Str);
+            }
+        };
+        img.onerror = (e) => {
+            console.warn("Failed to load image for optimization", e);
+            resolve(base64Str); // Fallback to original
+        };
+    });
+};

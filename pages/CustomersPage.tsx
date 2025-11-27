@@ -12,7 +12,7 @@ import autoTable from 'jspdf-autotable';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
 import { generateA4InvoicePdf, generateThermalInvoicePDF, generateGenericReportPDF } from '../utils/pdfGenerator';
 import { useDialog } from '../context/DialogContext';
-import PaymentModal from '../components/PaymentModal';
+import PaymentModal from '../components/PaymentModal'; // Imported shared component
 
 const getLocalDateString = (date = new Date()) => {
   const year = date.getFullYear();

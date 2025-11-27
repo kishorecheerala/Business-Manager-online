@@ -1,6 +1,10 @@
 
+
+
+
+
 import React, { useState, useRef } from 'react';
-import { User, BarChart2, Activity, LogIn, LogOut, RefreshCw, CloudLightning, Sun, Moon, Palette, Check, Settings, Monitor, Shield, ChevronRight, RotateCcw, BrainCircuit, Terminal, Receipt, FileText, Lock, PenTool } from 'lucide-react';
+import { User, BarChart2, Activity, LogIn, LogOut, RefreshCw, CloudLightning, Sun, Moon, Palette, Check, Settings, Monitor, Shield, ChevronRight, RotateCcw, BrainCircuit, Terminal, Receipt, FileText, Lock, PenTool, Gauge } from 'lucide-react';
 import { Page } from '../types';
 import { useAppContext } from '../context/AppContext';
 import AuditLogPanel from './AuditLogPanel';
@@ -244,6 +248,12 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                 <button onClick={() => onNavigate('EXPENSES')} className="menu-item">
                     <Receipt className="w-5 h-5 text-rose-500" />
                     <span className="flex-grow text-sm font-medium">Expenses</span>
+                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                </button>
+
+                <button onClick={() => { onClose(); onNavigate('SYSTEM_OPTIMIZER'); }} className="menu-item">
+                    <Gauge className="w-5 h-5 text-emerald-500" />
+                    <span className="flex-grow text-sm font-medium">System Optimizer</span>
                     <ChevronRight className="w-4 h-4 text-gray-400" />
                 </button>
 
