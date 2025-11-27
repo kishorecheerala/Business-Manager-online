@@ -284,7 +284,6 @@ const InvoiceDesigner: React.FC = () => {
                 }
                 
                 // Relaxed constraints: Allow resizing from 100px up to 90% of screen width
-                // This supports split view on Fold devices and standard tablets
                 const newWidth = clientX; 
                 const max = window.innerWidth * 0.9;
                 const constrainedWidth = Math.max(100, Math.min(newWidth, max));
@@ -978,20 +977,32 @@ const InvoiceDesigner: React.FC = () => {
                          </div>
                      )}
                      
-                     {/* PDF Iframe Container */}
+                     {/* PDF Preview Container */}
                      {pdfUrl ? (
-                         <div className="w-full h-full relative shadow-xl rounded-lg overflow-hidden bg-white">
-                             <iframe 
-                                key={pdfUrl} // Force re-render on URL change
-                                src={pdfUrl} 
-                                className="w-full h-full border-none" 
-                                title="Invoice Preview" 
-                            />
-                            {/* Overlay button for mobile where iframe might fail to render PDF */}
-                            <div className="absolute bottom-4 right-4 md:hidden">
-                                <Button onClick={handleOpenPdf} className="shadow-lg text-xs py-2">
-                                    <ExternalLink size={14} className="mr-1"/> Open PDF
-                                </Button>
+                         <div className="w-full h-full relative shadow-xl rounded-lg overflow-hidden bg-white flex flex-col">
+                             {/* Use object tag for better compatibility */}
+                             <object 
+                                data={pdfUrl} 
+                                type="application/pdf" 
+                                className="w-full h-full flex-grow"
+                                key={pdfUrl} // Force refresh
+                             >
+                                {/* Fallback content for mobile browsers that don't support embedded PDF */}
+                                <div className="flex flex-col items-center justify-center h-full p-6 text-center space-y-4 bg-gray-50 dark:bg-slate-800">
+                                    <p className="text-gray-500 dark:text-gray-300 font-medium">Preview available via download</p>
+                                    <Button onClick={handleOpenPdf} className="shadow-lg">
+                                        <ExternalLink size={16} className="mr-2"/> Open PDF in Viewer
+                                    </Button>
+                                </div>
+                             </object>
+                             
+                            {/* Overlay button for mobile where object might fail to render PDF properly */}
+                            <div className="absolute bottom-4 right-4 md:hidden pointer-events-none">
+                                <div className="pointer-events-auto">
+                                    <Button onClick={handleOpenPdf} className="shadow-lg text-xs py-2 opacity-90 hover:opacity-100">
+                                        <ExternalLink size={14} className="mr-1"/> Full Screen
+                                    </Button>
+                                </div>
                             </div>
                          </div>
                      ) : (

@@ -114,7 +114,7 @@ const ImageCropperModal: React.FC<ImageCropperModalProps> = ({ isOpen, imageSrc,
     if (!isOpen || !imageSrc) return null;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-90 z-[160] flex items-center justify-center p-4 animate-fade-in-fast">
+        <div className="fixed inset-0 bg-black bg-opacity-90 z-[600] flex items-center justify-center p-4 animate-fade-in-fast">
             <Card className="w-full max-w-md p-0 overflow-hidden flex flex-col h-auto shadow-2xl bg-white dark:bg-slate-800">
                 <div className="p-4 border-b dark:border-slate-700 flex justify-between items-center bg-white dark:bg-slate-800 z-10">
                     <h3 className="font-bold text-lg text-gray-800 dark:text-white">Adjust Product Image</h3>

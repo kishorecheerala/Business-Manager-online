@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, Edit, Save, X, Package, IndianRupee, Percent, PackageCheck, Barcode, Printer, Filter, Grid, List, Camera, Image as ImageIcon, Eye, Trash2, QrCode, Boxes, Maximize2, Minimize2, ArrowLeft } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -130,7 +131,7 @@ const QRScannerModal: React.FC<{
     }, [onScanned]);
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-75 backdrop-blur-sm flex flex-col items-center justify-center z-[150] p-4 animate-fade-in-fast">
+        <div className="fixed inset-0 bg-black bg-opacity-75 backdrop-blur-sm flex flex-col items-center justify-center z-[600] p-4 animate-fade-in-fast">
             <Card title="Scan Product QR Code" className="w-full max-w-md relative animate-scale-in">
                  <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
                     <X size={20}/>
@@ -346,7 +347,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                 
                 {/* Lightbox Overlay for Details View */}
                 {previewImage && (
-                    <div className="fixed inset-0 bg-black bg-opacity-95 z-[600] flex items-center justify-center p-4 animate-fade-in-fast" onClick={() => setPreviewImage(null)}>
+                    <div className="fixed inset-0 bg-black bg-opacity-95 z-[700] flex items-center justify-center p-4 animate-fade-in-fast" onClick={() => setPreviewImage(null)}>
                         <div className="relative max-w-full max-h-full w-full h-full flex items-center justify-center">
                              <button 
                                 onClick={(e) => { e.stopPropagation(); setPreviewImage(null); }}
@@ -384,7 +385,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                     </div>
 
                     {/* Floating Toggle on Image (Top Right) */}
-                    <div className="absolute top-4 right-4 flex flex-col gap-2 z-[60]">
+                    <div className="absolute top-4 right-4 flex flex-col gap-2 z-[510]">
                         <button 
                             onClick={() => setPreviewImage(isEditing ? (editedProduct.image || '') : (selectedProduct.image || ''))}
                             className="p-2 bg-white/90 dark:bg-slate-800/90 text-gray-700 dark:text-white rounded-full shadow-lg hover:bg-white dark:hover:bg-slate-700 transition-all"
@@ -396,7 +397,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
 
                     {/* Edit Overlay */}
                     {isEditing && (
-                        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent pt-20 flex justify-center gap-3 pb-10 md:pb-4">
+                        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent pt-20 flex justify-center gap-3 pb-10 md:pb-4 z-20">
                             <input 
                                 type="file" 
                                 accept="image/*" 
@@ -552,7 +553,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
             
             {/* Full Screen Image Preview Modal - Use for Grid Mode Only & Details View */}
             {previewImage && (
-                <div className="fixed inset-0 bg-black bg-opacity-95 z-[600] flex items-center justify-center p-4 animate-fade-in-fast" onClick={() => setPreviewImage(null)}>
+                <div className="fixed inset-0 bg-black bg-opacity-95 z-[700] flex items-center justify-center p-4 animate-fade-in-fast" onClick={() => setPreviewImage(null)}>
                     <div className="relative max-w-full max-h-full w-full h-full flex items-center justify-center">
                         <button 
                             onClick={(e) => { e.stopPropagation(); setPreviewImage(null); }}
@@ -735,7 +736,6 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                     <div className="text-right flex-shrink-0">
                                         <p className="font-bold text-primary">₹{product.salePrice.toLocaleString('en-IN')}</p>
                                         <div className="flex justify-end gap-2 text-xs">
-                                            {/* Purchase Price HIDDEN from view */}
                                             <span className={`font-medium ${product.quantity < 5 ? 'text-red-500' : 'text-green-600'}`}>
                                                 Stock: {product.quantity}
                                             </span>
