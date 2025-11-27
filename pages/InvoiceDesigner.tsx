@@ -202,7 +202,8 @@ const InvoiceDesigner: React.FC = () => {
     // Resize Logic States
     const [sidebarWidth, setSidebarWidth] = useState(380);
     const [isResizing, setIsResizing] = useState(false);
-    const [isMd, setIsMd] = useState(typeof window !== 'undefined' ? window.innerWidth >= 768 : true);
+    // Using 640px (sm) as the breakpoint for Z Fold / Tablets to allow split view
+    const [isMd, setIsMd] = useState(typeof window !== 'undefined' ? window.innerWidth >= 640 : true);
     
     const fontInputRef = useRef<HTMLInputElement>(null);
     const signatureInputRef = useRef<HTMLInputElement>(null);
@@ -210,7 +211,7 @@ const InvoiceDesigner: React.FC = () => {
 
     // Detect screen size for conditional rendering of resize logic
     useEffect(() => {
-        const handleResize = () => setIsMd(window.innerWidth >= 768);
+        const handleResize = () => setIsMd(window.innerWidth >= 640);
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, []);
@@ -276,9 +277,9 @@ const InvoiceDesigner: React.FC = () => {
                 }
                 
                 // Account for padding/margins and allow a reasonable range
-                // Min 300px, Max 80% of screen width
+                // Min 200px, Max almost full screen (window.innerWidth - 50) to allow shrinking preview
                 const newWidth = clientX - 16; 
-                const constrainedWidth = Math.max(300, Math.min(newWidth, window.innerWidth * 0.8));
+                const constrainedWidth = Math.max(200, Math.min(newWidth, window.innerWidth - 50));
                 setSidebarWidth(constrainedWidth);
             }
         },
@@ -582,7 +583,7 @@ const InvoiceDesigner: React.FC = () => {
             {/* Left Control Panel */}
             <div 
                 style={isMd ? { width: sidebarWidth } : {}}
-                className={`flex-col bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-gray-200 dark:border-slate-700 overflow-hidden ${mobileView === 'editor' ? 'flex flex-grow w-full' : 'hidden md:flex'} shrink-0`}
+                className={`flex-col bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-gray-200 dark:border-slate-700 overflow-hidden ${mobileView === 'editor' ? 'flex flex-grow w-full' : 'hidden sm:flex'} shrink-0`}
             >
                 
                 {/* Document Type Selector */}
@@ -928,7 +929,7 @@ const InvoiceDesigner: React.FC = () => {
 
             {/* Resizer */}
             <div 
-                className="hidden md:flex w-4 cursor-col-resize items-center justify-center hover:bg-blue-500/10 transition-colors z-20 -ml-2 mr-[-2px]"
+                className="hidden sm:flex w-4 cursor-col-resize items-center justify-center hover:bg-blue-500/10 transition-colors z-20 -ml-2 mr-[-2px]"
                 onMouseDown={startResizing}
                 onTouchStart={startResizing}
             >
@@ -936,7 +937,7 @@ const InvoiceDesigner: React.FC = () => {
             </div>
 
             {/* Preview Panel */}
-            <div className={`flex-grow bg-gray-100 dark:bg-slate-900 relative overflow-hidden flex flex-col ${mobileView === 'preview' ? 'flex' : 'hidden md:flex'}`}>
+            <div className={`flex-grow bg-gray-100 dark:bg-slate-900 relative overflow-hidden flex flex-col ${mobileView === 'preview' ? 'flex' : 'hidden sm:flex'}`}>
                 <div className="h-12 bg-white dark:bg-slate-800 border-b dark:border-slate-700 flex justify-between items-center px-4 shrink-0">
                      <h3 className="font-bold text-sm text-gray-500 uppercase">Live Preview</h3>
                      <div className="flex gap-2">

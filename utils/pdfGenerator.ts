@@ -391,20 +391,34 @@ const _generateConfigurablePDF = async (
     let textX = margin;
     let textY = currentY;
     let textAlign: 'left' | 'center' | 'right' = 'left';
+    let renderedLogoHeight = 0; // Track actual rendered height
+
+    // Calculate Logo Aspect Ratio and Dimensions
+    if (hasLogo) {
+        try {
+            const imgProps = doc.getImageProperties(logoUrl);
+            const ratio = imgProps.width / imgProps.height;
+            // layout.logoSize acts as Width. Calculate height.
+            renderedLogoHeight = layout.logoSize / ratio;
+        } catch (e) {
+            // Fallback to square if props fail
+            renderedLogoHeight = layout.logoSize;
+        }
+    }
 
     // Robust layout logic
     if (layout.logoPosition === 'center') {
         logoX = (pageWidth - layout.logoSize) / 2;
         if (hasLogo) {
-            doc.addImage(logoUrl, getImageType(logoUrl), logoX + (layout.logoOffsetX || 0), logoY, layout.logoSize, layout.logoSize);
-            textY = logoY + layout.logoSize + 5;
+            doc.addImage(logoUrl, getImageType(logoUrl), logoX + (layout.logoOffsetX || 0), logoY, layout.logoSize, renderedLogoHeight);
+            textY = logoY + renderedLogoHeight + 5;
         }
         textAlign = 'center';
         textX = pageWidth / 2;
     } else if (layout.logoPosition === 'right') {
         logoX = pageWidth - margin - layout.logoSize;
         if (hasLogo) {
-            doc.addImage(logoUrl, getImageType(logoUrl), logoX + (layout.logoOffsetX || 0), logoY, layout.logoSize, layout.logoSize);
+            doc.addImage(logoUrl, getImageType(logoUrl), logoX + (layout.logoOffsetX || 0), logoY, layout.logoSize, renderedLogoHeight);
         }
         // Text stays left
         textAlign = 'left';
@@ -413,10 +427,9 @@ const _generateConfigurablePDF = async (
     } else { // Left Logo
         logoX = margin;
         if (hasLogo) {
-            doc.addImage(logoUrl, getImageType(logoUrl), logoX + (layout.logoOffsetX || 0), logoY, layout.logoSize, layout.logoSize);
+            doc.addImage(logoUrl, getImageType(logoUrl), logoX + (layout.logoOffsetX || 0), logoY, layout.logoSize, renderedLogoHeight);
         }
-        // Text goes right for classic look, or left-below if preferred. 
-        // Let's stick to Right text for "Left Logo" configuration as it balances the header.
+        // Text goes right
         textAlign = 'right';
         textX = pageWidth - margin;
         textY += 5;
@@ -442,7 +455,7 @@ const _generateConfigurablePDF = async (
         doc.text(contact, textX, textY, { align: textAlign });
         
         // Update currentY to be below the lowest element (Logo or Text)
-        const contentBottom = Math.max(textY + 5, hasLogo ? logoY + layout.logoSize + 5 : textY + 5);
+        const contentBottom = Math.max(textY + 5, hasLogo ? logoY + renderedLogoHeight + 5 : textY + 5);
         currentY = contentBottom;
     } else {
         currentY += 20;
