@@ -117,33 +117,20 @@ const ImageCropperModal: React.FC<ImageCropperModalProps> = ({ isOpen, imageSrc,
                     <button onClick={onClose} className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"><X size={24}/></button>
                 </div>
                 
-                <div ref={containerRef} className="relative bg-gray-900 flex items-center justify-center touch-none select-none overflow-hidden" 
+                <div ref={containerRef} className="relative bg-gray-900 w-full overflow-hidden touch-none select-none" 
                      style={{ height: '350px' }}
                      onPointerDown={handlePointerDown}
                      onPointerMove={handlePointerMove}
                      onPointerUp={handlePointerUp}
                      onPointerLeave={handlePointerUp}
                 >
-                    {/* Mask Overlay (Darkened areas outside crop) */}
-                    <div className="absolute inset-0 pointer-events-none z-10 flex items-center justify-center">
-                        <div className="w-64 h-64 border-2 border-white shadow-[0_0_0_9999px_rgba(0,0,0,0.7)] rounded-lg box-content"></div>
-                    </div>
-                    
-                    {/* Guide Text */}
-                    <div className="absolute top-4 left-0 right-0 text-center z-20 pointer-events-none">
-                        <span className="bg-black/50 text-white px-3 py-1 rounded-full text-xs">Drag to Pan • Zoom to Fit</span>
-                    </div>
-
-                    {/* Image Layer */}
-                    <div style={{ 
-                        transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
-                        transformOrigin: 'center center',
-                        // Use flex centering from parent to align origin
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: 0, height: 0 // Virtual center point
-                    }}>
+                    {/* Image Layer - Rendered first (bottom) */}
+                    <div 
+                        className="absolute left-1/2 top-1/2 w-0 h-0"
+                        style={{ 
+                            transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+                        }}
+                    >
                         <img 
                             ref={imageRef}
                             src={imageSrc}
@@ -151,13 +138,24 @@ const ImageCropperModal: React.FC<ImageCropperModalProps> = ({ isOpen, imageSrc,
                             draggable={false}
                             onLoad={handleImageLoad}
                             style={{
-                                // Ensure image centers itself on the virtual point
                                 transform: 'translate(-50%, -50%)', 
                                 position: 'absolute',
-                                left: '50%',
-                                top: '50%'
+                                left: '0',
+                                top: '0',
+                                maxWidth: 'none',
+                                maxHeight: 'none'
                             }}
                         />
+                    </div>
+
+                    {/* Mask Overlay (Darkened areas outside crop) - Rendered last (top) */}
+                    <div className="absolute inset-0 pointer-events-none z-10 flex items-center justify-center">
+                        <div className="w-64 h-64 border-2 border-white shadow-[0_0_0_9999px_rgba(0,0,0,0.7)] rounded-lg box-content"></div>
+                    </div>
+                    
+                    {/* Guide Text */}
+                    <div className="absolute top-4 left-0 right-0 text-center z-20 pointer-events-none">
+                        <span className="bg-black/50 text-white px-3 py-1 rounded-full text-xs">Drag to Pan • Zoom to Fit</span>
                     </div>
                 </div>
 
