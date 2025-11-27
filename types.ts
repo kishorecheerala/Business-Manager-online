@@ -242,6 +242,10 @@ export interface InvoiceTemplateConfig {
     showWatermark: boolean;
     watermarkOpacity: number; // 0.1 to 1.0
     columnWidths?: { qty?: number; rate?: number; amount?: number; }; // Custom column widths
+    tablePadding?: number;
+    borderRadius?: number;
+    uppercaseHeadings?: boolean;
+    boldBorders?: boolean;
     tableOptions: {
         hideQty: boolean;
         hideRate: boolean;
@@ -251,6 +255,8 @@ export interface InvoiceTemplateConfig {
     };
     tableHeaderAlign?: 'left' | 'center' | 'right';
     sectionOrdering?: string[];
+    backgroundImage?: string; // Base64 encoded background/stationery
+    paperSize?: 'a4' | 'letter';
   };
   content: {
     titleText: string; // e.g. "TAX INVOICE"

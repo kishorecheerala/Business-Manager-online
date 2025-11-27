@@ -1,40 +1,35 @@
 
+
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Sale, Customer, ProfileData, Purchase, Supplier, Return, Quote, InvoiceTemplateConfig, CustomFont, InvoiceLabels } from '../types';
 import { logoBase64 } from './logo';
 
-// --- Number to Words (Indian Currency - Robust) ---
-const numberToWords = (num: number): string => {
-    const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
-    const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+// --- Number to Words (Indian Currency - Robust Recursive) ---
+const numberToWords = (n: number): string => {
+    const num = Math.floor(n);
+    const paise = Math.round((n - num) * 100);
+    
+    if (num === 0) return "Zero";
 
-    const numToWords = (n: number): string => {
-        if ((n = n.toString() as any).length > 9) return 'overflow';
-        const n_array = ('000000000' + n).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/);
-        if (!n_array) return '';
-        let str = '';
-        str += (Number(n_array[1]) !== 0) ? (a[Number(n_array[1])] || b[n_array[1][0]] + ' ' + a[n_array[1][1]]) + 'Crore ' : '';
-        str += (Number(n_array[2]) !== 0) ? (a[Number(n_array[2])] || b[n_array[2][0]] + ' ' + a[n_array[2][1]]) + 'Lakh ' : '';
-        str += (Number(n_array[3]) !== 0) ? (a[Number(n_array[3])] || b[n_array[3][0]] + ' ' + a[n_array[3][1]]) + 'Thousand ' : '';
-        str += (Number(n_array[4]) !== 0) ? (a[Number(n_array[4])] || b[n_array[4][0]] + ' ' + a[n_array[4][1]]) + 'Hundred ' : '';
-        str += (Number(n_array[5]) !== 0) ? ((str !== '') ? 'and ' : '') + (a[Number(n_array[5])] || b[n_array[5][0]] + ' ' + a[n_array[5][1]]) : '';
-        return str;
+    const units = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+    const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+
+    const convert = (n: number): string => {
+        if (n < 20) return units[n];
+        if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 !== 0 ? " " + units[n % 10] : "");
+        if (n < 1000) return units[Math.floor(n / 100)] + " Hundred" + (n % 100 !== 0 ? " and " + convert(n % 100) : "");
+        if (n < 100000) return convert(Math.floor(n / 1000)) + " Thousand" + (n % 1000 !== 0 ? " " + convert(n % 1000) : "");
+        if (n < 10000000) return convert(Math.floor(n / 100000)) + " Lakh" + (n % 100000 !== 0 ? " " + convert(n % 100000) : "");
+        return convert(Math.floor(n / 10000000)) + " Crore" + (n % 10000000 !== 0 ? " " + convert(n % 10000000) : "");
     };
 
-    const floor = Math.floor(num);
-    const paise = Math.round((num - floor) * 100);
-    
-    let output = numToWords(floor);
-    if (!output.trim()) output = "Zero ";
-    
-    output += "Rupees";
-
+    let str = convert(num) + " Rupees";
     if (paise > 0) {
-        output += " and " + numToWords(paise) + "Paise";
+        str += " and " + convert(paise) + " Paise";
     }
     
-    return output.replace(/\s+/g, ' ').trim() + " Only";
+    return str + " Only";
 };
 
 // --- Helper: Fetch QR Code ---
@@ -89,6 +84,7 @@ const formatDate = (dateString: string, format: string) => {
 };
 
 const formatCurrency = (amount: number, symbol: string, fontName: string): string => {
+    // Some basic fonts don't support the Rupee symbol
     const isStandardFont = ['helvetica', 'times', 'courier'].includes(fontName.toLowerCase());
     const safeSymbol = (isStandardFont && symbol === '₹') ? 'Rs.' : symbol;
     return `${safeSymbol} ${amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
@@ -235,11 +231,12 @@ const _generateConfigurablePDF = async (
     data: GenericDocumentData,
     profile: ProfileData | null,
     templateConfig: InvoiceTemplateConfig,
-    customFonts?: CustomFont[],
-    paperSize: 'a4' | 'letter' = 'a4'
+    customFonts?: CustomFont[]
 ): Promise<jsPDF> => {
     
+    const paperSize = templateConfig.layout.paperSize || 'a4';
     const doc = new jsPDF({ format: paperSize });
+    
     if (customFonts) registerCustomFonts(doc, customFonts);
 
     const { colors, fonts, layout, content, currencySymbol } = templateConfig;
@@ -249,6 +246,15 @@ const _generateConfigurablePDF = async (
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = layout.margin || 10;
     let currentY = margin;
+
+    // --- Render Background Image (Stationery) ---
+    if (layout.backgroundImage) {
+        try {
+            doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight);
+        } catch(e) {
+            console.warn("Failed to render background image", e);
+        }
+    }
 
     // --- RENDERERS ---
 
@@ -418,7 +424,14 @@ const _generateConfigurablePDF = async (
 
     const renderTotals = () => {
         const totalsX = pageWidth - margin;
-        if (pageHeight - currentY < 60) { doc.addPage(); currentY = margin; }
+        if (pageHeight - currentY < 60) { 
+            doc.addPage(); 
+            currentY = margin;
+            // Re-draw background on new page
+            if (layout.backgroundImage) {
+                doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight);
+            }
+        }
         
         data.totals.forEach((t) => {
             doc.setFont(fonts.bodyFont, t.isBold ? 'bold' : 'normal');
@@ -433,7 +446,11 @@ const _generateConfigurablePDF = async (
 
     const renderWords = () => {
         if (content.showAmountInWords && data.grandTotalNumeric !== undefined) {
-            if (pageHeight - currentY < 20) { doc.addPage(); currentY = margin; }
+            if (pageHeight - currentY < 20) { 
+                doc.addPage(); 
+                currentY = margin;
+                if (layout.backgroundImage) doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight);
+            }
             doc.setFont(fonts.bodyFont, 'italic');
             doc.setFontSize(fonts.bodySize - 1);
             doc.setTextColor(colors.secondary);
@@ -450,7 +467,11 @@ const _generateConfigurablePDF = async (
 
     const renderBank = () => {
         if (content.bankDetails) {
-            if (pageHeight - currentY < 30) { doc.addPage(); currentY = margin; }
+            if (pageHeight - currentY < 30) { 
+                doc.addPage(); 
+                currentY = margin; 
+                if (layout.backgroundImage) doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight);
+            }
             doc.setFont(fonts.bodyFont, 'bold');
             doc.setFontSize(fonts.bodySize);
             doc.setTextColor(colors.primary);
@@ -466,7 +487,11 @@ const _generateConfigurablePDF = async (
 
     const renderTerms = () => {
         if (content.showTerms && content.termsText) {
-            if (pageHeight - currentY < 30) { doc.addPage(); currentY = margin; }
+            if (pageHeight - currentY < 30) { 
+                doc.addPage(); 
+                currentY = margin; 
+                if (layout.backgroundImage) doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight);
+            }
             doc.setFont(fonts.bodyFont, 'bold');
             doc.setFontSize(fonts.bodySize - 2);
             doc.setTextColor(colors.secondary);
@@ -482,7 +507,10 @@ const _generateConfigurablePDF = async (
     const renderSignature = () => {
         if (content.showSignature) {
             const sigY = Math.max(currentY + 10, pageHeight - 40);
-            if (pageHeight - sigY < 30) { doc.addPage(); }
+            if (pageHeight - sigY < 30) { 
+                doc.addPage(); 
+                if (layout.backgroundImage) doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight);
+            }
             
             doc.setFont(fonts.bodyFont, 'normal');
             doc.setFontSize(10);
@@ -507,6 +535,7 @@ const _generateConfigurablePDF = async (
         // If content has pushed passed footer, new page
         if (currentY > footerY) { 
             doc.addPage(); 
+            if (layout.backgroundImage) doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight);
         }
 
         if (content.showQr && (layout.qrPosition === 'footer-left' || layout.qrPosition === 'footer-right')) {

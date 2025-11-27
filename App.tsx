@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo, Suspense } from 'react';
 import { Home, Users, ShoppingCart, Package, FileText, Undo2, Boxes, Search, HelpCircle, Bell, Menu, Plus, UserPlus, PackagePlus, Download, X, Sun, Moon, Cloud, CloudOff, RefreshCw, Sparkles, BarChart2, Receipt, Lock, AlertCircle, CheckCircle, Info, PenTool } from 'lucide-react';
 

@@ -1,4 +1,5 @@
 
+
 import React, { createContext, useReducer, useContext, useEffect, ReactNode, useState, useRef } from 'react';
 import { Customer, Supplier, Product, Sale, Purchase, Return, Payment, BeforeInstallPromptEvent, Notification, ProfileData, Page, AppMetadata, AppMetadataPin, Theme, GoogleUser, AuditLogEntry, SyncStatus, AppMetadataTheme, Expense, Quote, AppMetadataInvoiceSettings, InvoiceTemplateConfig, DocumentType, CustomFont, InvoiceLabels } from '../types';
 import * as db from '../utils/db';

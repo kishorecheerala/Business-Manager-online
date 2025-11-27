@@ -12,86 +12,15 @@ import autoTable from 'jspdf-autotable';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
 import { generateA4InvoicePdf, generateThermalInvoicePDF, generateGenericReportPDF } from '../utils/pdfGenerator';
 import { useDialog } from '../context/DialogContext';
+import PaymentModal from '../components/PaymentModal';
 
-// ... (getLocalDateString, fetchImageAsBase64, PaymentModal remain the same)
+// ... (getLocalDateString, fetchImageAsBase64 remain the same)
 const getLocalDateString = (date = new Date()) => {
   const year = date.getFullYear();
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
   const day = date.getDate().toString().padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
-
-const fetchImageAsBase64 = (url: string): Promise<string> =>
-  fetch(url)
-    .then(response => response.blob())
-    .then(blob => new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-    }));
-
-// Standalone PaymentModal component to prevent re-renders on parent state change
-const PaymentModal: React.FC<{
-    isOpen: boolean;
-    onClose: () => void;
-    onSubmit: () => void;
-    sale: Sale | null | undefined;
-    paymentDetails: { amount: string; method: 'CASH' | 'UPI' | 'CHEQUE'; date: string; reference: string; };
-    setPaymentDetails: React.Dispatch<React.SetStateAction<{ amount: string; method: 'CASH' | 'UPI' | 'CHEQUE'; date: string; reference: string; }>>;
-}> = ({ isOpen, onClose, onSubmit, sale, paymentDetails, setPaymentDetails }) => {
-    if (!isOpen || !sale) return null;
-    
-    const amountPaid = sale.payments.reduce((sum, p) => sum + Number(p.amount), 0);
-    const dueAmount = Number(sale.totalAmount) - amountPaid;
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in-fast">
-            <Card title="Add Payment" className="w-full max-w-sm animate-scale-in">
-                <div className="space-y-4">
-                    <p>Invoice Total: <span className="font-bold">₹{Number(sale.totalAmount).toLocaleString('en-IN')}</span></p>
-                    <p>Amount Due: <span className="font-bold text-red-600">₹{dueAmount.toLocaleString('en-IN')}</span></p>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Amount</label>
-                        <input type="number" placeholder="Enter amount" value={paymentDetails.amount} onChange={e => setPaymentDetails({ ...paymentDetails, amount: e.target.value })} className="w-full p-2 border rounded" autoFocus/>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Method</label>
-                        <select value={paymentDetails.method} onChange={e => setPaymentDetails({ ...paymentDetails, method: e.target.value as any })} className="w-full p-2 border rounded custom-select">
-                            <option value="CASH">Cash</option>
-                            <option value="UPI">UPI</option>
-                            <option value="CHEQUE">Cheque</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Payment Date</label>
-                        <input 
-                            type="date" 
-                            value={paymentDetails.date} 
-                            onChange={e => setPaymentDetails({ ...paymentDetails, date: e.target.value })} 
-                            className="w-full p-2 border rounded"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Payment Reference (Optional)</label>
-                        <input 
-                            type="text" 
-                            placeholder="e.g. UPI ID, Cheque No."
-                            value={paymentDetails.reference}
-                            onChange={e => setPaymentDetails({ ...paymentDetails, reference: e.target.value })}
-                            className="w-full p-2 border rounded"
-                        />
-                    </div>
-                    <div className="flex gap-2">
-                       <Button onClick={onSubmit} className="w-full">Save Payment</Button>
-                       <Button onClick={onClose} variant="secondary" className="w-full">Cancel</Button>
-                    </div>
-                </div>
-            </Card>
-        </div>
-    );
-};
-
 
 interface CustomersPageProps {
   setIsDirty: (isDirty: boolean) => void;
@@ -404,6 +333,10 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
         const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
             setEditedCustomer({ ...editedCustomer, [e.target.name]: e.target.value });
         };
+        
+        const selectedSaleForPayment = state.sales.find(s => s.id === paymentModalState.saleId);
+        const amountPaidForSelected = selectedSaleForPayment ? selectedSaleForPayment.payments.reduce((sum, p) => sum + Number(p.amount), 0) : 0;
+        const dueAmountForSelected = selectedSaleForPayment ? Number(selectedSaleForPayment.totalAmount) - amountPaidForSelected : 0;
 
         return (
             <div className="space-y-4">
@@ -419,7 +352,8 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                     isOpen={paymentModalState.isOpen}
                     onClose={() => setPaymentModalState({isOpen: false, saleId: null})}
                     onSubmit={handleAddPayment}
-                    sale={state.sales.find(s => s.id === paymentModalState.saleId)}
+                    totalAmount={selectedSaleForPayment ? selectedSaleForPayment.totalAmount : 0}
+                    dueAmount={dueAmountForSelected}
                     paymentDetails={paymentDetails}
                     setPaymentDetails={setPaymentDetails}
                 />
@@ -615,31 +549,34 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
             </div>
 
             {isAdding && (
-                <Card title="New Customer Form">
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Customer ID</label>
-                            <div className="flex items-center mt-1">
-                                <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
-                                    CUST-
-                                </span>
-                                <input 
-                                    type="text" 
-                                    placeholder="Enter unique ID" 
-                                    value={newCustomer.id} 
-                                    onChange={e => setNewCustomer({ ...newCustomer, id: e.target.value })} 
-                                    className="w-full p-2 border rounded-r-md" 
-                                />
+                <div className="mb-4">
+                    <Button onClick={() => setIsAdding(false)} variant="secondary" className="mb-2">Cancel Adding</Button>
+                    <Card title="Add New Customer">
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Customer ID</label>
+                                <div className="flex items-center mt-1">
+                                    <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
+                                        CUST-
+                                    </span>
+                                    <input 
+                                        type="text" 
+                                        placeholder="Enter unique ID" 
+                                        value={newCustomer.id} 
+                                        onChange={e => setNewCustomer({ ...newCustomer, id: e.target.value })} 
+                                        className="w-full p-2 border rounded-r-md" 
+                                    />
+                                </div>
                             </div>
+                            <input type="text" placeholder="Name" value={newCustomer.name} onChange={e => setNewCustomer({ ...newCustomer, name: e.target.value })} className="w-full p-2 border rounded" />
+                            <input type="text" placeholder="Phone" value={newCustomer.phone} onChange={e => setNewCustomer({ ...newCustomer, phone: e.target.value })} className="w-full p-2 border rounded" />
+                            <input type="text" placeholder="Address" value={newCustomer.address} onChange={e => setNewCustomer({ ...newCustomer, address: e.target.value })} className="w-full p-2 border rounded" />
+                            <input type="text" placeholder="Area/Location" value={newCustomer.area} onChange={e => setNewCustomer({ ...newCustomer, area: e.target.value })} className="w-full p-2 border rounded" />
+                            <input type="text" placeholder="Reference (Optional)" value={newCustomer.reference} onChange={e => setNewCustomer({ ...newCustomer, reference: e.target.value })} className="w-full p-2 border rounded" />
+                            <Button onClick={handleAddCustomer} className="w-full">Save Customer</Button>
                         </div>
-                        <input type="text" placeholder="Name" value={newCustomer.name} onChange={e => setNewCustomer({ ...newCustomer, name: e.target.value })} className="w-full p-2 border rounded" />
-                        <input type="text" placeholder="Phone" value={newCustomer.phone} onChange={e => setNewCustomer({ ...newCustomer, phone: e.target.value })} className="w-full p-2 border rounded" />
-                        <input type="text" placeholder="Address" value={newCustomer.address} onChange={e => setNewCustomer({ ...newCustomer, address: e.target.value })} className="w-full p-2 border rounded" />
-                        <input type="text" placeholder="Area/Location" value={newCustomer.area} onChange={e => setNewCustomer({ ...newCustomer, area: e.target.value })} className="w-full p-2 border rounded" />
-                        <input type="text" placeholder="Reference (Optional)" value={newCustomer.reference} onChange={e => setNewCustomer({ ...newCustomer, reference: e.target.value })} className="w-full p-2 border rounded" />
-                        <Button onClick={handleAddCustomer} className="w-full">Save Customer</Button>
-                    </div>
-                </Card>
+                    </Card>
+                </div>
             )}
 
             <div className="relative">

@@ -4,7 +4,7 @@ import jsPDF from 'jspdf';
 import JsBarcode from 'jsbarcode';
 import Card from './Card';
 import Button from './Button';
-import { X, Download, Printer } from 'lucide-react';
+import { X, Download, Printer, LayoutGrid, File } from 'lucide-react';
 
 interface BarcodeModalProps {
   isOpen: boolean;
@@ -20,6 +20,7 @@ interface BarcodeModalProps {
 
 export const BarcodeModal: React.FC<BarcodeModalProps> = ({ isOpen, product, onClose, businessName }) => {
   const [numberOfCopies, setNumberOfCopies] = useState(1);
+  const [paperType, setPaperType] = useState<'roll' | 'a4'>('roll');
   const labelPreviewCanvasRef = useRef<HTMLCanvasElement>(null);
   const printIframeRef = useRef<HTMLIFrameElement | null>(null);
 
@@ -112,7 +113,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({ isOpen, product, onC
             previewCtx.drawImage(fullLabelCanvas, 0, 0, labelPreviewCanvasRef.current.width, labelPreviewCanvasRef.current.height);
         }
     }
-  }, [isOpen, product, businessName, numberOfCopies]); // Re-render preview if copies change (though not used in preview)
+  }, [isOpen, product, businessName, numberOfCopies]); 
 
 
   const handleDownloadPDF = async () => {
@@ -122,25 +123,68 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({ isOpen, product, onC
     }
     try {
       const doc = new jsPDF({
-        orientation: 'landscape', // Correct orientation for 2x1 label
+        orientation: paperType === 'roll' ? 'landscape' : 'portrait', 
         unit: 'mm',
-        format: [50.8, 25.4], // 2x1 inch
+        format: paperType === 'roll' ? [50.8, 25.4] : 'a4', // 2x1 inch for roll, A4 for sheet
       });
 
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const margin = 1;
+      const labelCanvas = generateLabelCanvas();
+      const imageData = labelCanvas.toDataURL('image/png');
 
-      for (let copy = 0; copy < numberOfCopies; copy++) {
-        if (copy > 0) doc.addPage();
-        
-        const labelCanvas = generateLabelCanvas();
-        const imageData = labelCanvas.toDataURL('image/png');
-        
-        const imgWidth = pageWidth - 2 * margin;
-        const imgHeight = (imgWidth * labelCanvas.height) / labelCanvas.width;
-        const yPosition = (doc.internal.pageSize.getHeight() - imgHeight) / 2;
+      if (paperType === 'roll') {
+          // One label per page (standard thermal printer)
+          const pageWidth = doc.internal.pageSize.getWidth();
+          const margin = 1;
+          const imgWidth = pageWidth - 2 * margin;
+          const imgHeight = (imgWidth * labelCanvas.height) / labelCanvas.width;
+          const yPosition = (doc.internal.pageSize.getHeight() - imgHeight) / 2;
 
-        doc.addImage(imageData, 'PNG', margin, yPosition, imgWidth, imgHeight);
+          for (let copy = 0; copy < numberOfCopies; copy++) {
+            if (copy > 0) doc.addPage();
+            doc.addImage(imageData, 'PNG', margin, yPosition, imgWidth, imgHeight);
+          }
+      } else {
+          // Grid layout on A4 (e.g., 4 columns, 10 rows)
+          const margin = 10;
+          const cols = 4;
+          const rows = 10;
+          const pageWidth = 210; // A4 width in mm
+          const pageHeight = 297; // A4 height in mm
+          const labelWidth = (pageWidth - (margin * 2)) / cols;
+          const labelHeight = 25.4; // 1 inch height
+          
+          let x = margin;
+          let y = margin;
+          let col = 0;
+          let row = 0;
+
+          for (let i = 0; i < numberOfCopies; i++) {
+              if (row >= rows) {
+                  doc.addPage();
+                  row = 0;
+                  y = margin;
+              }
+              
+              // Draw border for A4 sheet visual guide
+              doc.setDrawColor(200);
+              doc.rect(x, y, labelWidth, labelHeight);
+              
+              // Draw Image centered in cell
+              const padding = 2;
+              const cellInnerWidth = labelWidth - (padding * 2);
+              const cellInnerHeight = labelHeight - (padding * 2);
+              doc.addImage(imageData, 'PNG', x + padding, y + padding, cellInnerWidth, cellInnerHeight);
+
+              col++;
+              x += labelWidth;
+              
+              if (col >= cols) {
+                  col = 0;
+                  x = margin;
+                  row++;
+                  y += labelHeight;
+              }
+          }
       }
 
       const filename = `${product.id}-labels-${numberOfCopies}.pdf`;
@@ -152,10 +196,16 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({ isOpen, product, onC
   };
 
   const handlePrint = () => {
-    if (numberOfCopies <= 0) {
-      alert("Please enter a number of copies greater than 0.");
-      return;
+    // Basic browser print - typically handles 1 page well, but for bulk labels, PDF download is preferred.
+    // If roll, use iframe method for single labels. If A4, suggest PDF.
+    if (paperType === 'a4') {
+        if(confirm("For A4 printing, it is recommended to Download PDF first for accurate grid alignment. Proceed to download?")) {
+            handleDownloadPDF();
+            return;
+        }
     }
+    
+    // Fallback Roll Printing Logic
     try {
         const labelCanvas = generateLabelCanvas();
         const imageDataUrl = labelCanvas.toDataURL('image/png');
@@ -173,13 +223,12 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({ isOpen, product, onC
             }
         `;
         
-        // Cleanup previous iframe if it exists from a prior print action
         if (printIframeRef.current && document.body.contains(printIframeRef.current)) {
             document.body.removeChild(printIframeRef.current);
         }
 
         const iframe = document.createElement('iframe');
-        printIframeRef.current = iframe; // Store ref
+        printIframeRef.current = iframe; 
         iframe.style.position = 'absolute';
         iframe.style.width = '0';
         iframe.style.height = '0';
@@ -196,14 +245,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({ isOpen, product, onC
                     iframe.contentWindow.focus();
                     iframe.contentWindow.print();
                 }
-                // NOTE: The iframe is NOT removed here. It will be cleaned up by the useEffect hook when the modal closes.
             };
-        } else {
-             // Fallback if doc is not available
-             if (printIframeRef.current && document.body.contains(printIframeRef.current)) {
-                document.body.removeChild(printIframeRef.current);
-                printIframeRef.current = null;
-             }
         }
     } catch (error) {
         console.error('Printing failed:', error);
@@ -233,14 +275,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({ isOpen, product, onC
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 text-center">Number of copies</label>
             <div className="flex items-center justify-center gap-2">
-                <Button 
-                    onClick={() => setNumberOfCopies(prev => Math.max(0, prev - 1))}
-                    className="px-4 py-2 text-xl font-bold"
-                    variant="secondary"
-                    aria-label="Decrease quantity"
-                >
-                    -
-                </Button>
+                <Button onClick={() => setNumberOfCopies(prev => Math.max(0, prev - 1))} className="px-4 py-2 text-xl font-bold" variant="secondary">-</Button>
                 <input
                   type="number"
                   min="0"
@@ -249,21 +284,32 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({ isOpen, product, onC
                   onChange={(e) => setNumberOfCopies(Math.max(0, parseInt(e.target.value) || 0))}
                   className="w-24 p-2 border rounded text-center text-lg dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
                 />
-                <Button
-                    onClick={() => setNumberOfCopies(prev => Math.min(100, prev + 1))}
-                    className="px-4 py-2 text-xl font-bold"
-                    variant="secondary"
-                    aria-label="Increase quantity"
-                >
-                    +
-                </Button>
+                <Button onClick={() => setNumberOfCopies(prev => Math.min(100, prev + 1))} className="px-4 py-2 text-xl font-bold" variant="secondary">+</Button>
             </div>
+          </div>
+          
+          {/* Paper Type Selection */}
+          <div className="flex gap-2">
+              <button 
+                onClick={() => setPaperType('roll')}
+                className={`flex-1 p-2 rounded border text-sm font-medium flex items-center justify-center gap-2 ${paperType === 'roll' ? 'bg-primary/10 border-primary text-primary' : 'bg-gray-50 border-gray-200 text-gray-600'}`}
+              >
+                  <LayoutGrid size={16} /> Label Roll (2x1")
+              </button>
+              <button 
+                onClick={() => setPaperType('a4')}
+                className={`flex-1 p-2 rounded border text-sm font-medium flex items-center justify-center gap-2 ${paperType === 'a4' ? 'bg-primary/10 border-primary text-primary' : 'bg-gray-50 border-gray-200 text-gray-600'}`}
+              >
+                  <File size={16} /> A4 Sheet (Grid)
+              </button>
           </div>
 
           <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-3 rounded">
-            <p className="text-xs font-semibold text-yellow-800 dark:text-yellow-200 mb-1">Important Print Settings</p>
+            <p className="text-xs font-semibold text-yellow-800 dark:text-yellow-200 mb-1">Print Settings</p>
             <p className="text-xs text-yellow-700 dark:text-yellow-300">
-              When printing, ensure printer settings use <strong>Actual Size</strong> and <strong>Paper Size: 2x1 inch</strong> (50.8x25.4mm).
+              {paperType === 'roll' 
+                ? "Printer: Label Printer. Size: 2x1 inch (50.8x25.4mm). Scale: Actual Size."
+                : "Printer: A4 Printer. Scale: 100% / Actual Size. Generates a grid of labels."}
             </p>
           </div>
 
