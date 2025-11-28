@@ -4,6 +4,8 @@
 
 
 
+
+
 import { ReactNode } from "react";
 
 export type Page = 'DASHBOARD' | 'CUSTOMERS' | 'SALES' | 'PURCHASES' | 'REPORTS' | 'RETURNS' | 'PRODUCTS' | 'INSIGHTS' | 'EXPENSES' | 'QUOTATIONS' | 'INVOICE_DESIGNER' | 'SYSTEM_OPTIMIZER';
@@ -55,6 +57,13 @@ export interface Supplier {
   upi?: string;
 }
 
+export interface ProductBatch {
+  id: string; // Batch Number
+  quantity: number;
+  expiryDate?: string; // ISO Date
+  entryDate: string; // ISO Date
+}
+
 export interface Product {
   id: string; // QR code or manual entry
   name: string;
@@ -64,6 +73,7 @@ export interface Product {
   salePrice: number;
   gstPercent: number;
   image?: string; // Base64 encoded image
+  batches?: ProductBatch[]; // New: Batch tracking
 }
 
 export interface SaleItem {
@@ -111,6 +121,8 @@ export interface PurchaseItem {
   price: number;
   gstPercent: number;
   saleValue: number;
+  batchNumber?: string; // New
+  expiryDate?: string; // New
 }
 
 export interface Purchase {
@@ -177,7 +189,7 @@ export interface Notification {
   message: string;
   read: boolean;
   createdAt: string; // ISO string
-  type: 'backup' | 'info';
+  type: 'backup' | 'info' | 'expiry' | 'stock';
   actionLink?: Page;
 }
 

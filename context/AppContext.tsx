@@ -1,8 +1,6 @@
 
-
-
-import React, { createContext, useReducer, useContext, useEffect, ReactNode, useState, useRef } from 'react';
-import { Customer, Supplier, Product, Sale, Purchase, Return, Payment, BeforeInstallPromptEvent, Notification, ProfileData, Page, AppMetadata, AppMetadataPin, Theme, GoogleUser, AuditLogEntry, SyncStatus, AppMetadataTheme, Expense, Quote, AppMetadataInvoiceSettings, InvoiceTemplateConfig, DocumentType, CustomFont, InvoiceLabels } from '../types';
+import React, { createContext, useReducer, useContext, useEffect, ReactNode, useState } from 'react';
+import { Customer, Supplier, Product, Sale, Purchase, Return, BeforeInstallPromptEvent, Notification, ProfileData, Page, AppMetadata, Theme, GoogleUser, AuditLogEntry, SyncStatus, Expense, Quote, AppMetadataInvoiceSettings, InvoiceTemplateConfig, CustomFont, PurchaseItem } from '../types';
 import * as db from '../utils/db';
 import { StoreName } from '../utils/db';
 import { DriveService, initGoogleAuth, getUserInfo, loadGoogleScript, downloadFile } from '../utils/googleDrive';
@@ -51,709 +49,473 @@ export interface AppState {
 
 type Action =
   | { type: 'SET_STATE'; payload: Partial<AppState> }
-  | { type: 'SET_THEME'; payload: Theme }
-  | { type: 'SET_THEME_COLOR'; payload: string }
-  | { type: 'SET_THEME_GRADIENT'; payload: string }
-  | { type: 'SET_NOTIFICATIONS'; payload: Notification[] }
-  | { type: 'SET_PROFILE'; payload: ProfileData | null }
-  | { type: 'SET_PIN'; payload: string }
-  | { type: 'REMOVE_PIN' }
-  | { type: 'SET_REVENUE_GOAL'; payload: number }
-  | { type: 'UPDATE_METADATA_TIMESTAMP'; payload: number }
-  | { type: 'SET_INVOICE_TEMPLATE'; payload: InvoiceTemplateConfig }
-  | { type: 'SET_DOCUMENT_TEMPLATE'; payload: { type: DocumentType, config: InvoiceTemplateConfig } }
-  | { type: 'UPDATE_INVOICE_SETTINGS'; payload: { terms: string, footer: string, showQr: boolean } }
   | { type: 'ADD_CUSTOMER'; payload: Customer }
   | { type: 'UPDATE_CUSTOMER'; payload: Customer }
   | { type: 'ADD_SUPPLIER'; payload: Supplier }
   | { type: 'UPDATE_SUPPLIER'; payload: Supplier }
   | { type: 'ADD_PRODUCT'; payload: Product }
-  | { type: 'UPDATE_PRODUCT'; payload: Product }
-  | { type: 'BATCH_UPDATE_PRODUCTS'; payload: Product[] }
   | { type: 'UPDATE_PRODUCT_STOCK'; payload: { productId: string; change: number } }
+  | { type: 'BATCH_UPDATE_PRODUCTS'; payload: Product[] }
   | { type: 'ADD_SALE'; payload: Sale }
-  | { type: 'UPDATE_SALE'; payload: { oldSale: Sale, updatedSale: Sale } }
+  | { type: 'UPDATE_SALE'; payload: { oldSale: Sale; updatedSale: Sale } }
   | { type: 'DELETE_SALE'; payload: string }
+  | { type: 'ADD_PAYMENT_TO_SALE'; payload: { saleId: string; payment: any } }
   | { type: 'ADD_PURCHASE'; payload: Purchase }
-  | { type: 'UPDATE_PURCHASE'; payload: { oldPurchase: Purchase, updatedPurchase: Purchase } }
+  | { type: 'UPDATE_PURCHASE'; payload: { oldPurchase: Purchase; updatedPurchase: Purchase } }
   | { type: 'DELETE_PURCHASE'; payload: string }
+  | { type: 'ADD_PAYMENT_TO_PURCHASE'; payload: { purchaseId: string; payment: any } }
   | { type: 'ADD_RETURN'; payload: Return }
-  | { type: 'UPDATE_RETURN'; payload: { oldReturn: Return, updatedReturn: Return } }
+  | { type: 'UPDATE_RETURN'; payload: { oldReturn: Return; updatedReturn: Return } }
   | { type: 'ADD_EXPENSE'; payload: Expense }
   | { type: 'DELETE_EXPENSE'; payload: string }
   | { type: 'ADD_QUOTE'; payload: Quote }
   | { type: 'UPDATE_QUOTE'; payload: Quote }
   | { type: 'DELETE_QUOTE'; payload: string }
-  | { type: 'ADD_CUSTOM_FONT'; payload: CustomFont }
-  | { type: 'REMOVE_CUSTOM_FONT'; payload: string }
-  | { type: 'ADD_PAYMENT_TO_SALE'; payload: { saleId: string; payment: Payment } }
-  | { type: 'ADD_PAYMENT_TO_PURCHASE'; payload: { purchaseId: string; payment: Payment } }
-  | { type: 'SHOW_TOAST'; payload: { message: string; type?: 'success' | 'info' | 'error' } }
-  | { type: 'HIDE_TOAST' }
-  | { type: 'SET_LAST_BACKUP_DATE'; payload: string }
-  | { type: 'SET_SELECTION'; payload: { page: Page; id: string; action?: 'edit' | 'new'; data?: any } }
-  | { type: 'CLEAR_SELECTION' }
-  | { type: 'SET_INSTALL_PROMPT_EVENT'; payload: BeforeInstallPromptEvent | null }
   | { type: 'ADD_NOTIFICATION'; payload: Notification }
   | { type: 'MARK_NOTIFICATION_AS_READ'; payload: string }
-  | { type: 'MARK_ALL_NOTIFICATIONS_AS_READ' }
-  | { type: 'CLEANUP_OLD_DATA' }
-  | { type: 'REPLACE_COLLECTION'; payload: { storeName: StoreName, data: any[] } }
+  | { type: 'SET_PROFILE'; payload: ProfileData }
+  | { type: 'SET_THEME'; payload: Theme }
+  | { type: 'SET_THEME_COLOR'; payload: string }
+  | { type: 'SET_THEME_GRADIENT'; payload: string }
+  | { type: 'SET_PIN'; payload: string }
+  | { type: 'SET_SELECTION'; payload: { page: Page; id: string; action?: 'edit' | 'new' } | null }
+  | { type: 'CLEAR_SELECTION' }
+  | { type: 'SHOW_TOAST'; payload: { message: string; type?: 'success' | 'info' | 'error' } }
+  | { type: 'HIDE_TOAST' }
+  | { type: 'SET_INSTALL_PROMPT_EVENT'; payload: BeforeInstallPromptEvent | null }
   | { type: 'SET_GOOGLE_USER'; payload: GoogleUser | null }
   | { type: 'SET_SYNC_STATUS'; payload: SyncStatus }
   | { type: 'SET_LAST_SYNC_TIME'; payload: number }
-  | { type: 'ADD_AUDIT_LOG'; payload: AuditLogEntry }
-  | { type: 'TOGGLE_DEV_MODE' }
+  | { type: 'SET_LAST_BACKUP_DATE'; payload: string }
+  | { type: 'ADD_CUSTOM_FONT'; payload: CustomFont }
+  | { type: 'REMOVE_CUSTOM_FONT'; payload: string }
+  | { type: 'SET_DOCUMENT_TEMPLATE'; payload: { type: string; config: InvoiceTemplateConfig } }
+  | { type: 'UPDATE_INVOICE_SETTINGS'; payload: AppMetadataInvoiceSettings }
   | { type: 'TOGGLE_PERFORMANCE_MODE' }
-  | { type: 'RESET_APP' };
-
-
-const getInitialTheme = (): Theme => {
-  try {
-    const savedTheme = localStorage.getItem('theme') as Theme | null;
-    if (savedTheme) return savedTheme;
-    
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        return 'dark';
-    }
-  } catch (e) {
-    // ignore
-  }
-  return 'light';
-};
-
-const getInitialThemeColor = (): string => {
-    return localStorage.getItem('themeColor') || '#0d9488';
-};
-
-const getInitialThemeGradient = (): string => {
-    return localStorage.getItem('themeGradient') || '';
-};
-
-const getInitialGoogleUser = (): GoogleUser | null => {
-  try {
-    const stored = localStorage.getItem('googleUser');
-    if (stored) {
-        return JSON.parse(stored);
-    }
-  } catch (e) {
-    console.error("Failed to parse stored google user", e);
-  }
-  return null;
-};
-
-const getInitialSyncTime = (): number | null => {
-    try {
-        const stored = localStorage.getItem('lastSyncTime');
-        return stored ? parseInt(stored) : null;
-    } catch (e) {
-        return null;
-    }
-};
-
-const getInitialDevMode = (): boolean => {
-    try {
-        return localStorage.getItem('devMode') === 'true';
-    } catch (e) {
-        return false;
-    }
-}
-
-const getInitialPerformanceMode = (): boolean => {
-    try {
-        return localStorage.getItem('performanceMode') === 'true';
-    } catch (e) {
-        return false;
-    }
-}
-
-const defaultLabels: InvoiceLabels = {
-    billedTo: "Billed To",
-    date: "Date",
-    invoiceNo: "Invoice No",
-    item: "Item",
-    qty: "Qty",
-    rate: "Rate",
-    amount: "Amount",
-    subtotal: "Subtotal",
-    discount: "Discount",
-    gst: "GST",
-    grandTotal: "Grand Total",
-    paid: "Paid",
-    balance: "Balance"
-};
-
-const defaultInvoiceTemplate: InvoiceTemplateConfig = {
-    id: 'invoiceTemplateConfig',
-    currencySymbol: '₹',
-    dateFormat: 'DD/MM/YYYY',
-    colors: {
-        primary: '#0d9488',
-        secondary: '#333333',
-        text: '#000000',
-        tableHeaderBg: '#0d9488',
-        tableHeaderText: '#ffffff',
-        bannerBg: '#0d9488',
-        bannerText: '#ffffff',
-        footerBg: '#f3f4f6',
-        footerText: '#374151',
-        borderColor: '#e5e7eb',
-        alternateRowBg: '#f9fafb'
-    },
-    fonts: {
-        headerSize: 22,
-        bodySize: 10,
-        titleFont: 'helvetica',
-        bodyFont: 'helvetica'
-    },
-    layout: {
-        margin: 10,
-        logoSize: 25,
-        logoPosition: 'center',
-        logoOffsetX: 0,
-        logoOffsetY: 0,
-        headerAlignment: 'center',
-        headerStyle: 'standard',
-        footerStyle: 'standard',
-        showWatermark: false,
-        watermarkOpacity: 0.1,
-        tableOptions: {
-            hideQty: false,
-            hideRate: false,
-            stripedRows: false,
-            bordered: false,
-            compact: false
-        }
-    },
-    content: {
-        titleText: 'TAX INVOICE',
-        showTerms: true,
-        showQr: true,
-        termsText: '',
-        footerText: 'Thank you for your business!',
-        showBusinessDetails: true,
-        showCustomerDetails: true,
-        showSignature: true,
-        signatureText: 'Authorized Signatory',
-        showAmountInWords: false,
-        showStatusStamp: false,
-        showTaxBreakdown: false,
-        showGst: true,
-        labels: defaultLabels,
-        qrType: 'INVOICE_ID',
-        bankDetails: ''
-    }
-};
-
-const defaultEstimateTemplate: InvoiceTemplateConfig = {
-    ...defaultInvoiceTemplate,
-    id: 'estimateTemplateConfig',
-    colors: {
-        ...defaultInvoiceTemplate.colors,
-        primary: '#4f46e5', // Indigo for Estimates
-        tableHeaderBg: '#4f46e5',
-        bannerBg: '#4f46e5'
-    },
-    content: {
-        ...defaultInvoiceTemplate.content,
-        titleText: 'ESTIMATE / QUOTATION',
-        footerText: 'Valid for 7 days.',
-        labels: { ...defaultLabels, invoiceNo: "Estimate No", balance: "Total Due" },
-        showGst: true
-    }
-};
-
-const defaultDebitNoteTemplate: InvoiceTemplateConfig = {
-    ...defaultInvoiceTemplate,
-    id: 'debitNoteTemplateConfig',
-    colors: {
-        ...defaultInvoiceTemplate.colors,
-        primary: '#000000', // Black for Debit Notes usually
-        tableHeaderBg: '#333333',
-        bannerBg: '#333333'
-    },
-    content: {
-        ...defaultInvoiceTemplate.content,
-        titleText: 'DEBIT NOTE',
-        showTerms: false,
-        footerText: '',
-        labels: { ...defaultLabels, invoiceNo: "Debit Note No", billedTo: "To Supplier" },
-        showGst: true
-    }
-};
-
-const defaultReceiptTemplate: InvoiceTemplateConfig = {
-    ...defaultInvoiceTemplate,
-    id: 'receiptTemplateConfig',
-    colors: {
-        ...defaultInvoiceTemplate.colors,
-        primary: '#000000', // Typically black for thermal
-        secondary: '#000000',
-        tableHeaderBg: '#ffffff', // No background typically
-        tableHeaderText: '#000000'
-    },
-    fonts: {
-        headerSize: 12,
-        bodySize: 8,
-        titleFont: 'helvetica',
-        bodyFont: 'helvetica'
-    },
-    layout: {
-        margin: 2, // Small margin for 80mm paper
-        logoSize: 15,
-        logoPosition: 'center',
-        logoOffsetX: 0,
-        logoOffsetY: 0,
-        headerAlignment: 'center',
-        headerStyle: 'standard',
-        showWatermark: false,
-        watermarkOpacity: 0.1,
-        tableOptions: {
-            hideQty: false,
-            hideRate: false,
-            stripedRows: false,
-            bordered: false,
-            compact: false
-        }
-    },
-    content: {
-        titleText: 'TAX INVOICE',
-        showTerms: true,
-        showQr: true,
-        termsText: '',
-        footerText: 'Thank You! Visit Again.',
-        showBusinessDetails: true,
-        showCustomerDetails: true,
-        showSignature: false,
-        signatureText: '',
-        labels: defaultLabels,
-        qrType: 'INVOICE_ID',
-        showGst: true
-    }
-};
-
-const defaultReportTemplate: InvoiceTemplateConfig = {
-    ...defaultInvoiceTemplate,
-    id: 'reportTemplateConfig',
-    colors: {
-        ...defaultInvoiceTemplate.colors,
-        primary: '#0d9488',
-        tableHeaderBg: '#0d9488',
-        bannerBg: '#0d9488'
-    },
-    layout: {
-        ...defaultInvoiceTemplate.layout,
-        headerStyle: 'standard',
-        tableOptions: {
-            hideQty: false,
-            hideRate: false,
-            stripedRows: true,
-            bordered: true,
-            compact: true
-        }
-    },
-    content: {
-        ...defaultInvoiceTemplate.content,
-        titleText: 'REPORT',
-        showTerms: false,
-        showQr: false,
-        showSignature: false,
-        footerText: `Generated on ${new Date().toLocaleDateString()}`,
-        showGst: false
-    }
-};
-
-// Deep merge helper
-const mergeTemplate = (defaultTmpl: InvoiceTemplateConfig, storedTmpl: Partial<InvoiceTemplateConfig>): InvoiceTemplateConfig => {
-    return {
-        ...defaultTmpl,
-        ...storedTmpl,
-        colors: { ...defaultTmpl.colors, ...storedTmpl.colors },
-        fonts: { ...defaultTmpl.fonts, ...storedTmpl.fonts },
-        layout: { 
-            ...defaultTmpl.layout, 
-            ...storedTmpl.layout,
-            tableOptions: { ...defaultTmpl.layout.tableOptions, ...storedTmpl.layout?.tableOptions }
-        },
-        content: { 
-            ...defaultTmpl.content, 
-            ...storedTmpl.content,
-            labels: { ...defaultTmpl.content.labels, ...storedTmpl.content?.labels }
-        }
-    };
-};
+  | { type: 'CLEANUP_OLD_DATA' }
+  | { type: 'REPLACE_COLLECTION'; payload: { storeName: StoreName; data: any[] } };
 
 const initialState: AppState = {
-  customers: [],
-  suppliers: [],
-  products: [],
-  sales: [],
-  purchases: [],
-  returns: [],
-  expenses: [],
-  quotes: [],
-  customFonts: [],
-  app_metadata: [],
-  notifications: [],
-  audit_logs: [],
-  profile: null,
-  invoiceTemplate: defaultInvoiceTemplate,
-  estimateTemplate: defaultEstimateTemplate,
-  debitNoteTemplate: defaultDebitNoteTemplate,
-  receiptTemplate: defaultReceiptTemplate,
-  reportTemplate: defaultReportTemplate,
-  toast: { message: '', show: false, type: 'info' },
-  selection: null,
-  installPromptEvent: null,
-  pin: null,
-  theme: getInitialTheme(),
-  themeColor: getInitialThemeColor(),
-  themeGradient: getInitialThemeGradient(),
-  googleUser: getInitialGoogleUser(),
-  syncStatus: 'idle',
-  lastSyncTime: getInitialSyncTime(),
-  lastLocalUpdate: 0,
-  devMode: getInitialDevMode(),
-  performanceMode: getInitialPerformanceMode(),
+    customers: [],
+    suppliers: [],
+    products: [],
+    sales: [],
+    purchases: [],
+    returns: [],
+    expenses: [],
+    quotes: [],
+    customFonts: [],
+    app_metadata: [],
+    notifications: [],
+    audit_logs: [],
+    profile: null,
+    invoiceTemplate: {} as any, 
+    estimateTemplate: {} as any,
+    debitNoteTemplate: {} as any,
+    receiptTemplate: {} as any,
+    reportTemplate: {} as any,
+    toast: { message: '', show: false, type: 'info' },
+    selection: null,
+    installPromptEvent: null,
+    pin: null,
+    theme: 'light',
+    themeColor: '#0d9488',
+    themeGradient: '',
+    googleUser: null,
+    syncStatus: 'idle',
+    lastSyncTime: null,
+    lastLocalUpdate: 0,
+    devMode: false,
+    performanceMode: false,
 };
 
-// Helper to update theme metadata
-const upsertThemeToMetadata = (metadata: AppMetadata[], theme: Theme, color: string, gradient: string): AppMetadata[] => {
-    const otherMeta = metadata.filter(m => m.id !== 'themeSettings');
-    const themeMeta: AppMetadataTheme = { id: 'themeSettings', theme, color, gradient };
-    return [...otherMeta, themeMeta];
+// Logging helper
+const logAction = (state: AppState, actionType: string, details: string): AuditLogEntry => {
+    return {
+        id: `LOG-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        user: state.googleUser?.email || state.profile?.ownerName || 'User',
+        action: actionType,
+        details: details
+    };
 };
 
 const appReducer = (state: AppState, action: Action): AppState => {
   const touch = { lastLocalUpdate: Date.now() };
-  switch (action.type) {
-    case 'SET_STATE':
-        return { ...state, ...action.payload };
-    case 'SET_THEME': {
-        const newMeta = upsertThemeToMetadata(state.app_metadata, action.payload, state.themeColor, state.themeGradient);
-        return { ...state, theme: action.payload, app_metadata: newMeta, ...touch };
-    }
-    case 'SET_THEME_COLOR': {
-        const newMeta = upsertThemeToMetadata(state.app_metadata, state.theme, action.payload, state.themeGradient);
-        return { ...state, themeColor: action.payload, app_metadata: newMeta, ...touch };
-    }
-    case 'SET_THEME_GRADIENT': {
-        const newMeta = upsertThemeToMetadata(state.app_metadata, state.theme, state.themeColor, action.payload);
-        return { ...state, themeGradient: action.payload, app_metadata: newMeta, ...touch };
-    }
-    case 'TOGGLE_DEV_MODE':
-        const newDevMode = !state.devMode;
-        localStorage.setItem('devMode', String(newDevMode));
-        return { ...state, devMode: newDevMode };
-    case 'TOGGLE_PERFORMANCE_MODE':
-        const newPerfMode = !state.performanceMode;
-        localStorage.setItem('performanceMode', String(newPerfMode));
-        return { ...state, performanceMode: newPerfMode };
-    case 'RESET_APP':
-        // Resetting to defaults, NOT preserving old theme state
-        return { 
-            ...initialState, 
-            theme: 'light', 
-            themeColor: '#0d9488', 
-            themeGradient: '',
-            installPromptEvent: state.installPromptEvent, 
-            devMode: state.devMode 
-        };
-    case 'REPLACE_COLLECTION':
-        return { ...state, [action.payload.storeName]: action.payload.data, ...touch };
-    case 'SET_NOTIFICATIONS':
-        return { ...state, notifications: action.payload };
-    case 'SET_PROFILE':
-        return { ...state, profile: action.payload, ...touch };
-    case 'SET_PIN':
-        const otherMetadata = state.app_metadata.filter(m => m.id !== 'securityPin');
-        const newPinMetadata: AppMetadataPin = { id: 'securityPin', pin: action.payload };
-        return { ...state, pin: action.payload, app_metadata: [...otherMetadata, newPinMetadata], ...touch };
-    case 'REMOVE_PIN': {
-      const metadataWithoutPin = state.app_metadata.filter(m => m.id !== 'securityPin');
-      return { ...state, pin: null, app_metadata: metadataWithoutPin, ...touch };
-    }
-    case 'SET_REVENUE_GOAL': {
-        const metaWithoutGoal = state.app_metadata.filter(m => m.id !== 'revenueGoal');
-        return {
-            ...state,
-            app_metadata: [...metaWithoutGoal, { id: 'revenueGoal', amount: action.payload }],
-            ...touch
-        };
-    }
-    case 'SET_INVOICE_TEMPLATE': {
-        // Fallback legacy action
-        const metaWithoutTemplate = state.app_metadata.filter(m => m.id !== 'invoiceTemplateConfig');
-        return {
-            ...state,
-            invoiceTemplate: action.payload,
-            app_metadata: [...metaWithoutTemplate, action.payload as any],
-            ...touch
-        };
-    }
-    case 'SET_DOCUMENT_TEMPLATE': {
-        const { type, config } = action.payload;
-        const configId = config.id;
-        const metaWithoutThis = state.app_metadata.filter(m => m.id !== configId);
-        
-        let newState = { ...state };
-        if (type === 'INVOICE') newState.invoiceTemplate = config;
-        else if (type === 'ESTIMATE') newState.estimateTemplate = config;
-        else if (type === 'DEBIT_NOTE') newState.debitNoteTemplate = config;
-        else if (type === 'RECEIPT') newState.receiptTemplate = config;
-        else if (type === 'REPORT') newState.reportTemplate = config;
+  let newLog: AuditLogEntry;
 
-        return {
-            ...newState,
-            app_metadata: [...metaWithoutThis, config as any],
-            ...touch
-        };
-    }
-    case 'UPDATE_INVOICE_SETTINGS': {
-        const { terms, footer, showQr } = action.payload;
-        const newSettings: AppMetadataInvoiceSettings = { id: 'invoiceSettings', terms, footer, showQr };
-        const meta = state.app_metadata.filter(m => m.id !== 'invoiceSettings');
-        return {
-            ...state,
-            invoiceSettings: newSettings,
-            app_metadata: [...meta, newSettings],
-            ...touch
-        }
-    }
-    case 'UPDATE_METADATA_TIMESTAMP': {
-        const timestamp = action.payload;
-        const meta = state.app_metadata.filter(m => m.id !== 'lastModified');
-        return { ...state, app_metadata: [...meta, { id: 'lastModified', timestamp }] };
-    }
+  switch (action.type) {
+    case 'SET_STATE': 
+        return { ...state, ...action.payload };
+
     case 'ADD_CUSTOMER':
-      return { ...state, customers: [...state.customers, action.payload], ...touch };
+        const newCustomer = action.payload;
+        db.saveCollection('customers', [...state.customers, newCustomer]);
+        newLog = logAction(state, 'Added Customer', `Name: ${newCustomer.name}`);
+        db.saveCollection('audit_logs', [newLog, ...state.audit_logs]);
+        return { ...state, customers: [...state.customers, newCustomer], audit_logs: [newLog, ...state.audit_logs], ...touch };
+
     case 'UPDATE_CUSTOMER':
-      return { ...state, customers: state.customers.map(c => c.id === action.payload.id ? action.payload : c), ...touch };
+        const updatedCustomers = state.customers.map(c => c.id === action.payload.id ? action.payload : c);
+        db.saveCollection('customers', updatedCustomers);
+        newLog = logAction(state, 'Updated Customer', `ID: ${action.payload.id}`);
+        db.saveCollection('audit_logs', [newLog, ...state.audit_logs]);
+        return { ...state, customers: updatedCustomers, audit_logs: [newLog, ...state.audit_logs], ...touch };
+
     case 'ADD_SUPPLIER':
-      return { ...state, suppliers: [...state.suppliers, action.payload], ...touch };
+        const newSupplier = action.payload;
+        db.saveCollection('suppliers', [...state.suppliers, newSupplier]);
+        return { ...state, suppliers: [...state.suppliers, newSupplier], ...touch };
+
     case 'UPDATE_SUPPLIER':
-      return { ...state, suppliers: state.suppliers.map(s => s.id === action.payload.id ? action.payload : s), ...touch };
+        const updatedSuppliers = state.suppliers.map(s => s.id === action.payload.id ? action.payload : s);
+        db.saveCollection('suppliers', updatedSuppliers);
+        return { ...state, suppliers: updatedSuppliers, ...touch };
+
     case 'ADD_PRODUCT':
-        const existingProduct = state.products.find(p => p.id === action.payload.id);
-        if (existingProduct) {
-            return {
-                ...state,
-                products: state.products.map(p => p.id === action.payload.id ? { ...p, quantity: p.quantity + action.payload.quantity, purchasePrice: action.payload.purchasePrice, salePrice: action.payload.salePrice } : p),
-                ...touch
-            };
+        const newProduct = action.payload;
+        const existingProductIndex = state.products.findIndex(p => p.id === newProduct.id);
+        let productsList;
+        if (existingProductIndex >= 0) {
+            productsList = state.products.map((p, i) => i === existingProductIndex ? { ...p, quantity: p.quantity + newProduct.quantity } : p);
+        } else {
+            productsList = [...state.products, newProduct];
         }
-        return { ...state, products: [...state.products, action.payload], ...touch };
-    case 'UPDATE_PRODUCT':
-        return { ...state, products: state.products.map(p => p.id === action.payload.id ? action.payload : p), ...touch };
-    case 'BATCH_UPDATE_PRODUCTS':
-        const updatedMap = new Map(action.payload.map(p => [p.id, p]));
-        return { 
-            ...state, 
-            products: state.products.map(p => updatedMap.has(p.id) ? updatedMap.get(p.id)! : p), 
-            ...touch 
-        };
+        db.saveCollection('products', productsList);
+        return { ...state, products: productsList, ...touch };
+
     case 'UPDATE_PRODUCT_STOCK':
-        return {
-            ...state,
-            products: state.products.map(p => p.id === action.payload.productId ? { ...p, quantity: p.quantity + action.payload.change } : p),
-            ...touch
-        }
+        const updatedStockProducts = state.products.map(p => 
+            p.id === action.payload.productId ? { ...p, quantity: p.quantity + action.payload.change } : p
+        );
+        db.saveCollection('products', updatedStockProducts);
+        return { ...state, products: updatedStockProducts, ...touch };
+
+    case 'BATCH_UPDATE_PRODUCTS':
+        const batchUpdatedProducts = state.products.map(p => {
+            const update = action.payload.find(u => u.id === p.id);
+            return update ? update : p;
+        });
+        db.saveCollection('products', batchUpdatedProducts);
+        return { ...state, products: batchUpdatedProducts, ...touch };
+
     case 'ADD_SALE':
-      return { ...state, sales: [...state.sales, action.payload], ...touch };
-    case 'UPDATE_SALE': {
+        const newSale = action.payload;
+        db.saveCollection('sales', [...state.sales, newSale]);
+        newLog = logAction(state, 'New Sale', `ID: ${newSale.id}, Amt: ${newSale.totalAmount}`);
+        db.saveCollection('audit_logs', [newLog, ...state.audit_logs]);
+        return { ...state, sales: [...state.sales, newSale], audit_logs: [newLog, ...state.audit_logs], ...touch };
+
+    case 'UPDATE_SALE':
         const { oldSale, updatedSale } = action.payload;
-        const stockChanges = new Map<string, number>();
-        oldSale.items.forEach(item => stockChanges.set(item.productId, (stockChanges.get(item.productId) || 0) + item.quantity));
-        updatedSale.items.forEach(item => stockChanges.set(item.productId, (stockChanges.get(item.productId) || 0) - item.quantity));
-        const updatedProducts = state.products.map(p => {
-            if (stockChanges.has(p.id)) return { ...p, quantity: p.quantity + (stockChanges.get(p.id) || 0) };
+        
+        // 1. Revert stock for old items
+        const stockMap: Record<string, number> = {};
+        oldSale.items.forEach(item => {
+            stockMap[item.productId] = (stockMap[item.productId] || 0) + item.quantity;
+        });
+        
+        // 2. Deduct stock for new items
+        updatedSale.items.forEach(item => {
+            stockMap[item.productId] = (stockMap[item.productId] || 0) - item.quantity;
+        });
+
+        const adjustedProducts = state.products.map(p => {
+            if (stockMap[p.id] !== undefined) {
+                return { ...p, quantity: p.quantity + stockMap[p.id] };
+            }
             return p;
         });
-        const updatedSales = state.sales.map(s => s.id === updatedSale.id ? updatedSale : s);
-        return { ...state, sales: updatedSales, products: updatedProducts, ...touch };
-    }
-    case 'DELETE_SALE': {
-      const saleToDelete = state.sales.find(s => s.id === action.payload);
-      if (!saleToDelete) return state;
-      const stockChanges = new Map<string, number>();
-      saleToDelete.items.forEach(item => stockChanges.set(item.productId, (stockChanges.get(item.productId) || 0) + item.quantity));
-      let updatedProducts = state.products;
-      stockChanges.forEach((change, productId) => {
-        updatedProducts = updatedProducts.map(p => p.id === productId ? { ...p, quantity: p.quantity + change } : p);
-      });
-      return { ...state, sales: state.sales.filter(s => s.id !== action.payload), products: updatedProducts, ...touch };
-    }
+
+        const updatedSalesList = state.sales.map(s => s.id === updatedSale.id ? updatedSale : s);
+        
+        db.saveCollection('sales', updatedSalesList);
+        db.saveCollection('products', adjustedProducts);
+        newLog = logAction(state, 'Updated Sale', `ID: ${updatedSale.id}`);
+        db.saveCollection('audit_logs', [newLog, ...state.audit_logs]);
+
+        return { ...state, sales: updatedSalesList, products: adjustedProducts, audit_logs: [newLog, ...state.audit_logs], ...touch };
+
+    case 'DELETE_SALE':
+        const saleToDelete = state.sales.find(s => s.id === action.payload);
+        if (!saleToDelete) return state;
+
+        // Restore stock
+        const restoredProducts = state.products.map(p => {
+            const item = saleToDelete.items.find(i => i.productId === p.id);
+            return item ? { ...p, quantity: p.quantity + item.quantity } : p;
+        });
+
+        const filteredSales = state.sales.filter(s => s.id !== action.payload);
+        db.saveCollection('sales', filteredSales);
+        db.saveCollection('products', restoredProducts);
+        
+        newLog = logAction(state, 'Deleted Sale', `ID: ${action.payload}`);
+        db.saveCollection('audit_logs', [newLog, ...state.audit_logs]);
+
+        return { ...state, sales: filteredSales, products: restoredProducts, audit_logs: [newLog, ...state.audit_logs], ...touch };
+
+    case 'ADD_PAYMENT_TO_SALE':
+        const salesWithPayment = state.sales.map(s => 
+            s.id === action.payload.saleId 
+                ? { ...s, payments: [...(s.payments || []), action.payload.payment] } 
+                : s
+        );
+        db.saveCollection('sales', salesWithPayment);
+        return { ...state, sales: salesWithPayment, ...touch };
+
     case 'ADD_PURCHASE':
-      return { ...state, purchases: [...state.purchases, action.payload], ...touch };
-    case 'UPDATE_PURCHASE': {
-        const { oldPurchase, updatedPurchase } = action.payload;
-        let tempProducts = [...state.products];
-        const allProductIds = new Set([...oldPurchase.items.map(i => i.productId), ...updatedPurchase.items.map(i => i.productId)]);
-        allProductIds.forEach(productId => {
-            const oldItem = oldPurchase.items.find(i => i.productId === productId);
-            const newItem = updatedPurchase.items.find(i => i.productId === productId);
-            const existingProductIndex = tempProducts.findIndex(p => p.id === productId);
-            const oldQty = oldItem ? oldItem.quantity : 0;
-            const newQty = newItem ? newItem.quantity : 0;
-            const stockChange = newQty - oldQty;
-            if (existingProductIndex > -1) {
-                const updatedProduct = { ...tempProducts[existingProductIndex] };
-                updatedProduct.quantity += stockChange;
-                if (newItem) {
-                    updatedProduct.purchasePrice = newItem.price;
-                    updatedProduct.salePrice = newItem.saleValue;
-                    updatedProduct.gstPercent = newItem.gstPercent;
-                }
-                tempProducts[existingProductIndex] = updatedProduct;
-            } else if (newItem) {
-                tempProducts.push({ id: newItem.productId, name: newItem.productName, quantity: newItem.quantity, purchasePrice: newItem.price, salePrice: newItem.saleValue, gstPercent: newItem.gstPercent });
+        const newPurchase = action.payload;
+        // Update Product Stock (logic moved from products page to here for consistency)
+        // Note: ProductsPage might also dispatch ADD_PRODUCT, handled idempotently
+        const prodsAfterPurchase = state.products.map(p => {
+            const item = newPurchase.items.find(i => i.productId === p.id);
+            if (item) {
+                // Update quantity and costs
+                return { 
+                    ...p, 
+                    quantity: p.quantity + item.quantity,
+                    purchasePrice: item.price,
+                    salePrice: item.saleValue
+                };
+            }
+            return p;
+        });
+        
+        // Handle strictly new products that don't exist yet
+        newPurchase.items.forEach(item => {
+            if (!state.products.find(p => p.id === item.productId)) {
+                prodsAfterPurchase.push({
+                    id: item.productId,
+                    name: item.productName,
+                    quantity: item.quantity,
+                    purchasePrice: item.price,
+                    salePrice: item.saleValue,
+                    gstPercent: item.gstPercent,
+                });
             }
         });
-        const updatedProducts = tempProducts.map(p => ({ ...p, quantity: Math.max(0, p.quantity) }));
-        const updatedPurchases = state.purchases.map(p => p.id === updatedPurchase.id ? updatedPurchase : p);
-        return { ...state, purchases: updatedPurchases, products: updatedProducts, ...touch };
-    }
-    case 'DELETE_PURCHASE': {
-      const purchaseToDelete = state.purchases.find(p => p.id === action.payload);
-      if (!purchaseToDelete) return state;
-      const stockChanges = new Map<string, number>();
-      purchaseToDelete.items.forEach(item => {
-        const currentChange = stockChanges.get(item.productId) || 0;
-        stockChanges.set(item.productId, currentChange - item.quantity);
-      });
-      let updatedProducts = state.products;
-      stockChanges.forEach((change, productId) => {
-        updatedProducts = updatedProducts.map(p => p.id === productId ? { ...p, quantity: Math.max(0, p.quantity + change) } : p);
-      });
-      return { ...state, purchases: state.purchases.filter(p => p.id !== action.payload), products: updatedProducts, ...touch };
-    }
-    case 'ADD_RETURN': {
-      const returnPayload = action.payload;
-      const updatedProducts = state.products.map(product => {
-        const itemReturned = returnPayload.items.find(item => item.productId.trim().toLowerCase() === product.id.trim().toLowerCase());
-        if (itemReturned) {
-          const quantityChange = returnPayload.type === 'CUSTOMER' ? itemReturned.quantity : -itemReturned.quantity;
-          return { ...product, quantity: product.quantity + quantityChange };
-        }
-        return product;
-      });
-      const creditPayment: Payment = { id: `PAY-RET-${returnPayload.id}`, amount: returnPayload.amount, date: returnPayload.returnDate, method: 'RETURN_CREDIT' };
-      let updatedSales = state.sales;
-      let updatedPurchases = state.purchases;
-      if (returnPayload.type === 'CUSTOMER') {
-        updatedSales = state.sales.map(sale => sale.id === returnPayload.referenceId ? { ...sale, payments: [...(sale.payments || []), creditPayment] } : sale);
-      } else {
-        updatedPurchases = state.purchases.map(purchase => purchase.id === returnPayload.referenceId ? { ...purchase, payments: [...(purchase.payments || []), creditPayment] } : purchase);
-      }
-      return { ...state, products: updatedProducts, sales: updatedSales, purchases: updatedPurchases, returns: [...state.returns, returnPayload], ...touch };
-    }
-    case 'UPDATE_RETURN': {
-       const { oldReturn, updatedReturn } = action.payload;
-        const stockChanges = new Map<string, number>();
-        oldReturn.items.forEach(item => {
-            const change = oldReturn.type === 'CUSTOMER' ? -item.quantity : +item.quantity;
-            stockChanges.set(item.productId, (stockChanges.get(item.productId) || 0) + change);
+
+        db.saveCollection('purchases', [...state.purchases, newPurchase]);
+        db.saveCollection('products', prodsAfterPurchase);
+        newLog = logAction(state, 'New Purchase', `ID: ${newPurchase.id}, Amt: ${newPurchase.totalAmount}`);
+        db.saveCollection('audit_logs', [newLog, ...state.audit_logs]);
+
+        return { 
+            ...state, 
+            purchases: [...state.purchases, newPurchase], 
+            products: prodsAfterPurchase,
+            audit_logs: [newLog, ...state.audit_logs], 
+            ...touch 
+        };
+
+    case 'UPDATE_PURCHASE':
+        const { oldPurchase, updatedPurchase } = action.payload;
+        // Basic update - stock adjustments for edits are complex, assuming simple overwrite for now or handle manually
+        const updatedPurchasesList = state.purchases.map(p => p.id === updatedPurchase.id ? updatedPurchase : p);
+        db.saveCollection('purchases', updatedPurchasesList);
+        return { ...state, purchases: updatedPurchasesList, ...touch };
+
+    case 'DELETE_PURCHASE':
+        const purchaseToDelete = state.purchases.find(p => p.id === action.payload);
+        if (!purchaseToDelete) return state;
+        
+        // Reduce stock
+        const reducedProducts = state.products.map(p => {
+            const item = purchaseToDelete.items.find(i => i.productId === p.id);
+            // Ensure non-negative stock? Or allow negative to indicate error?
+            return item ? { ...p, quantity: Math.max(0, p.quantity - item.quantity) } : p;
         });
-        updatedReturn.items.forEach(item => {
-            const change = updatedReturn.type === 'CUSTOMER' ? +item.quantity : -item.quantity;
-            stockChanges.set(item.productId, (stockChanges.get(item.productId) || 0) + change);
-        });
-        const updatedProducts = state.products.map(p => {
-            if (stockChanges.has(p.id)) return { ...p, quantity: p.quantity + (stockChanges.get(p.id) || 0) };
-            return p;
-        });
-        let updatedSales = state.sales;
-        let updatedPurchases = state.purchases;
-        const creditPaymentId = `PAY-RET-${updatedReturn.id}`;
-        if (updatedReturn.type === 'CUSTOMER') {
-            updatedSales = updatedSales.map(sale => {
-                if (sale.id === updatedReturn.referenceId) {
-                    const updatedPayments = sale.payments.map(p => {
-                        if (p.id === creditPaymentId) return { ...p, amount: updatedReturn.amount, date: updatedReturn.returnDate };
-                        return p;
-                    });
-                    return { ...sale, payments: updatedPayments };
-                }
-                return sale;
-            });
-        } else { // SUPPLIER
-            updatedPurchases = updatedPurchases.map(purchase => {
-                if (purchase.id === updatedReturn.referenceId) {
-                    const updatedPayments = purchase.payments.map(p => {
-                        if (p.id === creditPaymentId) return { ...p, amount: updatedReturn.amount, date: updatedReturn.returnDate };
-                        return p;
-                    });
-                    return { ...purchase, payments: updatedPayments };
-                }
-                return purchase;
-            });
-        }
-        const updatedReturns = state.returns.map(r => r.id === updatedReturn.id ? updatedReturn : r);
-        return { ...state, products: updatedProducts, sales: updatedSales, purchases: updatedPurchases, returns: updatedReturns, ...touch };
-    }
-    case 'ADD_EXPENSE':
-      return { ...state, expenses: [...state.expenses, action.payload], ...touch };
-    case 'DELETE_EXPENSE':
-      return { ...state, expenses: state.expenses.filter(e => e.id !== action.payload), ...touch };
-    case 'ADD_QUOTE':
-        return { ...state, quotes: [...state.quotes, action.payload], ...touch };
-    case 'UPDATE_QUOTE':
-        return { ...state, quotes: state.quotes.map(q => q.id === action.payload.id ? action.payload : q), ...touch };
-    case 'DELETE_QUOTE':
-        return { ...state, quotes: state.quotes.filter(q => q.id !== action.payload), ...touch };
-    case 'ADD_CUSTOM_FONT':
-        return { ...state, customFonts: [...state.customFonts, action.payload], ...touch };
-    case 'REMOVE_CUSTOM_FONT':
-        return { ...state, customFonts: state.customFonts.filter(f => f.id !== action.payload), ...touch };
-    case 'ADD_PAYMENT_TO_SALE':
-      return { ...state, sales: state.sales.map(sale => sale.id === action.payload.saleId ? { ...sale, payments: [...(sale.payments || []), action.payload.payment] } : sale), ...touch };
+
+        const filteredPurchases = state.purchases.filter(p => p.id !== action.payload);
+        db.saveCollection('purchases', filteredPurchases);
+        db.saveCollection('products', reducedProducts);
+        newLog = logAction(state, 'Deleted Purchase', `ID: ${action.payload}`);
+        db.saveCollection('audit_logs', [newLog, ...state.audit_logs]);
+
+        return { ...state, purchases: filteredPurchases, products: reducedProducts, audit_logs: [newLog, ...state.audit_logs], ...touch };
+
     case 'ADD_PAYMENT_TO_PURCHASE':
-      return { ...state, purchases: state.purchases.map(purchase => purchase.id === action.payload.purchaseId ? { ...purchase, payments: [...(purchase.payments || []), action.payload.payment] } : purchase), ...touch };
+        const purchasesWithPayment = state.purchases.map(p => 
+            p.id === action.payload.purchaseId 
+                ? { ...p, payments: [...(p.payments || []), action.payload.payment] } 
+                : p
+        );
+        db.saveCollection('purchases', purchasesWithPayment);
+        return { ...state, purchases: purchasesWithPayment, ...touch };
+
+    case 'ADD_RETURN':
+        const newReturn = action.payload;
+        // Adjust Stock based on Return Type
+        let stockAdjProducts = [...state.products];
+        if (newReturn.type === 'CUSTOMER') {
+            // Customer returned item -> Increase Stock
+            stockAdjProducts = state.products.map(p => {
+                const item = newReturn.items.find(i => i.productId === p.id);
+                return item ? { ...p, quantity: p.quantity + item.quantity } : p;
+            });
+        } else {
+            // Returned to Supplier -> Decrease Stock
+            stockAdjProducts = state.products.map(p => {
+                const item = newReturn.items.find(i => i.productId === p.id);
+                return item ? { ...p, quantity: Math.max(0, p.quantity - item.quantity) } : p;
+            });
+        }
+        
+        db.saveCollection('returns', [...state.returns, newReturn]);
+        db.saveCollection('products', stockAdjProducts);
+        newLog = logAction(state, 'Return Processed', `Type: ${newReturn.type}, ID: ${newReturn.id}`);
+        db.saveCollection('audit_logs', [newLog, ...state.audit_logs]);
+
+        return { ...state, returns: [...state.returns, newReturn], products: stockAdjProducts, audit_logs: [newLog, ...state.audit_logs], ...touch };
+
+    case 'UPDATE_RETURN':
+        // Complex to handle stock reversion, implementing simple replace for now
+        const updatedReturns = state.returns.map(r => r.id === action.payload.updatedReturn.id ? action.payload.updatedReturn : r);
+        db.saveCollection('returns', updatedReturns);
+        return { ...state, returns: updatedReturns, ...touch };
+
+    case 'ADD_EXPENSE':
+        const newExpense = action.payload;
+        db.saveCollection('expenses', [...state.expenses, newExpense]);
+        return { ...state, expenses: [...state.expenses, newExpense], ...touch };
+
+    case 'DELETE_EXPENSE':
+        const filteredExpenses = state.expenses.filter(e => e.id !== action.payload);
+        db.saveCollection('expenses', filteredExpenses);
+        return { ...state, expenses: filteredExpenses, ...touch };
+
+    case 'ADD_QUOTE':
+        const newQuote = action.payload;
+        db.saveCollection('quotes', [...state.quotes, newQuote]);
+        return { ...state, quotes: [...state.quotes, newQuote], ...touch };
+
+    case 'UPDATE_QUOTE':
+        const updatedQuotes = state.quotes.map(q => q.id === action.payload.id ? action.payload : q);
+        db.saveCollection('quotes', updatedQuotes);
+        return { ...state, quotes: updatedQuotes, ...touch };
+
+    case 'DELETE_QUOTE':
+        const filteredQuotes = state.quotes.filter(q => q.id !== action.payload);
+        db.saveCollection('quotes', filteredQuotes);
+        return { ...state, quotes: filteredQuotes, ...touch };
+
+    case 'ADD_NOTIFICATION':
+        const newNotif = action.payload;
+        db.saveCollection('notifications', [newNotif, ...state.notifications]);
+        return { ...state, notifications: [newNotif, ...state.notifications] };
+
+    case 'MARK_NOTIFICATION_AS_READ':
+        const updatedNotifs = state.notifications.map(n => n.id === action.payload ? { ...n, read: true } : n);
+        db.saveCollection('notifications', updatedNotifs);
+        return { ...state, notifications: updatedNotifs };
+
+    case 'SET_PROFILE':
+        db.saveCollection('profile', [action.payload]);
+        return { ...state, profile: action.payload, ...touch };
+
+    case 'SET_THEME':
+        return { ...state, theme: action.payload };
+    case 'SET_THEME_COLOR':
+        return { ...state, themeColor: action.payload };
+    case 'SET_THEME_GRADIENT':
+        return { ...state, themeGradient: action.payload };
+
+    case 'SET_PIN':
+        const pinMeta: AppMetadata = { id: 'securityPin', pin: action.payload };
+        db.saveCollection('app_metadata', [...state.app_metadata.filter(m => m.id !== 'securityPin'), pinMeta]);
+        return { ...state, pin: action.payload };
+
+    case 'SET_SELECTION':
+        return { ...state, selection: action.payload };
+    case 'CLEAR_SELECTION':
+        return { ...state, selection: null };
+
     case 'SHOW_TOAST':
         return { ...state, toast: { message: action.payload.message, show: true, type: action.payload.type || 'info' } };
     case 'HIDE_TOAST':
         return { ...state, toast: { ...state.toast, show: false } };
-    case 'SET_LAST_BACKUP_DATE':
-      const otherMeta = state.app_metadata.filter(m => m.id !== 'lastBackup');
-      return { ...state, app_metadata: [...otherMeta, { id: 'lastBackup', date: action.payload }], ...touch };
-    case 'SET_SELECTION':
-      return { ...state, selection: action.payload };
-    case 'CLEAR_SELECTION':
-      return { ...state, selection: null };
+
     case 'SET_INSTALL_PROMPT_EVENT':
-      return { ...state, installPromptEvent: action.payload };
-    case 'ADD_NOTIFICATION':
-      if (state.notifications.some(n => n.id === action.payload.id)) return state;
-      return { ...state, notifications: [action.payload, ...state.notifications] };
-    case 'MARK_NOTIFICATION_AS_READ':
-      return { ...state, notifications: state.notifications.map(n => n.id === action.payload ? { ...n, read: true } : n) };
-    case 'MARK_ALL_NOTIFICATIONS_AS_READ':
-      return { ...state, notifications: state.notifications.map(n => ({ ...n, read: true })) };
-    case 'CLEANUP_OLD_DATA':
-        const cutoffDate = new Date();
-        cutoffDate.setDate(cutoffDate.getDate() - 30); // 30 days retention for non-essential logs
-        return {
-            ...state,
-            notifications: state.notifications.filter(n => !n.read || new Date(n.createdAt) > cutoffDate),
-            audit_logs: state.audit_logs.filter(log => new Date(log.timestamp) > cutoffDate),
-            ...touch
-        };
+        return { ...state, installPromptEvent: action.payload };
+
     case 'SET_GOOGLE_USER':
-      return { ...state, googleUser: action.payload };
+        return { ...state, googleUser: action.payload };
     case 'SET_SYNC_STATUS':
-      return { ...state, syncStatus: action.payload };
+        return { ...state, syncStatus: action.payload };
     case 'SET_LAST_SYNC_TIME':
-      return { ...state, lastSyncTime: action.payload };
-    case 'ADD_AUDIT_LOG':
-      return { ...state, audit_logs: [action.payload, ...state.audit_logs] };
+        return { ...state, lastSyncTime: action.payload };
+    
+    case 'SET_LAST_BACKUP_DATE':
+        const newMeta: AppMetadata[] = state.app_metadata.filter(m => m.id !== 'lastBackup');
+        newMeta.push({ id: 'lastBackup', date: action.payload });
+        db.saveCollection('app_metadata', newMeta);
+        return { ...state, app_metadata: newMeta };
+
+    case 'ADD_CUSTOM_FONT':
+        const newFonts = [...state.customFonts, action.payload];
+        db.saveCollection('custom_fonts', newFonts);
+        return { ...state, customFonts: newFonts };
+    
+    case 'REMOVE_CUSTOM_FONT':
+        const filteredFonts = state.customFonts.filter(f => f.id !== action.payload);
+        db.saveCollection('custom_fonts', filteredFonts);
+        return { ...state, customFonts: filteredFonts };
+
+    case 'SET_DOCUMENT_TEMPLATE':
+        const { type, config } = action.payload;
+        // In a real app, you might save this to specific stores or a single config store
+        // For now, we update state and maybe persist to app_metadata or separate store
+        const tmplKey = type === 'INVOICE' ? 'invoiceTemplate' : 
+                        type === 'ESTIMATE' ? 'estimateTemplate' :
+                        type === 'DEBIT_NOTE' ? 'debitNoteTemplate' :
+                        type === 'RECEIPT' ? 'receiptTemplate' : 'reportTemplate';
+        
+        // Persist to app_metadata for simplicity in this implementation
+        const templateMeta: AppMetadata = { ...config, id: `${tmplKey}Config` as any };
+        const otherMeta = state.app_metadata.filter(m => m.id !== templateMeta.id);
+        db.saveCollection('app_metadata', [...otherMeta, templateMeta]);
+        
+        return { ...state, [tmplKey]: config, app_metadata: [...otherMeta, templateMeta] };
+
+    case 'UPDATE_INVOICE_SETTINGS':
+        const invSettings: AppMetadataInvoiceSettings = { id: 'invoiceSettings', ...action.payload };
+        const metaWithoutSettings = state.app_metadata.filter(m => m.id !== 'invoiceSettings');
+        db.saveCollection('app_metadata', [...metaWithoutSettings, invSettings]);
+        return { ...state, invoiceSettings: invSettings, app_metadata: [...metaWithoutSettings, invSettings] };
+
+    case 'TOGGLE_PERFORMANCE_MODE':
+        return { ...state, performanceMode: !state.performanceMode };
+
+    case 'CLEANUP_OLD_DATA':
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        
+        const cleanNotifs = state.notifications.filter(n => new Date(n.createdAt) > thirtyDaysAgo);
+        const cleanLogs = state.audit_logs.filter(l => new Date(l.timestamp) > thirtyDaysAgo);
+        
+        db.saveCollection('notifications', cleanNotifs);
+        db.saveCollection('audit_logs', cleanLogs);
+        
+        return { ...state, notifications: cleanNotifs, audit_logs: cleanLogs };
+
+    case 'REPLACE_COLLECTION':
+        // Handle bulk import
+        const { storeName, data } = action.payload;
+        if (storeName && data) {
+            db.saveCollection(storeName, data);
+            return { ...state, [storeName]: data, ...touch };
+        }
+        return state;
+
     default:
-      return state;
+        return state;
   }
 };
 
 const AppContext = createContext<{
   state: AppState;
-  dispatch: React.Dispatch<Action>;
+  dispatch: React.Dispatch<any>;
   isDbLoaded: boolean;
   showToast: (message: string, type?: 'success' | 'info' | 'error') => void;
   googleSignIn: (options?: { forceConsent?: boolean }) => void;
@@ -762,229 +524,152 @@ const AppContext = createContext<{
 } | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [state, dispatch] = useReducer(appReducer, initialState);
-  const [isDbLoaded, setIsDbLoaded] = useState(false);
-  const tokenClient = useRef<any>(null);
+    const [state, dispatch] = useReducer(appReducer, initialState);
+    const [isDbLoaded, setIsDbLoaded] = useState(false);
 
-  const showToast = (message: string, type: 'success' | 'info' | 'error' = 'info') => {
-    dispatch({ type: 'SHOW_TOAST', payload: { message, type } });
-    setTimeout(() => dispatch({ type: 'HIDE_TOAST' }), 3000);
-  };
-
-  // Load Data from DB
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        // Load all stores
-        const [
-            customers, suppliers, products, sales, purchases, returns, expenses, quotes, customFonts, app_metadata, notifications, profile, audit_logs
-        ] = await Promise.all([
-            db.getAll('customers'), db.getAll('suppliers'), db.getAll('products'), db.getAll('sales'), 
-            db.getAll('purchases'), db.getAll('returns'), db.getAll('expenses'), db.getAll('quotes'), db.getAll('custom_fonts'),
-            db.getAll('app_metadata'), db.getAll('notifications'), db.getAll('profile'), db.getAll('audit_logs')
-        ]);
-
-        let payload: Partial<AppState> = {
-            customers, suppliers, products, sales, purchases, returns, expenses, quotes, customFonts, app_metadata, notifications, audit_logs,
-            profile: profile[0] || null
-        };
-
-        // Extract settings from metadata
-        const pinMeta = app_metadata.find(m => m.id === 'securityPin') as AppMetadataPin | undefined;
-        const themeMeta = app_metadata.find(m => m.id === 'themeSettings') as AppMetadataTheme | undefined;
-        const invoiceSettingsMeta = app_metadata.find(m => m.id === 'invoiceSettings') as AppMetadataInvoiceSettings | undefined;
-        
-        const invoiceConfig = app_metadata.find(m => m.id === 'invoiceTemplateConfig') as InvoiceTemplateConfig | undefined;
-        const estimateConfig = app_metadata.find(m => m.id === 'estimateTemplateConfig') as InvoiceTemplateConfig | undefined;
-        const debitNoteConfig = app_metadata.find(m => m.id === 'debitNoteTemplateConfig') as InvoiceTemplateConfig | undefined;
-        const receiptConfig = app_metadata.find(m => m.id === 'receiptTemplateConfig') as InvoiceTemplateConfig | undefined;
-        const reportConfig = app_metadata.find(m => m.id === 'reportTemplateConfig') as InvoiceTemplateConfig | undefined;
-
-        if (pinMeta) payload.pin = pinMeta.pin;
-        if (themeMeta) {
-            payload.theme = themeMeta.theme;
-            payload.themeColor = themeMeta.color;
-            payload.themeGradient = themeMeta.gradient;
-        }
-        if (invoiceSettingsMeta) payload.invoiceSettings = invoiceSettingsMeta;
-        
-        if (invoiceConfig) payload.invoiceTemplate = mergeTemplate(defaultInvoiceTemplate, invoiceConfig);
-        if (estimateConfig) payload.estimateTemplate = mergeTemplate(defaultEstimateTemplate, estimateConfig);
-        if (debitNoteConfig) payload.debitNoteTemplate = mergeTemplate(defaultDebitNoteTemplate, debitNoteConfig);
-        if (receiptConfig) payload.receiptTemplate = mergeTemplate(defaultReceiptTemplate, receiptConfig);
-        if (reportConfig) payload.reportTemplate = mergeTemplate(defaultReportTemplate, reportConfig);
-
-        dispatch({ type: 'SET_STATE', payload });
-        setIsDbLoaded(true);
-      } catch (e) {
-        console.error("DB Load Error:", e);
-        showToast("Error loading data.", 'error');
-        setIsDbLoaded(true); // Still let app load to avoid blank screen
-      }
+    // --- Toast Logic ---
+    const showToast = (message: string, type: 'success' | 'info' | 'error' = 'info') => {
+        dispatch({ type: 'SHOW_TOAST', payload: { message, type } });
+        setTimeout(() => dispatch({ type: 'HIDE_TOAST' }), 3000);
     };
-    loadData();
-  }, []);
 
-  // Persist changes to IndexedDB
-  useEffect(() => { if (isDbLoaded) db.saveCollection('customers', state.customers); }, [state.customers, isDbLoaded]);
-  useEffect(() => { if (isDbLoaded) db.saveCollection('suppliers', state.suppliers); }, [state.suppliers, isDbLoaded]);
-  useEffect(() => { if (isDbLoaded) db.saveCollection('products', state.products); }, [state.products, isDbLoaded]);
-  useEffect(() => { if (isDbLoaded) db.saveCollection('sales', state.sales); }, [state.sales, isDbLoaded]);
-  useEffect(() => { if (isDbLoaded) db.saveCollection('purchases', state.purchases); }, [state.purchases, isDbLoaded]);
-  useEffect(() => { if (isDbLoaded) db.saveCollection('returns', state.returns); }, [state.returns, isDbLoaded]);
-  useEffect(() => { if (isDbLoaded) db.saveCollection('expenses', state.expenses); }, [state.expenses, isDbLoaded]);
-  useEffect(() => { if (isDbLoaded) db.saveCollection('quotes', state.quotes); }, [state.quotes, isDbLoaded]);
-  useEffect(() => { if (isDbLoaded) db.saveCollection('custom_fonts', state.customFonts); }, [state.customFonts, isDbLoaded]);
-  useEffect(() => { if (isDbLoaded) db.saveCollection('notifications', state.notifications); }, [state.notifications, isDbLoaded]);
-  useEffect(() => { if (isDbLoaded) db.saveCollection('audit_logs', state.audit_logs); }, [state.audit_logs, isDbLoaded]);
-  
-  useEffect(() => { 
-      if (isDbLoaded) {
-          db.saveCollection('app_metadata', state.app_metadata);
-      }
-  }, [state.app_metadata, isDbLoaded]);
+    // --- Load Data from IDB on Mount ---
+    useEffect(() => {
+        const loadData = async () => {
+            const customers = await db.getAll('customers');
+            const suppliers = await db.getAll('suppliers');
+            const products = await db.getAll('products');
+            const sales = await db.getAll('sales');
+            const purchases = await db.getAll('purchases');
+            const returns = await db.getAll('returns');
+            const expenses = await db.getAll('expenses');
+            const quotes = await db.getAll('quotes');
+            const customFonts = await db.getAll('custom_fonts');
+            const app_metadata = await db.getAll('app_metadata');
+            const notifications = await db.getAll('notifications');
+            const profileData = await db.getAll('profile');
+            const audit_logs = await db.getAll('audit_logs');
 
-  useEffect(() => {
-      if (isDbLoaded && state.profile) {
-          db.saveCollection('profile', [state.profile]);
-      }
-  }, [state.profile, isDbLoaded]);
+            // Parse Metadata
+            const pinMeta = app_metadata.find(m => m.id === 'securityPin') as any;
+            const pin = pinMeta ? pinMeta.pin : null;
+            
+            const invSettings = app_metadata.find(m => m.id === 'invoiceSettings') as AppMetadataInvoiceSettings;
 
-  // Google Auth & Sync Logic (Kept as is)
-  const googleSignIn = (options?: { forceConsent?: boolean }) => {
-      loadGoogleScript().then(() => {
-          if (!tokenClient.current) {
-              tokenClient.current = initGoogleAuth((response) => {
-                  if (response.access_token) {
-                      getUserInfo(response.access_token).then(user => {
-                          const googleUser = { ...user, accessToken: response.access_token };
-                          dispatch({ type: 'SET_GOOGLE_USER', payload: googleUser });
-                          localStorage.setItem('googleUser', JSON.stringify(googleUser));
-                          showToast(`Signed in as ${user.name}`, 'success');
-                          syncData();
-                      });
-                  }
-              });
-          }
-          
-          if (options?.forceConsent) {
-              tokenClient.current.requestAccessToken({ prompt: 'consent' });
-          } else {
-              tokenClient.current.requestAccessToken();
-          }
-      }).catch(err => {
-          console.error("Failed to load Google Script", err);
-          showToast("Failed to load Google Auth.", 'error');
-      });
-  };
+            // Load Templates from Metadata or default to testData values
+            const invoiceTemplate = (app_metadata.find(m => m.id === 'invoiceTemplateConfig') as InvoiceTemplateConfig) || initialState.invoiceTemplate;
+            const estimateTemplate = (app_metadata.find(m => m.id === 'estimateTemplateConfig') as InvoiceTemplateConfig) || initialState.estimateTemplate;
+            const debitNoteTemplate = (app_metadata.find(m => m.id === 'debitNoteTemplateConfig') as InvoiceTemplateConfig) || initialState.debitNoteTemplate;
+            const receiptTemplate = (app_metadata.find(m => m.id === 'receiptTemplateConfig') as InvoiceTemplateConfig) || initialState.receiptTemplate;
+            const reportTemplate = (app_metadata.find(m => m.id === 'reportTemplateConfig') as InvoiceTemplateConfig) || initialState.reportTemplate;
 
-  const googleSignOut = () => {
-      dispatch({ type: 'SET_GOOGLE_USER', payload: null });
-      dispatch({ type: 'SET_SYNC_STATUS', payload: 'idle' });
-      localStorage.removeItem('googleUser');
-      showToast("Signed out.", 'info');
-  };
+            dispatch({
+                type: 'SET_STATE',
+                payload: {
+                    customers, suppliers, products, sales, purchases, returns, expenses, quotes, customFonts,
+                    app_metadata, notifications, audit_logs,
+                    profile: profileData[0] || null,
+                    pin,
+                    invoiceSettings: invSettings,
+                    invoiceTemplate, estimateTemplate, debitNoteTemplate, receiptTemplate, reportTemplate
+                }
+            });
+            setIsDbLoaded(true);
+        };
+        loadData();
+    }, []);
 
-  const syncData = async () => {
-      if (!state.googleUser?.accessToken) {
-          showToast("Please sign in to sync.", 'error');
-          return;
-      }
+    // --- Google Drive Sync Logic ---
+    const handleGoogleLoginResponse = async (response: any) => {
+        if (response.access_token) {
+            const userInfo = await getUserInfo(response.access_token);
+            const user: GoogleUser = {
+                name: userInfo.name,
+                email: userInfo.email,
+                picture: userInfo.picture,
+                accessToken: response.access_token
+            };
+            dispatch({ type: 'SET_GOOGLE_USER', payload: user });
+            // Optionally auto-sync on login?
+            // syncData(user.accessToken); 
+        }
+    };
 
-      dispatch({ type: 'SET_SYNC_STATUS', payload: 'syncing' });
-      
-      try {
-          // 1. READ: Fetch latest data from Drive first
-          const remoteData = await DriveService.read(state.googleUser.accessToken);
-          
-          // 2. MERGE: If remote data exists, import it into local DB (Merge Mode)
-          if (remoteData) {
-              console.log("Found remote backup. Merging with local data...");
-              await db.importData(remoteData, true); // true = Merge, do not overwrite/clear
-          }
+    const googleSignIn = (options?: { forceConsent?: boolean }) => {
+        loadGoogleScript().then(() => {
+            const client = initGoogleAuth(handleGoogleLoginResponse);
+            if (options?.forceConsent) {
+                // @ts-ignore
+                client.requestAccessToken({ prompt: 'consent' });
+            } else {
+                client.requestAccessToken();
+            }
+        });
+    };
 
-          // 3. REFRESH: Read fully merged data from Local DB to update State & prepare Upload
-          const [
-              cust, supp, prod, sale, pur, ret, exp, quot, font, meta, notif, prof, logs
-          ] = await Promise.all([
-              db.getAll('customers'), db.getAll('suppliers'), db.getAll('products'), db.getAll('sales'), 
-              db.getAll('purchases'), db.getAll('returns'), db.getAll('expenses'), db.getAll('quotes'), db.getAll('custom_fonts'),
-              db.getAll('app_metadata'), db.getAll('notifications'), db.getAll('profile'), db.getAll('audit_logs')
-          ]);
+    const googleSignOut = () => {
+        const token = state.googleUser?.accessToken;
+        if (token && (window as any).google) {
+            (window as any).google.accounts.oauth2.revoke(token, () => {
+                console.log('Access token revoked');
+            });
+        }
+        dispatch({ type: 'SET_GOOGLE_USER', payload: null });
+        dispatch({ type: 'SET_SYNC_STATUS', payload: 'idle' });
+    };
 
-          // Update App State to reflect merged data on UI
-          const mergedStatePayload: Partial<AppState> = {
-              customers: cust, suppliers: supp, products: prod, sales: sale,
-              purchases: pur, returns: ret, expenses: exp, quotes: quot,
-              customFonts: font, app_metadata: meta, notifications: notif,
-              profile: prof[0] || null, audit_logs: logs
-          };
-          dispatch({ type: 'SET_STATE', payload: mergedStatePayload });
+    const syncData = async () => {
+        if (!state.googleUser?.accessToken) {
+            showToast("Please sign in to Google first.", 'info');
+            return;
+        }
 
-          // 4. WRITE: Prepare full payload for upload
-          // Filter out transient state
-          const { toast, selection, installPromptEvent, googleUser, syncStatus, lastSyncTime, devMode, restoreFromFileId, ...currentState } = state;
-          
-          const backupData = {
-              ...currentState,
-              ...mergedStatePayload, // Use the fresh merged data
-              lastLocalUpdate: Date.now()
-          };
-          
-          // Upload the unified dataset
-          await DriveService.write(state.googleUser.accessToken, backupData);
-          
-          dispatch({ type: 'SET_SYNC_STATUS', payload: 'success' });
-          const now = Date.now();
-          dispatch({ type: 'SET_LAST_SYNC_TIME', payload: now });
-          localStorage.setItem('lastSyncTime', now.toString());
-          
-          if (remoteData) {
-              showToast("Sync complete (Merged with cloud).", 'success');
-          } else {
-              showToast("Sync complete (Backup created).", 'success');
-          }
+        dispatch({ type: 'SET_SYNC_STATUS', payload: 'syncing' });
+        try {
+            // 1. Export local data
+            const localData = await db.exportData();
+            
+            // 2. Read remote data (Backup strategy: We treat Drive as "Backup" mostly, but could merge)
+            // For this app, let's implement a simple "Backup to Cloud" logic. 
+            // Real 2-way sync is complex. Let's do: Write Local -> Cloud (Backup).
+            
+            await DriveService.write(state.googleUser.accessToken, localData);
+            
+            dispatch({ type: 'SET_SYNC_STATUS', payload: 'success' });
+            dispatch({ type: 'SET_LAST_SYNC_TIME', payload: Date.now() });
+            showToast("Cloud Backup Successful!", 'success');
+        } catch (error) {
+            console.error("Sync failed:", error);
+            dispatch({ type: 'SET_SYNC_STATUS', payload: 'error' });
+            showToast("Cloud Sync Failed.", 'error');
+        }
+    };
+    
+    // Exposed function for manual restore from Debug Modal
+    const restoreFromFileId = async (fileId: string) => {
+        if (!state.googleUser?.accessToken) return;
+        try {
+            const data = await downloadFile(state.googleUser.accessToken, fileId);
+            if (data) {
+                await db.importData(data);
+                window.location.reload();
+            }
+        } catch(e) {
+            console.error("Restore error", e);
+            throw e;
+        }
+    };
 
-      } catch (e: any) {
-          console.error("Sync Error:", e);
-          dispatch({ type: 'SET_SYNC_STATUS', payload: 'error' });
-          
-          if (e.message && (e.message.includes('401') || e.message.includes('403'))) {
-              showToast("Session expired. Please sign in again.", 'error');
-              googleSignOut();
-          } else {
-              showToast("Sync failed. Check connection.", 'error');
-          }
-      }
-  };
-  
-  const restoreFromFileId = async (fileId: string) => {
-      if (!state.googleUser?.accessToken) return;
-      try {
-          const data = await downloadFile(state.googleUser.accessToken, fileId);
-          if (data) {
-              await db.importData(data);
-              window.location.reload();
-          }
-      } catch (e) {
-          console.error("Restore error", e);
-          showToast("Restore failed.", 'error');
-      }
-  };
+    // Inject restore function into state for easy access in modals
+    useEffect(() => {
+        dispatch({ type: 'SET_STATE', payload: { restoreFromFileId } });
+    }, [state.googleUser]); // Re-bind when user changes
 
-  return (
-    <AppContext.Provider value={{ 
-        state: { ...state, restoreFromFileId }, 
-        dispatch, 
-        isDbLoaded,
-        showToast,
-        googleSignIn,
-        googleSignOut,
-        syncData
-    }}>
-      {children}
-    </AppContext.Provider>
-  );
+    return (
+        <AppContext.Provider value={{ state: state as any, dispatch, isDbLoaded, showToast, googleSignIn, googleSignOut, syncData }}>
+            {children}
+        </AppContext.Provider>
+    );
 };
 
 export const useAppContext = () => {
