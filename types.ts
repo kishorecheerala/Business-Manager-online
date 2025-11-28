@@ -6,6 +6,8 @@
 
 
 
+
+
 import { ReactNode } from "react";
 
 export type Page = 'DASHBOARD' | 'CUSTOMERS' | 'SALES' | 'PURCHASES' | 'REPORTS' | 'RETURNS' | 'PRODUCTS' | 'INSIGHTS' | 'EXPENSES' | 'QUOTATIONS' | 'INVOICE_DESIGNER' | 'SYSTEM_OPTIMIZER';
@@ -67,13 +69,15 @@ export interface ProductBatch {
 export interface Product {
   id: string; // QR code or manual entry
   name: string;
-  category?: string; // New field for categorization
+  description?: string; // New field for sharing/details
+  category?: string; 
   quantity: number;
   purchasePrice: number;
   salePrice: number;
   gstPercent: number;
-  image?: string; // Base64 encoded image
-  batches?: ProductBatch[]; // New: Batch tracking
+  image?: string; // Base64 encoded image (Main)
+  additionalImages?: string[]; // New: Multiple images
+  batches?: ProductBatch[]; 
 }
 
 export interface SaleItem {
