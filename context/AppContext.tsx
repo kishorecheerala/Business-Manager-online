@@ -1,6 +1,10 @@
 
+
+
+
+
 import React, { createContext, useReducer, useContext, useEffect, ReactNode, useState } from 'react';
-import { Customer, Supplier, Product, Sale, Purchase, Return, BeforeInstallPromptEvent, Notification, ProfileData, Page, AppMetadata, Theme, GoogleUser, AuditLogEntry, SyncStatus, Expense, Quote, AppMetadataInvoiceSettings, InvoiceTemplateConfig, CustomFont, PurchaseItem } from '../types';
+import { Customer, Supplier, Product, Sale, Purchase, Return, BeforeInstallPromptEvent, Notification, ProfileData, Page, AppMetadata, Theme, GoogleUser, AuditLogEntry, SyncStatus, Expense, Quote, AppMetadataInvoiceSettings, InvoiceTemplateConfig, CustomFont, PurchaseItem, AppMetadataNavOrder } from '../types';
 import * as db from '../utils/db';
 import { StoreName } from '../utils/db';
 import { DriveService, initGoogleAuth, getUserInfo, loadGoogleScript, downloadFile } from '../utils/googleDrive';
@@ -44,6 +48,7 @@ export interface AppState {
   lastLocalUpdate: number;
   devMode: boolean;
   performanceMode: boolean;
+  navOrder: string[]; // List of page IDs in order
   restoreFromFileId?: (fileId: string) => Promise<void>;
 }
 
@@ -91,6 +96,7 @@ type Action =
   | { type: 'REMOVE_CUSTOM_FONT'; payload: string }
   | { type: 'SET_DOCUMENT_TEMPLATE'; payload: { type: string; config: InvoiceTemplateConfig } }
   | { type: 'UPDATE_INVOICE_SETTINGS'; payload: AppMetadataInvoiceSettings }
+  | { type: 'UPDATE_NAV_ORDER'; payload: string[] }
   | { type: 'TOGGLE_PERFORMANCE_MODE' }
   | { type: 'CLEANUP_OLD_DATA' }
   | { type: 'REPLACE_COLLECTION'; payload: { storeName: StoreName; data: any[] } };
@@ -105,6 +111,11 @@ const DEFAULT_TEMPLATE: InvoiceTemplateConfig = {
     layout: { margin: 10, logoSize: 25, logoPosition: 'center', logoOffsetX: 0, logoOffsetY: 0, headerAlignment: 'center', headerStyle: 'standard', footerStyle: 'standard', showWatermark: false, watermarkOpacity: 0.1, tableOptions: { hideQty: false, hideRate: false, stripedRows: false, bordered: false, compact: false } },
     content: { titleText: 'TAX INVOICE', showTerms: true, showQr: true, termsText: '', footerText: 'Thank you!', showBusinessDetails: true, showCustomerDetails: true, showSignature: true, showAmountInWords: false, showStatusStamp: false, showTaxBreakdown: false, showGst: true }
 };
+
+const DEFAULT_NAV_ORDER = [
+    'DASHBOARD', 'CUSTOMERS', 'SALES', 'PURCHASES', 
+    'INSIGHTS', 'REPORTS', 'PRODUCTS', 'EXPENSES', 'RETURNS', 'QUOTATIONS', 'INVOICE_DESIGNER', 'SYSTEM_OPTIMIZER'
+];
 
 const initialState: AppState = {
     customers: [],
@@ -138,6 +149,7 @@ const initialState: AppState = {
     lastLocalUpdate: 0,
     devMode: false,
     performanceMode: false,
+    navOrder: DEFAULT_NAV_ORDER
 };
 
 // Logging helper
@@ -495,6 +507,12 @@ const appReducer = (state: AppState, action: Action): AppState => {
         db.saveCollection('app_metadata', [...metaWithoutSettings, invSettings]);
         return { ...state, invoiceSettings: invSettings, app_metadata: [...metaWithoutSettings, invSettings] };
 
+    case 'UPDATE_NAV_ORDER':
+        const navOrderMeta: AppMetadataNavOrder = { id: 'navOrder', order: action.payload };
+        const metaWithoutNav = state.app_metadata.filter(m => m.id !== 'navOrder');
+        db.saveCollection('app_metadata', [...metaWithoutNav, navOrderMeta]);
+        return { ...state, navOrder: action.payload, app_metadata: [...metaWithoutNav, navOrderMeta] };
+
     case 'TOGGLE_PERFORMANCE_MODE':
         return { ...state, performanceMode: !state.performanceMode };
 
@@ -566,6 +584,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             const pin = pinMeta ? pinMeta.pin : null;
             
             const invSettings = app_metadata.find(m => m.id === 'invoiceSettings') as AppMetadataInvoiceSettings;
+            const navOrderMeta = app_metadata.find(m => m.id === 'navOrder') as AppMetadataNavOrder;
 
             // Load Templates from Metadata or default to DEFAULT_TEMPLATE values if missing
             const invoiceTemplate = (app_metadata.find(m => m.id === 'invoiceTemplateConfig') as InvoiceTemplateConfig) || initialState.invoiceTemplate;
@@ -582,6 +601,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     profile: profileData[0] || null,
                     pin,
                     invoiceSettings: invSettings,
+                    navOrder: navOrderMeta ? navOrderMeta.order : DEFAULT_NAV_ORDER,
                     invoiceTemplate, estimateTemplate, debitNoteTemplate, receiptTemplate, reportTemplate
                 }
             });

@@ -1,6 +1,4 @@
 
-
-
 import { AppState } from '../context/AppContext';
 import { ProfileData, Customer, Supplier, Product, Purchase, Sale, Return, Expense } from '../types';
 
@@ -121,6 +119,11 @@ export const testData: Omit<AppState, 'toast' | 'selection' | 'installPromptEven
   lastSyncTime: null,
   devMode: false,
   performanceMode: false,
+  navOrder: [
+    'DASHBOARD', 'CUSTOMERS', 'SALES', 'PURCHASES', 
+    'INSIGHTS', 'REPORTS', 'PRODUCTS', 'EXPENSES', 
+    'RETURNS', 'QUOTATIONS', 'INVOICE_DESIGNER', 'SYSTEM_OPTIMIZER'
+  ],
   invoiceTemplate: {
     id: 'invoiceTemplateConfig',
     currencySymbol: '₹',

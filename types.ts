@@ -8,6 +8,10 @@
 
 
 
+
+
+
+
 import { ReactNode } from "react";
 
 export type Page = 'DASHBOARD' | 'CUSTOMERS' | 'SALES' | 'PURCHASES' | 'REPORTS' | 'RETURNS' | 'PRODUCTS' | 'INSIGHTS' | 'EXPENSES' | 'QUOTATIONS' | 'INVOICE_DESIGNER' | 'SYSTEM_OPTIMIZER';
@@ -338,7 +342,12 @@ export interface AppMetadataInvoiceSettings {
   showQr: boolean;
 }
 
-export type AppMetadata = AppMetadataPin | AppMetadataBackup | AppMetadataRevenueGoal | AppMetadataLastModified | AppMetadataTheme | AppMetadataInvoiceSettings | InvoiceTemplateConfig;
+export interface AppMetadataNavOrder {
+  id: 'navOrder';
+  order: string[]; // List of Page strings
+}
+
+export type AppMetadata = AppMetadataPin | AppMetadataBackup | AppMetadataRevenueGoal | AppMetadataLastModified | AppMetadataTheme | AppMetadataInvoiceSettings | AppMetadataNavOrder | InvoiceTemplateConfig;
 
 export interface Snapshot {
   id: string;

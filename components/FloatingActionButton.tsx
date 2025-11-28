@@ -1,6 +1,5 @@
-
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, X, UserPlus, ShoppingCart, PackagePlus, Undo2, FileText } from 'lucide-react';
+import { Plus, UserPlus, ShoppingCart, PackagePlus, Undo2, FileText, Receipt } from 'lucide-react';
 import { Page } from '../types';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
 
@@ -31,14 +30,15 @@ const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({ onNavigate 
 
     // Initialize position to bottom right on mount
     useEffect(() => {
-        setPosition({ 
-            x: window.innerWidth - 70, 
-            y: window.innerHeight - 120 
-        });
+        if (typeof window !== 'undefined') {
+            setPosition({ 
+                x: window.innerWidth - 80, 
+                y: window.innerHeight - 140 
+            });
+        }
     }, []);
 
     const handleTouchStart = (e: React.TouchEvent | React.MouseEvent) => {
-        // Only dragging the main button
         const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
         const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
 
@@ -61,18 +61,15 @@ const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({ onNavigate 
         const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
         const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
 
-        // Check if moved significantly to count as drag
         if (Math.abs(clientX - initialTouchPos.current.x) > 5 || Math.abs(clientY - initialTouchPos.current.y) > 5) {
             hasMoved.current = true;
         }
 
-        // Calculate new position
         let newX = clientX - dragStartPos.current.x;
         let newY = clientY - dragStartPos.current.y;
 
-        // Constrain to screen
-        const maxX = window.innerWidth - 60;
-        const maxY = window.innerHeight - 60;
+        const maxX = window.innerWidth - 70;
+        const maxY = window.innerHeight - 70;
         
         newX = Math.max(10, Math.min(newX, maxX));
         newY = Math.max(10, Math.min(newY, maxY));
@@ -94,6 +91,7 @@ const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({ onNavigate 
         { icon: UserPlus, label: 'Add Customer', page: 'CUSTOMERS', action: 'new' },
         { icon: ShoppingCart, label: 'New Sale', page: 'SALES' },
         { icon: PackagePlus, label: 'New Purchase', page: 'PURCHASES', action: 'new' },
+        { icon: Receipt, label: 'Add Expense', page: 'EXPENSES' },
         { icon: FileText, label: 'New Estimate', page: 'QUOTATIONS' },
         { icon: Undo2, label: 'New Return', page: 'RETURNS' },
     ];
@@ -102,6 +100,9 @@ const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({ onNavigate 
         setIsOpen(false);
         onNavigate(page, action);
     }
+
+    const isTopHalf = position.y < window.innerHeight / 2;
+    const isLeftHalf = position.x < window.innerWidth / 2;
 
     return (
         <div 
@@ -112,39 +113,32 @@ const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({ onNavigate 
             {/* Backdrop for menu */}
             {isOpen && (
                 <div 
-                    className="fixed inset-0 bg-black bg-opacity-40 -z-10" 
+                    className="fixed inset-0 bg-black/20 -z-10 transition-opacity" 
                     onClick={() => setIsOpen(false)}
                 />
             )}
             
-            {/* Speed Dial Menu - Always anchored relative to button */}
-            <div 
-                className={`absolute bottom-full right-0 mb-4 flex flex-col items-end space-y-3 transition-all duration-300 ease-in-out ${
-                    isOpen ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-4 pointer-events-none'
-                }`}
-                style={{ minWidth: '200px' }}
-            >
-                {actions.map((action, index) => (
-                    <div 
-                        key={action.page}
-                        className="flex items-center justify-end gap-3 w-full"
-                        style={{ transitionDelay: `${isOpen ? index * 30 : 0}ms` }}
-                    >
-                        <span className="bg-white dark:bg-slate-800 text-xs font-semibold text-gray-700 dark:text-gray-200 px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap border dark:border-slate-700">
-                            {action.label}
-                        </span>
+            {/* Card Menu */}
+            {isOpen && (
+                <div 
+                    className={`absolute ${isTopHalf ? 'top-[110%]' : 'bottom-[110%]'} ${isLeftHalf ? 'left-0' : 'right-0'} w-60 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-slate-700 p-2 animate-scale-in z-50 ring-1 ring-black/5 origin-${isTopHalf ? 'top' : 'bottom'}-${isLeftHalf ? 'left' : 'right'}`}
+                >
+                    {actions.map((action, idx) => (
                         <button
+                            key={idx}
                             onClick={(e) => { e.stopPropagation(); handleActionClick(action.page, action.action); }}
-                            className="bg-white dark:bg-slate-800 text-primary w-10 h-10 rounded-full flex items-center justify-center shadow-lg hover:bg-purple-50 dark:hover:bg-slate-700 border dark:border-slate-700"
-                            aria-label={action.label}
+                            className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-slate-700/50 rounded-xl transition-colors text-left group/item"
                         >
-                            <action.icon className="w-5 h-5" />
+                            <div className="p-2 bg-gray-100 dark:bg-slate-700 group-hover/item:bg-white dark:group-hover/item:bg-slate-600 rounded-lg text-primary shadow-sm transition-transform group-hover/item:scale-110">
+                                <action.icon size={18} />
+                            </div>
+                            <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{action.label}</span>
                         </button>
-                    </div>
-                ))}
-            </div>
+                    ))}
+                </div>
+            )}
 
-            {/* Main FAB - Uses bg-theme for dynamic gradient */}
+            {/* Main FAB */}
             <button
                 onMouseDown={handleTouchStart}
                 onMouseMove={handleTouchMove}
@@ -153,24 +147,11 @@ const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({ onNavigate 
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
                 onClick={handleClick}
-                className="bg-theme text-white w-12 h-12 rounded-full flex items-center justify-center shadow-xl transform active:scale-95 transition-transform relative overflow-hidden"
+                className={`bg-theme text-white w-14 h-14 rounded-full flex items-center justify-center shadow-xl transform active:scale-95 transition-all duration-300 relative overflow-hidden ring-2 ring-white/20 ${isOpen ? 'rotate-45 scale-105 shadow-2xl' : ''}`}
                 aria-expanded={isOpen}
                 aria-label="Open quick actions menu"
             >
-                <div className="relative w-6 h-6 pointer-events-none">
-                    <Plus 
-                        className={`absolute top-0 left-0 transition-all duration-300 ease-in-out ${
-                            isOpen ? 'transform rotate-45 scale-75 opacity-0' : 'transform rotate-0 scale-100 opacity-100'
-                        }`}
-                        strokeWidth={3}
-                    />
-                    <X 
-                        className={`absolute top-0 left-0 transition-all duration-300 ease-in-out ${
-                            isOpen ? 'transform rotate-0 scale-100 opacity-100' : 'transform -rotate-45 scale-75 opacity-0'
-                        }`}
-                        strokeWidth={3}
-                    />
-                </div>
+                <Plus strokeWidth={3} size={28} />
             </button>
         </div>
     );

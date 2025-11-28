@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { IndianRupee, User, AlertTriangle, Download, Upload, ShoppingCart, Package, XCircle, CheckCircle, Info, ShieldCheck, ShieldX, Archive, PackageCheck, TestTube2, Sparkles, TrendingUp, ArrowRight, Zap, BrainCircuit, TrendingDown, Wallet, CalendarClock, Tag, Undo2, Crown, Calendar, Receipt, MessageCircle, Clock, History, PenTool, FileText } from 'lucide-react';
+import { IndianRupee, User, AlertTriangle, Download, Upload, ShoppingCart, Package, XCircle, CheckCircle, Info, ShieldCheck, ShieldX, Archive, PackageCheck, TestTube2, Sparkles, TrendingUp, ArrowRight, Zap, BrainCircuit, TrendingDown, Wallet, CalendarClock, Tag, Undo2, Crown, Calendar, Receipt, MessageCircle, Clock, History, PenTool, FileText, Loader2, RotateCw } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import * as db from '../utils/db';
 import Card from '../components/Card';
@@ -12,6 +12,7 @@ import { useDialog } from '../context/DialogContext';
 import PinModal from '../components/PinModal';
 import DatePill from '../components/DatePill';
 import CheckpointsModal from '../components/CheckpointsModal';
+import { GoogleGenAI } from "@google/genai";
 
 interface DashboardProps {
     setCurrentPage: (page: Page) => void;
@@ -64,7 +65,11 @@ const SmartAnalystCard: React.FC<{
     expenses: Expense[], 
     ownerName: string 
 }> = ({ sales, products, customers, purchases, returns, expenses, ownerName }) => {
-    const insights = useMemo(() => {
+    const [aiBriefing, setAiBriefing] = useState<string | null>(null);
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    // Hardcoded insights (Default fallback)
+    const staticInsights = useMemo(() => {
         const list: { icon: React.ElementType, text: string, color: string, type: string }[] = [];
         const now = new Date();
         const currentMonth = now.getMonth();
@@ -92,7 +97,7 @@ const SmartAnalystCard: React.FC<{
             }
         }
 
-        // 2. Cash Flow Pulse
+        // 2. Cash Flow
         const thisMonthPurchases = purchases.filter(p => {
             const d = new Date(p.date);
             return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
@@ -107,35 +112,10 @@ const SmartAnalystCard: React.FC<{
                     text: `Spending > Income by ₹${Math.abs(flow).toLocaleString('en-IN')} this month. Watch stock purchases.`,
                     color: 'text-orange-600 dark:text-orange-400'
                 });
-            } else if (flow > 0 && thisMonthPurchases > 0) {
-                 list.push({
-                    icon: Wallet,
-                    type: 'Healthy Flow',
-                    text: `Net positive cash flow of ₹${flow.toLocaleString('en-IN')} so far this month.`,
-                    color: 'text-blue-600 dark:text-blue-400'
-                });
             }
         }
 
-        // 3. Operational Expense Alert
-        const thisMonthExpenses = expenses.filter(e => {
-            const d = new Date(e.date);
-            return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-        }).reduce((sum, e) => sum + e.amount, 0);
-
-        if (currentRevenue > 0 && thisMonthExpenses > 0) {
-            const ratio = (thisMonthExpenses / currentRevenue) * 100;
-            if (ratio > 40) {
-                 list.push({
-                    icon: Receipt,
-                    type: 'High Overhead',
-                    text: `Operational costs are ${ratio.toFixed(0)}% of revenue this month. Check if you can reduce expenses.`,
-                    color: 'text-rose-600 dark:text-rose-400'
-                });
-            }
-        }
-
-        // 4. Dead Stock
+        // 3. Dead Stock
         const sixtyDaysAgo = new Date();
         sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
         const activeProductIds = new Set();
@@ -156,136 +136,93 @@ const SmartAnalystCard: React.FC<{
             });
         }
 
-        // 5. Weekend Surge Analysis
-        let weekendSales = 0, weekdaySales = 0;
-        let weekendDays = 0, weekdayDays = 0;
-        
-        sales.forEach(s => {
-            const day = new Date(s.date).getDay();
-            const amt = Number(s.totalAmount);
-            if (day === 0 || day === 6) { // Sun or Sat
-                weekendSales += amt;
-                weekendDays++;
-            } else {
-                weekdaySales += amt;
-                weekdayDays++;
-            }
-        });
-        
-        const avgWeekend = weekendDays > 0 ? weekendSales / weekendDays : 0;
-        const avgWeekday = weekdayDays > 0 ? weekdaySales / weekdayDays : 0;
-        
-        if (avgWeekend > avgWeekday * 1.3) {
-             list.push({
-                icon: CalendarClock,
-                type: 'Strategy',
-                text: `Weekends are your power days! Sales are ${(avgWeekend/avgWeekday).toFixed(1)}x higher. Stock up on Fridays.`,
-                color: 'text-purple-600 dark:text-purple-400'
-            });
-        }
-
-        // 6. Fast Moving Item (Velocity Risk)
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        const recentSales = sales.filter(s => new Date(s.date) >= sevenDaysAgo);
-        const productVelocity: Record<string, number> = {}; // sold per day
-        recentSales.forEach(s => {
-            s.items.forEach(i => {
-                productVelocity[i.productId] = (productVelocity[i.productId] || 0) + Number(i.quantity);
-            });
-        });
-
-        let stockoutRiskItem = null;
-        for (const [pid, qtySold] of Object.entries(productVelocity)) {
-            const product = products.find(p => p.id === pid);
-            if (product && product.quantity > 0) {
-                const dailyRate = qtySold / 7;
-                const daysLeft = product.quantity / dailyRate;
-                if (daysLeft < 7 && dailyRate > 0.5) { 
-                    stockoutRiskItem = { name: product.name, days: Math.round(daysLeft) };
-                    break; 
-                }
-            }
-        }
-
-        if (stockoutRiskItem) {
-            list.push({
-                icon: Zap,
-                type: 'Velocity Alert',
-                text: `"${stockoutRiskItem.name}" is selling fast! Estimated to run out in ${stockoutRiskItem.days} days.`,
-                color: 'text-amber-600 dark:text-amber-400'
-            });
-        }
-
-        // 7. High Return Rate
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        const recentReturnsVal = returns
-            .filter(r => new Date(r.returnDate) >= thirtyDaysAgo && r.type === 'CUSTOMER')
-            .reduce((sum, r) => sum + Number(r.amount), 0);
-        const recentSalesVal = sales
-            .filter(s => new Date(s.date) >= thirtyDaysAgo)
-            .reduce((sum, s) => sum + Number(s.totalAmount), 0);
-
-        if (recentSalesVal > 0) {
-            const returnRate = (recentReturnsVal / recentSalesVal) * 100;
-            if (returnRate > 15) {
-                list.push({
-                    icon: Undo2,
-                    type: 'Quality Check',
-                    text: `Return rate is high (${returnRate.toFixed(1)}%) recently. Check product quality or descriptions.`,
-                    color: 'text-red-600 dark:text-red-400'
-                });
-            }
-        }
-
-        // 8. Top Customer
-        const customerSpend: Record<string, number> = {};
-        thisMonthSales.forEach(s => {
-            customerSpend[s.customerId] = (customerSpend[s.customerId] || 0) + Number(s.totalAmount);
-        });
-        const topCustomerId = Object.keys(customerSpend).sort((a, b) => customerSpend[b] - customerSpend[a])[0];
-        
-        if (topCustomerId) {
-            const topCustomer = customers.find(c => c.id === topCustomerId);
-            if (topCustomer) {
-                 list.push({
-                    icon: Crown,
-                    type: 'Top Customer',
-                    text: `${topCustomer.name} is the top spender this month (₹${customerSpend[topCustomerId].toLocaleString('en-IN')}).`,
-                    color: 'text-primary dark:text-teal-400'
-                });
-            }
-        }
-
+        // Fallback
         if (list.length === 0) {
             list.push({
                 icon: Sparkles,
                 type: 'AI Assistant',
-                text: "I'm analyzing your data. Record more sales and purchases to see advanced trends and alerts here.",
+                text: "Analyze trends by adding more sales data.",
                 color: 'text-primary dark:text-teal-400'
             });
         }
 
-        return list;
+        return list.slice(0, 2); // Show top 2
     }, [sales, products, customers, purchases, returns, expenses]);
+
+    const handleGenerateBriefing = async () => {
+        setIsGenerating(true);
+        try {
+            const apiKey = process.env.API_KEY;
+            if (!apiKey) throw new Error("API Key not found");
+
+            const ai = new GoogleGenAI({ apiKey });
+            
+            // Prepare small data summary
+            const recentSales = sales.slice(-10);
+            const totalRev = sales.reduce((acc, s) => acc + Number(s.totalAmount), 0);
+            const totalDue = customers.reduce((acc, c) => {
+                const cSales = sales.filter(s => s.customerId === c.id);
+                const paid = cSales.reduce((sum, s) => sum + s.payments.reduce((p, pay) => p + Number(pay.amount), 0), 0);
+                const billed = cSales.reduce((sum, s) => sum + Number(s.totalAmount), 0);
+                return acc + (billed - paid);
+            }, 0);
+
+            const prompt = `Act as a business analyst for owner ${ownerName}. 
+            Data: Total Revenue ₹${totalRev}, Outstanding Dues ₹${totalDue}.
+            Recent 10 Sales Total: ₹${recentSales.reduce((acc, s) => acc + Number(s.totalAmount), 0)}.
+            Write a 2-bullet point executive briefing. Focus on cash flow or action items. Keep it encouraging but realistic. Max 30 words per bullet.`;
+
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: prompt
+            });
+
+            if (response.text) {
+                setAiBriefing(response.text);
+            }
+        } catch (error) {
+            console.error("AI Error", error);
+            alert("Could not generate briefing. Check API Key or connection.");
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    const displayInsights = aiBriefing 
+        ? aiBriefing.split('\n').filter(line => line.trim().startsWith('*') || line.trim().startsWith('-') || line.trim().length > 0).slice(0, 2).map(text => ({
+            icon: Sparkles,
+            type: 'AI Briefing',
+            text: text.replace(/^[\*\-]\s*/, ''),
+            color: 'text-indigo-600 dark:text-indigo-400'
+        }))
+        : staticInsights;
 
     return (
         <div className="relative overflow-hidden rounded-xl bg-white dark:bg-slate-800 shadow-lg border border-primary/10 dark:border-slate-700 transition-all hover:shadow-xl animate-slide-up-fade group">
             <div className="absolute top-0 left-0 w-full h-1 bg-primary"></div>
             <div className="p-5">
-                <div className="flex flex-col gap-1 mb-4">
+                <div className="flex justify-between items-start mb-4">
                     <div className="flex items-center gap-2">
                         <div className="p-2 bg-primary/10 rounded-full animate-pulse">
                             <BrainCircuit className="w-6 h-6 text-primary transition-transform duration-700 group-hover:rotate-12" />
                         </div>
-                        <h3 className="font-bold text-xl text-gray-800 dark:text-white">Smart Analyst</h3>
-                        <span className="text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">AI Powered</span>
+                        <div>
+                            <h3 className="font-bold text-xl text-gray-800 dark:text-white">Smart Analyst</h3>
+                            <span className="text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">AI Powered</span>
+                        </div>
                     </div>
+                    <button 
+                        onClick={handleGenerateBriefing} 
+                        disabled={isGenerating}
+                        className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-500 transition-colors"
+                        title="Refresh AI Insights"
+                    >
+                        {isGenerating ? <Loader2 size={18} className="animate-spin" /> : <RotateCw size={18} />}
+                    </button>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {insights.map((insight, idx) => (
+                    {displayInsights.map((insight, idx) => (
                         <div key={idx} className="flex gap-3 p-3 rounded-lg bg-gray-50 dark:bg-slate-700/30 hover:bg-primary/5 transition-colors border border-transparent hover:border-primary/10 animate-slide-up-fade group/item" style={{ animationDelay: `${idx * 100}ms` }}>
                             <div className="mt-1 flex-shrink-0 transition-transform group-hover/item:scale-110 duration-300">
                                 <insight.icon className={`w-5 h-5 ${insight.color}`} />

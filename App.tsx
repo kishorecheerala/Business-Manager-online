@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Home, Users, ShoppingCart, Package, Menu, Plus, UserPlus, PackagePlus, 
   Receipt, Undo2, FileText, BarChart2, Settings, PenTool, Gauge, Search, 
-  Sparkles, Bell, HelpCircle
+  Sparkles, Bell, HelpCircle, Cloud, CloudOff, RefreshCw, Layout
 } from 'lucide-react';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { DialogProvider } from './context/DialogContext';
@@ -27,14 +27,45 @@ import MenuPanel from './components/MenuPanel';
 import NotificationsPanel from './components/NotificationsPanel';
 import AskAIModal from './components/AskAIModal';
 import HelpModal from './components/HelpModal';
-import FloatingActionButton from './components/FloatingActionButton';
 import UniversalSearch from './components/UniversalSearch';
 import DeveloperToolsModal from './components/DeveloperToolsModal';
 import CloudDebugModal from './components/CloudDebugModal';
 import ProfileModal from './components/ProfileModal';
 import AppSkeletonLoader from './components/AppSkeletonLoader';
+import NavCustomizerModal from './components/NavCustomizerModal';
 import { useSwipe } from './hooks/useSwipe';
 import { useOnClickOutside } from './hooks/useOnClickOutside';
+
+// Icon Map for dynamic rendering
+const ICON_MAP: Record<string, React.ElementType> = {
+    'DASHBOARD': Home,
+    'CUSTOMERS': Users,
+    'SALES': ShoppingCart,
+    'PURCHASES': Package,
+    'INSIGHTS': BarChart2,
+    'PRODUCTS': Package,
+    'REPORTS': FileText,
+    'EXPENSES': Receipt,
+    'RETURNS': Undo2,
+    'QUOTATIONS': FileText,
+    'INVOICE_DESIGNER': PenTool,
+    'SYSTEM_OPTIMIZER': Gauge
+};
+
+const LABEL_MAP: Record<string, string> = {
+    'DASHBOARD': 'Home',
+    'CUSTOMERS': 'Customers',
+    'SALES': 'Sales',
+    'PURCHASES': 'Purchases',
+    'INSIGHTS': 'Insights',
+    'PRODUCTS': 'Products',
+    'REPORTS': 'Reports',
+    'EXPENSES': 'Expenses',
+    'RETURNS': 'Returns',
+    'QUOTATIONS': 'Estimates',
+    'INVOICE_DESIGNER': 'Designer',
+    'SYSTEM_OPTIMIZER': 'System'
+};
 
 interface NavItemProps {
     page: string;
@@ -61,7 +92,7 @@ const NavItem: React.FC<NavItemProps> = ({ page, label, icon: Icon, onClick, isA
 );
 
 const AppContent: React.FC = () => {
-    const { state, dispatch, isDbLoaded } = useAppContext();
+    const { state, dispatch, isDbLoaded, syncData } = useAppContext();
     const [currentPage, setCurrentPage] = useState<Page>('DASHBOARD');
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -71,6 +102,7 @@ const AppContent: React.FC = () => {
     const [isDevToolsOpen, setIsDevToolsOpen] = useState(false);
     const [isCloudDebugOpen, setIsCloudDebugOpen] = useState(false);
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+    const [isNavCustomizerOpen, setIsNavCustomizerOpen] = useState(false);
     const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
     const [isMobileQuickAddOpen, setIsMobileQuickAddOpen] = useState(false);
     const [isDirty, setIsDirty] = useState(false);
@@ -146,51 +178,51 @@ const AppContent: React.FC = () => {
         }
     };
 
-    // Nav Items Configuration
-    const mainNavItems = [
-        { page: 'DASHBOARD', label: 'Home', icon: Home },
-        { page: 'CUSTOMERS', label: 'Customers', icon: Users },
-        { page: 'SALES', label: 'Sales', icon: ShoppingCart },
-        { page: 'PURCHASES', label: 'Purchases', icon: Package },
-        { page: 'INSIGHTS', label: 'Insights', icon: BarChart2 },
-    ];
+    // Calculate Navigation Layout based on user preference order
+    const { mainNavItems, leftItems, rightItems, mobileMoreItems } = useMemo(() => {
+        const order = state.navOrder || [];
+        
+        // Desktop uses everything in a scrollable bar, no special "More" hiding usually needed but let's keep logic simple
+        // First 5 for main desktop visual priority, rest available
+        const mainNav = order.slice(0, 5).map(id => ({ 
+            page: id, label: LABEL_MAP[id], icon: ICON_MAP[id] 
+        }));
+        // But Desktop currently iterates `[...mainNavItems, ...moreNavItems]` from hardcoded lists.
+        // Let's redefine desktop to just show ALL in order.
+        const allDesktopItems = order.map(id => ({
+            page: id, label: LABEL_MAP[id], icon: ICON_MAP[id]
+        }));
 
-    const moreNavItems = [
-        { page: 'PRODUCTS', label: 'Products', icon: Package }, // Use Package or similar
-        { page: 'REPORTS', label: 'Reports', icon: FileText },
-        { page: 'EXPENSES', label: 'Expenses', icon: Receipt },
-        { page: 'RETURNS', label: 'Returns', icon: Undo2 },
-        { page: 'QUOTATIONS', label: 'Estimates', icon: FileText },
-        { page: 'INVOICE_DESIGNER', label: 'Designer', icon: PenTool },
-        { page: 'SYSTEM_OPTIMIZER', label: 'System', icon: Gauge },
-    ];
+        // Mobile Split: 4 items (2 Left, 2 Right) + Middle FAB
+        const pinnedIds = order.slice(0, 4);
+        const leftIds = pinnedIds.slice(0, 2);
+        const rightIds = pinnedIds.slice(2, 4);
+        const menuIds = order.slice(4);
 
-    const mobileMoreItems = [
-        { page: 'PRODUCTS', label: 'Products', icon: Package },
-        { page: 'REPORTS', label: 'Reports', icon: FileText },
-        { page: 'EXPENSES', label: 'Expenses', icon: Receipt },
-        { page: 'QUOTATIONS', label: 'Estimates', icon: FileText },
-        { page: 'RETURNS', label: 'Returns', icon: Undo2 },
-        { page: 'INSIGHTS', label: 'Insights', icon: BarChart2 },
-        { page: 'INVOICE_DESIGNER', label: 'Designer', icon: PenTool },
-        { page: 'SYSTEM_OPTIMIZER', label: 'System', icon: Gauge },
-    ];
+        const leftItems = leftIds.map(id => ({ page: id, label: LABEL_MAP[id], icon: ICON_MAP[id] }));
+        const rightItems = rightIds.map(id => ({ page: id, label: LABEL_MAP[id], icon: ICON_MAP[id] }));
+        const mobileMoreItems = menuIds.map(id => ({ page: id, label: LABEL_MAP[id], icon: ICON_MAP[id] }));
+
+        return { mainNavItems: allDesktopItems, leftItems, rightItems, mobileMoreItems };
+    }, [state.navOrder]);
 
     const isMoreBtnActive = mobileMoreItems.some(item => item.page === currentPage);
 
     // Swipe handlers for mobile navigation
     useSwipe({
         onSwipeLeft: () => {
-            // Find current index in mainNavItems
-            const idx = mainNavItems.findIndex(i => i.page === currentPage);
-            if (idx >= 0 && idx < mainNavItems.length - 1) {
-                handleNavigation(mainNavItems[idx + 1].page as Page);
+            // Simple cycle through top 5 items for swipe
+            const topPages = state.navOrder.slice(0, 5);
+            const idx = topPages.indexOf(currentPage);
+            if (idx >= 0 && idx < topPages.length - 1) {
+                handleNavigation(topPages[idx + 1] as Page);
             }
         },
         onSwipeRight: () => {
-            const idx = mainNavItems.findIndex(i => i.page === currentPage);
+            const topPages = state.navOrder.slice(0, 5);
+            const idx = topPages.indexOf(currentPage);
             if (idx > 0) {
-                handleNavigation(mainNavItems[idx - 1].page as Page);
+                handleNavigation(topPages[idx - 1] as Page);
             }
         }
     });
@@ -212,6 +244,15 @@ const AppContent: React.FC = () => {
                         </h1>
                     </div>
                     <div className="flex items-center gap-2">
+                        {state.googleUser && (
+                            <button 
+                                onClick={() => { if(state.syncStatus === 'error') setIsCloudDebugOpen(true); else syncData(); }} 
+                                className={`p-2 hover:bg-white/20 rounded-full transition-colors ${state.syncStatus === 'syncing' ? 'animate-spin' : ''}`}
+                                title={state.syncStatus === 'error' ? 'Sync Failed (Click to Debug)' : 'Sync Now'}
+                            >
+                                {state.syncStatus === 'syncing' ? <RefreshCw size={20} /> : state.syncStatus === 'error' ? <CloudOff size={20} className="text-red-300" /> : <Cloud size={20} />}
+                            </button>
+                        )}
                         <button onClick={() => setIsSearchOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
                             <Search size={20} />
                         </button>
@@ -266,17 +307,15 @@ const AppContent: React.FC = () => {
             <DeveloperToolsModal isOpen={isDevToolsOpen} onClose={() => setIsDevToolsOpen(false)} onOpenCloudDebug={() => setIsCloudDebugOpen(true)} />
             <CloudDebugModal isOpen={isCloudDebugOpen} onClose={() => setIsCloudDebugOpen(false)} />
             <ProfileModal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} />
+            <NavCustomizerModal isOpen={isNavCustomizerOpen} onClose={() => setIsNavCustomizerOpen(false)} />
             
-            {/* Floating Action Button (Mobile) - Hidden if Invoice Designer */}
-            {currentPage !== 'INVOICE_DESIGNER' && <FloatingActionButton onNavigate={handleNavigation} />}
-
             {/* Bottom Navigation */}
             {currentPage !== 'INVOICE_DESIGNER' && (
             <nav className="fixed bottom-0 left-0 right-0 glass pb-[env(safe-area-inset-bottom)] z-50 border-t border-gray-200/50 dark:border-slate-700/50">
                 {/* Desktop View - Scrollable */}
                 <div className="hidden md:flex w-full overflow-x-auto custom-scrollbar">
                     <div className="flex flex-nowrap mx-auto items-center gap-2 lg:gap-6 p-2 px-6 min-w-max">
-                        {[...mainNavItems, ...moreNavItems].map(item => (
+                        {mainNavItems.map(item => (
                             <div key={item.page} className="w-16 lg:w-20 flex-shrink-0">
                                 <NavItem 
                                     page={item.page} 
@@ -290,12 +329,70 @@ const AppContent: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Mobile View - Custom Layout with Reordered Items and End FAB */}
-                <div className="flex md:hidden justify-between items-end px-1 pt-2 pb-2 mx-auto w-full max-w-md">
-                    <NavItem page={'DASHBOARD'} label={'Home'} icon={Home} onClick={() => handleNavigation('DASHBOARD')} isActive={currentPage === 'DASHBOARD' && !isMoreMenuOpen && !isMobileQuickAddOpen} />
-                    <NavItem page={'CUSTOMERS'} label={'Customers'} icon={Users} onClick={() => handleNavigation('CUSTOMERS')} isActive={currentPage === 'CUSTOMERS' && !isMoreMenuOpen && !isMobileQuickAddOpen} />
-                    <NavItem page={'SALES'} label={'Sales'} icon={ShoppingCart} onClick={() => handleNavigation('SALES')} isActive={currentPage === 'SALES' && !isMoreMenuOpen && !isMobileQuickAddOpen} />
-                    <NavItem page={'PURCHASES'} label={'Purchases'} icon={Package} onClick={() => handleNavigation('PURCHASES')} isActive={currentPage === 'PURCHASES' && !isMoreMenuOpen && !isMobileQuickAddOpen} />
+                {/* Mobile View - Custom Layout with Middle FAB */}
+                <div className="flex md:hidden justify-between items-end px-3 pb-2 pt-1 mx-auto w-full max-w-md relative">
+                    {/* Dynamic Left Icons */}
+                    {leftItems.map(item => (
+                        <NavItem 
+                            key={item.page}
+                            page={item.page} 
+                            label={item.label} 
+                            icon={item.icon} 
+                            onClick={() => handleNavigation(item.page as Page)} 
+                            isActive={currentPage === item.page && !isMoreMenuOpen && !isMobileQuickAddOpen} 
+                        />
+                    ))}
+                    
+                    {/* Center FAB - Quick Add */}
+                    <div className="relative -top-5 flex flex-col items-center justify-center w-auto" ref={mobileQuickAddRef}>
+                        <button 
+                            onClick={() => { setIsMobileQuickAddOpen(!isMobileQuickAddOpen); setIsMoreMenuOpen(false); }}
+                            className={`w-14 h-14 rounded-full bg-theme text-white shadow-xl shadow-primary/40 flex items-center justify-center transition-transform duration-300 ${isMobileQuickAddOpen ? 'rotate-45 scale-110' : 'active:scale-95'}`}
+                            aria-label="Quick Add"
+                        >
+                            <Plus size={32} strokeWidth={2.5} />
+                        </button>
+                        {isMobileQuickAddOpen && (
+                            <div className="absolute bottom-[calc(100%+12px)] left-1/2 -translate-x-1/2 w-64 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-200 dark:border-slate-700 p-3 animate-slide-up-fade origin-bottom z-50 ring-1 ring-black/5">
+                                <div className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2 text-center">Quick Actions</div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {[
+                                        { icon: ShoppingCart, label: 'Sale', page: 'SALES' as Page },
+                                        { icon: UserPlus, label: 'Customer', page: 'CUSTOMERS' as Page, action: 'new' },
+                                        { icon: Receipt, label: 'Expense', page: 'EXPENSES' as Page },
+                                        { icon: PackagePlus, label: 'Purchase', page: 'PURCHASES' as Page, action: 'new' },
+                                        { icon: FileText, label: 'Estimate', page: 'QUOTATIONS' as Page },
+                                        { icon: Undo2, label: 'Return', page: 'RETURNS' as Page },
+                                    ].map((action, idx) => (
+                                        <button
+                                            key={idx}
+                                            onClick={() => { 
+                                                dispatch({ type: 'SET_SELECTION', payload: { page: action.page, id: action.action || 'new' } }); 
+                                                handleNavigation(action.page);
+                                                setIsMobileQuickAddOpen(false);
+                                            }}
+                                            className="flex flex-col items-center justify-center gap-1 p-3 bg-gray-50 dark:bg-slate-700/50 hover:bg-primary/10 dark:hover:bg-primary/20 rounded-xl transition-colors group/item border border-gray-100 dark:border-slate-600"
+                                        >
+                                            <action.icon size={20} className="text-primary group-hover/item:scale-110 transition-transform" />
+                                            <span className="text-xs font-medium text-gray-700 dark:text-gray-200">{action.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Dynamic Right Icons */}
+                    {rightItems.map(item => (
+                        <NavItem 
+                            key={item.page}
+                            page={item.page} 
+                            label={item.label} 
+                            icon={item.icon} 
+                            onClick={() => handleNavigation(item.page as Page)} 
+                            isActive={currentPage === item.page && !isMoreMenuOpen && !isMobileQuickAddOpen} 
+                        />
+                    ))}
                     
                     {/* More Menu */}
                     <div className="relative flex flex-col items-center justify-center w-full" ref={moreMenuRef}>
@@ -314,8 +411,8 @@ const AppContent: React.FC = () => {
                         </button>
 
                         {isMoreMenuOpen && (
-                            <div className="absolute bottom-[calc(100%+16px)] right-0 w-48 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-slate-700 z-50 animate-scale-in origin-bottom-right overflow-hidden ring-1 ring-black/5">
-                                <div className="p-1.5 grid gap-1">
+                            <div className="absolute bottom-[calc(100%+16px)] right-0 w-52 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-100 dark:border-slate-700 z-50 animate-scale-in origin-bottom-right overflow-hidden ring-1 ring-black/5">
+                                <div className="p-1.5 grid gap-1 max-h-[60vh] overflow-y-auto">
                                     {mobileMoreItems.map(item => (
                                         <button 
                                             key={item.page} 
@@ -330,46 +427,17 @@ const AppContent: React.FC = () => {
                                             <span className="text-sm">{item.label}</span>
                                         </button>
                                     ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Quick Add at the end */}
-                    <div className="relative flex flex-col items-center justify-center w-full" ref={mobileQuickAddRef}>
-                        <button 
-                            onClick={() => { setIsMobileQuickAddOpen(!isMobileQuickAddOpen); setIsMoreMenuOpen(false); }}
-                            className="flex flex-col items-center justify-center w-full pt-2 pb-2 group"
-                        >
-                            <div className={`w-10 h-10 rounded-full bg-theme text-white shadow-lg shadow-primary/25 flex items-center justify-center transition-all duration-300 ${isMobileQuickAddOpen ? 'rotate-45 scale-110' : 'group-active:scale-95'}`}>
-                                <Plus size={22} strokeWidth={3} />
-                            </div>
-                            <span className={`text-[9px] sm:text-[10px] font-bold mt-1 leading-tight ${isMobileQuickAddOpen ? 'text-primary' : 'text-gray-500 dark:text-gray-400'}`}>Quick Add</span>
-                        </button>
-                        {isMobileQuickAddOpen && (
-                            <div className="absolute bottom-[calc(100%+4px)] right-2 w-56 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-slate-700 p-2 animate-scale-in origin-bottom-right z-50 ring-1 ring-black/5">
-                                {[
-                                    { icon: UserPlus, label: 'Add Customer', page: 'CUSTOMERS' as Page, action: 'new' },
-                                    { icon: ShoppingCart, label: 'New Sale', page: 'SALES' as Page },
-                                    { icon: PackagePlus, label: 'New Purchase', page: 'PURCHASES' as Page, action: 'new' },
-                                    { icon: Receipt, label: 'Add Expense', page: 'EXPENSES' as Page },
-                                    { icon: Undo2, label: 'New Return', page: 'RETURNS' as Page },
-                                ].map((action, idx) => (
-                                    <button
-                                        key={idx}
-                                        onClick={() => { 
-                                            dispatch({ type: 'SET_SELECTION', payload: { page: action.page, id: action.action || 'new' } }); 
-                                            handleNavigation(action.page);
-                                            setIsMobileQuickAddOpen(false);
-                                        }}
-                                        className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-slate-700/50 rounded-xl transition-colors text-left group/item"
+                                    
+                                    <div className="my-1 border-t dark:border-slate-700/50"></div>
+                                    
+                                    <button 
+                                        onClick={() => { setIsNavCustomizerOpen(true); setIsMoreMenuOpen(false); }} 
+                                        className="w-full flex items-center gap-3 p-2.5 text-left rounded-xl transition-all hover:bg-gray-50 dark:hover:bg-slate-700/50 text-indigo-600 dark:text-indigo-400 font-medium"
                                     >
-                                        <div className="p-2 bg-gray-100 dark:bg-slate-700 group-hover/item:bg-white dark:group-hover/item:bg-slate-600 rounded-lg text-primary shadow-sm transition-transform group-hover/item:scale-110">
-                                            <action.icon size={18} />
-                                        </div>
-                                        <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{action.label}</span>
+                                        <Layout className="w-5 h-5" />
+                                        <span className="text-sm">Customize Menu</span>
                                     </button>
-                                ))}
+                                </div>
                             </div>
                         )}
                     </div>

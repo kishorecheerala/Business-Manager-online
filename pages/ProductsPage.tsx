@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, Edit, Save, X, Package, IndianRupee, Percent, PackageCheck, Barcode, Printer, Filter, Grid, List, Camera, Image as ImageIcon, Eye, Trash2, QrCode, Boxes, Maximize2, Minimize2, ArrowLeft, CheckSquare, Square, Plus, Clock, AlertTriangle, Share2, MoreHorizontal, LayoutGrid, Check } from 'lucide-react';
+import { Search, Edit, Save, X, Package, IndianRupee, Percent, PackageCheck, Barcode, Printer, Filter, Grid, List, Camera, Image as ImageIcon, Eye, Trash2, QrCode, Boxes, Maximize2, Minimize2, ArrowLeft, CheckSquare, Square, Plus, Clock, AlertTriangle, Share2, MoreHorizontal, LayoutGrid, Check, Wand2, Loader2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Product, PurchaseItem } from '../types';
 import Card from '../components/Card';
@@ -13,6 +13,7 @@ import { Html5Qrcode } from 'html5-qrcode';
 import EmptyState from '../components/EmptyState';
 import { useDialog } from '../context/DialogContext';
 import ImageCropperModal from '../components/ImageCropperModal';
+import { GoogleGenAI } from "@google/genai";
 
 interface ProductsPageProps {
   setIsDirty: (isDirty: boolean) => void;
@@ -31,6 +32,7 @@ const dataURLtoFile = (dataurl: string, filename: string) => {
     return new File([u8arr], filename, { type: mime });
 };
 
+// ... (ProductImage component and QRScannerModal remain same, include them for context)
 const ProductImage: React.FC<{ src?: string; alt: string; className?: string; size?: 'sm' | 'md' | 'lg' | 'xl' }> = ({ src, alt, className = '', size = 'md' }) => {
     const sizeClasses = {
         sm: 'w-10 h-10',
@@ -127,6 +129,8 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     const [isBatchBarcodeModalOpen, setIsBatchBarcodeModalOpen] = useState(false);
     const [isScannerOpen, setIsScannerOpen] = useState(false);
     const [cropImage, setCropImage] = useState<string | null>(null);
+    
+    const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
 
     const isDirtyRef = useRef(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -347,6 +351,38 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
         const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
         window.open(url, '_blank');
     };
+    
+    // AI Description Generation
+    const handleAIGenerateDescription = async () => {
+        if (!editedProduct || !editedProduct.name) {
+            showToast("Product Name is required to generate description.", 'error');
+            return;
+        }
+        
+        setIsGeneratingDesc(true);
+        try {
+            const apiKey = process.env.API_KEY;
+            if (!apiKey) throw new Error("API Key not available");
+            
+            const ai = new GoogleGenAI({ apiKey });
+            const prompt = `Write a professional and catchy 2-sentence sales description for a product named "${editedProduct.name}" in category "${editedProduct.category || 'General'}". The description should highlight quality and value. Keep it under 50 words.`;
+            
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: prompt
+            });
+            
+            if (response.text) {
+                setEditedProduct(prev => prev ? ({ ...prev, description: response.text }) : null);
+                showToast("Description generated!");
+            }
+        } catch (error) {
+            console.error("AI Gen Error", error);
+            showToast("Failed to generate description. Check network/API key.", 'error');
+        } finally {
+            setIsGeneratingDesc(false);
+        }
+    };
 
     // Render Logic for Detail View
     if (selectedProduct && editedProduct) {
@@ -480,7 +516,17 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="text-xs font-bold text-gray-500 uppercase">Description</label>
+                                    <div className="flex justify-between items-center mb-1">
+                                        <label className="text-xs font-bold text-gray-500 uppercase">Description</label>
+                                        <button 
+                                            onClick={handleAIGenerateDescription}
+                                            disabled={isGeneratingDesc}
+                                            className="text-xs text-indigo-600 dark:text-indigo-400 flex items-center gap-1 hover:underline disabled:opacity-50"
+                                        >
+                                            {isGeneratingDesc ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
+                                            {isGeneratingDesc ? 'Writing...' : 'Magic Write'}
+                                        </button>
+                                    </div>
                                     <textarea 
                                         rows={4}
                                         value={editedProduct.description || ''} 

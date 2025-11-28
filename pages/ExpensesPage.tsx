@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Plus, Trash2, Calendar, Filter, Receipt, DollarSign, X, Camera, Image as ImageIcon, Eye } from 'lucide-react';
+import { Plus, Trash2, Calendar, Filter, Receipt, DollarSign, X, Camera, Image as ImageIcon, Eye, Sparkles, Loader2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Expense, ExpenseCategory } from '../types';
 import Card from '../components/Card';
@@ -11,6 +11,7 @@ import DatePill from '../components/DatePill';
 import Dropdown from '../components/Dropdown';
 import { compressImage } from '../utils/imageUtils';
 import { useDialog } from '../context/DialogContext';
+import { GoogleGenAI } from "@google/genai";
 
 interface ExpensesPageProps {
   setIsDirty: (isDirty: boolean) => void;
@@ -51,6 +52,9 @@ const ExpensesPage: React.FC<ExpensesPageProps> = ({ setIsDirty }) => {
     const [isAdding, setIsAdding] = useState(false);
     const [receiptImage, setReceiptImage] = useState<string | null>(null);
     
+    // AI State
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    
     const [filterCategory, setFilterCategory] = useState<string>('all');
     const [filterMonth, setFilterMonth] = useState(new Date().getMonth().toString());
     const [filterYear, setFilterYear] = useState(new Date().getFullYear().toString());
@@ -58,6 +62,7 @@ const ExpensesPage: React.FC<ExpensesPageProps> = ({ setIsDirty }) => {
 
     const isDirtyRef = useRef(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const aiFileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         const formIsDirty = isAdding && (!!amount || !!note || !!receiptImage);
@@ -79,6 +84,68 @@ const ExpensesPage: React.FC<ExpensesPageProps> = ({ setIsDirty }) => {
             } catch (error) {
                 showToast("Error processing image.", 'error');
             }
+        }
+    };
+
+    const handleAIReceiptScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || !e.target.files[0]) return;
+        
+        setIsAnalyzing(true);
+        try {
+            const file = e.target.files[0];
+            const base64Full = await compressImage(file, 800, 0.7); // Compress for AI
+            setReceiptImage(base64Full); // Set preview immediately
+
+            // Strip prefix for API
+            const base64Data = base64Full.split(',')[1];
+            const mimeType = base64Full.split(';')[0].split(':')[1];
+
+            // Initialize Gemini
+            const apiKey = process.env.API_KEY; 
+            if (!apiKey) throw new Error("API Key not found");
+            
+            const ai = new GoogleGenAI({ apiKey });
+            
+            const prompt = `Analyze this receipt image. Extract the following fields in JSON format:
+            - amount: number (total paid)
+            - date: string (YYYY-MM-DD format, if not found use today)
+            - category: string (One of: Rent, Salary, Electricity, Transport, Maintenance, Marketing, Food, Other)
+            - note: string (Merchant name or short description)
+            
+            Return ONLY raw JSON.`;
+
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: {
+                    parts: [
+                        { inlineData: { mimeType, data: base64Data } },
+                        { text: prompt }
+                    ]
+                }
+            });
+
+            const text = response.text || '';
+            const jsonMatch = text.match(/\{[\s\S]*\}/);
+            
+            if (jsonMatch) {
+                const data = JSON.parse(jsonMatch[0]);
+                if (data.amount) setAmount(String(data.amount));
+                if (data.date) setDate(data.date);
+                if (data.category && EXPENSE_CATEGORIES.some(c => c.value === data.category)) {
+                    setCategory(data.category);
+                }
+                if (data.note) setNote(data.note);
+                showToast("Receipt analyzed successfully!", "success");
+            } else {
+                throw new Error("Could not parse receipt data");
+            }
+
+        } catch (error) {
+            console.error("AI Scan Error:", error);
+            showToast("Failed to analyze receipt. Please enter details manually.", 'error');
+        } finally {
+            setIsAnalyzing(false);
+            if (aiFileInputRef.current) aiFileInputRef.current.value = '';
         }
     };
 
@@ -163,8 +230,37 @@ const ExpensesPage: React.FC<ExpensesPageProps> = ({ setIsDirty }) => {
             </div>
 
             {isAdding && (
-                <Card title="Add New Expense" className="animate-slide-down-fade border-l-4 border-l-rose-500">
+                <Card title="Add New Expense" className="animate-slide-down-fade border-l-4 border-l-rose-500 relative">
+                    {isAnalyzing && (
+                        <div className="absolute inset-0 bg-white/80 dark:bg-slate-900/80 z-10 flex items-center justify-center rounded-lg backdrop-blur-sm flex-col gap-2">
+                            <Loader2 className="w-10 h-10 animate-spin text-primary" />
+                            <p className="text-sm font-bold text-primary">Analyzing Receipt...</p>
+                        </div>
+                    )}
                     <div className="space-y-4">
+                        
+                        {/* AI Scan Button */}
+                        <div className="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-lg border border-indigo-100 dark:border-indigo-800 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Sparkles className="text-indigo-500" size={18} />
+                                <span className="text-sm font-medium text-indigo-800 dark:text-indigo-200">Auto-fill with AI</span>
+                            </div>
+                            <button 
+                                onClick={() => aiFileInputRef.current?.click()}
+                                className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-md flex items-center gap-1 transition-colors shadow-sm"
+                            >
+                                <Camera size={14} /> Scan Receipt
+                            </button>
+                            <input 
+                                type="file" 
+                                accept="image/*" 
+                                capture="environment" 
+                                ref={aiFileInputRef} 
+                                className="hidden" 
+                                onChange={handleAIReceiptScan}
+                            />
+                        </div>
+
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Amount</label>
