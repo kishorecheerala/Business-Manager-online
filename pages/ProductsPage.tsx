@@ -18,6 +18,19 @@ interface ProductsPageProps {
   setIsDirty: (isDirty: boolean) => void;
 }
 
+// Helper to convert base64 to File object for sharing
+const dataURLtoFile = (dataurl: string, filename: string) => {
+    const arr = dataurl.split(',');
+    const mime = arr[0].match(/:(.*?);/)?.[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new File([u8arr], filename, { type: mime });
+};
+
 const ProductImage: React.FC<{ src?: string; alt: string; className?: string; size?: 'sm' | 'md' | 'lg' | 'xl' }> = ({ src, alt, className = '', size = 'md' }) => {
     const sizeClasses = {
         sm: 'w-10 h-10',
@@ -164,17 +177,6 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
 
     const handleBulkDelete = async () => {
         if (await showConfirm(`Delete ${selectedIds.size} selected products? This cannot be undone.`)) {
-            // We can't batch delete in one action with current reducer, so loop (or add BATCH_DELETE)
-            // For safety and audit logs, iterating is acceptable for small batches
-            selectedIds.forEach(id => {
-                // Actually we don't have DELETE_PRODUCT in reducer, let's use a workaround or check types.
-                // Wait, types.ts doesn't show DELETE_PRODUCT. We might need to add it or skip.
-                // Assuming we added it or use a workaround. 
-                // Wait, the reducer doesn't have DELETE_PRODUCT. 
-                // Let's implement it by modifying the state directly via REPLACE_COLLECTION for safety or just skip implementing bulk delete if not supported.
-                // Actually, let's filter the products list and use REPLACE_COLLECTION 'products'
-            });
-            
             const newProducts = state.products.filter(p => !selectedIds.has(p.id));
             dispatch({ type: 'REPLACE_COLLECTION', payload: { storeName: 'products', data: newProducts } });
             
@@ -187,6 +189,55 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     const handleBulkBarcode = () => {
         if (selectedIds.size > 0) {
             setIsBatchBarcodeModalOpen(true);
+        }
+    };
+
+    const handleBulkShare = async () => {
+        const selectedProducts = filteredProducts.filter(p => selectedIds.has(p.id));
+        if (selectedProducts.length === 0) return;
+
+        // 1. Construct Text
+        const textParts = selectedProducts.map(p =>
+            `*${p.name}*\nPrice: ₹${p.salePrice.toLocaleString('en-IN')}${p.description ? '\n' + p.description : ''}`
+        );
+        const combinedText = `*Product Catalog*\n\n` + textParts.join('\n\n----------------\n\n');
+
+        // 2. Construct Files
+        const files: File[] = [];
+        if (navigator.canShare && navigator.share) {
+            for (const p of selectedProducts) {
+                if (p.image) {
+                    try {
+                        const file = dataURLtoFile(p.image, `product_${p.id}.jpg`);
+                        files.push(file);
+                    } catch (e) { console.error(e); }
+                }
+            }
+        }
+
+        // 3. Share
+        try {
+            if (files.length > 0 && navigator.canShare({ files })) {
+                 await navigator.share({
+                    title: 'Product Catalog',
+                    text: combinedText,
+                    files: files
+                });
+            } else if (navigator.share) {
+                await navigator.share({
+                    title: 'Product Catalog',
+                    text: combinedText
+                });
+            } else {
+                // Fallback to WhatsApp Link
+                const url = `https://wa.me/?text=${encodeURIComponent(combinedText)}`;
+                window.open(url, '_blank');
+            }
+        } catch (e) {
+            console.error("Share failed", e);
+            // Fallback
+            const url = `https://wa.me/?text=${encodeURIComponent(combinedText)}`;
+            window.open(url, '_blank');
         }
     };
 
@@ -259,19 +310,6 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
         }
     };
 
-    // Helper to convert base64 to File object for sharing
-    const dataURLtoFile = (dataurl: string, filename: string) => {
-        const arr = dataurl.split(',');
-        const mime = arr[0].match(/:(.*?);/)?.[1];
-        const bstr = atob(arr[1]);
-        let n = bstr.length;
-        const u8arr = new Uint8Array(n);
-        while (n--) {
-            u8arr[n] = bstr.charCodeAt(n);
-        }
-        return new File([u8arr], filename, { type: mime });
-    };
-
     const handleShareProduct = async (product: Product) => {
         const shareData: any = {
             title: product.name,
@@ -296,6 +334,8 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                 // Fallback: Copy text to clipboard
                 await navigator.clipboard.writeText(shareData.text);
                 showToast("Link copied to clipboard (System share not supported)");
+                const url = `https://wa.me/?text=${encodeURIComponent(shareData.text)}`;
+                window.open(url, '_blank');
             }
         } catch (err) {
             console.error("Share failed", err);
@@ -611,6 +651,14 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                         </div>
                         <div className="flex gap-2">
                             <button 
+                                onClick={handleBulkShare}
+                                disabled={selectedIds.size === 0}
+                                className="p-2 text-blue-600 hover:bg-blue-50 rounded disabled:opacity-50"
+                                title="Share Selected"
+                            >
+                                <Share2 size={18} />
+                            </button>
+                            <button 
                                 onClick={handleBulkBarcode}
                                 disabled={selectedIds.size === 0}
                                 className="p-2 text-slate-600 hover:bg-slate-100 rounded disabled:opacity-50"
@@ -702,12 +750,20 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                             {viewMode === 'list' && !isSelectionMode && (
                                 <div className="flex gap-2 pl-2 border-l dark:border-slate-700 ml-2">
                                     <button 
+                                        onClick={(e) => { e.stopPropagation(); handleShareProduct(product); }}
+                                        className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 text-blue-500"
+                                        title="Share"
+                                    >
+                                        <Share2 size={18} />
+                                    </button>
+                                    <button 
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             setSelectedProduct(product);
                                             setIsBarcodeModalOpen(true);
                                         }}
                                         className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-500"
+                                        title="Barcode"
                                     >
                                         <Barcode size={18} />
                                     </button>
