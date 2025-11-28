@@ -1,8 +1,9 @@
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Home, Users, ShoppingCart, Package, Menu, Plus, UserPlus, PackagePlus, 
   Receipt, Undo2, FileText, BarChart2, Settings, PenTool, Gauge, Search, 
-  Sparkles, Bell, HelpCircle, Cloud, CloudOff, RefreshCw, Layout
+  Sparkles, Bell, HelpCircle, Cloud, CloudOff, RefreshCw, Layout, Edit
 } from 'lucide-react';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { DialogProvider } from './context/DialogContext';
@@ -67,6 +68,18 @@ const LABEL_MAP: Record<string, string> = {
     'SYSTEM_OPTIMIZER': 'System'
 };
 
+const QUICK_ACTION_REGISTRY: Record<string, { icon: React.ElementType, label: string, page: Page, action?: string }> = {
+    'add_sale': { icon: ShoppingCart, label: 'Sale', page: 'SALES', action: 'new' },
+    'add_customer': { icon: UserPlus, label: 'Customer', page: 'CUSTOMERS', action: 'new' },
+    'add_expense': { icon: Receipt, label: 'Expense', page: 'EXPENSES', action: 'new' },
+    'add_purchase': { icon: PackagePlus, label: 'Purchase', page: 'PURCHASES', action: 'new' },
+    'add_quote': { icon: FileText, label: 'Estimate', page: 'QUOTATIONS', action: 'new' },
+    'add_return': { icon: Undo2, label: 'Return', page: 'RETURNS', action: 'new' },
+    'view_products': { icon: Package, label: 'Products', page: 'PRODUCTS' },
+    'view_reports': { icon: FileText, label: 'Reports', page: 'REPORTS' },
+    'view_insights': { icon: BarChart2, label: 'Insights', page: 'INSIGHTS' },
+};
+
 interface NavItemProps {
     page: string;
     label: string;
@@ -92,7 +105,7 @@ const NavItem: React.FC<NavItemProps> = ({ page, label, icon: Icon, onClick, isA
 );
 
 const AppContent: React.FC = () => {
-    const { state, dispatch, isDbLoaded, syncData } = useAppContext();
+    const { state, dispatch, isDbLoaded, syncData, googleSignIn } = useAppContext();
     const [currentPage, setCurrentPage] = useState<Page>('DASHBOARD');
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -179,31 +192,21 @@ const AppContent: React.FC = () => {
     };
 
     // Calculate Navigation Layout based on user preference order
-    const { mainNavItems, leftItems, rightItems, mobileMoreItems } = useMemo(() => {
+    const { mainNavItems, pinnedItems, mobileMoreItems } = useMemo(() => {
         const order = state.navOrder || [];
         
-        // Desktop uses everything in a scrollable bar, no special "More" hiding usually needed but let's keep logic simple
-        // First 5 for main desktop visual priority, rest available
-        const mainNav = order.slice(0, 5).map(id => ({ 
-            page: id, label: LABEL_MAP[id], icon: ICON_MAP[id] 
-        }));
-        // But Desktop currently iterates `[...mainNavItems, ...moreNavItems]` from hardcoded lists.
-        // Let's redefine desktop to just show ALL in order.
         const allDesktopItems = order.map(id => ({
             page: id, label: LABEL_MAP[id], icon: ICON_MAP[id]
         }));
 
-        // Mobile Split: 4 items (2 Left, 2 Right) + Middle FAB
+        // Mobile: 4 items + More + FAB (at end)
         const pinnedIds = order.slice(0, 4);
-        const leftIds = pinnedIds.slice(0, 2);
-        const rightIds = pinnedIds.slice(2, 4);
         const menuIds = order.slice(4);
 
-        const leftItems = leftIds.map(id => ({ page: id, label: LABEL_MAP[id], icon: ICON_MAP[id] }));
-        const rightItems = rightIds.map(id => ({ page: id, label: LABEL_MAP[id], icon: ICON_MAP[id] }));
+        const pinnedItems = pinnedIds.map(id => ({ page: id, label: LABEL_MAP[id], icon: ICON_MAP[id] }));
         const mobileMoreItems = menuIds.map(id => ({ page: id, label: LABEL_MAP[id], icon: ICON_MAP[id] }));
 
-        return { mainNavItems: allDesktopItems, leftItems, rightItems, mobileMoreItems };
+        return { mainNavItems: allDesktopItems, pinnedItems, mobileMoreItems };
     }, [state.navOrder]);
 
     const isMoreBtnActive = mobileMoreItems.some(item => item.page === currentPage);
@@ -234,28 +237,62 @@ const AppContent: React.FC = () => {
             
             {/* Header - Hidden on Invoice Designer to maximize space */}
             {currentPage !== 'INVOICE_DESIGNER' && (
-                <header className="fixed top-0 left-0 right-0 h-16 bg-theme text-white shadow-lg z-40 px-4 flex items-center justify-between transition-all duration-300">
-                    <div className="flex items-center gap-3">
+                <header className="fixed top-0 left-0 right-0 h-16 bg-theme text-white shadow-lg z-40 px-3 sm:px-4 flex items-center justify-between transition-all duration-300">
+                    
+                    {/* Left: Menu & Search */}
+                    <div className="flex items-center gap-1 sm:gap-2 z-20">
                         <button onClick={() => setIsMenuOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
                             <Menu size={24} />
                         </button>
-                        <h1 className="text-xl font-bold tracking-tight truncate max-w-[200px]">
-                            {state.profile?.name || 'Business Manager'}
-                        </h1>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        {state.googleUser && (
-                            <button 
-                                onClick={() => { if(state.syncStatus === 'error') setIsCloudDebugOpen(true); else syncData(); }} 
-                                className={`p-2 hover:bg-white/20 rounded-full transition-colors ${state.syncStatus === 'syncing' ? 'animate-spin' : ''}`}
-                                title={state.syncStatus === 'error' ? 'Sync Failed (Click to Debug)' : 'Sync Now'}
-                            >
-                                {state.syncStatus === 'syncing' ? <RefreshCw size={20} /> : state.syncStatus === 'error' ? <CloudOff size={20} className="text-red-300" /> : <Cloud size={20} />}
-                            </button>
-                        )}
                         <button onClick={() => setIsSearchOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
                             <Search size={20} />
                         </button>
+                    </div>
+
+                    {/* Center: Title - Absolutely Centered */}
+                    <div className="absolute left-0 right-0 flex justify-center pointer-events-none z-10">
+                        <button 
+                            onClick={() => handleNavigation('DASHBOARD')}
+                            className="pointer-events-auto hover:opacity-80 transition-opacity"
+                        >
+                            <h1 className="text-lg sm:text-xl font-bold tracking-tight truncate max-w-[200px] sm:max-w-[300px]">
+                                {state.profile?.name || 'Business Manager'}
+                            </h1>
+                        </button>
+                    </div>
+
+                    {/* Right: Actions */}
+                    <div className="flex items-center gap-1 sm:gap-2 z-20">
+                        
+                        {/* Cloud Sync / Sign In Button */}
+                        <button 
+                            onClick={() => { 
+                                if (!state.googleUser) {
+                                    googleSignIn();
+                                } else if(state.syncStatus === 'error') {
+                                    setIsCloudDebugOpen(true); 
+                                } else {
+                                    syncData(); 
+                                }
+                            }} 
+                            className={`p-2 hover:bg-white/20 rounded-full transition-colors ${state.syncStatus === 'syncing' ? 'animate-spin' : ''}`}
+                            title={!state.googleUser ? 'Sign In to Backup' : state.syncStatus === 'error' ? 'Sync Failed (Click to Debug)' : 'Sync Now'}
+                        >
+                            {state.syncStatus === 'syncing' ? (
+                                <RefreshCw size={20} />
+                            ) : state.syncStatus === 'error' ? (
+                                <CloudOff size={20} className="text-red-300" />
+                            ) : (
+                                <Cloud size={20} className={!state.googleUser ? "opacity-70" : ""} />
+                            )}
+                        </button>
+
+                        {/* AI Button - Always visible */}
+                        <button onClick={() => setIsAskAIOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+                            <Sparkles size={20} />
+                        </button>
+
+                        {/* Notifications */}
                         <div className="relative" ref={notificationsRef}>
                             <button onClick={() => setIsNotificationsOpen(!isNotificationsOpen)} className="p-2 hover:bg-white/20 rounded-full transition-colors relative">
                                 <Bell size={20} />
@@ -265,10 +302,9 @@ const AppContent: React.FC = () => {
                             </button>
                             <NotificationsPanel isOpen={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)} onNavigate={handleNavigation} />
                         </div>
-                        <button onClick={() => setIsAskAIOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors hidden sm:block">
-                            <Sparkles size={20} />
-                        </button>
-                        <button onClick={() => setIsHelpOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+
+                        {/* Help Button - Hidden on small mobile */}
+                        <button onClick={() => setIsHelpOpen(true)} className="hidden sm:block p-2 hover:bg-white/20 rounded-full transition-colors">
                             <HelpCircle size={20} />
                         </button>
                     </div>
@@ -329,61 +365,10 @@ const AppContent: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Mobile View - Custom Layout with Middle FAB */}
+                {/* Mobile View - Custom Layout */}
                 <div className="flex md:hidden justify-between items-end px-3 pb-2 pt-1 mx-auto w-full max-w-md relative">
-                    {/* Dynamic Left Icons */}
-                    {leftItems.map(item => (
-                        <NavItem 
-                            key={item.page}
-                            page={item.page} 
-                            label={item.label} 
-                            icon={item.icon} 
-                            onClick={() => handleNavigation(item.page as Page)} 
-                            isActive={currentPage === item.page && !isMoreMenuOpen && !isMobileQuickAddOpen} 
-                        />
-                    ))}
-                    
-                    {/* Center FAB - Quick Add */}
-                    <div className="relative -top-5 flex flex-col items-center justify-center w-auto" ref={mobileQuickAddRef}>
-                        <button 
-                            onClick={() => { setIsMobileQuickAddOpen(!isMobileQuickAddOpen); setIsMoreMenuOpen(false); }}
-                            className={`w-14 h-14 rounded-full bg-theme text-white shadow-xl shadow-primary/40 flex items-center justify-center transition-transform duration-300 ${isMobileQuickAddOpen ? 'rotate-45 scale-110' : 'active:scale-95'}`}
-                            aria-label="Quick Add"
-                        >
-                            <Plus size={32} strokeWidth={2.5} />
-                        </button>
-                        {isMobileQuickAddOpen && (
-                            <div className="absolute bottom-[calc(100%+12px)] left-1/2 -translate-x-1/2 w-64 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-200 dark:border-slate-700 p-3 animate-slide-up-fade origin-bottom z-50 ring-1 ring-black/5">
-                                <div className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2 text-center">Quick Actions</div>
-                                <div className="grid grid-cols-2 gap-2">
-                                    {[
-                                        { icon: ShoppingCart, label: 'Sale', page: 'SALES' as Page },
-                                        { icon: UserPlus, label: 'Customer', page: 'CUSTOMERS' as Page, action: 'new' },
-                                        { icon: Receipt, label: 'Expense', page: 'EXPENSES' as Page },
-                                        { icon: PackagePlus, label: 'Purchase', page: 'PURCHASES' as Page, action: 'new' },
-                                        { icon: FileText, label: 'Estimate', page: 'QUOTATIONS' as Page },
-                                        { icon: Undo2, label: 'Return', page: 'RETURNS' as Page },
-                                    ].map((action, idx) => (
-                                        <button
-                                            key={idx}
-                                            onClick={() => { 
-                                                dispatch({ type: 'SET_SELECTION', payload: { page: action.page, id: action.action || 'new' } }); 
-                                                handleNavigation(action.page);
-                                                setIsMobileQuickAddOpen(false);
-                                            }}
-                                            className="flex flex-col items-center justify-center gap-1 p-3 bg-gray-50 dark:bg-slate-700/50 hover:bg-primary/10 dark:hover:bg-primary/20 rounded-xl transition-colors group/item border border-gray-100 dark:border-slate-600"
-                                        >
-                                            <action.icon size={20} className="text-primary group-hover/item:scale-110 transition-transform" />
-                                            <span className="text-xs font-medium text-gray-700 dark:text-gray-200">{action.label}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Dynamic Right Icons */}
-                    {rightItems.map(item => (
+                    {/* Pinned Items (First 4) */}
+                    {pinnedItems.map(item => (
                         <NavItem 
                             key={item.page}
                             page={item.page} 
@@ -437,6 +422,53 @@ const AppContent: React.FC = () => {
                                         <Layout className="w-5 h-5" />
                                         <span className="text-sm">Customize Menu</span>
                                     </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Quick Add FAB - Moved to End */}
+                    <div className="relative -top-4 ml-1 flex flex-col items-center justify-center w-auto shrink-0" ref={mobileQuickAddRef}>
+                        <button 
+                            onClick={() => { setIsMobileQuickAddOpen(!isMobileQuickAddOpen); setIsMoreMenuOpen(false); }}
+                            className={`w-14 h-14 rounded-full bg-theme text-white shadow-xl shadow-primary/40 flex items-center justify-center transition-transform duration-300 ${isMobileQuickAddOpen ? 'rotate-45 scale-110' : 'active:scale-95'}`}
+                            aria-label="Quick Add"
+                        >
+                            <Plus size={32} strokeWidth={2.5} />
+                        </button>
+                        {isMobileQuickAddOpen && (
+                            <div className="absolute bottom-[calc(100%+12px)] right-0 w-64 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-200 dark:border-slate-700 p-3 animate-slide-up-fade origin-bottom-right z-50 ring-1 ring-black/5">
+                                <div className="flex justify-between items-center mb-2 px-1">
+                                    <div className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider text-center flex-grow pl-4">Quick Actions</div>
+                                    <button 
+                                        onClick={() => { setIsNavCustomizerOpen(true); setIsMobileQuickAddOpen(false); }}
+                                        className="text-primary hover:text-primary/80 transition-colors p-1 rounded-full hover:bg-primary/5"
+                                        title="Edit Quick Actions"
+                                    >
+                                        <Edit size={14} />
+                                    </button>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {state.quickActions.map((actionId, idx) => {
+                                        const action = QUICK_ACTION_REGISTRY[actionId];
+                                        if (!action) return null;
+                                        return (
+                                            <button
+                                                key={idx}
+                                                onClick={() => { 
+                                                    if (action.action) {
+                                                        dispatch({ type: 'SET_SELECTION', payload: { page: action.page, id: action.action as any } }); 
+                                                    }
+                                                    handleNavigation(action.page);
+                                                    setIsMobileQuickAddOpen(false);
+                                                }}
+                                                className="flex flex-col items-center justify-center gap-1 p-3 bg-gray-50 dark:bg-slate-700/50 hover:bg-primary/10 dark:hover:bg-primary/20 rounded-xl transition-colors group/item border border-gray-100 dark:border-slate-600"
+                                            >
+                                                <action.icon size={20} className="text-primary group-hover/item:scale-110 transition-transform" />
+                                                <span className="text-xs font-medium text-gray-700 dark:text-gray-200">{action.label}</span>
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         )}

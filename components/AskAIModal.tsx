@@ -179,21 +179,25 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
     .map(a => `• [${a.type}] ${a.date.toLocaleDateString()}: ${a.desc}`)
     .join('\n');
 
+    const businessName = state.profile?.name || 'Business Manager';
+    const ownerName = state.profile?.ownerName || 'Business Owner';
+    const location = state.profile?.address || 'India';
+
     return `
-      You are a SENIOR BUSINESS ANALYST for "${state.profile?.name || 'Business Manager'}".
+      You are a SENIOR BUSINESS ANALYST for "${businessName}" owned by "${ownerName}" located in "${location}".
       Your goal is to provide actionable, data-driven insights to the business owner.
 
       === REAL-TIME BUSINESS DATA ===
       
       [FINANCIAL SNAPSHOT]
       - Total Revenue: ₹${totalSales.toLocaleString('en-IN')}
-      - Total Expenses: ₹${totalPurchases.toLocaleString('en-IN')}
-      - Gross Profit: ₹${grossProfit.toLocaleString('en-IN')} ${grossProfit < 0 ? '(LOSS ALERT!)' : ''}
+      - Total Purchases: ₹${totalPurchases.toLocaleString('en-IN')}
+      - Estimated Gross Profit: ₹${grossProfit.toLocaleString('en-IN')} ${grossProfit < 0 ? '(LOSS ALERT!)' : ''}
       
-      [TOP DEBTORS - FOLLOW UP REQUIRED]
+      [TOP DEBTORS - HIGH PRIORITY]
       ${debtors.length > 0 ? debtors.map(d => `• ${d.name} (${d.area}): OWE ₹${d.due.toLocaleString('en-IN')}`).join('\n') : "No significant customer dues."}
       
-      [MY PAYABLES]
+      [MY PAYABLES - WHO I OWE]
       ${creditors.length > 0 ? creditors.map(c => `• ${c.name}: I OWE ₹${c.due.toLocaleString('en-IN')}`).join('\n') : "No outstanding payments to suppliers."}
       
       [INVENTORY INTELLIGENCE]
@@ -223,6 +227,7 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
          - If asked "Who owes me money?", list the debtors clearly with amounts.
          - If asked "How is business?", analyze profit, revenue trends, and cash flow.
          - Keep it professional but direct.
+         - Address the user as "${ownerName}" occasionally to be personal.
     `;
   };
 

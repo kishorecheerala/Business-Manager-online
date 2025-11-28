@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { FileText, Plus, Search, Share2, Trash2, ShoppingCart, QrCode, X, Edit, Calendar, Check, Download } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -95,6 +94,14 @@ const QuotationsPage: React.FC = () => {
     const [isScanning, setIsScanning] = useState(false);
 
     useOnClickOutside(searchRef, () => setShowProductDropdown(false));
+
+    // Auto-open create form if navigated via Quick Action
+    useEffect(() => {
+        if (state.selection && state.selection.page === 'QUOTATIONS' && state.selection.id === 'new') {
+            setView('create');
+            dispatch({ type: 'CLEAR_SELECTION' });
+        }
+    }, [state.selection]);
 
     const customerOptions = useMemo(() => state.customers.map(c => ({
         value: c.id,

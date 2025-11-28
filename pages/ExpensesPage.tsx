@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Plus, Trash2, Calendar, Filter, Receipt, DollarSign, X, Camera, Image as ImageIcon, Eye, Sparkles, Loader2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -63,6 +62,14 @@ const ExpensesPage: React.FC<ExpensesPageProps> = ({ setIsDirty }) => {
     const isDirtyRef = useRef(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const aiFileInputRef = useRef<HTMLInputElement>(null);
+
+    // Auto-open add form if navigated via Quick Action
+    useEffect(() => {
+        if (state.selection && state.selection.page === 'EXPENSES' && state.selection.id === 'new') {
+            setIsAdding(true);
+            dispatch({ type: 'CLEAR_SELECTION' });
+        }
+    }, [state.selection]);
 
     useEffect(() => {
         const formIsDirty = isAdding && (!!amount || !!note || !!receiptImage);

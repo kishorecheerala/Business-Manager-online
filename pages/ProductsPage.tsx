@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, Edit, Save, X, Package, IndianRupee, Percent, PackageCheck, Barcode, Printer, Filter, Grid, List, Camera, Image as ImageIcon, Eye, Trash2, QrCode, Boxes, Maximize2, Minimize2, ArrowLeft, CheckSquare, Square, Plus, Clock, AlertTriangle, Share2, MoreHorizontal, LayoutGrid, Check, Wand2, Loader2 } from 'lucide-react';
+import { Search, Edit, Save, X, Package, IndianRupee, Percent, PackageCheck, Barcode, Printer, Filter, Grid, List, Camera, Image as ImageIcon, Eye, Trash2, QrCode, Boxes, Maximize2, Minimize2, ArrowLeft, CheckSquare, Square, Plus, Clock, AlertTriangle, Share2, MoreHorizontal, LayoutGrid, Check, Wand2, Loader2, Sparkles } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Product, PurchaseItem } from '../types';
 import Card from '../components/Card';
@@ -131,6 +131,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     const [cropImage, setCropImage] = useState<string | null>(null);
     
     const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
+    const [isSuggestingPrice, setIsSuggestingPrice] = useState(false);
 
     const isDirtyRef = useRef(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -384,6 +385,45 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
         }
     };
 
+    // AI Price Suggestion
+    const handleAIGeneratePrice = async () => {
+        if (!editedProduct || !editedProduct.purchasePrice) {
+            showToast("Need a valid Purchase Price to suggest selling price.", 'error');
+            return;
+        }
+
+        setIsSuggestingPrice(true);
+        try {
+            const apiKey = process.env.API_KEY;
+            if (!apiKey) throw new Error("API Key not available");
+
+            const ai = new GoogleGenAI({ apiKey });
+            const prompt = `I bought a product named "${editedProduct.name}" (${editedProduct.category || 'General'}) for ${editedProduct.purchasePrice}. 
+            Suggest a competitive selling price with a 25-45% profit margin range. 
+            Return ONLY the suggested price number (e.g. 500).`;
+
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: prompt
+            });
+
+            const priceText = response.text?.trim() || '';
+            const suggestedPrice = parseFloat(priceText.replace(/[^0-9.]/g, ''));
+
+            if (!isNaN(suggestedPrice)) {
+                setEditedProduct(prev => prev ? ({ ...prev, salePrice: suggestedPrice }) : null);
+                showToast(`Suggested Price: ${suggestedPrice} (Based on standard margins)`, 'success');
+            } else {
+                throw new Error("AI returned invalid number");
+            }
+        } catch (error) {
+            console.error("AI Price Error", error);
+            showToast("Failed to suggest price.", 'error');
+        } finally {
+            setIsSuggestingPrice(false);
+        }
+    };
+
     // Render Logic for Detail View
     if (selectedProduct && editedProduct) {
         return (
@@ -497,7 +537,18 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase">Sale Price</label>
+                                        <div className="flex justify-between items-center mb-1">
+                                            <label className="text-xs font-bold text-gray-500 uppercase">Sale Price</label>
+                                            <button 
+                                                onClick={handleAIGeneratePrice}
+                                                disabled={isSuggestingPrice || !editedProduct.purchasePrice}
+                                                className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1 hover:underline disabled:opacity-50"
+                                                title="Suggest price based on purchase cost"
+                                            >
+                                                {isSuggestingPrice ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                                                Magic Price
+                                            </button>
+                                        </div>
                                         <input 
                                             type="number" 
                                             value={editedProduct.salePrice} 

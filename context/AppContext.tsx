@@ -1,10 +1,5 @@
-
-
-
-
-
 import React, { createContext, useReducer, useContext, useEffect, ReactNode, useState } from 'react';
-import { Customer, Supplier, Product, Sale, Purchase, Return, BeforeInstallPromptEvent, Notification, ProfileData, Page, AppMetadata, Theme, GoogleUser, AuditLogEntry, SyncStatus, Expense, Quote, AppMetadataInvoiceSettings, InvoiceTemplateConfig, CustomFont, PurchaseItem, AppMetadataNavOrder } from '../types';
+import { Customer, Supplier, Product, Sale, Purchase, Return, BeforeInstallPromptEvent, Notification, ProfileData, Page, AppMetadata, Theme, GoogleUser, AuditLogEntry, SyncStatus, Expense, Quote, AppMetadataInvoiceSettings, InvoiceTemplateConfig, CustomFont, PurchaseItem, AppMetadataNavOrder, AppMetadataQuickActions } from '../types';
 import * as db from '../utils/db';
 import { StoreName } from '../utils/db';
 import { DriveService, initGoogleAuth, getUserInfo, loadGoogleScript, downloadFile } from '../utils/googleDrive';
@@ -49,6 +44,7 @@ export interface AppState {
   devMode: boolean;
   performanceMode: boolean;
   navOrder: string[]; // List of page IDs in order
+  quickActions: string[]; // List of Quick Action IDs
   restoreFromFileId?: (fileId: string) => Promise<void>;
 }
 
@@ -97,6 +93,7 @@ type Action =
   | { type: 'SET_DOCUMENT_TEMPLATE'; payload: { type: string; config: InvoiceTemplateConfig } }
   | { type: 'UPDATE_INVOICE_SETTINGS'; payload: AppMetadataInvoiceSettings }
   | { type: 'UPDATE_NAV_ORDER'; payload: string[] }
+  | { type: 'UPDATE_QUICK_ACTIONS'; payload: string[] }
   | { type: 'TOGGLE_PERFORMANCE_MODE' }
   | { type: 'CLEANUP_OLD_DATA' }
   | { type: 'REPLACE_COLLECTION'; payload: { storeName: StoreName; data: any[] } };
@@ -115,6 +112,10 @@ const DEFAULT_TEMPLATE: InvoiceTemplateConfig = {
 const DEFAULT_NAV_ORDER = [
     'DASHBOARD', 'CUSTOMERS', 'SALES', 'PURCHASES', 
     'INSIGHTS', 'REPORTS', 'PRODUCTS', 'EXPENSES', 'RETURNS', 'QUOTATIONS', 'INVOICE_DESIGNER', 'SYSTEM_OPTIMIZER'
+];
+
+const DEFAULT_QUICK_ACTIONS = [
+    'add_sale', 'add_customer', 'add_expense', 'add_purchase', 'add_quote', 'add_return'
 ];
 
 const initialState: AppState = {
@@ -149,7 +150,8 @@ const initialState: AppState = {
     lastLocalUpdate: 0,
     devMode: false,
     performanceMode: false,
-    navOrder: DEFAULT_NAV_ORDER
+    navOrder: DEFAULT_NAV_ORDER,
+    quickActions: DEFAULT_QUICK_ACTIONS
 };
 
 // Logging helper
@@ -513,6 +515,12 @@ const appReducer = (state: AppState, action: Action): AppState => {
         db.saveCollection('app_metadata', [...metaWithoutNav, navOrderMeta]);
         return { ...state, navOrder: action.payload, app_metadata: [...metaWithoutNav, navOrderMeta] };
 
+    case 'UPDATE_QUICK_ACTIONS':
+        const qaMeta: AppMetadataQuickActions = { id: 'quickActions', actions: action.payload };
+        const metaWithoutQA = state.app_metadata.filter(m => m.id !== 'quickActions');
+        db.saveCollection('app_metadata', [...metaWithoutQA, qaMeta]);
+        return { ...state, quickActions: action.payload, app_metadata: [...metaWithoutQA, qaMeta] };
+
     case 'TOGGLE_PERFORMANCE_MODE':
         return { ...state, performanceMode: !state.performanceMode };
 
@@ -585,6 +593,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             
             const invSettings = app_metadata.find(m => m.id === 'invoiceSettings') as AppMetadataInvoiceSettings;
             const navOrderMeta = app_metadata.find(m => m.id === 'navOrder') as AppMetadataNavOrder;
+            const quickActionsMeta = app_metadata.find(m => m.id === 'quickActions') as AppMetadataQuickActions;
 
             // Load Templates from Metadata or default to DEFAULT_TEMPLATE values if missing
             const invoiceTemplate = (app_metadata.find(m => m.id === 'invoiceTemplateConfig') as InvoiceTemplateConfig) || initialState.invoiceTemplate;
@@ -602,6 +611,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     pin,
                     invoiceSettings: invSettings,
                     navOrder: navOrderMeta ? navOrderMeta.order : DEFAULT_NAV_ORDER,
+                    quickActions: quickActionsMeta ? quickActionsMeta.actions : DEFAULT_QUICK_ACTIONS,
                     invoiceTemplate, estimateTemplate, debitNoteTemplate, receiptTemplate, reportTemplate
                 }
             });
