@@ -20,7 +20,7 @@ interface UniversalSearchProps {
 }
 
 const UniversalSearch: React.FC<UniversalSearchProps> = ({ isOpen, onClose, onNavigate }) => {
-    const { state } = useAppContext();
+    const { state, showToast } = useAppContext();
     const [searchTerm, setSearchTerm] = useState('');
     const [results, setResults] = useState<SearchResults>({ customers: [], suppliers: [], products: [], sales: [], purchases: [] });
     const [isScanning, setIsScanning] = useState(false);
@@ -103,7 +103,7 @@ const UniversalSearch: React.FC<UniversalSearchProps> = ({ isOpen, onClose, onNa
             return;
         }
 
-        alert(`QR Code content "${scannedText}" not recognized as a product, sale, or purchase.`);
+        showToast(`QR Code content "${scannedText}" not recognized.`, 'info');
     };
 
 

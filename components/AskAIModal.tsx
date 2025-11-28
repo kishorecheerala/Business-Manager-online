@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Send, Sparkles, Bot, User, Loader2, Key, AlertTriangle } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
@@ -48,7 +47,7 @@ const getApiKey = (): string | undefined => {
 };
 
 const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
-  const { state } = useAppContext();
+  const { state, showToast } = useAppContext();
   const [messages, setMessages] = useState<Message[]>([
     { id: '1', role: 'model', text: "Hi! I'm your Senior Business Analyst. I can help you analyze your finances, track dues, and optimize inventory.\n\nTry asking:\n• Who owes me the most money?\n• What are my best selling products?\n• Give me a summary of recent activity." }
   ]);
@@ -247,7 +246,7 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
             });
           } catch (e) {
               console.error("Failed to open key selector", e);
-              alert("Failed to open API Key configuration. Please try again.");
+              showToast("Failed to open API Key configuration. Please try again.", 'error');
           }
       }
   };

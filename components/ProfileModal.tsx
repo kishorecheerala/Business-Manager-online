@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Save, Camera, Trash2, Image as ImageIcon } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -49,7 +48,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
               const base64 = await compressImage(e.target.files[0], 300, 0.8);
               setFormData(prev => ({ ...prev, logo: base64 }));
           } catch (error) {
-              alert("Error processing image.");
+              showToast("Error processing image.", 'error');
           }
       }
   };
@@ -60,7 +59,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
         ...formData
     };
     dispatch({ type: 'SET_PROFILE', payload: profilePayload });
-    showToast('Profile updated successfully!');
+    showToast('Profile updated successfully!', 'success');
     onClose();
   };
 

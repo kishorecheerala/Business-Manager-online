@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { IndianRupee, User, AlertTriangle, Download, Upload, ShoppingCart, Package, XCircle, CheckCircle, Info, ShieldCheck, ShieldX, Archive, PackageCheck, TestTube2, Sparkles, TrendingUp, ArrowRight, Zap, BrainCircuit, TrendingDown, Wallet, CalendarClock, Tag, Undo2, Crown, Calendar, Receipt, MessageCircle, Clock, History, PenTool, FileText, Loader2, RotateCw } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -65,6 +64,7 @@ const SmartAnalystCard: React.FC<{
     expenses: Expense[], 
     ownerName: string 
 }> = ({ sales, products, customers, purchases, returns, expenses, ownerName }) => {
+    const { showToast } = useAppContext();
     const [aiBriefing, setAiBriefing] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
 
@@ -182,7 +182,7 @@ const SmartAnalystCard: React.FC<{
             }
         } catch (error) {
             console.error("AI Error", error);
-            alert("Could not generate briefing. Check API Key or connection.");
+            showToast("Could not generate briefing. Check API Key or connection.", 'error');
         } finally {
             setIsGenerating(false);
         }
@@ -664,10 +664,10 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
             
             await db.setLastBackupDate();
             dispatch({ type: 'SET_LAST_BACKUP_DATE', payload: new Date().toISOString() });
-            showToast("Backup downloaded successfully!");
+            showToast("Backup downloaded successfully!", 'success');
         } catch (e) {
             console.error("Backup failed", e);
-            showToast("Backup failed!", 'info');
+            showToast("Backup failed!", 'error');
         } finally {
             setIsGeneratingReport(false);
         }
@@ -688,7 +688,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                 window.location.reload();
             } catch (error) {
                 console.error("Failed to load test data:", error);
-                showToast("Failed to load test data.", 'info');
+                showToast("Failed to load test data.", 'error');
                 setIsGeneratingReport(false);
             }
         }

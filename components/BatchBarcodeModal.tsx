@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import jsPDF from 'jspdf';
 import JsBarcode from 'jsbarcode';
@@ -6,6 +5,7 @@ import Card from './Card';
 import Button from './Button';
 import { X, Download, Printer } from 'lucide-react';
 import { PurchaseItem } from '../types';
+import { useAppContext } from '../context/AppContext';
 
 interface BatchBarcodeModalProps {
   isOpen: boolean;
@@ -63,6 +63,7 @@ const generateLabelCanvas = (product: { id: string, name: string, salePrice: num
 };
 
 const BatchBarcodeModal: React.FC<BatchBarcodeModalProps> = ({ isOpen, purchaseItems, onClose, businessName, title }) => {
+    const { showToast } = useAppContext();
     const [quantities, setQuantities] = useState<{ [key: string]: string }>({});
     const printIframeRef = useRef<HTMLIFrameElement | null>(null);
 
@@ -103,7 +104,7 @@ const BatchBarcodeModal: React.FC<BatchBarcodeModalProps> = ({ isOpen, purchaseI
 
     const handleDownloadPDF = async () => {
         if (totalLabels <= 0) {
-            alert("No labels to print. Please set quantities greater than 0.");
+            showToast("No labels to print. Please set quantities greater than 0.", 'error');
             return;
         }
         try {
@@ -138,13 +139,13 @@ const BatchBarcodeModal: React.FC<BatchBarcodeModalProps> = ({ isOpen, purchaseI
             doc.save(`purchase-labels.pdf`);
         } catch (error) {
             console.error('PDF generation failed:', error);
-            alert('Failed to generate PDF. Please try again.');
+            showToast('Failed to generate PDF. Please try again.', 'error');
         }
     };
 
     const handlePrint = () => {
         if (totalLabels <= 0) {
-            alert("No labels to print. Please set quantities greater than 0.");
+            showToast("No labels to print. Please set quantities greater than 0.", 'error');
             return;
         }
         try {
@@ -204,7 +205,7 @@ const BatchBarcodeModal: React.FC<BatchBarcodeModalProps> = ({ isOpen, purchaseI
             }
         } catch (error) {
             console.error('Printing failed:', error);
-            alert('Failed to print labels. Please try again.');
+            showToast('Failed to print labels. Please try again.', 'error');
         }
     };
 

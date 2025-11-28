@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import Card from './Card';
 import Button from './Button';
 import { Product } from '../types';
 import { X } from 'lucide-react';
+import { useAppContext } from '../context/AppContext';
 
 interface QuantityInputModalProps {
   isOpen: boolean;
@@ -13,6 +13,7 @@ interface QuantityInputModalProps {
 }
 
 const QuantityInputModal: React.FC<QuantityInputModalProps> = ({ isOpen, onClose, onSubmit, product }) => {
+  const { showToast } = useAppContext();
   const [quantity, setQuantity] = useState('1');
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -30,7 +31,7 @@ const QuantityInputModal: React.FC<QuantityInputModalProps> = ({ isOpen, onClose
     if (!isNaN(numQuantity) && numQuantity > 0) {
       onSubmit(numQuantity);
     } else {
-      alert('Please enter a valid quantity.');
+      showToast('Please enter a valid quantity.', 'error');
     }
   };
 

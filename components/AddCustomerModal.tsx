@@ -1,8 +1,8 @@
-
 import React, { useState } from 'react';
 import Card from './Card';
 import Button from './Button';
 import { Customer } from '../types';
+import { useAppContext } from '../context/AppContext';
 
 interface AddCustomerModalProps {
     isOpen: boolean;
@@ -12,16 +12,17 @@ interface AddCustomerModalProps {
 }
 
 const AddCustomerModal: React.FC<AddCustomerModalProps> = ({ isOpen, onClose, onAdd, existingCustomers }) => {
+    const { showToast } = useAppContext();
     const [newCustomer, setNewCustomer] = useState({ id: '', name: '', phone: '', address: '', area: '', reference: '' });
 
     const handleSave = () => {
         const trimmedId = newCustomer.id.trim();
         if (!trimmedId) {
-            alert('Customer ID is required.');
+            showToast('Customer ID is required.', 'error');
             return;
         }
         if (!newCustomer.name || !newCustomer.phone || !newCustomer.address || !newCustomer.area) {
-            alert('Please fill all required fields (Name, Phone, Address, Area).');
+            showToast('Please fill all required fields (Name, Phone, Address, Area).', 'error');
             return;
         }
 
@@ -29,7 +30,7 @@ const AddCustomerModal: React.FC<AddCustomerModalProps> = ({ isOpen, onClose, on
         const isIdTaken = existingCustomers.some(c => c.id.toLowerCase() === finalId.toLowerCase());
         
         if (isIdTaken) {
-            alert(`Customer ID "${finalId}" is already taken. Please choose another one.`);
+            showToast(`Customer ID "${finalId}" is already taken. Please choose another one.`, 'error');
             return;
         }
 

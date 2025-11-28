@@ -383,6 +383,11 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                             <RefreshCw className={`w-5 h-5 ${state.syncStatus === 'syncing' ? 'animate-spin' : ''}`} />
                             <span className="flex-grow text-sm font-medium">Sync Now</span>
                         </button>
+                        {state.lastSyncTime && (
+                            <p className="text-[10px] text-gray-400 text-center -mt-1 pb-2">
+                                Last synced: {new Date(state.lastSyncTime).toLocaleString()}
+                            </p>
+                        )}
                         
                         <button
                             onClick={() => { onClose(); setIsCloudDebugOpen(true); }}

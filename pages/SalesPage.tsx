@@ -10,11 +10,17 @@ import { Html5Qrcode } from 'html5-qrcode';
 import DeleteButton from '../components/DeleteButton';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
 import { logoBase64 } from '../utils/logo';
-import { getLocalDateString } from '../utils/dateUtils';
 import { calculateTotals } from '../utils/calculations';
 import { useHotkeys } from '../hooks/useHotkeys';
 
-// ... (fetchImageAsBase64, AddCustomerModal, ProductSearchModal, QRScannerModal components remain the same) ...
+
+const getLocalDateString = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const day = date.getDate().toString().padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const fetchImageAsBase64 = (url: string): Promise<string> =>
   fetch(url)
     .then(response => response.blob())
@@ -24,6 +30,10 @@ const fetchImageAsBase64 = (url: string): Promise<string> =>
         reader.onerror = reject;
         reader.readAsDataURL(blob);
     }));
+
+interface SalesPageProps {
+  setIsDirty: (isDirty: boolean) => void;
+}
 
 const newCustomerInitialState = { id: '', name: '', phone: '', address: '', area: '', reference: '' };
 
@@ -180,10 +190,6 @@ const QRScannerModal: React.FC<{
     );
 };
 
-interface SalesPageProps {
-  setIsDirty: (isDirty: boolean) => void;
-}
-
 const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
     const { state, dispatch, showToast } = useAppContext();
     
@@ -288,13 +294,13 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
 
         if (existingItem) {
             if (existingItem.quantity + 1 > availableStock) {
-                 alert(`Not enough stock for ${product.name}. Only ${availableStock} available for this sale.`);
+                 showToast(`Not enough stock for ${product.name}. Only ${availableStock} available.`, 'error');
                  return;
             }
             setItems(items.map(i => i.productId === newItem.productId ? { ...i, quantity: i.quantity + 1 } : i));
         } else {
              if (1 > availableStock) {
-                 alert(`Not enough stock for ${product.name}. Only ${availableStock} available for this sale.`);
+                 showToast(`Not enough stock for ${product.name}. Only ${availableStock} available.`, 'error');
                  return;
             }
             setItems([...items, newItem]);
@@ -309,7 +315,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         if (product) {
             handleSelectProduct(product);
         } else {
-            alert("Product not found in inventory.");
+            showToast("Product not found in inventory.", 'error');
         }
     };
 
@@ -324,7 +330,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                     const originalQtyInSale = mode === 'edit' ? saleToEdit?.items.find(i => i.productId === productId)?.quantity || 0 : 0;
                     const availableStock = (Number(product?.quantity) || 0) + originalQtyInSale;
                     if (numValue > availableStock) {
-                        alert(`Not enough stock for ${item.productName}. Only ${availableStock} available for this sale.`);
+                        showToast(`Not enough stock for ${item.productName}. Only ${availableStock} available.`, 'error');
                         return { ...item, quantity: availableStock };
                     }
                 }
@@ -339,7 +345,6 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         setItems(items.filter(item => item.productId !== productId));
     };
 
-    // Use consolidated calculations util
     const calculations = useMemo(() => {
         return calculateTotals(items, parseFloat(discount) || 0, state.products);
     }, [items, discount, state.products]);
@@ -380,11 +385,11 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
     const handleAddCustomer = useCallback(() => {
         const trimmedId = newCustomer.id.trim();
         if (!trimmedId) {
-            alert('Customer ID is required.');
+            showToast('Customer ID is required.', 'error');
             return;
         }
         if (!newCustomer.name || !newCustomer.phone || !newCustomer.address || !newCustomer.area) {
-            alert('Please fill all required fields (Name, Phone, Address, Area).');
+            showToast('Please fill all required fields (Name, Phone, Address, Area).', 'error');
             return;
         }
 
@@ -392,7 +397,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         const isIdTaken = state.customers.some(c => c.id.toLowerCase() === finalId.toLowerCase());
 
         if (isIdTaken) {
-            alert(`Customer ID "${finalId}" is already taken. Please choose another one.`);
+            showToast(`Customer ID "${finalId}" is already taken. Please choose another one.`, 'error');
             return;
         }
 
@@ -408,7 +413,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         setNewCustomer(newCustomerInitialState);
         setIsAddingCustomer(false);
         setCustomerId(customerWithId.id);
-        showToast("Customer added successfully!");
+        showToast("Customer added successfully!", 'success');
     }, [newCustomer, state.customers, dispatch, showToast]);
 
 
@@ -481,6 +486,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         
         currentY = (doc as any).lastAutoTable.finalY + 10;
         
+        // Calculate values to ensure they are available in scope
         const subTotal = sale.items.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
         const dueAmountOnSale = Number(sale.totalAmount) - paidAmountOnSale;
         
@@ -522,15 +528,16 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         
         const pdfBlob = doc.output('blob');
         const pdfFile = new File([pdfBlob], `Invoice-${sale.id}.pdf`, { type: 'application/pdf' });
-        const companyName = state.profile?.name || 'Your Business';
         
-        const whatsAppText = `Thank you for your purchase from ${companyName}!\n\n*Invoice Summary:*\nInvoice ID: ${sale.id}\nDate: ${new Date(sale.date).toLocaleString()}\n\n*Items:*\n${sale.items.map(i => `- ${i.productName} (x${i.quantity}) - Rs. ${(Number(i.price) * Number(i.quantity)).toLocaleString('en-IN')}`).join('\n')}\n\nSubtotal: Rs. ${subTotal.toLocaleString('en-IN')}\nGST: Rs. ${Number(sale.gstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}\nDiscount: Rs. ${Number(sale.discount).toLocaleString('en-IN')}\n*Total: Rs. ${Number(sale.totalAmount).toLocaleString('en-IN')}*\nPaid: Rs. ${paidAmountOnSale.toLocaleString('en-IN')}\nDue: Rs. ${dueAmountOnSale.toLocaleString('en-IN', { minimumFractionDigits: 2 })}\n\nHave a blessed day!`;
+        const businessName = state.profile?.name || 'Your Business';
+        
+        const whatsAppText = `Thank you for your purchase from ${businessName}!\n\n*Invoice Summary:*\nInvoice ID: ${sale.id}\nDate: ${new Date(sale.date).toLocaleString()}\n\n*Items:*\n${sale.items.map(i => `- ${i.productName} (x${i.quantity}) - Rs. ${(Number(i.price) * Number(i.quantity)).toLocaleString('en-IN')}`).join('\n')}\n\nSubtotal: Rs. ${subTotal.toLocaleString('en-IN')}\nGST: Rs. ${Number(sale.gstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}\nDiscount: Rs. ${Number(sale.discount).toLocaleString('en-IN')}\n*Total: Rs. ${Number(sale.totalAmount).toLocaleString('en-IN')}*\nPaid: Rs. ${paidAmountOnSale.toLocaleString('en-IN')}\nDue: Rs. ${dueAmountOnSale.toLocaleString('en-IN', { minimumFractionDigits: 2 })}\n\nHave a blessed day!`;
         
         if (navigator.share && navigator.canShare({ files: [pdfFile] })) {
           try {
             if (navigator.clipboard && navigator.clipboard.writeText) {
               await navigator.clipboard.writeText(whatsAppText);
-              showToast('Invoice text copied to clipboard!');
+              showToast('Invoice text copied to clipboard!', 'info');
             }
           } catch (err) {
             console.warn('Could not copy text to clipboard:', err);
@@ -545,19 +552,19 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         }
       } catch (error) {
         console.error("PDF generation or sharing failed:", error);
-        alert(`Sale created successfully, but the PDF invoice could not be generated or shared. Error: ${(error as Error).message}`);
+        showToast(`PDF generation failed: ${(error as Error).message}`, 'error');
       }
     };
 
     const handleSubmitSale = async () => {
         if (!customerId || items.length === 0) {
-            alert("Please select a customer and add at least one item.");
+            showToast("Please select a customer and add at least one item.", 'info');
             return;
         }
 
         const customer = state.customers.find(c => c.id === customerId);
         if(!customer) {
-            alert("Could not find the selected customer.");
+            showToast("Could not find the selected customer.", 'error');
             return;
         }
         
@@ -569,7 +576,8 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             if (mode === 'add') {
                 const paidAmount = parseFloat(paymentDetails.amount) || 0;
                 if (paidAmount > totalAmount + 0.01) {
-                    alert(`Paid amount (₹${paidAmount.toLocaleString('en-IN')}) cannot be greater than the total amount (₹${totalAmount.toLocaleString('en-IN')}).`);
+                    showToast(`Paid amount (₹${paidAmount.toLocaleString('en-IN')}) cannot be greater than the total amount (₹${totalAmount.toLocaleString('en-IN')}).`, 'error');
+                    setIsGenerating(false);
                     return;
                 }
                 const payments: Payment[] = [];
@@ -592,7 +600,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                 items.forEach(item => {
                     dispatch({ type: 'UPDATE_PRODUCT_STOCK', payload: { productId: item.productId, change: -Number(item.quantity) } });
                 });
-                showToast('Sale created successfully!');
+                showToast('Sale created successfully!', 'success');
                 
                 // Allow a small delay for UI to update before blocking with PDF generation
                 setTimeout(async () => {
@@ -606,7 +614,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                 const totalPaid = existingPayments.reduce((sum, p) => sum + Number(p.amount), 0);
 
                 if (totalAmount < totalPaid - 0.01) {
-                    alert(`The new total amount (₹${totalAmount.toLocaleString('en-IN')}) cannot be less than the amount already paid (₹${totalPaid.toLocaleString('en-IN')}).`);
+                    showToast(`The new total amount (₹${totalAmount.toLocaleString('en-IN')}) cannot be less than the amount already paid (₹${totalPaid.toLocaleString('en-IN')}).`, 'error');
                     setIsGenerating(false);
                     return;
                 }
@@ -615,13 +623,14 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                     ...saleToEdit, items, discount: discountAmount, gstAmount, totalAmount,
                 };
                 dispatch({ type: 'UPDATE_SALE', payload: { oldSale: saleToEdit, updatedSale } });
-                showToast('Sale updated successfully!');
+                showToast('Sale updated successfully!', 'success');
                 setIsGenerating(false);
                 resetForm();
             }
         } catch (e) {
             console.error(e);
             setIsGenerating(false);
+            showToast("An unexpected error occurred.", 'error');
         }
     };
 
@@ -630,13 +639,13 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
 
      const handleRecordStandalonePayment = () => {
         if (!customerId) {
-            alert('Please select a customer to record a payment for.');
+            showToast('Please select a customer to record a payment for.', 'info');
             return;
         }
 
         const paidAmount = parseFloat(paymentDetails.amount || '0');
         if (paidAmount <= 0) {
-            alert('Please enter a valid payment amount.');
+            showToast('Please enter a valid payment amount.', 'error');
             return;
         }
 
@@ -648,7 +657,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
         if (outstandingSales.length === 0) {
-            alert('This customer has no outstanding dues.');
+            showToast('This customer has no outstanding dues.', 'info');
             return;
         }
         
@@ -674,7 +683,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             remainingPayment -= amountToApply;
         }
         
-        showToast(`Payment of ₹${paidAmount.toLocaleString('en-IN')} recorded successfully.`);
+        showToast(`Payment of ₹${paidAmount.toLocaleString('en-IN')} recorded successfully.`, 'success');
         resetForm();
     };
 

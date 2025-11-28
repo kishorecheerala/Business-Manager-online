@@ -1,9 +1,9 @@
-
 import React from 'react';
 import Card from './Card';
 import Button from './Button';
 import Dropdown from './Dropdown';
 import DateInput from './DateInput';
+import { useAppContext } from '../context/AppContext';
 
 interface PaymentModalProps {
     isOpen: boolean;
@@ -31,6 +31,9 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     setPaymentDetails,
     type = 'sale'
 }) => {
+    // Only needed for potentially adding toasts in local handlers, though currently validation is in parent
+    const { showToast } = useAppContext();
+
     if (!isOpen) return null;
 
     const paymentMethodOptions = [

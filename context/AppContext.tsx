@@ -1,3 +1,4 @@
+
 import React, { createContext, useReducer, useContext, useEffect, ReactNode, useState } from 'react';
 import { Customer, Supplier, Product, Sale, Purchase, Return, BeforeInstallPromptEvent, Notification, ProfileData, Page, AppMetadata, Theme, GoogleUser, AuditLogEntry, SyncStatus, Expense, Quote, AppMetadataInvoiceSettings, InvoiceTemplateConfig, CustomFont, PurchaseItem, AppMetadataNavOrder, AppMetadataQuickActions } from '../types';
 import * as db from '../utils/db';
@@ -163,6 +164,32 @@ const logAction = (state: AppState, actionType: string, details: string): AuditL
         action: actionType,
         details: details
     };
+};
+
+// --- LocalStorage Helpers ---
+const safeSetItem = (key: string, value: string) => {
+    try {
+        localStorage.setItem(key, value);
+    } catch (e) {
+        console.warn(`Failed to set ${key} in localStorage`, e);
+    }
+};
+
+const safeRemoveItem = (key: string) => {
+    try {
+        localStorage.removeItem(key);
+    } catch (e) {
+        console.warn(`Failed to remove ${key} from localStorage`, e);
+    }
+};
+
+const safeGetItem = (key: string): string | null => {
+    try {
+        return localStorage.getItem(key);
+    } catch (e) {
+        console.warn(`Failed to get ${key} from localStorage`, e);
+        return null;
+    }
 };
 
 const appReducer = (state: AppState, action: Action): AppState => {
@@ -465,10 +492,16 @@ const appReducer = (state: AppState, action: Action): AppState => {
         return { ...state, installPromptEvent: action.payload };
 
     case 'SET_GOOGLE_USER':
+        if (action.payload) {
+            safeSetItem('googleUser', JSON.stringify(action.payload));
+        } else {
+            safeRemoveItem('googleUser');
+        }
         return { ...state, googleUser: action.payload };
     case 'SET_SYNC_STATUS':
         return { ...state, syncStatus: action.payload };
     case 'SET_LAST_SYNC_TIME':
+        safeSetItem('lastSyncTime', String(action.payload));
         return { ...state, lastSyncTime: action.payload };
     
     case 'SET_LAST_BACKUP_DATE':
@@ -567,7 +600,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // --- Toast Logic ---
     const showToast = (message: string, type: 'success' | 'info' | 'error' = 'info') => {
         dispatch({ type: 'SHOW_TOAST', payload: { message, type } });
-        setTimeout(() => dispatch({ type: 'HIDE_TOAST' }), 3000);
+        // The Toast component handles its own timeout logic now, but dispatching hide can be double-safe
+        setTimeout(() => dispatch({ type: 'HIDE_TOAST' }), 3500); 
     };
 
     // --- Load Data from IDB on Mount ---
@@ -602,6 +636,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             const receiptTemplate = (app_metadata.find(m => m.id === 'receiptTemplateConfig') as InvoiceTemplateConfig) || initialState.receiptTemplate;
             const reportTemplate = (app_metadata.find(m => m.id === 'reportTemplateConfig') as InvoiceTemplateConfig) || initialState.reportTemplate;
 
+            // Restore Google User & Sync Time from LocalStorage safely
+            const storedUser = safeGetItem('googleUser');
+            const storedSyncTime = safeGetItem('lastSyncTime');
+            let googleUser = null;
+            let lastSyncTime = null;
+
+            try {
+                googleUser = storedUser ? JSON.parse(storedUser) : null;
+            } catch(e) { console.error("Failed to parse stored user", e); }
+
+            try {
+                lastSyncTime = storedSyncTime ? parseInt(storedSyncTime) : null;
+            } catch(e) { console.error("Failed to parse last sync time", e); }
+
             dispatch({
                 type: 'SET_STATE',
                 payload: {
@@ -612,7 +660,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     invoiceSettings: invSettings,
                     navOrder: navOrderMeta ? navOrderMeta.order : DEFAULT_NAV_ORDER,
                     quickActions: quickActionsMeta ? quickActionsMeta.actions : DEFAULT_QUICK_ACTIONS,
-                    invoiceTemplate, estimateTemplate, debitNoteTemplate, receiptTemplate, reportTemplate
+                    invoiceTemplate, estimateTemplate, debitNoteTemplate, receiptTemplate, reportTemplate,
+                    googleUser, lastSyncTime
                 }
             });
             setIsDbLoaded(true);
@@ -631,8 +680,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 accessToken: response.access_token
             };
             dispatch({ type: 'SET_GOOGLE_USER', payload: user });
-            // Optionally auto-sync on login?
-            // syncData(user.accessToken); 
+            showToast("Signed in successfully!", 'success');
         }
     };
 
@@ -645,6 +693,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             } else {
                 client.requestAccessToken();
             }
+        }).catch(err => {
+            console.error("Google Script Load Error:", err);
+            showToast("Failed to load Google Sign-In", 'error');
         });
     };
 
@@ -657,6 +708,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
         dispatch({ type: 'SET_GOOGLE_USER', payload: null });
         dispatch({ type: 'SET_SYNC_STATUS', payload: 'idle' });
+        showToast("Signed out.");
     };
 
     const syncData = async () => {

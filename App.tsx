@@ -34,6 +34,7 @@ import CloudDebugModal from './components/CloudDebugModal';
 import ProfileModal from './components/ProfileModal';
 import AppSkeletonLoader from './components/AppSkeletonLoader';
 import NavCustomizerModal from './components/NavCustomizerModal';
+import Toast from './components/Toast';
 import { useSwipe } from './hooks/useSwipe';
 import { useOnClickOutside } from './hooks/useOnClickOutside';
 import { useHotkeys } from './hooks/useHotkeys';
@@ -239,6 +240,7 @@ const AppContent: React.FC = () => {
 
     return (
         <div className={`min-h-screen bg-background dark:bg-slate-950 text-text dark:text-slate-200 font-sans transition-colors duration-300 pb-20 md:pb-0 ${state.theme}`}>
+            <Toast />
             
             {/* Header - Hidden on Invoice Designer to maximize space */}
             {currentPage !== 'INVOICE_DESIGNER' && (
@@ -280,15 +282,24 @@ const AppContent: React.FC = () => {
                                     syncData(); 
                                 }
                             }} 
-                            className={`p-2 hover:bg-white/20 rounded-full transition-colors ${state.syncStatus === 'syncing' ? 'animate-spin' : ''}`}
-                            title={!state.googleUser ? 'Sign In to Backup' : state.syncStatus === 'error' ? 'Sync Failed (Click to Debug)' : 'Sync Now'}
+                            className="relative p-2 hover:bg-white/20 rounded-full transition-colors"
+                            title={!state.googleUser ? 'Sign In to Backup' : state.syncStatus === 'error' ? 'Sync Failed (Click to Debug)' : `Last Backup: ${state.lastSyncTime ? new Date(state.lastSyncTime).toLocaleString() : 'Not synced yet'}`}
                         >
                             {state.syncStatus === 'syncing' ? (
-                                <RefreshCw size={20} />
+                                <RefreshCw size={20} className="animate-spin" />
                             ) : state.syncStatus === 'error' ? (
                                 <CloudOff size={20} className="text-red-300" />
                             ) : (
                                 <Cloud size={20} className={!state.googleUser ? "opacity-70" : ""} />
+                            )}
+                            
+                            {/* Status Dot */}
+                            {state.googleUser && state.syncStatus !== 'syncing' && (
+                                <span className={`absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full border-2 border-white/20 ${
+                                    state.syncStatus === 'success' ? 'bg-green-400' : 
+                                    state.syncStatus === 'error' ? 'bg-red-500' : 
+                                    'bg-gray-300'
+                                }`}></span>
                             )}
                         </button>
 

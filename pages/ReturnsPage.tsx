@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Undo2, Users, Package, Plus, Trash2, Share2, Edit, Download } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -147,7 +146,7 @@ const ReturnsPage: React.FC<ReturnsPageProps> = ({ setIsDirty }) => {
     const handleProcessReturn = async () => {
         const amount = parseFloat(returnAmount);
         if (!partyId || !referenceId || Object.keys(returnedItems).length === 0 || isNaN(amount) || amount <= 0) {
-            alert('Please fill all required fields: select party, invoice, items, and enter a valid return amount.');
+            showToast('Please fill all required fields: select party, invoice, items, and enter a valid return amount.', 'error');
             return;
         }
         
@@ -174,12 +173,12 @@ const ReturnsPage: React.FC<ReturnsPageProps> = ({ setIsDirty }) => {
 
         if (mode === 'add') {
             dispatch({ type: 'ADD_RETURN', payload: returnData });
-            showToast('Return processed successfully!');
+            showToast('Return processed successfully!', 'success');
         } else {
             const oldReturn = state.returns.find(r => r.id === returnToEditId);
             if (oldReturn) {
                  dispatch({ type: 'UPDATE_RETURN', payload: { oldReturn, updatedReturn: returnData } });
-                 showToast('Return updated successfully!');
+                 showToast('Return updated successfully!', 'success');
             }
         }
 

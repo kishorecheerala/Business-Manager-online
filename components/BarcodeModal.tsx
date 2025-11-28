@@ -1,10 +1,10 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import jsPDF from 'jspdf';
 import JsBarcode from 'jsbarcode';
 import Card from './Card';
 import Button from './Button';
 import { X, Download, Printer, LayoutGrid, File } from 'lucide-react';
+import { useAppContext } from '../context/AppContext';
 
 interface BarcodeModalProps {
   isOpen: boolean;
@@ -19,6 +19,7 @@ interface BarcodeModalProps {
 }
 
 export const BarcodeModal: React.FC<BarcodeModalProps> = ({ isOpen, product, onClose, businessName }) => {
+  const { showToast } = useAppContext();
   const [numberOfCopies, setNumberOfCopies] = useState(1);
   const [paperType, setPaperType] = useState<'roll' | 'a4'>('roll');
   const labelPreviewCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -118,7 +119,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({ isOpen, product, onC
 
   const handleDownloadPDF = async () => {
     if (numberOfCopies <= 0) {
-      alert("Please enter a number of copies greater than 0.");
+      showToast("Please enter a number of copies greater than 0.", 'error');
       return;
     }
     try {
@@ -191,13 +192,11 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({ isOpen, product, onC
       doc.save(filename);
     } catch (error) {
       console.error('PDF generation failed:', error);
-      alert('Failed to generate PDF. Please try again.');
+      showToast('Failed to generate PDF. Please try again.', 'error');
     }
   };
 
   const handlePrint = () => {
-    // Basic browser print - typically handles 1 page well, but for bulk labels, PDF download is preferred.
-    // If roll, use iframe method for single labels. If A4, suggest PDF.
     if (paperType === 'a4') {
         if(confirm("For A4 printing, it is recommended to Download PDF first for accurate grid alignment. Proceed to download?")) {
             handleDownloadPDF();
@@ -249,7 +248,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({ isOpen, product, onC
         }
     } catch (error) {
         console.error('Printing failed:', error);
-        alert('Failed to print labels. Please try again.');
+        showToast('Failed to print labels. Please try again.', 'error');
     }
   };
 

@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { Supplier } from '../types';
 import Button from './Button';
 import Card from './Card';
 import { X, User, Phone, MapPin, CreditCard, FileText, Hash } from 'lucide-react';
+import { useAppContext } from '../context/AppContext';
 
 const defaultSupplierState = { id: '', name: '', phone: '', location: '', gstNumber: '', reference: '', account1: '', account2: '', upi: '' };
 
@@ -17,6 +17,7 @@ interface AddSupplierModalProps {
 }
 
 const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ isOpen, onClose, onSave, existingSuppliers, initialData, inline = false }) => {
+    const { showToast } = useAppContext();
     const [formData, setFormData] = useState(defaultSupplierState);
     const isEditMode = !!initialData;
 
@@ -32,14 +33,21 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ isOpen, onClose, on
 
     const handleSave = () => {
         const trimmedId = formData.id.trim();
-        if (!trimmedId) return alert('Supplier ID is required.');
-        if (!formData.name || !formData.phone || !formData.location) return alert('Please fill Name, Phone, and Location.');
+        if (!trimmedId) {
+            showToast('Supplier ID is required.', 'error');
+            return;
+        }
+        if (!formData.name || !formData.phone || !formData.location) {
+            showToast('Please fill Name, Phone, and Location.', 'error');
+            return;
+        }
 
         // Only check for duplicates if we are in Add mode
         if (!isEditMode) {
             const finalId = `SUPP-${trimmedId}`;
             if (existingSuppliers.some(s => s.id.toLowerCase() === finalId.toLowerCase())) {
-                return alert(`Supplier ID "${finalId}" is already taken.`);
+                showToast(`Supplier ID "${finalId}" is already taken.`, 'error');
+                return;
             }
             onSave({ ...formData, id: finalId });
         } else {
