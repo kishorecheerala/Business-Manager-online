@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { FileText, Plus, Search, Share2, Trash2, ShoppingCart, QrCode, X, Edit, Calendar, Check, Download } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -12,15 +13,11 @@ import DatePill from '../components/DatePill';
 import { Html5Qrcode } from 'html5-qrcode';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
 import { useDialog } from '../context/DialogContext';
+import { getLocalDateString } from '../utils/dateUtils';
+import { calculateTotals } from '../utils/calculations';
+import { useHotkeys } from '../hooks/useHotkeys';
 
-const getLocalDateString = (date = new Date()) => {
-  const year = date.getFullYear();
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const day = date.getDate().toString().padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-// ... (QRScannerModal component) ...
+// ... (QRScannerModal component remains same) ...
 const QRScannerModal: React.FC<{
     onClose: () => void;
     onScanned: (decodedText: string) => void;
@@ -114,20 +111,9 @@ const QuotationsPage: React.FC = () => {
         p.id.toLowerCase().includes(productSearch.toLowerCase())
     ), [state.products, productSearch]);
 
+    // Use consolidated calculations
     const calculations = useMemo(() => {
-        const subTotal = items.reduce((sum, item) => sum + Number(item.price) * Number(item.quantity), 0);
-        const discountAmount = parseFloat(discount) || 0;
-        
-        const gstAmount = items.reduce((sum, item) => {
-            const product = state.products.find(p => p.id === item.productId);
-            const itemGstPercent = product ? Number(product.gstPercent) : 0;
-            const itemTotalWithGst = Number(item.price) * Number(item.quantity);
-            const itemGst = itemTotalWithGst - (itemTotalWithGst / (1 + (itemGstPercent / 100)));
-            return sum + itemGst;
-        }, 0);
-
-        const totalAmount = subTotal - discountAmount;
-        return { subTotal, discountAmount, gstAmount, totalAmount };
+        return calculateTotals(items, parseFloat(discount) || 0, state.products);
     }, [items, discount, state.products]);
 
     // --- Effects ---
@@ -200,6 +186,9 @@ const QuotationsPage: React.FC = () => {
         }
         setView('list');
     };
+
+    // Hotkey for Save (Ctrl+S)
+    useHotkeys('s', handleSaveQuote, { ctrl: true });
 
     const handleDeleteQuote = async (id: string) => {
         if (await showConfirm("Delete this estimate?")) {
@@ -465,7 +454,7 @@ const QuotationsPage: React.FC = () => {
                 </div>
                 <Button onClick={handleSaveQuote} className="w-full mt-4">
                     <FileText size={16} className="mr-2" />
-                    {view === 'edit' ? 'Update Estimate' : 'Create Estimate'}
+                    {view === 'edit' ? 'Update Estimate (Ctrl+S)' : 'Create Estimate (Ctrl+S)'}
                 </Button>
             </Card>
         </div>

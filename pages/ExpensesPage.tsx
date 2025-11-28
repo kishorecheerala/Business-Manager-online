@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Plus, Trash2, Calendar, Filter, Receipt, DollarSign, X, Camera, Image as ImageIcon, Eye, Sparkles, Loader2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -11,17 +12,11 @@ import Dropdown from '../components/Dropdown';
 import { compressImage } from '../utils/imageUtils';
 import { useDialog } from '../context/DialogContext';
 import { GoogleGenAI } from "@google/genai";
+import { getLocalDateString } from '../utils/dateUtils';
 
 interface ExpensesPageProps {
   setIsDirty: (isDirty: boolean) => void;
 }
-
-const getLocalDateString = (date = new Date()) => {
-  const year = date.getFullYear();
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const day = date.getDate().toString().padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
 
 const EXPENSE_CATEGORIES: { value: ExpenseCategory; label: string }[] = [
     { value: 'Rent', label: 'Rent' },

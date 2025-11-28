@@ -9,13 +9,9 @@ import DateInput from './DateInput';
 import Dropdown from './Dropdown';
 import { compressImage } from '../utils/imageUtils';
 import { GoogleGenAI } from "@google/genai";
-
-const getLocalDateString = (date = new Date()) => {
-  const year = date.getFullYear();
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const day = date.getDate().toString().padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+import { getLocalDateString } from '../utils/dateUtils';
+import { calculateTotals } from '../utils/calculations';
+import { useHotkeys } from '../hooks/useHotkeys';
 
 interface PurchaseFormProps {
   mode: 'add' | 'edit';
@@ -53,18 +49,12 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
   const [isScanning, setIsScanning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Use consolidated calculations. Note: Purchase Items track their own GST usually, but fallback provided.
   const calculations = useMemo(() => {
-    const totalItemValue = items.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
-    const totalGst = items.reduce((sum, item) => {
-        const itemTotal = Number(item.price) * Number(item.quantity);
-        const gstPercent = Number.isFinite(item.gstPercent) ? item.gstPercent : 0;
-        const itemGst = itemTotal - (itemTotal / (1 + (gstPercent / 100)));
-        return sum + itemGst;
-    }, 0);
-    const subTotal = totalItemValue - totalGst;
-    const discountVal = parseFloat(discount) || 0;
-    const grandTotal = totalItemValue - discountVal;
-    return { subTotal, totalGst, grandTotal };
+      const { totalAmount, gstAmount } = calculateTotals(items, parseFloat(discount) || 0);
+      // For purchases, typically grandTotal is just totalAmount (which handles GST internally in logic)
+      // but let's expose gstAmount if we want to show it later.
+      return { grandTotal: totalAmount, totalGst: gstAmount };
   }, [items, discount]);
 
   const handleItemUpdate = (productId: string, field: keyof PurchaseItem, value: string | number) => {
@@ -174,6 +164,9 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
           paymentDueDates
       });
   };
+
+  // Hotkey for Save (Ctrl+S)
+  useHotkeys('s', handleSubmit, { ctrl: true });
 
   return (
     <div className="space-y-4">
@@ -289,7 +282,7 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
           <div className="text-right text-2xl font-bold text-primary">₹{calculations.grandTotal.toLocaleString()}</div>
       </Card>
 
-      <Button onClick={handleSubmit} className="w-full py-3 text-lg font-bold shadow-lg">Complete Purchase</Button>
+      <Button onClick={handleSubmit} className="w-full py-3 text-lg font-bold shadow-lg">Complete Purchase (Ctrl+S)</Button>
     </div>
   );
 };

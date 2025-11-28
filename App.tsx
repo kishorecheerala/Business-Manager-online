@@ -36,6 +36,7 @@ import AppSkeletonLoader from './components/AppSkeletonLoader';
 import NavCustomizerModal from './components/NavCustomizerModal';
 import { useSwipe } from './hooks/useSwipe';
 import { useOnClickOutside } from './hooks/useOnClickOutside';
+import { useHotkeys } from './hooks/useHotkeys';
 
 // Icon Map for dynamic rendering
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -127,6 +128,10 @@ const AppContent: React.FC = () => {
     useOnClickOutside(moreMenuRef, () => setIsMoreMenuOpen(false));
     useOnClickOutside(mobileQuickAddRef, () => setIsMobileQuickAddOpen(false));
     useOnClickOutside(notificationsRef, () => setIsNotificationsOpen(false));
+
+    // Global Hotkeys
+    useHotkeys('k', () => setIsSearchOpen(true), { ctrl: true });
+    useHotkeys('m', () => setIsMenuOpen(prev => !prev), { ctrl: true });
 
     // Handle initial selection from context if any
     useEffect(() => {
@@ -241,10 +246,10 @@ const AppContent: React.FC = () => {
                     
                     {/* Left: Menu & Search */}
                     <div className="flex items-center gap-1 sm:gap-2 z-20">
-                        <button onClick={() => setIsMenuOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+                        <button onClick={() => setIsMenuOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors" title="Menu (Ctrl+M)">
                             <Menu size={24} />
                         </button>
-                        <button onClick={() => setIsSearchOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+                        <button onClick={() => setIsSearchOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors" title="Search (Ctrl+K)">
                             <Search size={20} />
                         </button>
                     </div>

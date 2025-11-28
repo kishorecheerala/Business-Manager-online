@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Plus, User, Phone, MapPin, Search, Edit, Save, X, IndianRupee, ShoppingCart, Share2, ChevronDown, Crown, ShieldAlert, BadgeCheck } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -10,13 +11,7 @@ import { useOnClickOutside } from '../hooks/useOnClickOutside';
 import { generateA4InvoicePdf, generateThermalInvoicePDF, generateGenericReportPDF } from '../utils/pdfGenerator';
 import { useDialog } from '../context/DialogContext';
 import PaymentModal from '../components/PaymentModal';
-
-const getLocalDateString = (date = new Date()) => {
-  const year = date.getFullYear();
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const day = date.getDate().toString().padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+import { getLocalDateString } from '../utils/dateUtils';
 
 // --- Customer Segmentation Helper ---
 type CustomerSegment = 'VIP' | 'Regular' | 'New' | 'At-Risk';

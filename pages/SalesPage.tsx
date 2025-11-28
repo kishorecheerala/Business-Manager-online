@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Plus, Trash2, Share2, Search, X, IndianRupee, QrCode, Save, Edit } from 'lucide-react';
+import { Plus, Trash2, Share2, Search, X, IndianRupee, QrCode, Save, Edit, Loader2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Sale, SaleItem, Customer, Product, Payment } from '../types';
 import Card from '../components/Card';
@@ -10,16 +10,11 @@ import { Html5Qrcode } from 'html5-qrcode';
 import DeleteButton from '../components/DeleteButton';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
 import { logoBase64 } from '../utils/logo';
-import { generateA4InvoicePdf } from '../utils/pdfGenerator';
+import { getLocalDateString } from '../utils/dateUtils';
+import { calculateTotals } from '../utils/calculations';
+import { useHotkeys } from '../hooks/useHotkeys';
 
-
-const getLocalDateString = (date = new Date()) => {
-  const year = date.getFullYear();
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const day = date.getDate().toString().padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
+// ... (fetchImageAsBase64, AddCustomerModal, ProductSearchModal, QRScannerModal components remain the same) ...
 const fetchImageAsBase64 = (url: string): Promise<string> =>
   fetch(url)
     .then(response => response.blob())
@@ -29,10 +24,6 @@ const fetchImageAsBase64 = (url: string): Promise<string> =>
         reader.onerror = reject;
         reader.readAsDataURL(blob);
     }));
-
-interface SalesPageProps {
-  setIsDirty: (isDirty: boolean) => void;
-}
 
 const newCustomerInitialState = { id: '', name: '', phone: '', address: '', area: '', reference: '' };
 
@@ -189,6 +180,10 @@ const QRScannerModal: React.FC<{
     );
 };
 
+interface SalesPageProps {
+  setIsDirty: (isDirty: boolean) => void;
+}
+
 const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
     const { state, dispatch, showToast } = useAppContext();
     
@@ -218,6 +213,8 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
     const [customerSearchTerm, setCustomerSearchTerm] = useState('');
     const customerDropdownRef = useRef<HTMLDivElement>(null);
     
+    const [isGenerating, setIsGenerating] = useState(false);
+
     useOnClickOutside(customerDropdownRef, () => {
         if (isCustomerDropdownOpen) {
             setIsCustomerDropdownOpen(false);
@@ -342,22 +339,9 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         setItems(items.filter(item => item.productId !== productId));
     };
 
+    // Use consolidated calculations util
     const calculations = useMemo(() => {
-        const subTotal = items.reduce((sum, item) => sum + Number(item.price) * Number(item.quantity), 0);
-        const discountAmount = parseFloat(discount) || 0;
-        
-        const gstAmount = items.reduce((sum, item) => {
-            const product = state.products.find(p => p.id === item.productId);
-            const itemGstPercent = product ? Number(product.gstPercent) : 0;
-            const itemTotalWithGst = Number(item.price) * Number(item.quantity);
-            const itemGst = itemTotalWithGst - (itemTotalWithGst / (1 + (itemGstPercent / 100)));
-            return sum + itemGst;
-        }, 0);
-
-        const totalAmount = subTotal - discountAmount;
-        const roundedGstAmount = Math.round(gstAmount * 100) / 100;
-
-        return { subTotal, discountAmount, gstAmount: roundedGstAmount, totalAmount };
+        return calculateTotals(items, parseFloat(discount) || 0, state.products);
     }, [items, discount, state.products]);
 
     const selectedCustomer = useMemo(() => customerId ? state.customers.find(c => c.id === customerId) : null, [customerId, state.customers]);
@@ -430,16 +414,117 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
 
     const generateAndSharePDF = async (sale: Sale, customer: Customer, paidAmountOnSale: number) => {
       try {
-        const doc = await generateA4InvoicePdf(sale, customer, state.profile, state.invoiceTemplate, state.customFonts);
+        const doc = new jsPDF();
+        const profile = state.profile;
+        let currentY = 15;
+
+        // Ensure image format is PNG if base64 is set
+        if (logoBase64) {
+            doc.addImage(logoBase64, 'PNG', 14, 10, 25, 25);
+        }
+
+        if (profile) {
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(24);
+            doc.setTextColor('#0d9488');
+            doc.text(profile.name, 105, currentY, { align: 'center' });
+            currentY += 8;
+            doc.setFontSize(10);
+            doc.setTextColor('#333333');
+            const addressLines = doc.splitTextToSize(profile.address, 180);
+            doc.text(addressLines, 105, currentY, { align: 'center' });
+            currentY += (addressLines.length * 5);
+            doc.text(`Phone: ${profile.phone} | GSTIN: ${profile.gstNumber}`, 105, currentY, { align: 'center' });
+        }
         
-        const pdfBlob = doc.output('blob');
-        const pdfFile = new File([pdfBlob], `Invoice-${sale.id}.pdf`, { type: 'application/pdf' });
-        const businessName = state.profile?.name || 'Your Business';
+        currentY = Math.max(currentY, 10 + 25) + 5;
+
+        doc.setDrawColor('#cccccc');
+        doc.line(14, currentY, 196, currentY);
+        currentY += 10;
+        
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text('TAX INVOICE', 105, currentY, { align: 'center' });
+        currentY += 10;
+        
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Billed To:', 14, currentY);
+        doc.text('Invoice Details:', 120, currentY);
+        currentY += 5;
+
+        doc.setFont('helvetica', 'normal');
+        doc.text(customer.name, 14, currentY);
+        doc.text(`Invoice ID: ${sale.id}`, 120, currentY);
+        currentY += 5;
+        
+        const customerAddressLines = doc.splitTextToSize(customer.address, 80);
+        doc.text(customerAddressLines, 14, currentY);
+        doc.text(`Date: ${new Date(sale.date).toLocaleString()}`, 120, currentY);
+        currentY += (customerAddressLines.length * 5) + 5;
+        
+        autoTable(doc, {
+            startY: currentY,
+            head: [['#', 'Item Description', 'Qty', 'Rate', 'Amount']],
+            body: sale.items.map((item, index) => [
+                index + 1,
+                item.productName,
+                item.quantity,
+                `Rs. ${Number(item.price).toLocaleString('en-IN')}`,
+                `Rs. ${(Number(item.quantity) * Number(item.price)).toLocaleString('en-IN')}`
+            ]),
+            theme: 'grid',
+            headStyles: { fillColor: [13, 148, 136] },
+            columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' } }
+        });
+        
+        currentY = (doc as any).lastAutoTable.finalY + 10;
         
         const subTotal = sale.items.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
         const dueAmountOnSale = Number(sale.totalAmount) - paidAmountOnSale;
+        
+        const totalsX = 196;
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text('Subtotal:', totalsX - 30, currentY, { align: 'right' });
+        doc.text(`Rs. ${subTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, totalsX, currentY, { align: 'right' });
+        currentY += 7;
 
-        const whatsAppText = `Thank you for your purchase from ${businessName}!\n\n*Invoice Summary:*\nInvoice ID: ${sale.id}\nDate: ${new Date(sale.date).toLocaleString()}\n\n*Items:*\n${sale.items.map(i => `- ${i.productName} (x${i.quantity}) - Rs. ${(Number(i.price) * Number(i.quantity)).toLocaleString('en-IN')}`).join('\n')}\n\nSubtotal: Rs. ${subTotal.toLocaleString('en-IN')}\nGST: Rs. ${Number(sale.gstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}\nDiscount: Rs. ${Number(sale.discount).toLocaleString('en-IN')}\n*Total: Rs. ${Number(sale.totalAmount).toLocaleString('en-IN')}*\nPaid: Rs. ${paidAmountOnSale.toLocaleString('en-IN')}\nDue: Rs. ${dueAmountOnSale.toLocaleString('en-IN', { minimumFractionDigits: 2 })}\n\nHave a blessed day!`;
+        doc.text('Discount:', totalsX - 30, currentY, { align: 'right' });
+        doc.text(`- Rs. ${Number(sale.discount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, totalsX, currentY, { align: 'right' });
+        currentY += 7;
+
+        doc.text('GST Included:', totalsX - 30, currentY, { align: 'right' });
+        doc.text(`Rs. ${Number(sale.gstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, totalsX, currentY, { align: 'right' });
+        currentY += 7;
+        
+        doc.setFont('helvetica', 'bold');
+        doc.text('Grand Total:', totalsX - 30, currentY, { align: 'right' });
+        doc.text(`Rs. ${Number(sale.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, totalsX, currentY, { align: 'right' });
+        currentY += 7;
+
+        doc.setFont('helvetica', 'normal');
+        doc.text('Paid:', totalsX - 30, currentY, { align: 'right' });
+        doc.text(`Rs. ${paidAmountOnSale.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, totalsX, currentY, { align: 'right' });
+        currentY += 7;
+
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(dueAmountOnSale > 0.01 ? '#dc2626' : '#16a34a');
+        doc.text('Amount Due:', totalsX - 30, currentY, { align: 'right' });
+        doc.text(`Rs. ${dueAmountOnSale.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, totalsX, currentY, { align: 'right' });
+        
+        currentY = doc.internal.pageSize.height - 20;
+        doc.setFontSize(10);
+        doc.setTextColor('#888888');
+        doc.text('Thank you for your business!', 105, currentY, { align: 'center' });
+        
+        const pdfBlob = doc.output('blob');
+        const pdfFile = new File([pdfBlob], `Invoice-${sale.id}.pdf`, { type: 'application/pdf' });
+        const companyName = state.profile?.name || 'Your Business';
+        
+        const whatsAppText = `Thank you for your purchase from ${companyName}!\n\n*Invoice Summary:*\nInvoice ID: ${sale.id}\nDate: ${new Date(sale.date).toLocaleString()}\n\n*Items:*\n${sale.items.map(i => `- ${i.productName} (x${i.quantity}) - Rs. ${(Number(i.price) * Number(i.quantity)).toLocaleString('en-IN')}`).join('\n')}\n\nSubtotal: Rs. ${subTotal.toLocaleString('en-IN')}\nGST: Rs. ${Number(sale.gstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}\nDiscount: Rs. ${Number(sale.discount).toLocaleString('en-IN')}\n*Total: Rs. ${Number(sale.totalAmount).toLocaleString('en-IN')}*\nPaid: Rs. ${paidAmountOnSale.toLocaleString('en-IN')}\nDue: Rs. ${dueAmountOnSale.toLocaleString('en-IN', { minimumFractionDigits: 2 })}\n\nHave a blessed day!`;
         
         if (navigator.share && navigator.canShare({ files: [pdfFile] })) {
           try {
@@ -478,53 +563,70 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         
         const { totalAmount, gstAmount, discountAmount } = calculations;
 
-        if (mode === 'add') {
-            const paidAmount = parseFloat(paymentDetails.amount) || 0;
-            if (paidAmount > totalAmount + 0.01) {
-                alert(`Paid amount (₹${paidAmount.toLocaleString('en-IN')}) cannot be greater than the total amount (₹${totalAmount.toLocaleString('en-IN')}).`);
-                return;
-            }
-            const payments: Payment[] = [];
-            if (paidAmount > 0) {
-                payments.push({
-                    id: `PAY-S-${Date.now()}`, amount: paidAmount, method: paymentDetails.method,
-                    date: new Date(paymentDetails.date).toISOString(), reference: paymentDetails.reference.trim() || undefined,
+        setIsGenerating(true); // Loading State
+
+        try {
+            if (mode === 'add') {
+                const paidAmount = parseFloat(paymentDetails.amount) || 0;
+                if (paidAmount > totalAmount + 0.01) {
+                    alert(`Paid amount (₹${paidAmount.toLocaleString('en-IN')}) cannot be greater than the total amount (₹${totalAmount.toLocaleString('en-IN')}).`);
+                    return;
+                }
+                const payments: Payment[] = [];
+                if (paidAmount > 0) {
+                    payments.push({
+                        id: `PAY-S-${Date.now()}`, amount: paidAmount, method: paymentDetails.method,
+                        date: new Date(paymentDetails.date).toISOString(), reference: paymentDetails.reference.trim() || undefined,
+                    });
+                }
+                
+                const saleCreationDate = new Date();
+                const saleDateWithTime = new Date(`${saleDate}T${saleCreationDate.toTimeString().split(' ')[0]}`);
+                const saleId = `SALE-${saleCreationDate.getFullYear()}${(saleCreationDate.getMonth() + 1).toString().padStart(2, '0')}${saleCreationDate.getDate().toString().padStart(2, '0')}-${saleCreationDate.getHours().toString().padStart(2, '0')}${saleCreationDate.getMinutes().toString().padStart(2, '0')}${saleCreationDate.getSeconds().toString().padStart(2, '0')}`;
+                
+                const newSale: Sale = {
+                    id: saleId, customerId, items, discount: discountAmount, gstAmount, totalAmount,
+                    date: saleDateWithTime.toISOString(), payments
+                };
+                dispatch({ type: 'ADD_SALE', payload: newSale });
+                items.forEach(item => {
+                    dispatch({ type: 'UPDATE_PRODUCT_STOCK', payload: { productId: item.productId, change: -Number(item.quantity) } });
                 });
+                showToast('Sale created successfully!');
+                
+                // Allow a small delay for UI to update before blocking with PDF generation
+                setTimeout(async () => {
+                    await generateAndSharePDF(newSale, customer, paidAmount);
+                    setIsGenerating(false);
+                    resetForm();
+                }, 100);
+
+            } else if (mode === 'edit' && saleToEdit) {
+                const existingPayments = saleToEdit.payments || [];
+                const totalPaid = existingPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+
+                if (totalAmount < totalPaid - 0.01) {
+                    alert(`The new total amount (₹${totalAmount.toLocaleString('en-IN')}) cannot be less than the amount already paid (₹${totalPaid.toLocaleString('en-IN')}).`);
+                    setIsGenerating(false);
+                    return;
+                }
+
+                const updatedSale: Sale = {
+                    ...saleToEdit, items, discount: discountAmount, gstAmount, totalAmount,
+                };
+                dispatch({ type: 'UPDATE_SALE', payload: { oldSale: saleToEdit, updatedSale } });
+                showToast('Sale updated successfully!');
+                setIsGenerating(false);
+                resetForm();
             }
-            
-            const saleCreationDate = new Date();
-            const saleDateWithTime = new Date(`${saleDate}T${saleCreationDate.toTimeString().split(' ')[0]}`);
-            const saleId = `SALE-${saleCreationDate.getFullYear()}${(saleCreationDate.getMonth() + 1).toString().padStart(2, '0')}${saleCreationDate.getDate().toString().padStart(2, '0')}-${saleCreationDate.getHours().toString().padStart(2, '0')}${saleCreationDate.getMinutes().toString().padStart(2, '0')}${saleCreationDate.getSeconds().toString().padStart(2, '0')}`;
-            
-            const newSale: Sale = {
-                id: saleId, customerId, items, discount: discountAmount, gstAmount, totalAmount,
-                date: saleDateWithTime.toISOString(), payments
-            };
-            dispatch({ type: 'ADD_SALE', payload: newSale });
-            items.forEach(item => {
-                dispatch({ type: 'UPDATE_PRODUCT_STOCK', payload: { productId: item.productId, change: -Number(item.quantity) } });
-            });
-            showToast('Sale created successfully!');
-            await generateAndSharePDF(newSale, customer, paidAmount);
-
-        } else if (mode === 'edit' && saleToEdit) {
-            const existingPayments = saleToEdit.payments || [];
-            const totalPaid = existingPayments.reduce((sum, p) => sum + Number(p.amount), 0);
-
-            if (totalAmount < totalPaid - 0.01) {
-                alert(`The new total amount (₹${totalAmount.toLocaleString('en-IN')}) cannot be less than the amount already paid (₹${totalPaid.toLocaleString('en-IN')}).`);
-                return;
-            }
-
-            const updatedSale: Sale = {
-                ...saleToEdit, items, discount: discountAmount, gstAmount, totalAmount,
-            };
-            dispatch({ type: 'UPDATE_SALE', payload: { oldSale: saleToEdit, updatedSale } });
-            showToast('Sale updated successfully!');
+        } catch (e) {
+            console.error(e);
+            setIsGenerating(false);
         }
-
-        resetForm();
     };
+
+    // Hotkey for Save (Ctrl+S)
+    useHotkeys('s', handleSubmitSale, { ctrl: true });
 
      const handleRecordStandalonePayment = () => {
         if (!customerId) {
@@ -804,14 +906,14 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
 
             <div className="space-y-2">
                 {canCreateSale ? (
-                    <Button onClick={handleSubmitSale} variant="secondary" className="w-full">
-                        <Share2 className="w-4 h-4 mr-2"/>
-                        Create Sale & Share Invoice
+                    <Button onClick={handleSubmitSale} variant="secondary" className="w-full" disabled={isGenerating}>
+                        {isGenerating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Share2 className="w-4 h-4 mr-2"/>}
+                        {isGenerating ? 'Processing...' : 'Create Sale & Share Invoice (Ctrl+S)'}
                     </Button>
                 ) : canUpdateSale ? (
-                    <Button onClick={handleSubmitSale} className="w-full">
-                        <Save className="w-4 h-4 mr-2"/>
-                        Save Changes to Sale
+                    <Button onClick={handleSubmitSale} className="w-full" disabled={isGenerating}>
+                        {isGenerating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2"/>}
+                        {isGenerating ? 'Saving...' : 'Save Changes to Sale (Ctrl+S)'}
                     </Button>
                 ) : canRecordPayment ? (
                      <Button onClick={handleRecordStandalonePayment} className="w-full">
@@ -823,7 +925,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                         {customerId ? (items.length === 0 ? 'Enter payment or add items' : 'Complete billing details') : 'Select a customer'}
                     </Button>
                 )}
-                <Button onClick={resetForm} variant="secondary" className="w-full bg-teal-200 hover:bg-teal-300 focus:ring-teal-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600">
+                <Button onClick={resetForm} variant="secondary" className="w-full bg-teal-200 hover:bg-teal-300 focus:ring-teal-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600" disabled={isGenerating}>
                     {mode === 'edit' ? 'Cancel Edit' : 'Clear Form'}
                 </Button>
             </div>

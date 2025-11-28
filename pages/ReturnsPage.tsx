@@ -11,15 +11,9 @@ import Dropdown from '../components/Dropdown';
 import DatePill from '../components/DatePill';
 import DateInput from '../components/DateInput';
 import { generateDebitNotePDF } from '../utils/pdfGenerator';
+import { getLocalDateString } from '../utils/dateUtils';
 
 type ReturnType = 'CUSTOMER' | 'SUPPLIER';
-
-const getLocalDateString = (date = new Date()) => {
-  const year = date.getFullYear();
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const day = date.getDate().toString().padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
 
 interface ReturnsPageProps {
   setIsDirty: (isDirty: boolean) => void;

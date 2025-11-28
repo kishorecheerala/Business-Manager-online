@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Plus, Edit, Save, X, Search, Download, Printer, FileSpreadsheet, Upload, CheckCircle, XCircle, Info, QrCode } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -15,13 +16,7 @@ import DatePill from '../components/DatePill';
 import DateInput from '../components/DateInput';
 import { Html5Qrcode } from 'html5-qrcode';
 import { PurchaseForm } from '../components/AddPurchaseView';
-
-const getLocalDateString = (date = new Date()) => {
-  const year = date.getFullYear();
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const day = date.getDate().toString().padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+import { getLocalDateString } from '../utils/dateUtils';
 
 interface PurchasesPageProps {
   setIsDirty: (isDirty: boolean) => void;
