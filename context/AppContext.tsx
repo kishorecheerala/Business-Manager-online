@@ -1,4 +1,5 @@
 
+
 import React, { createContext, useReducer, useContext, useEffect, ReactNode, useState, useCallback, useRef } from 'react';
 import { Customer, Supplier, Product, Sale, Purchase, Return, BeforeInstallPromptEvent, Notification, ProfileData, Page, AppMetadata, Theme, GoogleUser, AuditLogEntry, SyncStatus, Expense, Quote, AppMetadataInvoiceSettings, InvoiceTemplateConfig, CustomFont, PurchaseItem, AppMetadataNavOrder, AppMetadataQuickActions, AppMetadataTheme } from '../types';
 import * as db from '../utils/db';
@@ -144,7 +145,7 @@ const initialState: AppState = {
     pin: null,
     theme: 'light',
     themeColor: '#0d9488',
-    themeGradient: '',
+    themeGradient: 'linear-gradient(135deg, #0d9488 0%, #2563eb 100%)', // Default Oceanic Gradient
     googleUser: null,
     syncStatus: 'idle',
     lastSyncTime: null,
@@ -679,9 +680,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             } catch(e) { console.error("Failed to parse last sync time", e); }
 
             // Theme Preferences: Prioritize metadata from DB (cloud sync), fall back to localStorage/initial
+            // BUT ensure gradient default if null
             const loadedTheme = themeMeta?.theme || state.theme;
             const loadedColor = themeMeta?.color || state.themeColor;
-            const loadedGradient = themeMeta?.gradient || state.themeGradient;
+            let loadedGradient = themeMeta?.gradient;
+            
+            // If DB didn't have preference, and localStorage doesn't either, use Default Oceanic
+            if (loadedGradient === undefined) {
+               const lsGradient = safeGetItem('themeGradient');
+               loadedGradient = lsGradient || initialState.themeGradient;
+            }
 
             dispatch({
                 type: 'SET_STATE',

@@ -4,14 +4,10 @@ import { useAppContext } from '../context/AppContext';
 import { Sale, SaleItem, Customer, Product, Payment } from '../types';
 import Card from '../components/Card';
 import Button from '../components/Button';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import { Html5Qrcode } from 'html5-qrcode';
 import DeleteButton from '../components/DeleteButton';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
-import { logoBase64 } from '../utils/logo';
-import { calculateTotals } from '../utils/calculations';
-import { useHotkeys } from '../hooks/useHotkeys';
+import { generateA4InvoicePdf } from '../utils/pdfGenerator';
+import { Html5Qrcode } from 'html5-qrcode';
 
 
 const getLocalDateString = (date = new Date()) => {
@@ -163,12 +159,14 @@ const QRScannerModal: React.FC<{
         };
         const config = { fps: 10, qrbox: { width: 250, height: 250 } };
 
-        html5QrCodeRef.current.start({ facingMode: "environment" }, config, qrCodeSuccessCallback, undefined)
-            .then(() => setScanStatus("Scanning for QR Code..."))
-            .catch(err => {
-                setScanStatus(`Camera Permission Error. Please allow camera access for this site in your browser's settings.`);
-                console.error("Camera start failed.", err);
-            });
+        if (html5QrCodeRef.current) {
+            html5QrCodeRef.current.start({ facingMode: "environment" }, config, qrCodeSuccessCallback, undefined)
+                .then(() => setScanStatus("Scanning for QR Code..."))
+                .catch(err => {
+                    setScanStatus(`Camera Permission Error. Please allow camera access for this site in your browser's settings.`);
+                    console.error("Camera start failed.", err);
+                });
+        }
             
         return () => {
             if (html5QrCodeRef.current?.isScanning) {
@@ -346,7 +344,21 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
     };
 
     const calculations = useMemo(() => {
-        return calculateTotals(items, parseFloat(discount) || 0, state.products);
+        const subTotal = items.reduce((sum, item) => sum + Number(item.price) * Number(item.quantity), 0);
+        const discountAmount = parseFloat(discount) || 0;
+        
+        const gstAmount = items.reduce((sum, item) => {
+            const product = state.products.find(p => p.id === item.productId);
+            const itemGstPercent = product ? Number(product.gstPercent) : 0;
+            const itemTotalWithGst = Number(item.price) * Number(item.quantity);
+            const itemGst = itemTotalWithGst - (itemTotalWithGst / (1 + (itemGstPercent / 100)));
+            return sum + itemGst;
+        }, 0);
+
+        const totalAmount = subTotal - discountAmount;
+        const roundedGstAmount = Math.round(gstAmount * 100) / 100;
+
+        return { subTotal, discountAmount, gstAmount: roundedGstAmount, totalAmount };
     }, [items, discount, state.products]);
 
     const selectedCustomer = useMemo(() => customerId ? state.customers.find(c => c.id === customerId) : null, [customerId, state.customers]);
@@ -417,121 +429,18 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
     }, [newCustomer, state.customers, dispatch, showToast]);
 
 
-    const generateAndSharePDF = async (sale: Sale, customer: Customer, paidAmountOnSale: number) => {
+    const generateAndSharePDF = async (sale: Sale, customer: Customer) => {
       try {
-        const doc = new jsPDF();
-        const profile = state.profile;
-        let currentY = 15;
-
-        // Ensure image format is PNG if base64 is set
-        if (logoBase64) {
-            doc.addImage(logoBase64, 'PNG', 14, 10, 25, 25);
-        }
-
-        if (profile) {
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(24);
-            doc.setTextColor('#0d9488');
-            doc.text(profile.name, 105, currentY, { align: 'center' });
-            currentY += 8;
-            doc.setFontSize(10);
-            doc.setTextColor('#333333');
-            const addressLines = doc.splitTextToSize(profile.address, 180);
-            doc.text(addressLines, 105, currentY, { align: 'center' });
-            currentY += (addressLines.length * 5);
-            doc.text(`Phone: ${profile.phone} | GSTIN: ${profile.gstNumber}`, 105, currentY, { align: 'center' });
-        }
-        
-        currentY = Math.max(currentY, 10 + 25) + 5;
-
-        doc.setDrawColor('#cccccc');
-        doc.line(14, currentY, 196, currentY);
-        currentY += 10;
-        
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
-        doc.text('TAX INVOICE', 105, currentY, { align: 'center' });
-        currentY += 10;
-        
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Billed To:', 14, currentY);
-        doc.text('Invoice Details:', 120, currentY);
-        currentY += 5;
-
-        doc.setFont('helvetica', 'normal');
-        doc.text(customer.name, 14, currentY);
-        doc.text(`Invoice ID: ${sale.id}`, 120, currentY);
-        currentY += 5;
-        
-        const customerAddressLines = doc.splitTextToSize(customer.address, 80);
-        doc.text(customerAddressLines, 14, currentY);
-        doc.text(`Date: ${new Date(sale.date).toLocaleString()}`, 120, currentY);
-        currentY += (customerAddressLines.length * 5) + 5;
-        
-        autoTable(doc, {
-            startY: currentY,
-            head: [['#', 'Item Description', 'Qty', 'Rate', 'Amount']],
-            body: sale.items.map((item, index) => [
-                index + 1,
-                item.productName,
-                item.quantity,
-                `Rs. ${Number(item.price).toLocaleString('en-IN')}`,
-                `Rs. ${(Number(item.quantity) * Number(item.price)).toLocaleString('en-IN')}`
-            ]),
-            theme: 'grid',
-            headStyles: { fillColor: [13, 148, 136] },
-            columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' } }
-        });
-        
-        currentY = (doc as any).lastAutoTable.finalY + 10;
-        
-        // Calculate values to ensure they are available in scope
-        const subTotal = sale.items.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
-        const dueAmountOnSale = Number(sale.totalAmount) - paidAmountOnSale;
-        
-        const totalsX = 196;
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.text('Subtotal:', totalsX - 30, currentY, { align: 'right' });
-        doc.text(`Rs. ${subTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, totalsX, currentY, { align: 'right' });
-        currentY += 7;
-
-        doc.text('Discount:', totalsX - 30, currentY, { align: 'right' });
-        doc.text(`- Rs. ${Number(sale.discount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, totalsX, currentY, { align: 'right' });
-        currentY += 7;
-
-        doc.text('GST Included:', totalsX - 30, currentY, { align: 'right' });
-        doc.text(`Rs. ${Number(sale.gstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, totalsX, currentY, { align: 'right' });
-        currentY += 7;
-        
-        doc.setFont('helvetica', 'bold');
-        doc.text('Grand Total:', totalsX - 30, currentY, { align: 'right' });
-        doc.text(`Rs. ${Number(sale.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, totalsX, currentY, { align: 'right' });
-        currentY += 7;
-
-        doc.setFont('helvetica', 'normal');
-        doc.text('Paid:', totalsX - 30, currentY, { align: 'right' });
-        doc.text(`Rs. ${paidAmountOnSale.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, totalsX, currentY, { align: 'right' });
-        currentY += 7;
-
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(dueAmountOnSale > 0.01 ? '#dc2626' : '#16a34a');
-        doc.text('Amount Due:', totalsX - 30, currentY, { align: 'right' });
-        doc.text(`Rs. ${dueAmountOnSale.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, totalsX, currentY, { align: 'right' });
-        
-        currentY = doc.internal.pageSize.height - 20;
-        doc.setFontSize(10);
-        doc.setTextColor('#888888');
-        doc.text('Thank you for your business!', 105, currentY, { align: 'center' });
-        
+        const doc = await generateA4InvoicePdf(sale, customer, state.profile, state.invoiceTemplate, state.customFonts);
         const pdfBlob = doc.output('blob');
         const pdfFile = new File([pdfBlob], `Invoice-${sale.id}.pdf`, { type: 'application/pdf' });
         
         const businessName = state.profile?.name || 'Your Business';
-        
-        const whatsAppText = `Thank you for your purchase from ${businessName}!\n\n*Invoice Summary:*\nInvoice ID: ${sale.id}\nDate: ${new Date(sale.date).toLocaleString()}\n\n*Items:*\n${sale.items.map(i => `- ${i.productName} (x${i.quantity}) - Rs. ${(Number(i.price) * Number(i.quantity)).toLocaleString('en-IN')}`).join('\n')}\n\nSubtotal: Rs. ${subTotal.toLocaleString('en-IN')}\nGST: Rs. ${Number(sale.gstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}\nDiscount: Rs. ${Number(sale.discount).toLocaleString('en-IN')}\n*Total: Rs. ${Number(sale.totalAmount).toLocaleString('en-IN')}*\nPaid: Rs. ${paidAmountOnSale.toLocaleString('en-IN')}\nDue: Rs. ${dueAmountOnSale.toLocaleString('en-IN', { minimumFractionDigits: 2 })}\n\nHave a blessed day!`;
+        const subTotal = sale.items.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
+        const paidAmount = sale.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+        const dueAmount = Number(sale.totalAmount) - paidAmount;
+
+        const whatsAppText = `Thank you for your purchase from ${businessName}!\n\n*Invoice Summary:*\nInvoice ID: ${sale.id}\nDate: ${new Date(sale.date).toLocaleString()}\n\n*Items:*\n${sale.items.map(i => `- ${i.productName} (x${i.quantity}) - Rs. ${(Number(i.price) * Number(i.quantity)).toLocaleString('en-IN')}`).join('\n')}\n\nSubtotal: Rs. ${subTotal.toLocaleString('en-IN')}\nGST: Rs. ${Number(sale.gstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}\nDiscount: Rs. ${Number(sale.discount).toLocaleString('en-IN')}\n*Total: Rs. ${Number(sale.totalAmount).toLocaleString('en-IN')}*\nPaid: Rs. ${paidAmount.toLocaleString('en-IN')}\nDue: Rs. ${dueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}\n\nHave a blessed day!`;
         
         if (navigator.share && navigator.canShare({ files: [pdfFile] })) {
           try {
@@ -604,7 +513,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                 
                 // Allow a small delay for UI to update before blocking with PDF generation
                 setTimeout(async () => {
-                    await generateAndSharePDF(newSale, customer, paidAmount);
+                    await generateAndSharePDF(newSale, customer);
                     setIsGenerating(false);
                     resetForm();
                 }, 100);
@@ -633,9 +542,6 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             showToast("An unexpected error occurred.", 'error');
         }
     };
-
-    // Hotkey for Save (Ctrl+S)
-    useHotkeys('s', handleSubmitSale, { ctrl: true });
 
      const handleRecordStandalonePayment = () => {
         if (!customerId) {

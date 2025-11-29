@@ -1,5 +1,6 @@
 
 
+
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Sale, Customer, ProfileData, Purchase, Supplier, Return, Quote, InvoiceTemplateConfig, CustomFont, InvoiceLabels } from '../types';
@@ -53,6 +54,10 @@ const getImageType = (dataUrl: string): string => {
     if (dataUrl.startsWith('data:image/png')) return 'PNG';
     if (dataUrl.startsWith('data:image/jpeg')) return 'JPEG';
     if (dataUrl.startsWith('data:image/jpg')) return 'JPEG';
+    // Fallback: If base64 string without prefix, assume PNG or try to detect based on first char
+    // /9j/ is JPEG, iVBORw0KGgo is PNG
+    if (dataUrl.startsWith('/9j/')) return 'JPEG';
+    if (dataUrl.startsWith('iVBORw0KGgo')) return 'PNG';
     return 'PNG';
 };
 
@@ -291,20 +296,30 @@ const _generateConfigurablePDF = async (
         if (layout.logoPosition === 'center') {
             logoX = (pageWidth - layout.logoSize) / 2;
             if (hasLogo) {
-                doc.addImage(logoUrl, getImageType(logoUrl), logoX + (layout.logoOffsetX || 0), logoY, layout.logoSize, renderedLogoHeight);
+                try {
+                    doc.addImage(logoUrl, getImageType(logoUrl), logoX + (layout.logoOffsetX || 0), logoY, layout.logoSize, renderedLogoHeight);
+                } catch(e) { console.warn("Failed to add centered logo", e); }
                 textY = logoY + renderedLogoHeight + 5;
             }
             textAlign = 'center';
             textX = pageWidth / 2;
         } else if (layout.logoPosition === 'right') {
             logoX = pageWidth - margin - layout.logoSize;
-            if (hasLogo) doc.addImage(logoUrl, getImageType(logoUrl), logoX + (layout.logoOffsetX || 0), logoY, layout.logoSize, renderedLogoHeight);
+            if (hasLogo) {
+                try {
+                    doc.addImage(logoUrl, getImageType(logoUrl), logoX + (layout.logoOffsetX || 0), logoY, layout.logoSize, renderedLogoHeight);
+                } catch(e) { console.warn("Failed to add right logo", e); }
+            }
             textAlign = 'left';
             textX = margin;
             textY += 5; 
         } else { 
             logoX = margin;
-            if (hasLogo) doc.addImage(logoUrl, getImageType(logoUrl), logoX + (layout.logoOffsetX || 0), logoY, layout.logoSize, renderedLogoHeight);
+            if (hasLogo) {
+                try {
+                    doc.addImage(logoUrl, getImageType(logoUrl), logoX + (layout.logoOffsetX || 0), logoY, layout.logoSize, renderedLogoHeight);
+                } catch(e) { console.warn("Failed to add left logo", e); }
+            }
             textAlign = 'right';
             textX = pageWidth - margin;
             textY += 5;
@@ -340,7 +355,11 @@ const _generateConfigurablePDF = async (
         
         if (content.showQr && layout.qrPosition === 'header-right') {
             const qrImg = await getQrCodeBase64(data.qrString || data.id);
-            if (qrImg) doc.addImage(qrImg, 'PNG', pageWidth - margin - 20, margin + 5, 20, 20);
+            if (qrImg) {
+                try {
+                    doc.addImage(qrImg, 'PNG', pageWidth - margin - 20, margin + 5, 20, 20);
+                } catch(e) {}
+            }
         }
     };
 
@@ -381,7 +400,11 @@ const _generateConfigurablePDF = async (
 
         if (content.showQr && (!layout.qrPosition || layout.qrPosition === 'details-right')) {
             const qrImg = await getQrCodeBase64(data.qrString || data.id);
-            if (qrImg) doc.addImage(qrImg, 'PNG', rightColX - 22, infoY + 2, 22, 22);
+            if (qrImg) {
+                try {
+                    doc.addImage(qrImg, 'PNG', rightColX - 22, infoY + 2, 22, 22);
+                } catch(e) {}
+            }
         }
 
         currentY = Math.max(gridY + 11 + (recipientAddr.length * 5), infoY + 25) + 5;
@@ -429,7 +452,9 @@ const _generateConfigurablePDF = async (
             currentY = margin;
             // Re-draw background on new page
             if (layout.backgroundImage) {
-                doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight);
+                try {
+                    doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight);
+                } catch(e) {}
             }
         }
         
@@ -449,7 +474,11 @@ const _generateConfigurablePDF = async (
             if (pageHeight - currentY < 20) { 
                 doc.addPage(); 
                 currentY = margin;
-                if (layout.backgroundImage) doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight);
+                if (layout.backgroundImage) {
+                    try {
+                        doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight);
+                    } catch(e) {}
+                }
             }
             doc.setFont(fonts.bodyFont, 'italic');
             doc.setFontSize(fonts.bodySize - 1);
@@ -470,7 +499,11 @@ const _generateConfigurablePDF = async (
             if (pageHeight - currentY < 30) { 
                 doc.addPage(); 
                 currentY = margin; 
-                if (layout.backgroundImage) doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight);
+                if (layout.backgroundImage) {
+                    try {
+                        doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight);
+                    } catch(e) {}
+                }
             }
             doc.setFont(fonts.bodyFont, 'bold');
             doc.setFontSize(fonts.bodySize);
@@ -490,7 +523,11 @@ const _generateConfigurablePDF = async (
             if (pageHeight - currentY < 30) { 
                 doc.addPage(); 
                 currentY = margin; 
-                if (layout.backgroundImage) doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight);
+                if (layout.backgroundImage) {
+                    try {
+                        doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight);
+                    } catch(e) {}
+                }
             }
             doc.setFont(fonts.bodyFont, 'bold');
             doc.setFontSize(fonts.bodySize - 2);
@@ -509,7 +546,11 @@ const _generateConfigurablePDF = async (
             const sigY = Math.max(currentY + 10, pageHeight - 40);
             if (pageHeight - sigY < 30) { 
                 doc.addPage(); 
-                if (layout.backgroundImage) doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight);
+                if (layout.backgroundImage) {
+                    try {
+                        doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight);
+                    } catch(e) {}
+                }
             }
             
             doc.setFont(fonts.bodyFont, 'normal');
@@ -535,7 +576,11 @@ const _generateConfigurablePDF = async (
         // If content has pushed passed footer, new page
         if (currentY > footerY) { 
             doc.addPage(); 
-            if (layout.backgroundImage) doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight);
+            if (layout.backgroundImage) {
+                try {
+                    doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight);
+                } catch(e) {}
+            }
         }
 
         if (content.showQr && (layout.qrPosition === 'footer-left' || layout.qrPosition === 'footer-right')) {
@@ -544,7 +589,9 @@ const _generateConfigurablePDF = async (
                 const qrSize = 18;
                 const qrY = footerY - qrSize - 2;
                 const qrX = layout.qrPosition === 'footer-left' ? margin : pageWidth - margin - qrSize;
-                doc.addImage(qrImg, 'PNG', qrX, qrY, qrSize, qrSize);
+                try {
+                    doc.addImage(qrImg, 'PNG', qrX, qrY, qrSize, qrSize);
+                } catch(e) {}
             }
         }
 
