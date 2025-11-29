@@ -41,13 +41,16 @@ export const loadGoogleScript = (): Promise<void> => {
   });
 };
 
-export const initGoogleAuth = (callback: (response: any) => void) => {
+export const initGoogleAuth = (callback: (response: any) => void, errorCallback?: (error: any) => void) => {
   return (window as any).google.accounts.oauth2.initTokenClient({
     client_id: getClientId(),
     scope: SCOPES,
     ux_mode: 'popup',
     callback: callback,
     error_callback: (err: any) => {
+        // Trigger app-level error handling first
+        if (errorCallback) errorCallback(err);
+
         console.error("Google Auth Error:", err);
         const currentOrigin = window.location.origin;
         

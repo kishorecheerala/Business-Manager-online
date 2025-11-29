@@ -18,7 +18,6 @@ import { Html5Qrcode } from 'html5-qrcode';
 import { PurchaseForm } from '../components/AddPurchaseView';
 import { getLocalDateString } from '../utils/dateUtils';
 import { createCalendarEvent } from '../utils/googleCalendar';
-import { DataImportModal } from '../components/DataImportModal';
 
 interface PurchasesPageProps {
   setIsDirty: (isDirty: boolean) => void;
@@ -39,7 +38,6 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
     const [tempDueDates, setTempDueDates] = useState<string[]>([]);
     
     const [isBatchBarcodeModalOpen, setIsBatchBarcodeModalOpen] = useState(false);
-    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [lastPurchase, setLastPurchase] = useState<Purchase | null>(null);
     const [viewImageModal, setViewImageModal] = useState<string | null>(null);
 
@@ -506,13 +504,13 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
                     </div>
                 )}
 
-                <DataImportModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} />
                 {isBatchBarcodeModalOpen && lastPurchase && (
                     <BatchBarcodeModal 
                         isOpen={isBatchBarcodeModalOpen} 
                         onClose={() => { setIsBatchBarcodeModalOpen(false); setView('list'); setPurchaseToEdit(null); }} 
                         purchaseItems={lastPurchase.items} 
-                        businessName={state.profile?.name || 'Business Manager'}
+                        businessName={state.profile?.name || ''}
+                        title="Bulk Barcode Print"
                     />
                 )}
 
@@ -521,12 +519,12 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
                         <h1 className="text-2xl font-bold text-primary">Purchases</h1>
                         <DatePill />
                     </div>
-                    <Button onClick={() => setView('add_supplier')}>
-                        <Plus size={16} className="mr-2"/> New Supplier
+                    <Button onClick={() => setView('add_purchase')}>
+                        <Plus size={16} className="mr-2"/> Create Purchase
                     </Button>
                 </div>
 
-                <div className="flex gap-2">
+                <div>
                     <div className="relative flex-grow">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
                         <input
@@ -537,12 +535,6 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
                             className="w-full p-2 pl-10 border rounded-lg dark:bg-slate-700 dark:border-slate-600 dark:text-white"
                         />
                     </div>
-                    <Button onClick={() => setIsImportModalOpen(true)} variant="secondary" className="px-3" title="Import CSV">
-                        <Upload size={16} />
-                    </Button>
-                    <Button onClick={() => setView('add_purchase')}>
-                        <Plus size={16} className="mr-2"/> Create Purchase
-                    </Button>
                 </div>
 
                 <div className="space-y-3">

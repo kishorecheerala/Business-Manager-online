@@ -738,11 +738,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
     };
 
+    const handleGoogleLoginError = (err: any) => {
+        console.warn("Google Auth Failed", err);
+        dispatch({ type: 'SET_SYNC_STATUS', payload: 'error' });
+        if (err.type === 'popup_closed') {
+            showToast("Sign-in cancelled.", 'info');
+        } else {
+            showToast("Authentication failed.", 'error');
+        }
+    };
+
     const googleSignIn = (options?: { forceConsent?: boolean }) => {
         loadGoogleScript().then(() => {
             // Initialize token client if not exists
             if (!tokenClientRef.current) {
-                tokenClientRef.current = initGoogleAuth(handleGoogleLoginResponse);
+                tokenClientRef.current = initGoogleAuth(handleGoogleLoginResponse, handleGoogleLoginError);
             }
             
             // Force account selection every time to avoid getting stuck on "Unverified App" screen with wrong account
@@ -788,16 +798,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             // Re-init client with a one-time callback for this request
             if (!tokenClientRef.current) {
                  loadGoogleScript().then(() => {
-                     tokenClientRef.current = initGoogleAuth(handleGoogleLoginResponse);
+                     tokenClientRef.current = initGoogleAuth(handleGoogleLoginResponse, handleGoogleLoginError);
                      resolve(null); // Just fail this cycle if not init
                  });
                  return;
             }
 
+            // SAFETY TIMEOUT: If popup closed or network fail without callback
+            const timer = setTimeout(() => {
+                console.warn("Token refresh timed out (popup closed or blocked).");
+                // Restore original callback if needed (though it's just a ref reassignment)
+                if (tokenClientRef.current && originalCallback) {
+                    tokenClientRef.current.callback = originalCallback;
+                }
+                resolve(null);
+            }, 60000); // 60s timeout for user interaction
+
             // Temporarily override callback to capture the new token
             const originalCallback = tokenClientRef.current.callback;
             
             tokenClientRef.current.callback = async (resp: any) => {
+                clearTimeout(timer);
                 // Restore original callback
                 tokenClientRef.current.callback = originalCallback;
                 
