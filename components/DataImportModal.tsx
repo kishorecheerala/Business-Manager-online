@@ -1,13 +1,13 @@
 
 import React, { useState } from 'react';
-import { X, Download, Upload, Info, CheckCircle, XCircle, Users, Package as PackageIcon, Boxes } from 'lucide-react';
+import { X, Download, Upload, Info, CheckCircle, XCircle, Users, Package as PackageIcon, Boxes, ShoppingCart } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { StoreName } from '../utils/db';
-import { Customer, Supplier, Product } from '../types';
+import { Customer, Supplier, Product, Purchase, PurchaseItem } from '../types';
 import Card from './Card';
 import Button from './Button';
 
-type Tab = 'customers' | 'suppliers' | 'products';
+type Tab = 'customers' | 'suppliers' | 'products' | 'purchases';
 
 const parseCsvLine = (line: string): string[] => {
   const result: string[] = [];
@@ -81,6 +81,11 @@ export const DataImportModal: React.FC<DataImportModalProps> = ({ isOpen, onClos
         fileName: 'products-template.csv',
         headers: ['id', 'name', 'quantity', 'purchasePrice', 'salePrice', 'gstPercent'],
         example: ['PROD-UNIQUE-1', 'Test Product', '10', '100', '200', '5'],
+    },
+    purchases: {
+        fileName: 'purchases-template.csv',
+        headers: ['purchaseId', 'supplierId', 'date', 'supplierInvoiceNo', 'productId', 'productName', 'quantity', 'price', 'salePrice', 'gstPercent', 'discount'],
+        example: ['PUR-001', 'SUPP-001', '2023-12-01', 'INV-100', 'PROD-A', 'Product A', '10', '500', '800', '5', '0'],
     }
   };
 
@@ -102,7 +107,7 @@ export const DataImportModal: React.FC<DataImportModalProps> = ({ isOpen, onClos
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!window.confirm(`Are you sure you want to import ${storeName}? This will REPLACE all existing ${storeName} data.`)) {
+    if (!window.confirm(`Are you sure you want to import ${storeName}? This will REPLACE all existing ${storeName} data (except for Purchases which might merge if IDs differ).`)) {
       if (event.target) (event.target as HTMLInputElement).value = '';
       return;
     }
@@ -118,35 +123,110 @@ export const DataImportModal: React.FC<DataImportModalProps> = ({ isOpen, onClos
             const lines = text.split(/\r\n|\n/).filter(line => line.trim() !== '');
             if (lines.length < 2) throw new Error("CSV must have a header and at least one data row.");
 
-            const headers = parseCsvLine(lines[0]).map(h => h.trim().toLowerCase().replace(/\s+/g, ''));
-            const template = templates[storeName as Tab];
-            const requiredHeaders = template.headers;
-            
-            if (requiredHeaders.some(rh => !headers.includes(rh))) {
-                throw new Error(`CSV is missing required columns. Header must contain: ${requiredHeaders.join(', ')}.`);
+            const headers = parseCsvLine(lines[0]).map(h => h.trim().replace(/\s+/g, '')); // Case sensitive headers match template keys
+            // Simple validation: check first required column
+            const template = templates[activeTab];
+            if (headers[0] !== template.headers[0]) {
+                 // Try loose matching
+                 if (!template.headers.every(h => headers.some(fileH => fileH.toLowerCase() === h.toLowerCase()))) {
+                     throw new Error(`Invalid CSV headers. Expected: ${template.headers.join(', ')}`);
+                 }
             }
 
             const data: any[] = [];
-            for (let i = 1; i < lines.length; i++) {
-                const values = parseCsvLine(lines[i]);
-                const row = headers.reduce((obj, header, index) => ({...obj, [header]: values[index]?.trim() || ''}), {} as any);
-                if (!row.id) continue; // Skip rows without an ID
+            
+            // Special handling for Purchases (grouped rows)
+            if (storeName === 'purchases') {
+                const purchaseMap: Record<string, Purchase> = {};
+                
+                for (let i = 1; i < lines.length; i++) {
+                    const values = parseCsvLine(lines[i]);
+                    // Map values to keys loosely by index assuming template order, or by header name matching
+                    // Using index mapping based on template headers for simplicity/robustness with user edits
+                    const row: any = {};
+                    template.headers.forEach((key, idx) => {
+                        // Find index in file headers that matches key (case insensitive)
+                        const fileHeaderIdx = headers.findIndex(h => h.toLowerCase() === key.toLowerCase());
+                        if (fileHeaderIdx !== -1) {
+                            row[key] = values[fileHeaderIdx]?.trim();
+                        }
+                    });
 
-                let newItem: any = { id: row.id };
-                if (storeName === 'customers') {
-                    newItem = { id: row.id, name: row.name, phone: row.phone, address: row.address, area: row.area, reference: row.reference } as Customer;
-                } else if (storeName === 'suppliers') {
-                    newItem = { id: row.id, name: row.name, phone: row.phone, location: row.location, gstNumber: row.gstnumber, reference: row.reference, account1: row.account1, account2: row.account2, upi: row.upi } as Supplier;
-                } else if (storeName === 'products') {
-                    newItem = { 
-                        id: row.id, name: row.name, 
-                        quantity: parseInt(row.quantity, 10) || 0,
-                        purchasePrice: parseFloat(row.purchaseprice) || 0,
-                        salePrice: parseFloat(row.saleprice) || 0,
-                        gstPercent: parseFloat(row.gstpercent) || 0
-                    } as Product;
+                    if (!row.purchaseId) continue;
+
+                    if (!purchaseMap[row.purchaseId]) {
+                        purchaseMap[row.purchaseId] = {
+                            id: row.purchaseId,
+                            supplierId: row.supplierId || 'UNKNOWN',
+                            date: row.date ? new Date(row.date).toISOString() : new Date().toISOString(),
+                            supplierInvoiceId: row.supplierInvoiceNo || '',
+                            items: [],
+                            totalAmount: 0,
+                            discount: parseFloat(row.discount) || 0,
+                            gstAmount: 0,
+                            payments: [] // CSV import won't handle payments history well, leave empty
+                        };
+                    }
+
+                    const purchase = purchaseMap[row.purchaseId];
+                    const item: PurchaseItem = {
+                        productId: row.productId || `GEN-${Date.now()}-${Math.random()}`,
+                        productName: row.productName || 'Imported Item',
+                        quantity: parseFloat(row.quantity) || 0,
+                        price: parseFloat(row.price) || 0,
+                        saleValue: parseFloat(row.salePrice) || 0,
+                        gstPercent: parseFloat(row.gstPercent) || 0
+                    };
+                    
+                    purchase.items.push(item);
                 }
-                data.push(newItem);
+
+                // Recalculate totals for each purchase
+                Object.values(purchaseMap).forEach(p => {
+                    let subTotal = 0;
+                    let gstTotal = 0;
+                    p.items.forEach(item => {
+                        const lineTotal = item.price * item.quantity;
+                        subTotal += lineTotal;
+                        if (item.gstPercent > 0) {
+                            gstTotal += lineTotal - (lineTotal / (1 + (item.gstPercent / 100)));
+                        }
+                    });
+                    p.totalAmount = subTotal - (p.discount || 0);
+                    p.gstAmount = Math.round(gstTotal * 100) / 100;
+                    data.push(p);
+                });
+
+            } else {
+                // Standard single-row entities
+                for (let i = 1; i < lines.length; i++) {
+                    const values = parseCsvLine(lines[i]);
+                    const row: any = {};
+                    // Match headers
+                    headers.forEach((h, idx) => {
+                        // Find matching key in template headers to normalize case
+                        const key = template.headers.find(k => k.toLowerCase() === h.toLowerCase());
+                        if (key) row[key] = values[idx]?.trim();
+                    });
+
+                    if (!row.id) continue;
+
+                    let newItem: any = { id: row.id };
+                    if (storeName === 'customers') {
+                        newItem = { id: row.id, name: row.name, phone: row.phone, address: row.address, area: row.area, reference: row.reference } as Customer;
+                    } else if (storeName === 'suppliers') {
+                        newItem = { id: row.id, name: row.name, phone: row.phone, location: row.location, gstNumber: row.gstNumber, reference: row.reference, account1: row.account1, account2: row.account2, upi: row.upi } as Supplier;
+                    } else if (storeName === 'products') {
+                        newItem = { 
+                            id: row.id, name: row.name, 
+                            quantity: parseInt(row.quantity, 10) || 0,
+                            purchasePrice: parseFloat(row.purchasePrice) || 0,
+                            salePrice: parseFloat(row.salePrice) || 0,
+                            gstPercent: parseFloat(row.gstPercent) || 0
+                        } as Product;
+                    }
+                    data.push(newItem);
+                }
             }
 
             dispatch({ type: 'REPLACE_COLLECTION', payload: { storeName, data }});
@@ -168,6 +248,7 @@ export const DataImportModal: React.FC<DataImportModalProps> = ({ isOpen, onClos
     customers: { label: "Customers", icon: Users, storeName: 'customers' as StoreName },
     suppliers: { label: "Suppliers", icon: PackageIcon, storeName: 'suppliers' as StoreName },
     products: { label: "Products", icon: Boxes, storeName: 'products' as StoreName },
+    purchases: { label: "Purchases", icon: ShoppingCart, storeName: 'purchases' as StoreName },
   };
 
   return (
@@ -179,15 +260,15 @@ export const DataImportModal: React.FC<DataImportModalProps> = ({ isOpen, onClos
         </div>
         
         <div className="flex flex-col md:flex-row md:gap-8 mt-4">
-            {/* Nav (Top on mobile, Left on desktop) */}
+            {/* Nav */}
             <nav className="flex flex-row md:flex-col md:space-y-2 md:border-r md:pr-6 dark:border-slate-700 space-x-2 md:space-x-0 overflow-x-auto border-b md:border-b-0 pb-2 md:pb-0 mb-4 md:mb-0" aria-label="Tabs">
                 {Object.entries(tabConfig).map(([key, { label, icon: Icon }]) => {
                     const isActive = activeTab === key;
                     return (
                         <button
                             key={key}
-                            onClick={() => setActiveTab(key as Tab)}
-                            className={`flex items-center gap-3 p-3 rounded-md text-left w-full transition-colors ${
+                            onClick={() => { setActiveTab(key as Tab); setImportStatus(null); }}
+                            className={`flex items-center gap-3 p-3 rounded-md text-left w-full transition-colors whitespace-nowrap ${
                                 isActive
                                     ? 'bg-primary text-white'
                                     : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-slate-700'
@@ -208,8 +289,10 @@ export const DataImportModal: React.FC<DataImportModalProps> = ({ isOpen, onClos
                     <ol className="list-decimal list-inside text-sm text-blue-700 dark:text-blue-300/90 mt-2 space-y-1">
                         <li>Download the template CSV file.</li>
                         <li>Fill it with your data. <strong>Do not change the header row.</strong></li>
-                        <li>Make sure each <strong>ID is unique</strong>. The import will fail if an ID already exists.</li>
-                        <li>Upload the file. This will <strong>replace</strong> all existing data for this category.</li>
+                        {activeTab === 'purchases' && (
+                            <li className="font-bold text-amber-600">For Purchases: Use the same 'purchaseId' for items belonging to the same invoice.</li>
+                        )}
+                        <li>Upload the file. This will <strong>replace</strong> existing data for this category.</li>
                     </ol>
                 </div>
 
@@ -219,7 +302,7 @@ export const DataImportModal: React.FC<DataImportModalProps> = ({ isOpen, onClos
                     <Button onClick={() => handleDownloadTemplate(activeTab)} className="w-full">
                         <Download className="w-4 h-4 mr-2" /> Download Template
                     </Button>
-                    <label htmlFor={`csv-import-${activeTab}`} className="px-4 py-2 rounded-md font-semibold text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 shadow-sm flex items-center justify-center gap-2 transform hover:shadow-md hover:-translate-y-px active:shadow-sm active:translate-y-0 bg-secondary hover:bg-teal-500 focus:ring-secondary cursor-pointer w-full">
+                    <label htmlFor={`csv-import-${activeTab}`} className="px-4 py-2 rounded-md font-semibold text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 shadow-sm flex items-center justify-center gap-2 transform hover:shadow-md hover:-translate-y-px active:shadow-sm active:translate-y-0 bg-secondary hover:bg-teal-500 focus:ring-secondary cursor-pointer w-full text-center">
                         <Upload className="w-4 h-4 mr-2" /> Upload & Replace
                     </label>
                     <input

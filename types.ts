@@ -2,6 +2,7 @@
 
 
 
+
 import { ReactNode } from "react";
 
 export type Page = 'DASHBOARD' | 'CUSTOMERS' | 'SALES' | 'PURCHASES' | 'REPORTS' | 'RETURNS' | 'PRODUCTS' | 'INSIGHTS' | 'EXPENSES' | 'QUOTATIONS' | 'INVOICE_DESIGNER' | 'SYSTEM_OPTIMIZER';
@@ -132,7 +133,8 @@ export interface Purchase {
   discount?: number; // New: Discount on purchase
   gstAmount?: number; // New: GST Amount
   date: string; // ISO string
-  invoiceUrl?: string; // For uploaded invoice
+  invoiceUrl?: string; // Legacy: For uploaded invoice (Single)
+  invoiceImages?: string[]; // New: Array of base64 strings for multiple photos
   supplierInvoiceId?: string; // Manual invoice ID from supplier
   payments: Payment[];
   paymentDueDates?: string[]; // ISO date strings

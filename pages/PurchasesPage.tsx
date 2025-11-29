@@ -18,6 +18,7 @@ import { Html5Qrcode } from 'html5-qrcode';
 import { PurchaseForm } from '../components/AddPurchaseView';
 import { getLocalDateString } from '../utils/dateUtils';
 import { createCalendarEvent } from '../utils/googleCalendar';
+import { DataImportModal } from '../components/DataImportModal';
 
 interface PurchasesPageProps {
   setIsDirty: (isDirty: boolean) => void;
@@ -38,6 +39,7 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
     const [tempDueDates, setTempDueDates] = useState<string[]>([]);
     
     const [isBatchBarcodeModalOpen, setIsBatchBarcodeModalOpen] = useState(false);
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [lastPurchase, setLastPurchase] = useState<Purchase | null>(null);
 
     const isDirtyRef = useRef(false);
@@ -481,10 +483,11 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
 
         return (
             <div className="space-y-4 animate-fade-in-fast">
+                <DataImportModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} />
                 {isBatchBarcodeModalOpen && lastPurchase && (
                     <BatchBarcodeModal 
                         isOpen={isBatchBarcodeModalOpen} 
-                        onClose={() => setIsBatchBarcodeModalOpen(false)} 
+                        onClose={() => { setIsBatchBarcodeModalOpen(false); setView('list'); setPurchaseToEdit(null); }} 
                         purchaseItems={lastPurchase.items} 
                         businessName={state.profile?.name || 'Business Manager'}
                     />
@@ -511,6 +514,9 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
                             className="w-full p-2 pl-10 border rounded-lg dark:bg-slate-700 dark:border-slate-600 dark:text-white"
                         />
                     </div>
+                    <Button onClick={() => setIsImportModalOpen(true)} variant="secondary" className="px-3" title="Import CSV">
+                        <Upload size={16} />
+                    </Button>
                     <Button onClick={() => setView('add_purchase')}>
                         <Plus size={16} className="mr-2"/> Create Purchase
                     </Button>

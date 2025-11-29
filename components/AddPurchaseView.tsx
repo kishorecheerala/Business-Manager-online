@@ -1,19 +1,22 @@
 
 
 
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Purchase, Supplier, Product, PurchaseItem, Payment } from '../types';
-import { Plus, Info, X, Camera, Sparkles, Loader2, IndianRupee } from 'lucide-react';
+import { Plus, Info, X, Camera, Image as ImageIcon, IndianRupee, Save, Sparkles, Loader2, ScanLine, Download, Trash2 } from 'lucide-react';
 import Card from './Card';
 import Button from './Button';
 import DeleteButton from './DeleteButton';
 import DateInput from './DateInput';
 import Dropdown from './Dropdown';
 import { compressImage } from '../utils/imageUtils';
-import { GoogleGenAI } from "@google/genai";
 import { getLocalDateString } from '../utils/dateUtils';
 import { calculateTotals } from '../utils/calculations';
 import { useHotkeys } from '../hooks/useHotkeys';
+import AddSupplierModal from './AddSupplierModal';
+import { GoogleGenAI } from "@google/genai";
+import { generateImagesToPDF } from '../utils/pdfGenerator';
 
 interface PurchaseFormProps {
   mode: 'add' | 'edit';
@@ -45,7 +48,13 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
   const [discount, setDiscount] = useState(initialData?.discount?.toString() || '0');
   const [paymentDueDates, setPaymentDueDates] = useState<string[]>(initialData?.paymentDueDates || []);
   
+  // Initialize images from either new array or legacy single url field
+  const [invoiceImages, setInvoiceImages] = useState<string[]>(
+      initialData?.invoiceImages || (initialData?.invoiceUrl ? [initialData.invoiceUrl] : [])
+  );
+  
   const [isAddingSupplier, setIsAddingSupplier] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
   
   // Payment Details for New Purchase
   const [paymentDetails, setPaymentDetails] = useState({
@@ -55,9 +64,8 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
       reference: '',
   });
   
-  // AI Scanning State
-  const [isScanning, setIsScanning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const scanInputRef = useRef<HTMLInputElement>(null);
 
   // Use consolidated calculations.
   const calculations = useMemo(() => {
@@ -72,81 +80,162 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
     setItems(items.filter(item => item.productId !== productId));
   };
 
-  const handleScanInvoice = async (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (!e.target.files || !e.target.files[0]) return;
-
-      setIsScanning(true);
-      try {
-          const file = e.target.files[0];
-          const base64Full = await compressImage(file, 1024, 0.8);
-          const base64Data = base64Full.split(',')[1];
-          const mimeType = base64Full.split(';')[0].split(':')[1];
-
-          const apiKey = process.env.API_KEY;
-          if (!apiKey) throw new Error("API Key not configured");
-
-          const ai = new GoogleGenAI({ apiKey });
-          
-          const prompt = `Analyze this purchase invoice image. Extract the list of items purchased. 
-          For each item, try to identify:
-          1. Product Name (be specific)
-          2. Quantity (number)
-          3. Unit Price (purchase price per unit)
-          4. Total Amount for that line item
-          
-          Return a JSON object with this structure:
-          {
-            "items": [
-                { "name": "string", "quantity": number, "price": number }
-            ],
-            "invoiceDate": "YYYY-MM-DD" (optional),
-            "invoiceNumber": "string" (optional)
-          }
-          
-          If date or invoice number are visible, extract them too. Do not include currency symbols in numbers.`;
-
-          const response = await ai.models.generateContent({
-              model: 'gemini-2.5-flash',
-              contents: {
-                  parts: [
-                      { inlineData: { mimeType, data: base64Data } },
-                      { text: prompt }
-                  ]
+  const handleAttachInvoice = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files.length > 0) {
+          const newImages: string[] = [];
+          for (let i = 0; i < e.target.files.length; i++) {
+              try {
+                  const file = e.target.files[i];
+                  // Simple compression for storage
+                  const base64Full = await compressImage(file, 1024, 0.8);
+                  newImages.push(base64Full);
+              } catch (error) {
+                  console.error("Image attach failed", error);
+                  showToast("Failed to attach image.", 'error');
               }
-          });
-
-          const text = response.text || '';
-          const jsonMatch = text.match(/\{[\s\S]*\}/);
-          
-          if (jsonMatch) {
-              const data = JSON.parse(jsonMatch[0]);
-              
-              if (data.invoiceDate) setPurchaseDate(data.invoiceDate);
-              if (data.invoiceNumber) setSupplierInvoiceId(data.invoiceNumber);
-
-              if (data.items && Array.isArray(data.items)) {
-                  const newItems: PurchaseItem[] = data.items.map((item: any) => ({
-                      productId: `TEMP-${Date.now()}-${Math.floor(Math.random()*1000)}`, // Temp ID
-                      productName: item.name || "Unknown Item",
-                      quantity: Number(item.quantity) || 1,
-                      price: Number(item.price) || 0,
-                      saleValue: (Number(item.price) || 0) * 1.3, // Default 30% margin
-                      gstPercent: 0
-                  }));
-                  
-                  setItems(prev => [...prev, ...newItems]);
-                  showToast(`Scanned ${newItems.length} items successfully!`, 'success');
-              }
-          } else {
-              throw new Error("Could not interpret AI response");
           }
-
-      } catch (error) {
-          console.error("Scanning failed", error);
-          showToast("Failed to scan invoice. Please enter details manually.", 'error');
-      } finally {
-          setIsScanning(false);
+          if (newImages.length > 0) {
+              setInvoiceImages(prev => [...prev, ...newImages]);
+              showToast(`${newImages.length} image(s) attached.`, 'success');
+          }
           if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+  };
+
+  const handleRemoveImage = (index: number) => {
+      setInvoiceImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleDownloadPDF = () => {
+      if (invoiceImages.length === 0) return;
+      const fileName = `Invoices_${supplierInvoiceId || 'Purchase'}_${getLocalDateString()}.pdf`;
+      generateImagesToPDF(invoiceImages, fileName);
+  };
+
+  const handleAddNewSupplier = (newSupplier: Supplier) => {
+      dispatch({ type: 'ADD_SUPPLIER', payload: newSupplier });
+      setSupplierId(newSupplier.id); // Auto-select new supplier
+      setIsAddingSupplier(false);
+      showToast(`Supplier ${newSupplier.name} added!`, 'success');
+  };
+
+  // --- Payment Schedule Handlers ---
+  const handleAddDueDate = () => {
+      setPaymentDueDates([...paymentDueDates, '']);
+  };
+
+  const handleDueDateChange = (index: number, value: string) => {
+      const newDates = [...paymentDueDates];
+      newDates[index] = value;
+      setPaymentDueDates(newDates);
+  };
+
+  const handleRemoveDueDate = (index: number) => {
+      setPaymentDueDates(paymentDueDates.filter((_, i) => i !== index));
+  };
+
+  // --- AI Scan Logic ---
+  const handleScanClick = () => {
+      // Check for API key (User preference first, then Env)
+      const apiKey = localStorage.getItem('gemini_api_key') || process.env.API_KEY;
+      if (!apiKey) {
+          showToast("API Key missing. Please set it in Menu > API Configuration.", 'error');
+          return;
+      }
+      scanInputRef.current?.click();
+  };
+
+  const handleScanFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files[0]) {
+          setIsScanning(true);
+          try {
+              const file = e.target.files[0];
+              const base64 = await compressImage(file, 1024, 0.8);
+              
+              // Automatically add scanned image to attachments
+              setInvoiceImages(prev => [...prev, base64]);
+
+              const apiKey = localStorage.getItem('gemini_api_key') || process.env.API_KEY;
+              if (!apiKey) throw new Error("API Key not found");
+
+              const ai = new GoogleGenAI({ apiKey });
+              const prompt = `Analyze this invoice image. Return a valid JSON object with these fields:
+              {
+                "supplierName": string,
+                "invoiceNumber": string,
+                "date": string (YYYY-MM-DD),
+                "items": [{ "name": string, "qty": number, "price": number, "gst": number }],
+                "total": number,
+                "discount": number
+              }
+              If a value is not found, use null or 0.`;
+
+              const response = await ai.models.generateContent({
+                  model: 'gemini-2.5-flash',
+                  contents: [
+                      { inlineData: { mimeType: 'image/jpeg', data: base64.split(',')[1] } },
+                      { text: prompt }
+                  ],
+                  config: { responseMimeType: "application/json" }
+              });
+
+              const text = response.text;
+              if (!text) throw new Error("No data returned from AI");
+
+              // Robust JSON parsing
+              let jsonStr = text;
+              const jsonMatch = text.match(/\{[\s\S]*\}/);
+              if (jsonMatch) jsonStr = jsonMatch[0];
+              
+              const data = JSON.parse(jsonStr);
+
+              // 1. Populate Basic Fields
+              if (data.invoiceNumber) setSupplierInvoiceId(data.invoiceNumber);
+              if (data.date) setPurchaseDate(data.date);
+              if (data.discount) setDiscount(data.discount.toString());
+
+              // 2. Try to match Supplier
+              if (data.supplierName) {
+                  const normalizedScanned = data.supplierName.toLowerCase();
+                  const matchedSupplier = suppliers.find(s => 
+                      s.name.toLowerCase().includes(normalizedScanned) || 
+                      normalizedScanned.includes(s.name.toLowerCase())
+                  );
+                  if (matchedSupplier) {
+                      setSupplierId(matchedSupplier.id);
+                      showToast(`Matched supplier: ${matchedSupplier.name}`, 'success');
+                  } else {
+                      showToast(`Supplier "${data.supplierName}" not found. Please add or select manually.`, 'info');
+                  }
+              }
+
+              // 3. Populate Items
+              if (data.items && Array.isArray(data.items)) {
+                  const newItems: PurchaseItem[] = data.items.map((item: any) => {
+                      // Try to match existing product
+                      const existingProd = products.find(p => p.name.toLowerCase() === item.name.toLowerCase());
+                      
+                      return {
+                          productId: existingProd ? existingProd.id : `NEW-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                          productName: item.name || 'Unknown Item',
+                          quantity: Number(item.qty) || 1,
+                          price: Number(item.price) || 0,
+                          saleValue: existingProd ? existingProd.salePrice : (Number(item.price) * 1.2), // Default 20% margin
+                          gstPercent: Number(item.gst) || 0
+                      };
+                  });
+                  setItems(newItems);
+              }
+
+              showToast("Invoice scanned successfully!", 'success');
+
+          } catch (error) {
+              console.error("Scan failed", error);
+              showToast("Failed to scan invoice. Please enter details manually.", 'error');
+          } finally {
+              setIsScanning(false);
+              if (scanInputRef.current) scanInputRef.current.value = '';
+          }
       }
   };
 
@@ -190,8 +279,10 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
           gstAmount: calculations.gstAmount,
           date: new Date(purchaseDate).toISOString(),
           supplierInvoiceId,
+          invoiceImages,
+          invoiceUrl: invoiceImages.length > 0 ? invoiceImages[0] : undefined, // Legacy support
           payments: finalPayments,
-          paymentDueDates
+          paymentDueDates: paymentDueDates.filter(d => d).sort()
       });
   };
 
@@ -200,20 +291,72 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
 
   return (
     <div className="space-y-4">
+      <AddSupplierModal 
+        isOpen={isAddingSupplier} 
+        onClose={() => setIsAddingSupplier(false)} 
+        onSave={handleAddNewSupplier}
+        existingSuppliers={suppliers}
+      />
+
+      {/* Hidden File Input for AI Scan */}
+      <input 
+          type="file" 
+          accept="image/*" 
+          ref={scanInputRef} 
+          className="hidden" 
+          onChange={handleScanFileChange} 
+      />
+
       <Button onClick={onBack}>&larr; Back</Button>
+      
       <Card title={mode === 'add' ? 'Create New Purchase' : `Edit Purchase`}>
+         {/* AI Auto-Fill Button - Prominent */}
+         <div className="mb-6">
+            <button
+                onClick={handleScanClick}
+                disabled={isScanning}
+                className="w-full relative overflow-hidden group bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white p-4 rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3 disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+                <div className="absolute inset-0 bg-white/20 group-hover:translate-x-full transition-transform duration-700 ease-out skew-x-12 -ml-4 w-[120%]"></div>
+                {isScanning ? (
+                    <>
+                        <Loader2 className="animate-spin" size={24} />
+                        <span className="font-bold">Analyzing Invoice...</span>
+                    </>
+                ) : (
+                    <>
+                        <Sparkles className="animate-pulse" size={24} />
+                        <span className="font-bold text-lg">Auto-fill with AI</span>
+                    </>
+                )}
+            </button>
+            <p className="text-center text-xs text-gray-500 mt-2">
+                Scans image to extract Supplier, Items, and Totals automatically.
+            </p>
+         </div>
+
          <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1.5">Select Supplier</label>
-                    <div className="flex gap-3 items-center">
-                        <Dropdown
-                            options={suppliers.map(s => ({ value: s.id, label: s.name }))}
-                            value={supplierId}
-                            onChange={setSupplierId}
-                            searchable={true}
-                        />
-                        <Button onClick={() => setIsAddingSupplier(true)} variant="secondary" className="aspect-square"><Plus size={20}/></Button>
+                    <div className="flex gap-2 items-center">
+                        <div className="flex-grow">
+                            <Dropdown
+                                options={suppliers.map(s => ({ value: s.id, label: s.name }))}
+                                value={supplierId}
+                                onChange={setSupplierId}
+                                searchable={true}
+                                placeholder="Select Supplier"
+                            />
+                        </div>
+                        <Button 
+                            onClick={() => setIsAddingSupplier(true)} 
+                            variant="secondary" 
+                            className="h-[42px] w-[42px] flex items-center justify-center p-0 flex-shrink-0"
+                            title="Add New Supplier"
+                        >
+                            <Plus size={20}/>
+                        </Button>
                     </div>
                 </div>
                 <div>
@@ -233,28 +376,59 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
 
       <Card title="Items">
         <div className="space-y-4">
-            {/* AI Action Bar */}
-            <div className="flex justify-between items-center bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-lg border border-indigo-100 dark:border-indigo-800">
-                <div className="flex items-center gap-2">
-                    <Sparkles className="text-indigo-600 dark:text-indigo-400" size={18} />
-                    <span className="text-sm font-medium text-indigo-800 dark:text-indigo-200">
-                        {isScanning ? 'Analyzing Invoice...' : 'Auto-fill from Invoice Image'}
-                    </span>
+            {/* Offline Attachment Bar */}
+            <div className="bg-gray-50 dark:bg-slate-800 p-3 rounded-lg border border-gray-200 dark:border-slate-700">
+                <div className="flex justify-between items-center mb-3">
+                    <div className="flex items-center gap-2">
+                        <ImageIcon className="text-gray-500 dark:text-gray-300" size={20} />
+                        <span className="text-sm font-bold text-gray-700 dark:text-gray-200">
+                            Attached Invoices ({invoiceImages.length})
+                        </span>
+                    </div>
+                    <div className="flex gap-2">
+                        {invoiceImages.length > 0 && (
+                            <Button onClick={handleDownloadPDF} variant="secondary" className="h-8 text-xs px-2">
+                                <Download size={14} className="mr-1" /> PDF
+                            </Button>
+                        )}
+                        <button 
+                            onClick={() => fileInputRef.current?.click()} 
+                            className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-xs font-bold rounded shadow-sm transition-colors dark:bg-slate-700 dark:border-slate-600 dark:text-white"
+                        >
+                            <Camera size={14} />
+                            Add Photo
+                        </button>
+                    </div>
                 </div>
-                <button 
-                    onClick={() => fileInputRef.current?.click()} 
-                    disabled={isScanning}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded shadow-sm disabled:opacity-50 transition-colors"
-                >
-                    {isScanning ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
-                    Scan Invoice
-                </button>
+                
+                {invoiceImages.length > 0 ? (
+                    <div className="flex gap-2 overflow-x-auto pb-2">
+                        {invoiceImages.map((img, idx) => (
+                            <div key={idx} className="relative flex-shrink-0 group w-24 h-24 rounded-lg overflow-hidden border dark:border-slate-600">
+                                <img src={img} alt={`Invoice ${idx + 1}`} className="w-full h-full object-cover" />
+                                <button 
+                                    onClick={() => handleRemoveImage(idx)}
+                                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                                    title="Remove"
+                                >
+                                    <Trash2 size={12} />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="text-center py-4 border-2 border-dashed border-gray-200 dark:border-slate-700 rounded-lg">
+                        <p className="text-xs text-gray-500">No invoices attached. Click 'Add Photo' to attach physical copies.</p>
+                    </div>
+                )}
+                
                 <input 
                     type="file" 
+                    multiple
                     accept="image/*" 
                     ref={fileInputRef} 
                     className="hidden" 
-                    onChange={handleScanInvoice} 
+                    onChange={handleAttachInvoice} 
                 />
             </div>
 
@@ -370,7 +544,7 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
                           <DateInput 
                               label="Payment Date"
                               value={paymentDetails.date} 
-                              onChange={e => setPaymentDetails({...paymentDetails, date: e.target.value })} 
+                              onChange={e => setPaymentDetails({ ...paymentDetails, date: e.target.value })} 
                           />
                           <div>
                               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Reference (Optional)</label>
@@ -383,11 +557,35 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
                       <p className="text-sm text-gray-600 dark:text-gray-400">Payments for this purchase must be managed from the supplier's details page.</p>
                   </div>
               )}
+
+              {/* Section 4: Payment Schedule */}
+              <div className="pt-4 border-t dark:border-slate-700">
+                  <div className="flex justify-between items-center mb-2">
+                      <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">Payment Schedule (Optional)</label>
+                      <button onClick={handleAddDueDate} className="text-xs text-primary flex items-center gap-1 hover:underline font-semibold">
+                          <Plus size={12} /> Add Due Date
+                      </button>
+                  </div>
+                  {paymentDueDates.map((date, index) => (
+                      <div key={index} className="flex gap-2 mb-2 animate-fade-in-fast">
+                          <DateInput 
+                              value={date} 
+                              onChange={(e) => handleDueDateChange(index, e.target.value)} 
+                              containerClassName="flex-grow"
+                          />
+                          <DeleteButton variant="remove" onClick={() => handleRemoveDueDate(index)} className="mt-1" />
+                      </div>
+                  ))}
+                  {paymentDueDates.length === 0 && (
+                      <p className="text-xs text-gray-500 italic">No specific future due dates added.</p>
+                  )}
+              </div>
           </div>
       </Card>
 
       <Button onClick={handleSubmit} className="w-full py-3 text-lg font-bold shadow-lg">
-          {mode === 'add' ? 'Complete Purchase (Ctrl+S)' : 'Update Purchase (Ctrl+S)'}
+          <Save size={20} className="mr-2" />
+          {mode === 'add' ? 'Complete Purchase' : 'Update Purchase'}
       </Button>
     </div>
   );

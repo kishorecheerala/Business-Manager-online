@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Send, Sparkles, Bot, User, Loader2, Key, AlertTriangle } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
@@ -17,11 +18,16 @@ interface Message {
   isError?: boolean;
 }
 
-// Helper to robustly get API Key from various environment sources
+// Helper to robustly get API Key from localStorage OR environment
 const getApiKey = (): string | undefined => {
+  // 1. Try LocalStorage (Custom User Key via API Config)
+  if (typeof window !== 'undefined' && localStorage.getItem('gemini_api_key')) {
+      return localStorage.getItem('gemini_api_key')!;
+  }
+
   let key: string | undefined;
 
-  // 1. Try import.meta.env (Vite)
+  // 2. Try import.meta.env (Vite)
   try {
     // @ts-ignore
     if (import.meta.env) {
@@ -36,7 +42,7 @@ const getApiKey = (): string | undefined => {
     // import.meta might not exist in some environments
   }
 
-  // 2. Try process.env (Node/Webpack/Pollyfilled)
+  // 3. Try process.env (Node/Webpack/Pollyfilled)
   if (!key && typeof process !== 'undefined' && process.env) {
     if (process.env.API_KEY) key = process.env.API_KEY;
     else if (process.env.VITE_API_KEY) key = process.env.VITE_API_KEY;
@@ -83,14 +89,14 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
                     console.warn("Failed to check API key status via AI Studio", e);
                 }
             } else {
-                console.warn("API Key not found in environment variables.");
+                console.warn("API Key not found in environment variables or localStorage.");
                 setIsEnvConfigured(false);
                 setMessages(prev => {
                     if (prev.some(m => m.text.includes("Missing API Key"))) return prev;
                     return [...prev, { 
                         id: 'sys-error-init', 
                         role: 'model', 
-                        text: "⚠️ Missing API Key.\n\nTo fix this in Vercel:\n1. Go to Settings > Environment Variables.\n2. Add 'VITE_API_KEY' with your Gemini API Key.\n3. **Redeploy** the project (Required for new keys to take effect).\n\nIf testing locally, create a .env file with VITE_API_KEY=...",
+                        text: "⚠️ Missing API Key.\n\nGo to Menu > API Configuration to add your own Gemini API Key.\n\nAlternatively, set 'VITE_API_KEY' in your deployment settings.",
                         isError: true 
                     }];
                 });
@@ -264,6 +270,7 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
       const aistudio = (window as any).aistudio;
       let apiKey = getApiKey();
 
+      // If no key in local/env, check if aistudio has one selected
       if (!apiKey && aistudio) {
           const hasKey = await aistudio.hasSelectedApiKey();
           if (!hasKey) {
@@ -277,6 +284,7 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
       
       const finalKey = apiKey || process.env.API_KEY || '';
 
+      // If still empty and no aistudio shim, fail
       if (!finalKey && !aistudio) {
            throw new Error("API_KEY_EMPTY");
       }
@@ -288,7 +296,7 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
         model: 'gemini-2.5-flash',
         config: { 
             systemInstruction,
-            temperature: 0.7, // Slightly creative but focused
+            temperature: 0.7, 
         },
         history: messages.filter(m => !m.isError).map(m => ({
             role: m.role,
@@ -312,16 +320,16 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
              errorText = "Please configure your API Key to use the assistant.";
              setShowKeyButton(true);
           } else {
-             errorText = "Invalid or Missing API Key. Please check your Vercel environment variables and redeploy.";
+             errorText = "Invalid or Missing API Key. Go to Menu > API Configuration to add your key.";
              setShowKeyButton(false);
              setIsEnvConfigured(false);
           }
       } else if (error.message === "API_KEY_MISSING_PERMANENT") {
-             errorText = "Missing API Key. Please ensure 'VITE_API_KEY' is set in Vercel and you have redeployed.";
+             errorText = "Missing API Key. Please add your key in Menu > API Configuration.";
              setShowKeyButton(false);
              setIsEnvConfigured(false);
       } else if (error.message?.includes("API key")) {
-             errorText = "The configured API Key seems invalid. Please check your settings.";
+             errorText = "The configured API Key seems invalid. Please check your settings in Menu > API Configuration.";
              setIsEnvConfigured(false);
       } else if (error.message?.includes("Requested entity was not found")) {
           errorText = "API Key configuration seems invalid. Please try selecting it again.";
@@ -414,7 +422,7 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyPress}
-                    placeholder={isEnvConfigured || showKeyButton ? "Ask about sales, stock, or profit..." : "API Key Missing. Please Configure in Vercel."}
+                    placeholder={isEnvConfigured || showKeyButton ? "Ask about sales, stock, or profit..." : "API Key Missing. Configure in Menu > API Config."}
                     className="flex-grow bg-transparent border-none focus:ring-0 resize-none text-sm max-h-24 py-2 px-2 dark:text-white disabled:cursor-not-allowed placeholder-gray-400"
                     rows={1}
                     disabled={(!isEnvConfigured && !showKeyButton) || isLoading}

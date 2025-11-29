@@ -1,4 +1,6 @@
 
+
+
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Sale, Customer, ProfileData, Purchase, Supplier, Return, Quote, InvoiceTemplateConfig, CustomFont, InvoiceLabels } from '../types';
@@ -793,4 +795,47 @@ export const generateGenericReportPDF = async (title: string, subtitle: string, 
         });
     }
     return doc;
+};
+
+// --- New Function: Generate PDF from Images ---
+export const generateImagesToPDF = (images: string[], fileName: string) => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 10;
+
+    images.forEach((imgData, index) => {
+        if (index > 0) doc.addPage();
+        
+        try {
+            const imgProps = doc.getImageProperties(imgData);
+            const imgRatio = imgProps.width / imgProps.height;
+            const pageRatio = (pageWidth - margin * 2) / (pageHeight - margin * 2);
+            
+            let finalWidth, finalHeight;
+
+            if (imgRatio > pageRatio) {
+                // Image is wider relative to page -> constrain width
+                finalWidth = pageWidth - margin * 2;
+                finalHeight = finalWidth / imgRatio;
+            } else {
+                // Image is taller relative to page -> constrain height
+                finalHeight = pageHeight - margin * 2;
+                finalWidth = finalHeight * imgRatio;
+            }
+
+            const x = (pageWidth - finalWidth) / 2;
+            const y = (pageHeight - finalHeight) / 2;
+
+            // Use the detected type from getImageProperties or try to infer
+            const format = getImageType(imgData);
+            doc.addImage(imgData, format, x, y, finalWidth, finalHeight);
+        } catch (e) {
+            console.error("Error adding image to PDF", e);
+            doc.setFontSize(12);
+            doc.text(`Error loading image #${index + 1}`, 10, 10);
+        }
+    });
+    
+    doc.save(fileName);
 };

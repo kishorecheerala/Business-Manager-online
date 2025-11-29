@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Plus, Trash2, Calendar, Filter, Receipt, DollarSign, X, Camera, Image as ImageIcon, Eye, Sparkles, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Filter, Receipt, DollarSign, X, Camera, Image as ImageIcon } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Expense, ExpenseCategory } from '../types';
 import Card from '../components/Card';
@@ -11,7 +11,6 @@ import DatePill from '../components/DatePill';
 import Dropdown from '../components/Dropdown';
 import { compressImage } from '../utils/imageUtils';
 import { useDialog } from '../context/DialogContext';
-import { GoogleGenAI } from "@google/genai";
 import { getLocalDateString } from '../utils/dateUtils';
 
 interface ExpensesPageProps {
@@ -46,9 +45,6 @@ const ExpensesPage: React.FC<ExpensesPageProps> = ({ setIsDirty }) => {
     const [isAdding, setIsAdding] = useState(false);
     const [receiptImage, setReceiptImage] = useState<string | null>(null);
     
-    // AI State
-    const [isAnalyzing, setIsAnalyzing] = useState(false);
-    
     const [filterCategory, setFilterCategory] = useState<string>('all');
     const [filterMonth, setFilterMonth] = useState(new Date().getMonth().toString());
     const [filterYear, setFilterYear] = useState(new Date().getFullYear().toString());
@@ -56,7 +52,6 @@ const ExpensesPage: React.FC<ExpensesPageProps> = ({ setIsDirty }) => {
 
     const isDirtyRef = useRef(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const aiFileInputRef = useRef<HTMLInputElement>(null);
 
     // Auto-open add form if navigated via Quick Action
     useEffect(() => {
@@ -81,73 +76,15 @@ const ExpensesPage: React.FC<ExpensesPageProps> = ({ setIsDirty }) => {
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             try {
-                const base64 = await compressImage(e.target.files[0]);
+                // Compress image to save storage space
+                const base64 = await compressImage(e.target.files[0], 800, 0.7);
                 setReceiptImage(base64);
+                showToast("Receipt photo attached.", 'success');
             } catch (error) {
                 showToast("Error processing image.", 'error');
+            } finally {
+                if (fileInputRef.current) fileInputRef.current.value = '';
             }
-        }
-    };
-
-    const handleAIReceiptScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (!e.target.files || !e.target.files[0]) return;
-        
-        setIsAnalyzing(true);
-        try {
-            const file = e.target.files[0];
-            const base64Full = await compressImage(file, 800, 0.7); // Compress for AI
-            setReceiptImage(base64Full); // Set preview immediately
-
-            // Strip prefix for API
-            const base64Data = base64Full.split(',')[1];
-            const mimeType = base64Full.split(';')[0].split(':')[1];
-
-            // Initialize Gemini
-            const apiKey = process.env.API_KEY; 
-            if (!apiKey) throw new Error("API Key not found");
-            
-            const ai = new GoogleGenAI({ apiKey });
-            
-            const prompt = `Analyze this receipt image. Extract the following fields in JSON format:
-            - amount: number (total paid)
-            - date: string (YYYY-MM-DD format, if not found use today)
-            - category: string (One of: Rent, Salary, Electricity, Transport, Maintenance, Marketing, Food, Other)
-            - note: string (Merchant name or short description)
-            
-            Return ONLY raw JSON.`;
-
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: {
-                    parts: [
-                        { inlineData: { mimeType, data: base64Data } },
-                        { text: prompt }
-                    ]
-                }
-            });
-
-            const text = response.text || '';
-            const jsonMatch = text.match(/\{[\s\S]*\}/);
-            
-            if (jsonMatch) {
-                const data = JSON.parse(jsonMatch[0]);
-                if (data.amount) setAmount(String(data.amount));
-                if (data.date) setDate(data.date);
-                if (data.category && EXPENSE_CATEGORIES.some(c => c.value === data.category)) {
-                    setCategory(data.category);
-                }
-                if (data.note) setNote(data.note);
-                showToast("Receipt analyzed successfully!", "success");
-            } else {
-                throw new Error("Could not parse receipt data");
-            }
-
-        } catch (error) {
-            console.error("AI Scan Error:", error);
-            showToast("Failed to analyze receipt. Please enter details manually.", 'error');
-        } finally {
-            setIsAnalyzing(false);
-            if (aiFileInputRef.current) aiFileInputRef.current.value = '';
         }
     };
 
@@ -233,35 +170,53 @@ const ExpensesPage: React.FC<ExpensesPageProps> = ({ setIsDirty }) => {
 
             {isAdding && (
                 <Card title="Add New Expense" className="animate-slide-down-fade border-l-4 border-l-rose-500 relative">
-                    {isAnalyzing && (
-                        <div className="absolute inset-0 bg-white/80 dark:bg-slate-900/80 z-10 flex items-center justify-center rounded-lg backdrop-blur-sm flex-col gap-2">
-                            <Loader2 className="w-10 h-10 animate-spin text-primary" />
-                            <p className="text-sm font-bold text-primary">Analyzing Receipt...</p>
-                        </div>
-                    )}
                     <div className="space-y-4">
                         
-                        {/* AI Scan Button */}
-                        <div className="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-lg border border-indigo-100 dark:border-indigo-800 flex items-center justify-between">
+                        {/* Receipt Attachment Bar */}
+                        <div className="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-lg border border-indigo-100 dark:border-indigo-800 flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
-                                <Sparkles className="text-indigo-500" size={18} />
-                                <span className="text-sm font-medium text-indigo-800 dark:text-indigo-200">Auto-fill with AI</span>
+                                <div className="p-2 bg-indigo-100 dark:bg-indigo-800 rounded-full">
+                                    <ImageIcon className="text-indigo-600 dark:text-indigo-300" size={18} />
+                                </div>
+                                <span className="text-sm font-medium text-indigo-900 dark:text-indigo-100">
+                                    {receiptImage ? 'Receipt Attached' : 'Attach Receipt Photo'}
+                                </span>
                             </div>
-                            <button 
-                                onClick={() => aiFileInputRef.current?.click()}
-                                className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-md flex items-center gap-1 transition-colors shadow-sm"
-                            >
-                                <Camera size={14} /> Scan Receipt
-                            </button>
+                            
+                            <div className="flex gap-2">
+                                {receiptImage && (
+                                    <button 
+                                        onClick={() => setReceiptImage(null)}
+                                        className="px-3 py-1.5 bg-red-100 text-red-700 hover:bg-red-200 text-xs font-bold rounded shadow-sm transition-colors border border-red-200"
+                                    >
+                                        Remove
+                                    </button>
+                                )}
+                                <button 
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-md flex items-center gap-1 transition-colors shadow-sm font-bold"
+                                >
+                                    <Camera size={14} /> {receiptImage ? 'Change' : 'Camera'}
+                                </button>
+                            </div>
                             <input 
                                 type="file" 
                                 accept="image/*" 
                                 capture="environment" 
-                                ref={aiFileInputRef} 
+                                ref={fileInputRef} 
                                 className="hidden" 
-                                onChange={handleAIReceiptScan}
+                                onChange={handleImageUpload}
                             />
                         </div>
+
+                        {receiptImage && (
+                            <div className="w-full h-32 bg-gray-100 dark:bg-slate-800 rounded-lg overflow-hidden flex items-center justify-center border dark:border-slate-700 relative group">
+                                <img src={receiptImage} alt="Receipt Preview" className="h-full object-contain" />
+                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                    <span className="text-white text-xs font-bold">Preview</span>
+                                </div>
+                            </div>
+                        )}
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
@@ -304,45 +259,15 @@ const ExpensesPage: React.FC<ExpensesPageProps> = ({ setIsDirty }) => {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Note (Optional)</label>
-                                <input 
-                                    type="text" 
-                                    value={note} 
-                                    onChange={e => setNote(e.target.value)} 
-                                    className="w-full p-2 border rounded-lg dark:bg-slate-700 dark:border-slate-600 dark:text-white"
-                                    placeholder="Description..."
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Receipt Photo</label>
-                                <div className="flex gap-2 items-center">
-                                    <input 
-                                        type="file" 
-                                        accept="image/*" 
-                                        capture="environment" 
-                                        ref={fileInputRef} 
-                                        className="hidden" 
-                                        onChange={handleImageUpload}
-                                    />
-                                    <Button onClick={() => fileInputRef.current?.click()} variant="secondary" className="w-full">
-                                        <Camera size={16} className="mr-2" /> 
-                                        {receiptImage ? 'Change Photo' : 'Attach Photo'}
-                                    </Button>
-                                    {receiptImage && (
-                                        <div className="relative w-10 h-10 flex-shrink-0">
-                                            <img src={receiptImage} alt="Preview" className="w-full h-full object-cover rounded" />
-                                            <button 
-                                                onClick={() => setReceiptImage(null)}
-                                                className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5"
-                                            >
-                                                <X size={10} />
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Note (Optional)</label>
+                            <input 
+                                type="text" 
+                                value={note} 
+                                onChange={e => setNote(e.target.value)} 
+                                className="w-full p-2 border rounded-lg dark:bg-slate-700 dark:border-slate-600 dark:text-white"
+                                placeholder="Description..."
+                            />
                         </div>
 
                         <Button onClick={handleAddExpense} className="w-full bg-rose-600 hover:bg-rose-700 focus:ring-rose-600">

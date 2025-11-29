@@ -1,5 +1,4 @@
 
-
 import React, { useState, useRef } from 'react';
 import { User, BarChart2, Activity, LogIn, LogOut, RefreshCw, CloudLightning, Sun, Moon, Palette, Check, Settings, Monitor, Shield, ChevronRight, RotateCcw, BrainCircuit, Terminal, Receipt, FileText, Lock, PenTool, Gauge, Cloud } from 'lucide-react';
 import { Page } from '../types';
@@ -10,6 +9,7 @@ import ColorPickerModal from './ColorPickerModal';
 import GradientPickerModal from './GradientPickerModal';
 import PinModal from './PinModal';
 import InvoiceSettingsModal from './InvoiceSettingsModal';
+import APIConfigModal from './APIConfigModal';
 
 interface MenuPanelProps {
   isOpen: boolean;
@@ -101,6 +101,7 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
     const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
     const [isGradientPickerOpen, setIsGradientPickerOpen] = useState(false);
     const [isInvoiceSettingsOpen, setIsInvoiceSettingsOpen] = useState(false);
+    const [isAPIConfigOpen, setIsAPIConfigOpen] = useState(false);
     
     const [isPinModalOpen, setIsPinModalOpen] = useState(false);
     const [pinMode, setPinMode] = useState<'setup' | 'enter'>('enter');
@@ -141,13 +142,14 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
         onOpenDevTools();
     };
 
-    if (!isOpen && !isAuditOpen && !isCloudDebugOpen && !isColorPickerOpen && !isGradientPickerOpen && !isPinModalOpen && !isInvoiceSettingsOpen) return null;
+    if (!isOpen && !isAuditOpen && !isCloudDebugOpen && !isColorPickerOpen && !isGradientPickerOpen && !isPinModalOpen && !isInvoiceSettingsOpen && !isAPIConfigOpen) return null;
 
     return (
         <>
         <AuditLogPanel isOpen={isAuditOpen} onClose={() => setIsAuditOpen(false)} />
         <CloudDebugModal isOpen={isCloudDebugOpen} onClose={() => setIsCloudDebugOpen(false)} />
         <InvoiceSettingsModal isOpen={isInvoiceSettingsOpen} onClose={() => setIsInvoiceSettingsOpen(false)} />
+        <APIConfigModal isOpen={isAPIConfigOpen} onClose={() => setIsAPIConfigOpen(false)} />
         <ColorPickerModal 
             isOpen={isColorPickerOpen} 
             onClose={() => setIsColorPickerOpen(false)}
@@ -341,6 +343,12 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                     <button onClick={() => { onClose(); setIsInvoiceSettingsOpen(true); }} className="menu-item">
                         <Settings className="w-5 h-5 text-slate-500" />
                         <span className="flex-grow text-sm font-medium">Quick Invoice Settings</span>
+                        <ChevronRight className="w-4 h-4 text-gray-400" />
+                    </button>
+                    
+                    <button onClick={() => { onClose(); setIsAPIConfigOpen(true); }} className="menu-item">
+                        <Cloud className="w-5 h-5 text-sky-500" />
+                        <span className="flex-grow text-sm font-medium">API Configuration</span>
                         <ChevronRight className="w-4 h-4 text-gray-400" />
                     </button>
                     
