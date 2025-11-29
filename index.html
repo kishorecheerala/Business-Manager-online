@@ -93,7 +93,7 @@
         background-attachment: fixed;
         -webkit-tap-highlight-color: transparent;
         overscroll-behavior-x: none; /* Prevents swipe-to-navigate on some mobile browsers */
-        touch-action: pan-y; /* CRITICAL: Reserves horizontal swipes for JS, lets browser handle vertical scroll */
+        /* touch-action: pan-y;  Removed strict restriction to allow better native handling */
       }
 
       html.dark body {
@@ -248,9 +248,6 @@
             iterationIntervalMs: 50,
             holdToDrag: iOS ? 300 : 150 // Hold for a moment to drag on mobile
         });
-        
-        // Prevent default touch actions while dragging to avoid scrolling
-        window.addEventListener('touchmove', function() {}, {passive: false});
     </script>
   </head>
   <body class="bg-background dark:bg-slate-900 text-text dark:text-slate-300 antialiased selection:bg-primary selection:text-white">

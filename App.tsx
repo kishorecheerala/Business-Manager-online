@@ -188,9 +188,10 @@ const AppContent: React.FC = () => {
         }
     }, [state.selection]);
 
-    // Persist current page navigation
+    // Persist current page navigation & Scroll to Top
     useEffect(() => {
         localStorage.setItem('business_manager_last_page', currentPage);
+        window.scrollTo(0, 0); // Important for mobile UX: Start at top when switching tabs
     }, [currentPage]);
 
     // Apply Theme
@@ -234,6 +235,25 @@ const AppContent: React.FC = () => {
         } else {
             localStorage.removeItem('themeGradient');
         }
+
+        // 5. Dynamic App Icon (Favicon)
+        const updateFavicon = () => {
+            const bg = state.theme === 'dark' ? '#0f172a' : '#f8fafc';
+            const fill = state.themeColor;
+            const svgString = `
+                <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="512" height="512" rx="96" fill="${bg}"/>
+                <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" font-size="280" font-family="serif" fill="${fill}" font-weight="bold">ॐ</text>
+                </svg>
+            `.trim();
+            
+            const dataUrl = `data:image/svg+xml,${encodeURIComponent(svgString)}`;
+            
+            // Update all favicon links
+            const links = document.querySelectorAll("link[rel*='icon']");
+            links.forEach(link => (link as HTMLLinkElement).href = dataUrl);
+        };
+        updateFavicon();
 
     }, [state.theme, state.themeColor, state.themeGradient]);
 
@@ -307,8 +327,15 @@ const AppContent: React.FC = () => {
 
     if (!isDbLoaded) return <AppSkeletonLoader />;
 
+    // Main Content Class Logic
+    // If INVOICE_DESIGNER: Fixed full height, internal scrolling.
+    // Standard Pages: Native body scrolling (min-h-screen).
+    const mainClass = currentPage === 'INVOICE_DESIGNER' 
+        ? 'h-[100dvh] overflow-hidden' 
+        : `min-h-screen ${state.installPromptEvent ? 'pt-32' : 'pt-16'}`;
+
     return (
-        <div className={`min-h-screen bg-background dark:bg-slate-950 text-text dark:text-slate-200 font-sans transition-colors duration-300 ${state.theme}`}>
+        <div className={`min-h-screen flex flex-col bg-background dark:bg-slate-950 text-text dark:text-slate-200 font-sans transition-colors duration-300 ${state.theme}`}>
             <Toast />
             
             {/* Header - Hidden on Invoice Designer to maximize space */}
@@ -435,8 +462,7 @@ const AppContent: React.FC = () => {
             )}
 
             {/* Main Content Area */}
-            {/* Added dynamic padding-top to account for banner when present */}
-            <main className={`flex-grow h-screen overflow-y-auto custom-scrollbar ${currentPage !== 'INVOICE_DESIGNER' ? (state.installPromptEvent ? 'pt-32' : 'pt-16') : ''}`}>
+            <main className={`flex-grow w-full ${mainClass}`}>
                 <div className={`mx-auto ${currentPage === 'INVOICE_DESIGNER' ? 'h-full' : 'p-4 pb-32 max-w-7xl'}`}>
                     {currentPage === 'DASHBOARD' && <Dashboard setCurrentPage={handleNavigation} />}
                     {currentPage === 'CUSTOMERS' && <CustomersPage setIsDirty={setIsDirty} setCurrentPage={handleNavigation} />}
