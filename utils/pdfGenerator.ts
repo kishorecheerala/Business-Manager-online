@@ -1,8 +1,4 @@
 
-
-
-
-
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Sale, Customer, ProfileData, Purchase, Supplier, Return, Quote, InvoiceTemplateConfig, CustomFont, InvoiceLabels } from '../types';
@@ -51,17 +47,25 @@ export const getQrCodeBase64 = async (data: string): Promise<string> => {
 };
 
 // --- Helper: Detect Image Type ---
-const getImageType = (dataUrl: string): string => {
+export const getImageType = (dataUrl: string): string => {
     if (!dataUrl) return 'PNG';
-    if (dataUrl.startsWith('data:image/png')) return 'PNG';
-    if (dataUrl.startsWith('data:image/jpeg')) return 'JPEG';
-    if (dataUrl.startsWith('data:image/jpg')) return 'JPEG';
-    if (dataUrl.startsWith('data:image/webp')) return 'WEBP';
-    // Fallback: If base64 string without prefix, assume PNG or try to detect based on first char
+    // Robust Case Insensitive Checks for Common Types
+    const header = dataUrl.substring(0, 30).toLowerCase();
+    
+    if (header.includes('image/png')) return 'PNG';
+    if (header.includes('image/jpeg') || header.includes('image/jpg')) return 'JPEG';
+    if (header.includes('image/webp')) return 'WEBP';
+    
+    // Fallback: Check magic bytes for base64 without prefix
+    // Common Base64 starts:
+    // /9j/ -> JPEG
+    // iVBORw0KGgo -> PNG
+    // UklGR -> WEBP
     if (dataUrl.startsWith('/9j/')) return 'JPEG';
     if (dataUrl.startsWith('iVBORw0KGgo')) return 'PNG';
     if (dataUrl.startsWith('UklGR')) return 'WEBP';
-    return 'PNG';
+    
+    return 'PNG'; // Default
 };
 
 // --- Helper: Register Custom Fonts ---

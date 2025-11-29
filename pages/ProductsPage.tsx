@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Search, Edit, Save, X, Package, IndianRupee, Percent, PackageCheck, Barcode, Printer, Filter, Grid, List, Camera, Image as ImageIcon, Eye, Trash2, QrCode, Boxes, Maximize2, Minimize2, ArrowLeft, CheckSquare, Square, Plus, Clock, AlertTriangle, Share2, MoreHorizontal, LayoutGrid, Check, Wand2, Loader2, Sparkles, MessageCircle, CheckCircle, Copy, Share, GripVertical, GripHorizontal } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -22,7 +21,7 @@ interface ProductsPageProps {
 // Helper to convert base64 to File object for sharing
 const dataURLtoFile = (dataurl: string, filename: string) => {
     const arr = dataurl.split(',');
-    const mime = arr[0].match(/:(.*?);/)?.[1];
+    const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/png';
     const bstr = atob(arr[1]);
     let n = bstr.length;
     const u8arr = new Uint8Array(n);
@@ -408,7 +407,8 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
         
         setIsGeneratingDesc(true);
         try {
-            const envKey = process.env.API_KEY as string | undefined;
+            // Fix: Cast process.env to any to avoid type errors
+            const envKey = (process.env as any).API_KEY as string | undefined;
             const apiKey = envKey || localStorage.getItem('gemini_api_key') || '';
             
             if (!apiKey) throw new Error("API Key not available");
@@ -418,7 +418,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
             
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
-                contents: [{ parts: [{ text: prompt }] }]
+                contents: prompt
             });
             
             const text = response.text;
@@ -443,7 +443,8 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
 
         setIsSuggestingPrice(true);
         try {
-            const envKey = process.env.API_KEY as string | undefined;
+            // Fix: Cast process.env to any to avoid type errors
+            const envKey = (process.env as any).API_KEY as string | undefined;
             const apiKey = envKey || localStorage.getItem('gemini_api_key') || '';
             
             if (!apiKey) throw new Error("API Key not available");
@@ -455,7 +456,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
 
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
-                contents: [{ parts: [{ text: prompt }] }]
+                contents: prompt
             });
 
             const text = response.text;

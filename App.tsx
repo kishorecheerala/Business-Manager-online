@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useLayoutEffect } from 'react';
 import { 
   Home, Users, ShoppingCart, Package, Menu, Plus, UserPlus, PackagePlus, 
   Receipt, Undo2, FileText, BarChart2, Settings, PenTool, Gauge, Search, 
@@ -189,9 +189,10 @@ const AppContent: React.FC = () => {
     }, [state.selection]);
 
     // Persist current page navigation & Scroll to Top
-    useEffect(() => {
+    // Use useLayoutEffect to ensure scroll happens before paint
+    useLayoutEffect(() => {
         localStorage.setItem('business_manager_last_page', currentPage);
-        window.scrollTo(0, 0); // Important for mobile UX: Start at top when switching tabs
+        window.scrollTo(0, 0); 
     }, [currentPage]);
 
     // Apply Theme

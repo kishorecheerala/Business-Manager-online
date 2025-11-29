@@ -84,6 +84,11 @@
         --header-bg: rgb(13, 148, 136);
       }
 
+      html {
+        height: 100%;
+        overflow-x: hidden; /* Prevent horizontal scroll */
+      }
+
       /* Clean Background for Light Mode */
       body {
         font-family: 'Inter', sans-serif;
@@ -92,8 +97,8 @@
         background-image: radial-gradient(circle at top left, rgba(var(--primary-color), 0.05), transparent 40%);
         background-attachment: fixed;
         -webkit-tap-highlight-color: transparent;
-        overscroll-behavior-x: none; /* Prevents swipe-to-navigate on some mobile browsers */
-        /* touch-action: pan-y;  Removed strict restriction to allow better native handling */
+        overscroll-behavior-x: none; 
+        min-height: 100%;
       }
 
       html.dark body {
