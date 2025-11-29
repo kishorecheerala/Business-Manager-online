@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, Edit, Save, X, Package, IndianRupee, Percent, PackageCheck, Barcode, Printer, Filter, Grid, List, Camera, Image as ImageIcon, Eye, Trash2, QrCode, Boxes, Maximize2, Minimize2, ArrowLeft, CheckSquare, Square, Plus, Clock, AlertTriangle, Share2, MoreHorizontal, LayoutGrid, Check, Wand2, Loader2, Sparkles, MessageCircle, CheckCircle, Copy, Share } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { Search, Edit, Save, X, Package, IndianRupee, Percent, PackageCheck, Barcode, Printer, Filter, Grid, List, Camera, Image as ImageIcon, Eye, Trash2, QrCode, Boxes, Maximize2, Minimize2, ArrowLeft, CheckSquare, Square, Plus, Clock, AlertTriangle, Share2, MoreHorizontal, LayoutGrid, Check, Wand2, Loader2, Sparkles, MessageCircle, CheckCircle, Copy, Share, GripVertical, GripHorizontal } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Product, PurchaseItem } from '../types';
 import Card from '../components/Card';
@@ -97,6 +97,11 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editedProduct, setEditedProduct] = useState<Product | null>(null);
     
+    // Resizable Split Pane State
+    const [detailSplitRatio, setDetailSplitRatio] = useState(0.75); // 75% for image default
+    const detailContainerRef = useRef<HTMLDivElement>(null);
+    const isResizingDetail = useRef(false);
+    
     // Share Selection Mode
     const [isShareSelectMode, setIsShareSelectMode] = useState(false);
     const [selectedShareImages, setSelectedShareImages] = useState<Set<string>>(new Set());
@@ -105,7 +110,6 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
     const [isBatchBarcodeModalOpen, setIsBatchBarcodeModalOpen] = useState(false);
     const [isScannerOpen, setIsScannerOpen] = useState(false);
-    const [cropImage, setCropImage] = useState<string | null>(null);
     
     const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
     const [isSuggestingPrice, setIsSuggestingPrice] = useState(false);
@@ -132,6 +136,54 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
             setIsDirty(currentlyDirty);
         }
     }, [isEditing, setIsDirty]);
+
+    // Split Pane Resizing Logic
+    const startDetailResize = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+        e.preventDefault(); // Prevent text selection
+        isResizingDetail.current = true;
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = window.innerWidth >= 768 ? 'col-resize' : 'row-resize';
+    }, []);
+
+    const stopDetailResize = useCallback(() => {
+        isResizingDetail.current = false;
+        document.body.style.userSelect = '';
+        document.body.style.cursor = '';
+    }, []);
+
+    const doDetailResize = useCallback((e: MouseEvent | TouchEvent) => {
+        if (!isResizingDetail.current || !detailContainerRef.current) return;
+        
+        const containerRect = detailContainerRef.current.getBoundingClientRect();
+        const isDesktop = window.matchMedia('(min-width: 768px)').matches;
+        
+        let newRatio;
+        if (isDesktop) {
+            const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
+            newRatio = (clientX - containerRect.left) / containerRect.width;
+        } else {
+            const clientY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY;
+            newRatio = (clientY - containerRect.top) / containerRect.height;
+        }
+        
+        // Clamp to keep both sides visible (min 20%, max 85%)
+        newRatio = Math.max(0.2, Math.min(0.85, newRatio));
+        setDetailSplitRatio(newRatio);
+    }, []);
+
+    useEffect(() => {
+        window.addEventListener('mousemove', doDetailResize);
+        window.addEventListener('touchmove', doDetailResize, { passive: false });
+        window.addEventListener('mouseup', stopDetailResize);
+        window.addEventListener('touchend', stopDetailResize);
+        
+        return () => {
+            window.removeEventListener('mousemove', doDetailResize);
+            window.removeEventListener('touchmove', doDetailResize);
+            window.removeEventListener('mouseup', stopDetailResize);
+            window.removeEventListener('touchend', stopDetailResize);
+        };
+    }, [doDetailResize, stopDetailResize]);
 
     const filteredProducts = useMemo(() => {
         const lowerTerm = searchTerm.toLowerCase();
@@ -355,7 +407,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
         
         setIsGeneratingDesc(true);
         try {
-            const apiKey = process.env.API_KEY as string;
+            const apiKey = (process.env.API_KEY as unknown) as string;
             if (!apiKey) throw new Error("API Key not available");
             
             const ai = new GoogleGenAI({ apiKey });
@@ -388,7 +440,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
 
         setIsSuggestingPrice(true);
         try {
-            const apiKey = process.env.API_KEY as string;
+            const apiKey = (process.env.API_KEY as unknown) as string;
             if (!apiKey) throw new Error("API Key not available");
 
             const ai = new GoogleGenAI({ apiKey });
@@ -422,7 +474,10 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     // Render Logic for Detail View
     if (selectedProduct && editedProduct) {
         return (
-            <div className="fixed inset-0 w-full h-full z-[5000] bg-white dark:bg-slate-900 flex flex-col md:flex-row overflow-hidden animate-fade-in-fast">
+            <div 
+                ref={detailContainerRef}
+                className="fixed inset-0 w-full h-full z-[5000] bg-white dark:bg-slate-900 flex flex-col md:flex-row overflow-hidden animate-fade-in-fast"
+            >
                 {isBarcodeModalOpen && (
                     <BarcodeModal 
                         isOpen={isBarcodeModalOpen} 
@@ -455,8 +510,11 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                     )}
                 </div>
 
-                {/* Left Side (Image Gallery) - Increased Size */}
-                <div className="h-[50%] sm:h-[60%] md:h-full w-full md:w-[65%] bg-gray-100 dark:bg-slate-950 relative flex flex-col shrink-0 transition-all duration-300 shadow-xl z-10">
+                {/* Left Side (Image Gallery) - Resizable */}
+                <div 
+                    className="relative flex flex-col shrink-0 transition-[flex-basis] duration-75 shadow-xl z-10 bg-gray-100 dark:bg-slate-950"
+                    style={{ flexBasis: `${detailSplitRatio * 100}%` }}
+                >
                     <div className="flex-1 relative w-full h-full flex items-center justify-center p-4 overflow-hidden">
                         {editedProduct.image ? (
                             <img 
@@ -559,8 +617,18 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                     </div>
                 </div>
 
-                {/* Right Side (Details) - Adjusted Size */}
-                <div className="flex-1 h-full w-full md:w-[35%] bg-white dark:bg-slate-800 flex flex-col border-l dark:border-slate-700 overflow-y-auto">
+                {/* Resizer Handle */}
+                <div
+                    className="z-20 flex items-center justify-center bg-gray-200 dark:bg-slate-800 hover:bg-blue-500/50 active:bg-blue-500/70 transition-colors touch-none select-none cursor-row-resize md:cursor-col-resize shrink-0 border-y md:border-y-0 md:border-x border-white/20 dark:border-black/20"
+                    style={{ flexBasis: '12px' }}
+                    onMouseDown={startDetailResize}
+                    onTouchStart={startDetailResize}
+                >
+                     <div className={`rounded-full bg-gray-400 dark:bg-slate-600 ${window.innerWidth >= 768 ? 'w-1 h-8' : 'w-8 h-1'}`} />
+                </div>
+
+                {/* Right Side (Details) - Flex-1 */}
+                <div className="flex-1 min-w-0 min-h-0 bg-white dark:bg-slate-800 flex flex-col border-l dark:border-slate-700 overflow-y-auto">
                     <div className="p-6 space-y-6">
                         {isEditing ? (
                             <div className="space-y-4">
