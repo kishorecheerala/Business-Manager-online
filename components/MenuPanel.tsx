@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { User, BarChart2, Activity, LogIn, LogOut, RefreshCw, CloudLightning, Sun, Moon, Palette, Check, Settings, Monitor, Shield, ChevronRight, RotateCcw, BrainCircuit, Terminal, Receipt, FileText, Lock, PenTool, Gauge, Cloud, Layout, Download } from 'lucide-react';
+import { User, BarChart2, Activity, LogIn, LogOut, RefreshCw, CloudLightning, Sun, Moon, Palette, Check, Settings, Monitor, Shield, ChevronRight, RotateCcw, BrainCircuit, Terminal, Receipt, FileText, Lock, PenTool, Gauge, Cloud, Layout, Download, Sparkles } from 'lucide-react';
 import { Page } from '../types';
 import { useAppContext } from '../context/AppContext';
 import AuditLogPanel from './AuditLogPanel';
@@ -19,6 +19,7 @@ interface MenuPanelProps {
   onNavigate: (page: Page) => void;
   onOpenDevTools: () => void;
   onLockApp?: () => void;
+  onOpenChangeLog?: () => void;
 }
 
 interface ThemeColor {
@@ -95,7 +96,7 @@ const getContrastColor = (hexColor: string) => {
     return (yiq >= 128) ? 'black' : 'white';
 };
 
-const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, onNavigate, onOpenDevTools, onLockApp }) => {
+const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, onNavigate, onOpenDevTools, onLockApp, onOpenChangeLog }) => {
     const { state, dispatch, googleSignIn, googleSignOut, syncData } = useAppContext();
     const [isAuditOpen, setIsAuditOpen] = useState(false);
     const [isCloudDebugOpen, setIsCloudDebugOpen] = useState(false);
@@ -285,6 +286,12 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                     <button onClick={() => { onClose(); setIsAuditOpen(true); }} className="menu-item">
                         <Activity className="w-5 h-5 text-amber-500" />
                         <span className="flex-grow text-sm font-medium">Audit Logs</span>
+                        <ChevronRight className="w-4 h-4 text-gray-400" />
+                    </button>
+
+                    <button onClick={() => { onClose(); onOpenChangeLog?.(); }} className="menu-item">
+                        <Sparkles className="w-5 h-5 text-yellow-500" />
+                        <span className="flex-grow text-sm font-medium">What's New</span>
                         <ChevronRight className="w-4 h-4 text-gray-400" />
                     </button>
                 </div>

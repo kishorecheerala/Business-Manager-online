@@ -36,10 +36,12 @@ import ProfileModal from './components/ProfileModal';
 import AppSkeletonLoader from './components/AppSkeletonLoader';
 import NavCustomizerModal from './components/NavCustomizerModal';
 import Toast from './components/Toast';
+import ChangeLogModal from './components/ChangeLogModal';
 import { useSwipe } from './hooks/useSwipe';
 import { useOnClickOutside } from './hooks/useOnClickOutside';
 import { useHotkeys } from './hooks/useHotkeys';
 import { logPageView } from './utils/analyticsLogger';
+import { APP_VERSION } from './utils/changelogData';
 
 // Icon Map for dynamic rendering
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -168,6 +170,7 @@ const AppContent: React.FC = () => {
     const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
     const [isMobileQuickAddOpen, setIsMobileQuickAddOpen] = useState(false);
     const [isDirty, setIsDirty] = useState(false);
+    const [isChangeLogOpen, setIsChangeLogOpen] = useState(false);
 
     const moreMenuRef = useRef<HTMLDivElement>(null);
     const mobileQuickAddRef = useRef<HTMLDivElement>(null);
@@ -187,6 +190,20 @@ const AppContent: React.FC = () => {
             setCurrentPage(state.selection.page);
         }
     }, [state.selection]);
+
+    // Check for App Updates (Change Log)
+    useEffect(() => {
+        const storedVersion = localStorage.getItem('app_version');
+        if (storedVersion !== APP_VERSION) {
+            // Small delay to allow initial render settle
+            setTimeout(() => setIsChangeLogOpen(true), 1500);
+        }
+    }, []);
+
+    const handleCloseChangeLog = () => {
+        setIsChangeLogOpen(false);
+        localStorage.setItem('app_version', APP_VERSION);
+    };
 
     // Persist current page navigation & Scroll to Top
     // Use useLayoutEffect to ensure scroll happens before paint
@@ -338,6 +355,7 @@ const AppContent: React.FC = () => {
     return (
         <div className={`min-h-screen flex flex-col bg-background dark:bg-slate-950 text-text dark:text-slate-200 font-sans transition-colors duration-300 ${state.theme}`}>
             <Toast />
+            <ChangeLogModal isOpen={isChangeLogOpen} onClose={handleCloseChangeLog} />
             
             {/* Header - Hidden on Invoice Designer to maximize space */}
             {currentPage !== 'INVOICE_DESIGNER' && (
@@ -487,6 +505,7 @@ const AppContent: React.FC = () => {
                 onProfileClick={() => setIsProfileModalOpen(true)}
                 onNavigate={handleNavigation}
                 onOpenDevTools={() => setIsDevToolsOpen(true)}
+                onOpenChangeLog={() => setIsChangeLogOpen(true)}
             />
             <UniversalSearch isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} onNavigate={handleNavigation} />
             <AskAIModal isOpen={isAskAIOpen} onClose={() => setIsAskAIOpen(false)} />
