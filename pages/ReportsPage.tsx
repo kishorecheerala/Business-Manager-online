@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState } from 'react';
-import { Download, XCircle, Users, Package, AlertTriangle } from 'lucide-react';
+import { Download, XCircle, Users, Package, AlertTriangle, FileSpreadsheet, Loader2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -8,6 +8,7 @@ import { Customer, Sale, Supplier, Page, Product } from '../types';
 import Dropdown from '../components/Dropdown';
 import DatePill from '../components/DatePill';
 import { generateGenericReportPDF } from '../utils/pdfGenerator';
+import { exportReportToSheet } from '../utils/googleSheets';
 
 interface CustomerWithDue extends Customer {
   dueAmount: number;
@@ -21,6 +22,7 @@ interface ReportsPageProps {
 const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
     const { state, dispatch, showToast } = useAppContext();
     const [activeTab, setActiveTab] = useState<'customer' | 'supplier' | 'stock'>('customer');
+    const [isExporting, setIsExporting] = useState(false);
 
     // --- Customer Filters ---
     const [areaFilter, setAreaFilter] = useState('all');
@@ -33,6 +35,38 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
     const handleCustomerClick = (customerId: string) => {
         dispatch({ type: 'SET_SELECTION', payload: { page: 'CUSTOMERS', id: customerId } });
         setCurrentPage('CUSTOMERS');
+    };
+
+    // --- Helper for Sheet Export ---
+    const handleSheetExport = async (title: string, headers: string[], rows: string[][]) => {
+        if (!state.googleUser?.accessToken) {
+            showToast("Please sign in with Google (Menu > Sign In) to use Sheets export.", "info");
+            return;
+        }
+        
+        setIsExporting(true);
+        try {
+            const url = await exportReportToSheet(
+                state.googleUser.accessToken,
+                `${title} - ${new Date().toLocaleDateString('en-IN')}`,
+                headers,
+                rows
+            );
+            
+            // Create a toast with action
+            // Since our toast component is simple, we show success and open window
+            showToast("Export successful! Opening Google Sheet...", "success");
+            window.open(url, '_blank');
+        } catch (error: any) {
+            console.error(error);
+            if (error.message.includes('401') || error.message.includes('403')) {
+                showToast("Permission denied. Please Sign Out and Sign In again to grant Sheets access.", "error");
+            } else {
+                showToast("Failed to export to Google Sheets.", "error");
+            }
+        } finally {
+            setIsExporting(false);
+        }
     };
 
     // --- Customer Dues Report Logic ---
@@ -116,6 +150,13 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
         link.download = 'customer-dues-report.csv';
         link.click();
     };
+
+    const exportDuesToSheets = () => {
+        if (customerDues.length === 0) { showToast("No data to export.", 'error'); return; }
+        const headers = ['Customer Name', 'Area', 'Last Paid Date', 'Due Amount'];
+        const rows = customerDues.map(c => [c.name, c.area, c.lastPaidDate || 'N/A', c.dueAmount.toString()]);
+        handleSheetExport("Customer Dues Report", headers, rows);
+    };
     
     // --- Customer Account Summary Logic ---
     const customerAccountSummary = useMemo(() => {
@@ -175,6 +216,19 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
         link.href = 'data:text/csv;charset=utf-8,' + encodeURI(csv);
         link.download = 'customer-account-summary.csv';
         link.click();
+    };
+
+    const exportCustomerSummaryToSheets = () => {
+        if (customerAccountSummary.length === 0) { showToast("No data to export.", 'error'); return; }
+        const headers = ['Customer Name', 'Last Purchase Date', 'Total Purchased', 'Total Paid', 'Outstanding Due'];
+        const rows = customerAccountSummary.map(s => [
+            s.customer.name,
+            s.lastPurchaseDate || 'N/A',
+            s.totalPurchased.toString(),
+            s.totalPaid.toString(),
+            s.outstandingDue.toString()
+        ]);
+        handleSheetExport("Customer Account Summary", headers, rows);
     };
     
     // --- Supplier Reports Logic ---
@@ -263,6 +317,18 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
         link.click();
     };
 
+    const exportSupplierDuesToSheets = () => {
+        if (supplierDues.length === 0) { showToast("No data to export.", 'error'); return; }
+        const headers = ['Supplier', 'Purchase ID', 'Next Due Date', 'Due Amount'];
+        const rows = supplierDues.map(p => [
+            p.supplierName,
+            p.id,
+            p.nextDueDate || 'N/A',
+            p.dueAmount.toString()
+        ]);
+        handleSheetExport("Supplier Dues Report", headers, rows);
+    };
+
     const generateSupplierSummaryPDF = async () => {
         if (supplierAccountSummary.length === 0) { showToast("No data to export.", 'error'); return; }
         
@@ -302,6 +368,18 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
         link.click();
     };
 
+    const exportSupplierSummaryToSheets = () => {
+        if (supplierAccountSummary.length === 0) { showToast("No data to export.", 'error'); return; }
+        const headers = ['Supplier Name', 'Total Purchased', 'Total Paid', 'Outstanding Due'];
+        const rows = supplierAccountSummary.map(s => [
+            s.supplier.name,
+            s.totalPurchased.toString(),
+            s.totalPaid.toString(),
+            s.outstandingDue.toString()
+        ]);
+        handleSheetExport("Supplier Account Summary", headers, rows);
+    };
+
     // --- Low Stock Report Logic ---
     const lowStockItems = useMemo(() => {
         return state.products
@@ -335,6 +413,20 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
             showToast("Failed to generate PDF", 'error');
         }
     };
+
+    const exportLowStockToSheets = () => {
+        if (lowStockItems.length === 0) { showToast("No low stock items found.", 'info'); return; }
+        const headers = ['Product Name', 'Current Stock', 'Last Cost'];
+        const rows = lowStockItems.map(p => [p.name, p.quantity.toString(), p.purchasePrice.toString()]);
+        handleSheetExport("Low Stock Report", headers, rows);
+    };
+
+    const SheetButton: React.FC<{ onClick: () => void }> = ({ onClick }) => (
+        <Button onClick={onClick} variant="secondary" className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400 dark:hover:bg-emerald-900/50 border-emerald-200" disabled={isExporting}>
+            {isExporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileSpreadsheet className="w-4 h-4 mr-2" />}
+            Sheets
+        </Button>
+    );
 
     return (
         <div className="space-y-6">
@@ -417,6 +509,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                         <div className="flex gap-2 mb-4">
                             <Button onClick={generateDuesPDF}><Download className="w-4 h-4 mr-2" /> PDF</Button>
                             <Button onClick={generateDuesCSV} variant="secondary"><Download className="w-4 h-4 mr-2" /> CSV</Button>
+                            <SheetButton onClick={exportDuesToSheets} />
                         </div>
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
@@ -453,6 +546,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                         <div className="flex gap-2 mb-4">
                             <Button onClick={generateCustomerSummaryPDF}><Download className="w-4 h-4 mr-2" /> PDF</Button>
                             <Button onClick={generateCustomerSummaryCSV} variant="secondary"><Download className="w-4 h-4 mr-2" /> CSV</Button>
+                            <SheetButton onClick={exportCustomerSummaryToSheets} />
                         </div>
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
@@ -511,6 +605,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                         <div className="flex gap-2 mb-4">
                             <Button onClick={generateSupplierDuesPDF}><Download className="w-4 h-4 mr-2" /> PDF</Button>
                             <Button onClick={generateSupplierDuesCSV} variant="secondary"><Download className="w-4 h-4 mr-2" /> CSV</Button>
+                            <SheetButton onClick={exportSupplierDuesToSheets} />
                         </div>
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
@@ -532,6 +627,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                         <div className="flex gap-2 mb-4">
                             <Button onClick={generateSupplierSummaryPDF}><Download className="w-4 h-4 mr-2" /> PDF</Button>
                             <Button onClick={generateSupplierSummaryCSV} variant="secondary"><Download className="w-4 h-4 mr-2" /> CSV</Button>
+                            <SheetButton onClick={exportSupplierSummaryToSheets} />
                         </div>
                          <div className="overflow-x-auto">
                             <table className="w-full text-sm">
@@ -562,6 +658,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                         </p>
                         <div className="flex gap-2 mb-4">
                             <Button onClick={generateLowStockPDF} className="bg-red-600 hover:bg-red-700 focus:ring-red-600"><Download className="w-4 h-4 mr-2" /> Download Reorder PDF</Button>
+                            <SheetButton onClick={exportLowStockToSheets} />
                         </div>
                         <div className="overflow-x-auto max-h-96">
                             <table className="w-full text-sm">

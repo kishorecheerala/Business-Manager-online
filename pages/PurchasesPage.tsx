@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Plus, Edit, Save, X, Search, Download, Printer, FileSpreadsheet, Upload, CheckCircle, XCircle, Info, QrCode } from 'lucide-react';
+import { Plus, Edit, Save, X, Search, Download, Printer, FileSpreadsheet, Upload, CheckCircle, XCircle, Info, QrCode, Calendar as CalendarIcon } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Supplier, Purchase, Payment, Return, Page, Product, PurchaseItem } from '../types';
 import Card from '../components/Card';
@@ -17,6 +17,7 @@ import DateInput from '../components/DateInput';
 import { Html5Qrcode } from 'html5-qrcode';
 import { PurchaseForm } from '../components/AddPurchaseView';
 import { getLocalDateString } from '../utils/dateUtils';
+import { createCalendarEvent } from '../utils/googleCalendar';
 
 interface PurchasesPageProps {
   setIsDirty: (isDirty: boolean) => void;
@@ -188,6 +189,32 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
         } catch (e) {
             console.error("PDF Error", e);
             showToast("Failed to generate PDF", 'error');
+        }
+    };
+
+    const handleAddToCalendar = async (dateStr: string, supplierName: string, purchaseId: string) => {
+        if (!state.googleUser?.accessToken) {
+            showToast("Please sign in to Google to use Calendar integration.", 'info');
+            return;
+        }
+
+        try {
+            // Set time to 10:00 AM on due date
+            const startTime = new Date(dateStr);
+            startTime.setHours(10, 0, 0, 0);
+
+            await createCalendarEvent(state.googleUser.accessToken, {
+                summary: `Payment Due: ${supplierName}`,
+                description: `Purchase ID: ${purchaseId}\nReminder created from Business Manager.`,
+                startTime: startTime.toISOString()
+            });
+            showToast("Reminder added to your Google Calendar!", 'success');
+        } catch (error: any) {
+            if (error.message === "AUTH_ERROR") {
+                showToast("Calendar permission denied. Please Sign Out and Sign In again.", 'error');
+            } else {
+                showToast("Failed to create event.", 'error');
+            }
         }
     };
 
@@ -384,9 +411,16 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
                                                                     const d = new Date(date);
                                                                     const isOverdue = d < new Date() && !isPaid;
                                                                     return (
-                                                                        <span key={idx} className={`text-xs px-2 py-1 rounded border ${isOverdue ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300' : 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-slate-700 dark:text-gray-300'}`}>
+                                                                        <div key={idx} className={`text-xs px-2 py-1 rounded border flex items-center gap-2 ${isOverdue ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300' : 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-slate-700 dark:text-gray-300'}`}>
                                                                             {d.toLocaleDateString()}
-                                                                        </span>
+                                                                            <button 
+                                                                                onClick={() => handleAddToCalendar(date, selectedSupplier.name, purchase.id)}
+                                                                                className="hover:text-primary transition-colors p-0.5 rounded"
+                                                                                title="Add to Google Calendar"
+                                                                            >
+                                                                                <CalendarIcon size={12} />
+                                                                            </button>
+                                                                        </div>
                                                                     );
                                                                 })}
                                                             </div>

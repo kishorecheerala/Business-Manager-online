@@ -1,9 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { Supplier } from '../types';
 import Button from './Button';
 import Card from './Card';
 import { X, User, Phone, MapPin, CreditCard, FileText, Hash } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import AddressAutocomplete from './AddressAutocomplete';
 
 const defaultSupplierState = { id: '', name: '', phone: '', location: '', gstNumber: '', reference: '', account1: '', account2: '', upi: '' };
 
@@ -122,15 +124,14 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ isOpen, onClose, on
 
                 <div>
                     <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 ml-1">Location *</label>
+                    {/* Using AddressAutocomplete here instead of standard input */}
                     <div className="relative">
-                        <input 
-                            type="text" 
-                            placeholder="City / Area" 
+                        <AddressAutocomplete 
                             value={formData.location} 
-                            onChange={e => handleChange('location', e.target.value)} 
-                            className="w-full p-3 pl-10 bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-primary focus:bg-white dark:focus:bg-slate-800 outline-none transition-all" 
+                            onChange={(val) => handleChange('location', val)}
+                            placeholder="City / Area"
+                            className="w-full p-3 pl-10 bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-primary focus:bg-white dark:focus:bg-slate-800 outline-none transition-all"
                         />
-                        <MapPin size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"/>
                     </div>
                 </div>
             </div>

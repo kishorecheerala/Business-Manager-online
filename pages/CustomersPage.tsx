@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Plus, User, Phone, MapPin, Search, Edit, Save, X, IndianRupee, ShoppingCart, Share2, ChevronDown, Crown, ShieldAlert, BadgeCheck } from 'lucide-react';
+import { Plus, User, Phone, MapPin, Search, Edit, Save, X, IndianRupee, ShoppingCart, Share2, ChevronDown, Crown, ShieldAlert, BadgeCheck, Calendar as CalendarIcon } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Customer, Payment, Sale, Page } from '../types';
 import Card from '../components/Card';
@@ -12,6 +12,7 @@ import { generateA4InvoicePdf, generateThermalInvoicePDF, generateGenericReportP
 import { useDialog } from '../context/DialogContext';
 import PaymentModal from '../components/PaymentModal';
 import { getLocalDateString } from '../utils/dateUtils';
+import { createCalendarEvent } from '../utils/googleCalendar';
 
 // --- Customer Segmentation Helper ---
 type CustomerSegment = 'VIP' | 'Regular' | 'New' | 'At-Risk';
@@ -230,6 +231,35 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
         
         setPaymentModalState({ isOpen: false, saleId: null });
         setPaymentDetails({ amount: '', method: 'CASH', date: getLocalDateString(), reference: '' });
+    };
+
+    const handleAddReminder = async (customerName: string, saleId: string) => {
+        if (!state.googleUser?.accessToken) {
+            showToast("Please sign in to Google to use Calendar integration.", 'info');
+            return;
+        }
+
+        const date = prompt("Enter reminder date (YYYY-MM-DD):", getLocalDateString());
+        if (!date) return;
+
+        try {
+            // Set time to 10:00 AM
+            const startTime = new Date(date);
+            startTime.setHours(10, 0, 0, 0);
+
+            await createCalendarEvent(state.googleUser.accessToken, {
+                summary: `Payment Follow-up: ${customerName}`,
+                description: `Invoice ID: ${saleId}\nReminder created from Business Manager.`,
+                startTime: startTime.toISOString()
+            });
+            showToast("Reminder added to your Google Calendar!", 'success');
+        } catch (error: any) {
+            if (error.message === "AUTH_ERROR") {
+                showToast("Calendar permission denied. Please Sign Out and Sign In again.", 'error');
+            } else {
+                showToast("Failed to create event.", 'error');
+            }
+        }
     };
 
     // Updated Handlers for PDF Generation
@@ -475,6 +505,15 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                                                             </div>
                                                         )}
                                                     </div>
+                                                    {!isPaid && (
+                                                        <button 
+                                                            onClick={() => handleAddReminder(selectedCustomer.name, sale.id)} 
+                                                            className="p-2 text-amber-600 hover:bg-amber-100 rounded-full" 
+                                                            title="Add Reminder to Calendar"
+                                                        >
+                                                            <CalendarIcon size={16} />
+                                                        </button>
+                                                    )}
                                                     <DeleteButton 
                                                         variant="delete" 
                                                         onClick={(e) => { e.stopPropagation(); handleDeleteSale(sale.id); }} 

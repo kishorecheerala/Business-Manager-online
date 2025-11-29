@@ -1,8 +1,10 @@
+
 import React, { useState } from 'react';
 import Card from './Card';
 import Button from './Button';
 import { Customer } from '../types';
 import { useAppContext } from '../context/AppContext';
+import AddressAutocomplete from './AddressAutocomplete';
 
 interface AddCustomerModalProps {
     isOpen: boolean;
@@ -84,12 +86,22 @@ const AddCustomerModal: React.FC<AddCustomerModalProps> = ({ isOpen, onClose, on
                         <input type="text" placeholder="Phone Number" name="phone" value={newCustomer.phone} onChange={handleInputChange} className="w-full p-2 border rounded mt-1 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Address</label>
-                        <input type="text" placeholder="Full Address" name="address" value={newCustomer.address} onChange={handleInputChange} className="w-full p-2 border rounded mt-1 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Address (Use Google Search)</label>
+                        <AddressAutocomplete 
+                            value={newCustomer.address} 
+                            onChange={(val) => setNewCustomer(prev => ({...prev, address: val}))}
+                            placeholder="Search Address..."
+                            className="w-full p-2 border rounded mt-1 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
+                        />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Area/Location</label>
-                        <input type="text" placeholder="e.g. Ameerpet" name="area" value={newCustomer.area} onChange={handleInputChange} className="w-full p-2 border rounded mt-1 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
+                        <AddressAutocomplete 
+                            value={newCustomer.area} 
+                            onChange={(val) => setNewCustomer(prev => ({...prev, area: val}))}
+                            placeholder="e.g. Ameerpet"
+                            className="w-full p-2 border rounded mt-1 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
+                        />
                     </div>
                      <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Reference (Optional)</label>

@@ -1,8 +1,4 @@
 
-
-
-
-
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Home, Users, ShoppingCart, Package, Menu, Plus, UserPlus, PackagePlus, 
@@ -42,6 +38,7 @@ import Toast from './components/Toast';
 import { useSwipe } from './hooks/useSwipe';
 import { useOnClickOutside } from './hooks/useOnClickOutside';
 import { useHotkeys } from './hooks/useHotkeys';
+import { logPageView } from './utils/analyticsLogger';
 
 // Icon Map for dynamic rendering
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -188,6 +185,11 @@ const AppContent: React.FC = () => {
         }
 
     }, [state.theme, state.themeColor, state.themeGradient]);
+
+    // Analytics: Log page changes
+    useEffect(() => {
+        logPageView(currentPage);
+    }, [currentPage]);
 
     // Handle Unsaved Changes
     const handleNavigation = (page: Page) => {
