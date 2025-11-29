@@ -88,7 +88,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     const [searchTerm, setSearchTerm] = useState('');
     
     // View Modes
-    const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+    const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
     const [isSelectionMode, setIsSelectionMode] = useState(false);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -99,8 +99,8 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     
     // Resizable Split Pane State
     const [detailSplitRatio, setDetailSplitRatio] = useState(0.75); // 75% for image default
+    const [isResizing, setIsResizing] = useState(false);
     const detailContainerRef = useRef<HTMLDivElement>(null);
-    const isResizingDetail = useRef(false);
     
     // Share Selection Mode
     const [isShareSelectMode, setIsShareSelectMode] = useState(false);
@@ -140,19 +140,19 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     // Split Pane Resizing Logic
     const startDetailResize = useCallback((e: React.MouseEvent | React.TouchEvent) => {
         e.preventDefault(); // Prevent text selection
-        isResizingDetail.current = true;
+        setIsResizing(true);
         document.body.style.userSelect = 'none';
         document.body.style.cursor = window.innerWidth >= 768 ? 'col-resize' : 'row-resize';
     }, []);
 
     const stopDetailResize = useCallback(() => {
-        isResizingDetail.current = false;
+        setIsResizing(false);
         document.body.style.userSelect = '';
         document.body.style.cursor = '';
     }, []);
 
     const doDetailResize = useCallback((e: MouseEvent | TouchEvent) => {
-        if (!isResizingDetail.current || !detailContainerRef.current) return;
+        if (!isResizing || !detailContainerRef.current) return;
         
         const containerRect = detailContainerRef.current.getBoundingClientRect();
         const isDesktop = window.matchMedia('(min-width: 768px)').matches;
@@ -168,22 +168,24 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
         
         // Clamp to keep both sides visible (min 20%, max 85%)
         newRatio = Math.max(0.2, Math.min(0.85, newRatio));
+        
         setDetailSplitRatio(newRatio);
-    }, []);
+    }, [isResizing]);
 
     useEffect(() => {
-        window.addEventListener('mousemove', doDetailResize);
-        window.addEventListener('touchmove', doDetailResize, { passive: false });
-        window.addEventListener('mouseup', stopDetailResize);
-        window.addEventListener('touchend', stopDetailResize);
-        
+        if (isResizing) {
+            window.addEventListener('mousemove', doDetailResize);
+            window.addEventListener('touchmove', doDetailResize, { passive: false });
+            window.addEventListener('mouseup', stopDetailResize);
+            window.addEventListener('touchend', stopDetailResize);
+        }
         return () => {
             window.removeEventListener('mousemove', doDetailResize);
             window.removeEventListener('touchmove', doDetailResize);
             window.removeEventListener('mouseup', stopDetailResize);
             window.removeEventListener('touchend', stopDetailResize);
         };
-    }, [doDetailResize, stopDetailResize]);
+    }, [isResizing, doDetailResize, stopDetailResize]);
 
     const filteredProducts = useMemo(() => {
         const lowerTerm = searchTerm.toLowerCase();
@@ -249,8 +251,6 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                 if (files.length > 0 && navigator.canShare({ files })) {
                      await navigator.share({
                         files: files,
-                        // Note: Some platforms ignore text when sharing multiple files
-                        // But we send it anyway
                         text: text, 
                         title: 'Catalog'
                     });
@@ -384,7 +384,6 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                 setSelectedShareImages(new Set());
             } catch (e) {
                 console.warn("Share failed or cancelled", e);
-                // Fallback to text only if file share fails is redundant as `share` usually throws on cancel too
             }
         } else {
             // Desktop/Fallback to Text
@@ -407,7 +406,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
         
         setIsGeneratingDesc(true);
         try {
-            const apiKey = (process.env.API_KEY as unknown) as string;
+            const apiKey = (process.env.API_KEY as string | undefined) || localStorage.getItem('gemini_api_key') || '';
             if (!apiKey) throw new Error("API Key not available");
             
             const ai = new GoogleGenAI({ apiKey });
@@ -423,7 +422,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                 setEditedProduct(prev => prev ? ({ ...prev, description: text }) : null);
                 showToast("Description generated!");
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("AI Gen Error", error);
             showToast("Failed to generate description. Check network/API key.", 'error');
         } finally {
@@ -440,7 +439,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
 
         setIsSuggestingPrice(true);
         try {
-            const apiKey = (process.env.API_KEY as unknown) as string;
+            const apiKey = (process.env.API_KEY as string | undefined) || localStorage.getItem('gemini_api_key') || '';
             if (!apiKey) throw new Error("API Key not available");
 
             const ai = new GoogleGenAI({ apiKey });
@@ -463,7 +462,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
             } else {
                 throw new Error("AI returned invalid number");
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("AI Price Error", error);
             showToast("Failed to suggest price.", 'error');
         } finally {
@@ -512,7 +511,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
 
                 {/* Left Side (Image Gallery) - Resizable */}
                 <div 
-                    className="relative flex flex-col shrink-0 transition-[flex-basis] duration-75 shadow-xl z-10 bg-gray-100 dark:bg-slate-950"
+                    className={`relative flex flex-col shrink-0 shadow-xl z-10 bg-gray-100 dark:bg-slate-950 ${isResizing ? '' : 'transition-[flex-basis] duration-200 ease-out'}`}
                     style={{ flexBasis: `${detailSplitRatio * 100}%` }}
                 >
                     <div className="flex-1 relative w-full h-full flex items-center justify-center p-4 overflow-hidden">
@@ -619,12 +618,15 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
 
                 {/* Resizer Handle */}
                 <div
-                    className="z-20 flex items-center justify-center bg-gray-200 dark:bg-slate-800 hover:bg-blue-500/50 active:bg-blue-500/70 transition-colors touch-none select-none cursor-row-resize md:cursor-col-resize shrink-0 border-y md:border-y-0 md:border-x border-white/20 dark:border-black/20"
-                    style={{ flexBasis: '12px' }}
+                    className="z-20 flex items-center justify-center bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 active:bg-indigo-100 transition-colors touch-none select-none cursor-row-resize md:cursor-col-resize shrink-0 border-y-4 md:border-y-0 md:border-x-4 border-transparent bg-clip-padding"
+                    style={{ flexBasis: '24px' }}
                     onMouseDown={startDetailResize}
                     onTouchStart={startDetailResize}
                 >
-                     <div className={`rounded-full bg-gray-400 dark:bg-slate-600 ${window.innerWidth >= 768 ? 'w-1 h-8' : 'w-8 h-1'}`} />
+                     <div className="w-12 h-1 md:w-1 md:h-12 bg-slate-300 dark:bg-slate-600 rounded-full" />
+                     <div className="absolute flex items-center justify-center pointer-events-none text-slate-400 opacity-50">
+                        {window.innerWidth >= 768 ? <GripVertical size={16} /> : <GripHorizontal size={16} />}
+                     </div>
                 </div>
 
                 {/* Right Side (Details) - Flex-1 */}
@@ -724,44 +726,32 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                 </div>
 
                                 <div className="flex gap-4 p-4 bg-gray-50 dark:bg-slate-700/50 rounded-xl border dark:border-slate-700">
-                                    <div className="flex-1">
-                                        <p className="text-xs text-gray-500 uppercase font-bold mb-1">Price</p>
+                                    <div>
+                                        <p className="text-xs text-gray-500 uppercase mb-1">Price</p>
                                         <p className="text-2xl font-bold text-primary">₹{editedProduct.salePrice.toLocaleString('en-IN')}</p>
                                     </div>
                                     <div className="w-px bg-gray-300 dark:bg-slate-600"></div>
-                                    <div className="flex-1">
-                                        <p className="text-xs text-gray-500 uppercase font-bold mb-1">Stock</p>
-                                        <p className={`text-2xl font-bold ${editedProduct.quantity < 5 ? 'text-red-500' : 'text-gray-800 dark:text-white'}`}>
+                                    <div>
+                                        <p className="text-xs text-gray-500 uppercase mb-1">Stock</p>
+                                        <p className={`text-2xl font-bold ${editedProduct.quantity < 5 ? 'text-red-500' : 'text-gray-700 dark:text-white'}`}>
                                             {editedProduct.quantity}
                                         </p>
                                     </div>
                                 </div>
 
-                                <div>
-                                    <h3 className="font-bold text-gray-900 dark:text-white mb-2">Description</h3>
-                                    <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
-                                        {editedProduct.description || "No description available."}
-                                    </p>
+                                <div className="prose dark:prose-invert text-sm text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-slate-700/30 p-4 rounded-xl border dark:border-slate-700">
+                                    {editedProduct.description || "No description available."}
                                 </div>
 
-                                <div className="pt-6 border-t dark:border-slate-700">
-                                    <h3 className="font-bold text-gray-900 dark:text-white mb-3">Actions</h3>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <Button onClick={() => setIsBarcodeModalOpen(true)} variant="secondary" className="justify-center">
-                                            <Barcode size={18} className="mr-2" /> Print Label
-                                        </Button>
-                                        <Button onClick={() => {
-                                            // Handle manual stock adjustment logic
-                                            const newQty = prompt("Enter new total quantity:", String(editedProduct.quantity));
-                                            if (newQty && !isNaN(Number(newQty))) {
-                                                setEditedProduct({ ...editedProduct, quantity: Number(newQty) });
-                                                // Ideally save immediately or flag as dirty, but here we rely on Save button in edit mode or direct dispatch
-                                                dispatch({ type: 'UPDATE_PRODUCT_STOCK', payload: { productId: editedProduct.id, change: Number(newQty) - editedProduct.quantity } });
-                                                showToast("Stock updated");
-                                            }
-                                        }} variant="secondary" className="justify-center">
-                                            <PackageCheck size={18} className="mr-2" /> Adjust Stock
-                                        </Button>
+                                <div className="pt-4 border-t dark:border-slate-700">
+                                    <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Actions</h3>
+                                    <div className="flex gap-2 flex-wrap">
+                                        <button onClick={() => setIsBarcodeModalOpen(true)} className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-800 border dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors text-sm font-medium">
+                                            <Barcode size={16} /> Print Barcode
+                                        </button>
+                                        <button onClick={() => { /* Duplicate Logic */ }} className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-800 border dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors text-sm font-medium text-gray-500 cursor-not-allowed">
+                                            <Copy size={16} /> Duplicate
+                                        </button>
                                     </div>
                                 </div>
                             </>
@@ -772,124 +762,141 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
         );
     }
 
-    // Main List View
     return (
-        <div className="space-y-4 animate-fade-in-fast pb-20">
+        <div className="space-y-4 animate-fade-in-fast h-full flex flex-col">
+            {isBarcodeModalOpen && selectedProduct && (
+                <BarcodeModal 
+                    isOpen={isBarcodeModalOpen} 
+                    onClose={() => setIsBarcodeModalOpen(false)} 
+                    product={selectedProduct} 
+                    businessName={state.profile?.name || ''} 
+                />
+            )}
+            
             {isBatchBarcodeModalOpen && (
-                <BatchBarcodeModal 
-                    isOpen={isBatchBarcodeModalOpen} 
-                    onClose={() => { setIsBatchBarcodeModalOpen(false); setIsSelectionMode(false); setSelectedIds(new Set()); }} 
-                    purchaseItems={filteredProducts.filter(p => selectedIds.has(p.id)).map(p => ({ productId: p.id, productName: p.name, quantity: 1, price: p.purchasePrice, saleValue: p.salePrice, gstPercent: p.gstPercent }))} 
+                <BatchBarcodeModal
+                    isOpen={isBatchBarcodeModalOpen}
+                    onClose={() => setIsBatchBarcodeModalOpen(false)}
+                    purchaseItems={filteredProducts.filter(p => selectedIds.has(p.id)).map(p => ({
+                        productId: p.id,
+                        productName: p.name,
+                        quantity: p.quantity,
+                        price: p.purchasePrice,
+                        saleValue: p.salePrice,
+                        gstPercent: p.gstPercent
+                    }))}
                     businessName={state.profile?.name || ''}
                     title="Bulk Barcode Print"
                 />
             )}
-            
+
             {isScannerOpen && (
                 <QRScannerModal 
                     onClose={() => setIsScannerOpen(false)} 
-                    onScanned={(code: string) => {
+                    onScanned={(code) => {
                         setIsScannerOpen(false);
                         const prod = state.products.find(p => p.id === code);
                         if (prod) {
                             setSelectedProduct(prod);
                             setEditedProduct(prod);
                         } else {
-                            showToast("Product not found", 'error');
+                            showToast("Product not found.", "error");
                         }
                     }} 
                 />
             )}
 
-            {/* Header Toolbar */}
-            <div className="flex flex-col gap-3 sticky top-0 bg-gray-50 dark:bg-slate-900 z-10 pb-2">
-                <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                        <h1 className="text-2xl font-bold text-primary">Products</h1>
-                        <DatePill />
-                    </div>
-                    <div className="flex gap-2">
-                        <Button onClick={() => setIsScannerOpen(true)} variant="secondary" className="p-2 h-auto"><QrCode size={20}/></Button>
-                        <Button onClick={() => setIsSelectionMode(!isSelectionMode)} variant={isSelectionMode ? 'primary' : 'secondary'} className="p-2 h-auto">
-                            {isSelectionMode ? <CheckSquare size={20} /> : <List size={20} />}
-                        </Button>
-                    </div>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 flex-shrink-0">
+                <div className="flex items-center gap-3">
+                    <h1 className="text-2xl font-bold text-primary">Products</h1>
+                    <DatePill />
                 </div>
-
-                <div className="flex gap-2 items-center">
-                    <div className="relative flex-grow">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                        <input
-                            type="text"
-                            placeholder="Search product name, ID, category..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full p-2 pl-10 border rounded-lg dark:bg-slate-800 dark:border-slate-700 dark:text-white shadow-sm"
-                        />
-                    </div>
-                    <div className="flex bg-white dark:bg-slate-800 rounded-lg border dark:border-slate-700 p-1">
+                
+                <div className="flex gap-2 w-full sm:w-auto">
+                    {/* View Toggle */}
+                    <div className="flex bg-gray-100 dark:bg-slate-800 rounded-lg p-1">
                         <button 
                             onClick={() => setViewMode('list')}
-                            className={`p-2 rounded ${viewMode === 'list' ? 'bg-gray-100 dark:bg-slate-700 text-primary' : 'text-gray-400'}`}
+                            className={`p-2 rounded-md transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-600 shadow text-primary' : 'text-gray-500'}`}
                         >
                             <List size={18} />
                         </button>
                         <button 
                             onClick={() => setViewMode('grid')}
-                            className={`p-2 rounded ${viewMode === 'grid' ? 'bg-gray-100 dark:bg-slate-700 text-primary' : 'text-gray-400'}`}
+                            className={`p-2 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-slate-600 shadow text-primary' : 'text-gray-500'}`}
                         >
-                            <LayoutGrid size={18} />
+                            <Grid size={18} />
+                        </button>
+                    </div>
+
+                    <Button onClick={() => {
+                        const newProd: Product = {
+                            id: `PROD-${Date.now()}`,
+                            name: '',
+                            quantity: 0,
+                            purchasePrice: 0,
+                            salePrice: 0,
+                            gstPercent: 0
+                        };
+                        setSelectedProduct(newProd);
+                        setEditedProduct(newProd);
+                        setIsEditing(true);
+                    }}>
+                        <Plus size={18} className="mr-2" /> Add Product
+                    </Button>
+                </div>
+            </div>
+
+            {/* Selection Toolbar */}
+            {selectedIds.size > 0 && (
+                <div className="bg-indigo-600 text-white p-3 rounded-xl flex items-center justify-between shadow-lg animate-slide-down-fade sticky top-2 z-30">
+                    <div className="flex items-center gap-3">
+                        <span className="font-bold px-3 py-1 bg-white/20 rounded-lg">{selectedIds.size} Selected</span>
+                        <button onClick={() => setSelectedIds(new Set())} className="text-xs hover:underline opacity-80">Clear</button>
+                    </div>
+                    <div className="flex gap-2">
+                        <button onClick={handleBulkShare} className="p-2 hover:bg-white/20 rounded-lg transition-colors" title="Share Catalog">
+                            <Share2 size={18} />
+                        </button>
+                        <button onClick={handleBulkBarcode} className="p-2 hover:bg-white/20 rounded-lg transition-colors" title="Print Barcodes">
+                            <Barcode size={18} />
+                        </button>
+                        <button onClick={handleBulkDelete} className="p-2 hover:bg-red-500 rounded-lg transition-colors" title="Delete">
+                            <Trash2 size={18} />
                         </button>
                     </div>
                 </div>
-                
-                {/* Bulk Actions Bar */}
-                {isSelectionMode && (
-                    <div className="flex items-center justify-between bg-white dark:bg-slate-800 p-2 rounded-lg border border-indigo-100 dark:border-slate-700 shadow-sm animate-slide-down-fade">
-                        <div className="flex items-center gap-2">
-                            <button onClick={handleSelectAll} className="flex items-center gap-1 text-xs font-bold text-indigo-600 px-2 py-1 hover:bg-indigo-50 rounded">
-                                {selectedIds.size === filteredProducts.length ? 'Deselect All' : 'Select All'}
-                            </button>
-                            <span className="text-xs text-gray-500">{selectedIds.size} selected</span>
-                        </div>
-                        <div className="flex gap-2">
-                            <button 
-                                onClick={handleBulkShare}
-                                disabled={selectedIds.size === 0}
-                                className="p-2 text-green-600 hover:bg-green-50 rounded disabled:opacity-50"
-                                title="Share on WhatsApp (Images)"
-                            >
-                                <MessageCircle size={18} />
-                            </button>
-                            <button 
-                                onClick={handleBulkBarcode}
-                                disabled={selectedIds.size === 0}
-                                className="p-2 text-slate-600 hover:bg-slate-100 rounded disabled:opacity-50"
-                                title="Print Labels"
-                            >
-                                <Barcode size={18} />
-                            </button>
-                            <button 
-                                onClick={handleBulkDelete}
-                                disabled={selectedIds.size === 0}
-                                className="p-2 text-red-600 hover:bg-red-50 rounded disabled:opacity-50"
-                                title="Delete Selected"
-                            >
-                                <Trash2 size={18} />
-                            </button>
-                        </div>
-                    </div>
-                )}
+            )}
+
+            <div className="flex gap-2 flex-shrink-0">
+                <div className="relative flex-grow">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                    <input
+                        type="text"
+                        placeholder="Search products..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full p-2 pl-10 border rounded-lg dark:bg-slate-700 dark:border-slate-600 dark:text-white"
+                    />
+                </div>
+                <Button onClick={() => setIsScannerOpen(true)} variant="secondary" className="px-3">
+                    <QrCode size={20} />
+                </Button>
+                <Button 
+                    onClick={() => setIsSelectionMode(!isSelectionMode)} 
+                    variant="secondary" 
+                    className={`px-3 ${isSelectionMode ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' : ''}`}
+                >
+                    <CheckSquare size={20} />
+                </Button>
             </div>
 
-            {/* Product List */}
-            {filteredProducts.length === 0 ? (
-                <EmptyState icon={Package} title="No Products Found" description="Try a different search term or scan a barcode." />
-            ) : (
-                <div className={viewMode === 'grid' ? "grid grid-cols-2 gap-3" : "space-y-3"}>
-                    {filteredProducts.map(product => (
+            {/* List View */}
+            {viewMode === 'list' && (
+                <div className="space-y-3 pb-20">
+                    {filteredProducts.map((product, index) => (
                         <div 
-                            key={product.id} 
+                            key={product.id}
                             onClick={() => {
                                 if (isSelectionMode) toggleSelection(product.id);
                                 else {
@@ -897,91 +904,121 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                     setEditedProduct(product);
                                 }
                             }}
-                            className={`
-                                relative bg-white dark:bg-slate-800 rounded-xl border transition-all cursor-pointer overflow-hidden
-                                ${isSelectionMode && selectedIds.has(product.id) ? 'ring-2 ring-indigo-500 border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-gray-200 dark:border-slate-700 hover:shadow-md'}
-                                ${viewMode === 'list' ? 'flex items-center p-3 gap-4' : 'flex flex-col p-0'}
-                            `}
+                            className={`flex items-center gap-4 p-3 bg-white dark:bg-slate-800 rounded-xl border transition-all cursor-pointer group ${
+                                selectedIds.has(product.id) 
+                                    ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' 
+                                    : 'border-transparent hover:border-gray-300 dark:hover:border-slate-600 shadow-sm hover:shadow-md'
+                            }`}
                         >
-                            {/* Selection Checkbox Overlay */}
+                            {/* Checkbox (Visible in Selection Mode) */}
                             {isSelectionMode && (
-                                <div className="absolute top-2 left-2 z-10">
-                                    <div className={`w-5 h-5 rounded-md flex items-center justify-center border transition-colors ${selectedIds.has(product.id) ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-gray-300'}`}>
-                                        {selectedIds.has(product.id) && <Check size={12} className="text-white" />}
-                                    </div>
+                                <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${selectedIds.has(product.id) ? 'bg-indigo-500 border-indigo-500' : 'border-gray-400'}`}>
+                                    {selectedIds.has(product.id) && <Check size={12} className="text-white" />}
                                 </div>
                             )}
 
-                            {/* Image - Updated to contain + white bg */}
-                            <div className={`flex-shrink-0 ${viewMode === 'list' ? 'w-16 h-16' : 'w-full aspect-square'} bg-white dark:bg-slate-800 overflow-hidden flex items-center justify-center p-1`}>
+                            {/* Image Thumbnail */}
+                            <div className="w-12 h-12 rounded-lg bg-gray-100 dark:bg-slate-700 overflow-hidden flex-shrink-0 relative">
                                 {product.image ? (
-                                    <img src={product.image} alt={product.name} className="max-w-full max-h-full object-contain" loading="lazy" />
+                                    <img src={product.image} alt="" className="w-full h-full object-cover" />
                                 ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-100 dark:bg-slate-700 rounded-lg">
-                                        <Package size={24} />
+                                    <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                        <ImageIcon size={20} />
                                     </div>
                                 )}
                             </div>
 
-                            {/* Content */}
-                            <div className={`flex-grow ${viewMode === 'grid' ? 'p-3' : ''}`}>
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <h3 className={`font-bold text-gray-800 dark:text-gray-100 ${viewMode === 'grid' ? 'text-sm line-clamp-2' : 'text-base'}`}>{product.name}</h3>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 font-mono mt-0.5">{product.id}</p>
-                                    </div>
-                                    {viewMode === 'list' && (
-                                        <div className="text-right">
-                                            <p className="font-bold text-primary">₹{product.salePrice.toLocaleString('en-IN')}</p>
-                                            <p className={`text-xs font-bold ${product.quantity < 5 ? 'text-red-500' : 'text-green-600'}`}>
-                                                {product.quantity} Stock
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
-                                {viewMode === 'grid' && (
-                                    <div className="mt-2 flex justify-between items-end">
-                                        <p className={`text-xs font-bold ${product.quantity < 5 ? 'text-red-500' : 'text-green-600'}`}>
-                                            {product.quantity} Left
-                                        </p>
-                                        <p className="font-bold text-primary">₹{product.salePrice}</p>
-                                    </div>
-                                )}
+                            {/* Details */}
+                            <div className="flex-grow min-w-0">
+                                <h3 className="font-bold text-gray-800 dark:text-white truncate">{product.name}</h3>
+                                <p className="text-xs text-gray-500 font-mono truncate">{product.id}</p>
                             </div>
-                            
-                            {/* Quick Actions (List View Only) */}
-                            {viewMode === 'list' && !isSelectionMode && (
-                                <div className="flex gap-2 pl-2 border-l dark:border-slate-700 ml-2">
-                                    <button 
-                                        onClick={(e) => { e.stopPropagation(); handleWhatsAppShare(product); }}
-                                        className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 text-green-500"
-                                        title="Share on WhatsApp"
-                                    >
-                                        <MessageCircle size={18} />
-                                    </button>
-                                    <button 
-                                        onClick={(e) => { e.stopPropagation(); handleMultiShare(); }}
-                                        className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 text-blue-500"
-                                        title="Share"
-                                    >
-                                        <Share2 size={18} />
-                                    </button>
-                                    <button 
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setSelectedProduct(product);
-                                            setIsBarcodeModalOpen(true);
-                                        }}
-                                        className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-500"
-                                        title="Barcode"
-                                    >
-                                        <Barcode size={18} />
-                                    </button>
-                                </div>
-                            )}
+
+                            {/* Price & Stock */}
+                            <div className="text-right flex-shrink-0">
+                                <p className="font-bold text-primary">₹{product.salePrice.toLocaleString('en-IN')}</p>
+                                <p className={`text-xs font-medium ${product.quantity < 5 ? 'text-red-500' : 'text-gray-500'}`}>
+                                    {product.quantity} in stock
+                                </p>
+                            </div>
                         </div>
                     ))}
                 </div>
+            )}
+
+            {/* Grid View */}
+            {viewMode === 'grid' && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 pb-20">
+                    {filteredProducts.map((product) => (
+                        <div 
+                            key={product.id}
+                            onClick={() => {
+                                if (isSelectionMode) toggleSelection(product.id);
+                                else {
+                                    setSelectedProduct(product);
+                                    setEditedProduct(product);
+                                }
+                            }}
+                            className={`bg-white dark:bg-slate-800 rounded-xl overflow-hidden shadow-sm border transition-all cursor-pointer relative group ${
+                                selectedIds.has(product.id) 
+                                    ? 'ring-2 ring-indigo-500' 
+                                    : 'hover:shadow-md hover:-translate-y-1'
+                            }`}
+                        >
+                            {/* Selection Overlay */}
+                            {isSelectionMode && (
+                                <div className="absolute top-2 right-2 z-10">
+                                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center bg-white ${selectedIds.has(product.id) ? 'border-indigo-500' : 'border-gray-300'}`}>
+                                        {selectedIds.has(product.id) && <div className="w-3 h-3 bg-indigo-500 rounded-full" />}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Image */}
+                            <div className="aspect-square bg-gray-100 dark:bg-slate-700 relative">
+                                {product.image ? (
+                                    <img src={product.image} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                        <ImageIcon size={32} />
+                                    </div>
+                                )}
+                                {product.quantity < 5 && (
+                                    <div className="absolute bottom-0 left-0 right-0 bg-red-500/90 text-white text-[10px] font-bold text-center py-1">
+                                        LOW STOCK
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Info */}
+                            <div className="p-3">
+                                <h3 className="font-bold text-sm text-gray-800 dark:text-white truncate mb-1">{product.name}</h3>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-primary font-bold text-sm">₹{product.salePrice}</span>
+                                    <span className="text-xs text-gray-500">{product.quantity} left</span>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {filteredProducts.length === 0 && (
+                <EmptyState 
+                    icon={Package} 
+                    title="No Products Found" 
+                    description={searchTerm ? "Try adjusting your search terms." : "Start by adding your first product."}
+                    action={!searchTerm && (
+                        <Button onClick={() => {
+                            const newProd: Product = { id: `PROD-${Date.now()}`, name: '', quantity: 0, purchasePrice: 0, salePrice: 0, gstPercent: 0 };
+                            setSelectedProduct(newProd);
+                            setEditedProduct(newProd);
+                            setIsEditing(true);
+                        }}>
+                            Add Product
+                        </Button>
+                    )}
+                />
             )}
         </div>
     );
