@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { User, BarChart2, Activity, LogIn, LogOut, RefreshCw, CloudLightning, Sun, Moon, Palette, Check, Settings, Monitor, Shield, ChevronRight, RotateCcw, BrainCircuit, Terminal, Receipt, FileText, Lock, PenTool, Gauge, Cloud } from 'lucide-react';
+import { User, BarChart2, Activity, LogIn, LogOut, RefreshCw, CloudLightning, Sun, Moon, Palette, Check, Settings, Monitor, Shield, ChevronRight, RotateCcw, BrainCircuit, Terminal, Receipt, FileText, Lock, PenTool, Gauge, Cloud, Layout } from 'lucide-react';
 import { Page } from '../types';
 import { useAppContext } from '../context/AppContext';
 import AuditLogPanel from './AuditLogPanel';
@@ -10,6 +10,7 @@ import GradientPickerModal from './GradientPickerModal';
 import PinModal from './PinModal';
 import InvoiceSettingsModal from './InvoiceSettingsModal';
 import APIConfigModal from './APIConfigModal';
+import UISettingsModal from './UISettingsModal';
 
 interface MenuPanelProps {
   isOpen: boolean;
@@ -102,6 +103,7 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
     const [isGradientPickerOpen, setIsGradientPickerOpen] = useState(false);
     const [isInvoiceSettingsOpen, setIsInvoiceSettingsOpen] = useState(false);
     const [isAPIConfigOpen, setIsAPIConfigOpen] = useState(false);
+    const [isUISettingsOpen, setIsUISettingsOpen] = useState(false);
     
     const [isPinModalOpen, setIsPinModalOpen] = useState(false);
     const [pinMode, setPinMode] = useState<'setup' | 'enter'>('enter');
@@ -142,7 +144,7 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
         onOpenDevTools();
     };
 
-    if (!isOpen && !isAuditOpen && !isCloudDebugOpen && !isColorPickerOpen && !isGradientPickerOpen && !isPinModalOpen && !isInvoiceSettingsOpen && !isAPIConfigOpen) return null;
+    if (!isOpen && !isAuditOpen && !isCloudDebugOpen && !isColorPickerOpen && !isGradientPickerOpen && !isPinModalOpen && !isInvoiceSettingsOpen && !isAPIConfigOpen && !isUISettingsOpen) return null;
 
     return (
         <>
@@ -150,6 +152,7 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
         <CloudDebugModal isOpen={isCloudDebugOpen} onClose={() => setIsCloudDebugOpen(false)} />
         <InvoiceSettingsModal isOpen={isInvoiceSettingsOpen} onClose={() => setIsInvoiceSettingsOpen(false)} />
         <APIConfigModal isOpen={isAPIConfigOpen} onClose={() => setIsAPIConfigOpen(false)} />
+        <UISettingsModal isOpen={isUISettingsOpen} onClose={() => setIsUISettingsOpen(false)} />
         <ColorPickerModal 
             isOpen={isColorPickerOpen} 
             onClose={() => setIsColorPickerOpen(false)}
@@ -234,7 +237,7 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                 </div>
 
                 {/* 2. Main Navigation & Actions */}
-                <div className="p-2 space-y-1">
+                <div className="p-2 space-y-1 border-b border-gray-100 dark:border-slate-700 pb-3">
                     <button onClick={onProfileClick} className="menu-item">
                         <User className="w-5 h-5 text-blue-500" />
                         <span className="flex-grow text-sm font-medium">Business Profile</span>
@@ -260,13 +263,17 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                     </button>
                 </div>
 
-                <div className="my-2 border-t border-gray-100 dark:border-slate-700 mx-4"></div>
-
                 {/* 3. Admin Section */}
                 <div className="px-4 py-2">
                     <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Admin</span>
                 </div>
                 <div className="p-2 space-y-1">
+                    <button onClick={() => { onClose(); setIsUISettingsOpen(true); }} className="menu-item">
+                        <Layout className="w-5 h-5 text-teal-500" />
+                        <span className="flex-grow text-sm font-medium">UI & Theme</span>
+                        <ChevronRight className="w-4 h-4 text-gray-400" />
+                    </button>
+
                     <button onClick={() => { onClose(); setIsInvoiceSettingsOpen(true); }} className="menu-item">
                         <Settings className="w-5 h-5 text-slate-500" />
                         <span className="flex-grow text-sm font-medium">Quick Invoice Settings</span>
@@ -305,7 +312,7 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                 <div className="my-2 border-t border-gray-100 dark:border-slate-700 mx-4"></div>
 
                 {/* 4. Appearance Section - Moved to Bottom */}
-                <div className="px-3 py-2">
+                <div className="px-3 py-2 border-b border-gray-100 dark:border-slate-700">
                     <div className="flex items-center gap-2 mb-3 px-1">
                         <Palette className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                         <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Appearance</span>

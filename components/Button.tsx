@@ -1,4 +1,6 @@
+
 import React, { forwardRef } from 'react';
+import { useAppContext } from '../context/AppContext';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children: React.ReactNode;
@@ -7,7 +9,14 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(({ children, variant = 'primary', className = '', type = 'button', ...props }, ref) => {
-  const baseClasses = 'px-4 py-2 rounded-md font-semibold text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 shadow-sm flex items-center justify-center gap-2 transform hover:shadow-md hover:-translate-y-px active:shadow-sm active:translate-y-0';
+  const { state } = useAppContext();
+  const style = state.uiPreferences?.buttonStyle || 'rounded';
+
+  let roundedClass = 'rounded-md'; // Default
+  if (style === 'pill') roundedClass = 'rounded-full';
+  if (style === 'sharp') roundedClass = 'rounded-none';
+
+  const baseClasses = `px-4 py-2 ${roundedClass} font-semibold text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 shadow-sm flex items-center justify-center gap-2 transform hover:shadow-md hover:-translate-y-px active:shadow-sm active:translate-y-0`;
   
   const variantClasses = {
     primary: 'bg-primary hover:brightness-90 active:brightness-75 focus:ring-primary',

@@ -267,4 +267,11 @@ export const testData: Omit<AppState, 'toast' | 'selection' | 'installPromptEven
         bankDetails: ''
     }
   },
+  uiPreferences: {
+    id: 'uiPreferences',
+    buttonStyle: 'rounded',
+    cardStyle: 'solid',
+    toastPosition: 'top-center',
+    density: 'comfortable'
+  }
 };

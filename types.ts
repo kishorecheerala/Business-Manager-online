@@ -1,8 +1,4 @@
 
-
-
-
-
 import { ReactNode } from "react";
 
 export type Page = 'DASHBOARD' | 'CUSTOMERS' | 'SALES' | 'PURCHASES' | 'REPORTS' | 'RETURNS' | 'PRODUCTS' | 'INSIGHTS' | 'EXPENSES' | 'QUOTATIONS' | 'INVOICE_DESIGNER' | 'SYSTEM_OPTIMIZER';
@@ -255,6 +251,8 @@ export interface InvoiceTemplateConfig {
     logoOffsetX?: number; // mm
     logoOffsetY?: number; // mm
     qrPosition?: 'header-right' | 'details-right' | 'footer-left' | 'footer-right';
+    qrPosX?: number; // Absolute X position override
+    qrPosY?: number; // Absolute Y position override
     headerAlignment: 'left' | 'center' | 'right';
     headerStyle?: 'standard' | 'banner' | 'minimal'; // New: Header Style
     footerStyle?: 'standard' | 'banner'; // New: Footer Style
@@ -354,7 +352,15 @@ export interface AppMetadataQuickActions {
   actions: string[]; // List of action IDs
 }
 
-export type AppMetadata = AppMetadataPin | AppMetadataBackup | AppMetadataRevenueGoal | AppMetadataLastModified | AppMetadataTheme | AppMetadataInvoiceSettings | AppMetadataNavOrder | AppMetadataQuickActions | InvoiceTemplateConfig;
+export interface AppMetadataUIPreferences {
+  id: 'uiPreferences';
+  buttonStyle: 'rounded' | 'pill' | 'sharp';
+  cardStyle: 'glass' | 'solid' | 'bordered';
+  toastPosition: 'top-center' | 'top-right' | 'bottom-center' | 'bottom-right';
+  density: 'comfortable' | 'compact';
+}
+
+export type AppMetadata = AppMetadataPin | AppMetadataBackup | AppMetadataRevenueGoal | AppMetadataLastModified | AppMetadataTheme | AppMetadataInvoiceSettings | AppMetadataNavOrder | AppMetadataQuickActions | AppMetadataUIPreferences | InvoiceTemplateConfig;
 
 export interface Snapshot {
   id: string;

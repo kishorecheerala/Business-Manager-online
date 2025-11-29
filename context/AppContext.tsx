@@ -1,6 +1,6 @@
 
 import React, { createContext, useReducer, useContext, useEffect, ReactNode, useState, useCallback, useRef } from 'react';
-import { Customer, Supplier, Product, Sale, Purchase, Return, BeforeInstallPromptEvent, Notification, ProfileData, Page, AppMetadata, Theme, GoogleUser, AuditLogEntry, SyncStatus, Expense, Quote, AppMetadataInvoiceSettings, InvoiceTemplateConfig, CustomFont, PurchaseItem, AppMetadataNavOrder, AppMetadataQuickActions, AppMetadataTheme } from '../types';
+import { Customer, Supplier, Product, Sale, Purchase, Return, BeforeInstallPromptEvent, Notification, ProfileData, Page, AppMetadata, Theme, GoogleUser, AuditLogEntry, SyncStatus, Expense, Quote, AppMetadataInvoiceSettings, InvoiceTemplateConfig, CustomFont, PurchaseItem, AppMetadataNavOrder, AppMetadataQuickActions, AppMetadataTheme, AppMetadataUIPreferences } from '../types';
 import * as db from '../utils/db';
 import { StoreName } from '../utils/db';
 import { DriveService, initGoogleAuth, getUserInfo, loadGoogleScript, downloadFile } from '../utils/googleDrive';
@@ -31,6 +31,10 @@ export interface AppState {
   receiptTemplate: InvoiceTemplateConfig;
   reportTemplate: InvoiceTemplateConfig;
   invoiceSettings?: AppMetadataInvoiceSettings;
+  
+  // UI Preferences
+  uiPreferences: AppMetadataUIPreferences;
+
   toast: ToastState;
   selection: { page: Page; id: string; action?: 'edit' | 'new'; data?: any } | null;
   installPromptEvent: BeforeInstallPromptEvent | null;
@@ -79,6 +83,7 @@ type Action =
   | { type: 'SET_THEME'; payload: Theme }
   | { type: 'SET_THEME_COLOR'; payload: string }
   | { type: 'SET_THEME_GRADIENT'; payload: string }
+  | { type: 'UPDATE_UI_PREFERENCES'; payload: Partial<AppMetadataUIPreferences> }
   | { type: 'SET_PIN'; payload: string }
   | { type: 'SET_SELECTION'; payload: { page: Page; id: string; action?: 'edit' | 'new' } | null }
   | { type: 'CLEAR_SELECTION' }
@@ -119,6 +124,14 @@ const DEFAULT_QUICK_ACTIONS = [
     'add_sale', 'add_customer', 'add_expense', 'add_purchase', 'add_quote', 'add_return'
 ];
 
+const DEFAULT_UI_PREFS: AppMetadataUIPreferences = {
+    id: 'uiPreferences',
+    buttonStyle: 'rounded',
+    cardStyle: 'solid',
+    toastPosition: 'top-center',
+    density: 'comfortable'
+};
+
 const initialState: AppState = {
     customers: [],
     suppliers: [],
@@ -138,6 +151,7 @@ const initialState: AppState = {
     debitNoteTemplate: { ...DEFAULT_TEMPLATE, content: { ...DEFAULT_TEMPLATE.content, titleText: 'DEBIT NOTE' } },
     receiptTemplate: { ...DEFAULT_TEMPLATE, content: { ...DEFAULT_TEMPLATE.content, titleText: 'RECEIPT' } },
     reportTemplate: { ...DEFAULT_TEMPLATE, content: { ...DEFAULT_TEMPLATE.content, titleText: 'REPORT' } },
+    uiPreferences: DEFAULT_UI_PREFS,
     toast: { message: '', show: false, type: 'info' },
     selection: null,
     installPromptEvent: null,
@@ -500,6 +514,14 @@ const appReducer = (state: AppState, action: Action): AppState => {
         db.saveCollection('app_metadata', [...metaWithoutThemeGrad, themeMetaGrad]);
         return { ...state, themeGradient: action.payload, app_metadata: [...metaWithoutThemeGrad, themeMetaGrad], ...touch };
 
+    case 'UPDATE_UI_PREFERENCES':
+        const newPrefs = { ...state.uiPreferences, ...action.payload };
+        const metaWithoutPrefs = state.app_metadata.filter(m => m.id !== 'uiPreferences');
+        // Ensure ID is set correctly
+        newPrefs.id = 'uiPreferences';
+        db.saveCollection('app_metadata', [...metaWithoutPrefs, newPrefs]);
+        return { ...state, uiPreferences: newPrefs, app_metadata: [...metaWithoutPrefs, newPrefs], ...touch };
+
     case 'SET_PIN':
         const pinMeta: AppMetadata = { id: 'securityPin', pin: action.payload };
         db.saveCollection('app_metadata', [...state.app_metadata.filter(m => m.id !== 'securityPin'), pinMeta]);
@@ -662,6 +684,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             const navOrderMeta = app_metadata.find(m => m.id === 'navOrder') as AppMetadataNavOrder;
             const quickActionsMeta = app_metadata.find(m => m.id === 'quickActions') as AppMetadataQuickActions;
             const themeMeta = app_metadata.find(m => m.id === 'themeSettings') as AppMetadataTheme;
+            const uiPrefsMeta = app_metadata.find(m => m.id === 'uiPreferences') as AppMetadataUIPreferences;
 
             // Load Templates from Metadata or default to DEFAULT_TEMPLATE values if missing
             const invoiceTemplate = (app_metadata.find(m => m.id === 'invoiceTemplateConfig') as InvoiceTemplateConfig) || initialState.invoiceTemplate;
@@ -708,6 +731,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     navOrder: navOrderMeta ? navOrderMeta.order : DEFAULT_NAV_ORDER,
                     quickActions: quickActionsMeta ? quickActionsMeta.actions : DEFAULT_QUICK_ACTIONS,
                     invoiceTemplate, estimateTemplate, debitNoteTemplate, receiptTemplate, reportTemplate,
+                    uiPreferences: uiPrefsMeta || DEFAULT_UI_PREFS,
                     googleUser, lastSyncTime,
                     theme: loadedTheme,
                     themeColor: loadedColor,
@@ -779,6 +803,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     // Helper to check token validity and refresh if needed
+    // Improved: Silent Refresh logic
     const ensureValidToken = async (): Promise<string | null> => {
         const currentUser = stateRef.current.googleUser;
         if (!currentUser) return null;
@@ -791,7 +816,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             return currentUser.accessToken;
         }
 
-        console.log("Token expired, refreshing...");
+        console.log("Token expired/expiring, attempting refresh...");
         
         // Return a promise that resolves when the token callback fires
         return new Promise((resolve) => {
@@ -830,7 +855,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 }
             };
             
-            // Use prompt: '' to attempt silent refresh if possible, or trigger popup if needed
+            // Use prompt: '' to attempt silent refresh if possible (avoids consent screen if permission exists)
             tokenClientRef.current.requestAccessToken({ prompt: '' }); 
         });
     };
@@ -951,6 +976,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             return () => clearTimeout(timer);
         }
     }, [state.lastLocalUpdate, state.googleUser, syncData, state.syncStatus]);
+
+    // --- PROACTIVE TOKEN REFRESH ---
+    useEffect(() => {
+        const checkInterval = setInterval(() => {
+            const user = stateRef.current.googleUser;
+            if (user && user.expiresAt) {
+                const timeLeft = user.expiresAt - Date.now();
+                // If less than 2 minutes left, try to refresh silently
+                if (timeLeft < 2 * 60 * 1000 && timeLeft > 0) {
+                    ensureValidToken();
+                }
+            }
+        }, 60000); // Check every minute
+        return () => clearInterval(checkInterval);
+    }, []);
 
     return (
         <AppContext.Provider value={{ state: state as any, dispatch, isDbLoaded, showToast, googleSignIn, googleSignOut, syncData }}>

@@ -1,6 +1,8 @@
 
 
 
+
+
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Sale, Customer, ProfileData, Purchase, Supplier, Return, Quote, InvoiceTemplateConfig, CustomFont, InvoiceLabels } from '../types';
@@ -112,8 +114,9 @@ export const defaultLabels: InvoiceLabels = {
     balance: "Balance"
 };
 
-// --- Thermal Receipt Generator ---
+// --- Thermal Receipt Generator (Fixed / Legacy Mode) ---
 export const generateThermalInvoicePDF = async (sale: Sale, customer: Customer, profile: ProfileData | null, templateConfig?: InvoiceTemplateConfig, customFonts?: CustomFont[]) => {
+    // If we have template config, try to use it as much as possible for fonts/logos, but layout is fixed for thermal paper
     const labels = { ...defaultLabels, ...templateConfig?.content.labels };
     const currencySymbol = templateConfig?.currencySymbol || 'Rs.';
     const currency = customFonts?.length ? currencySymbol : 'Rs.';
@@ -237,11 +240,18 @@ const _generateConfigurablePDF = async (
     data: GenericDocumentData,
     profile: ProfileData | null,
     templateConfig: InvoiceTemplateConfig,
-    customFonts?: CustomFont[]
+    customFonts?: CustomFont[],
+    customPaperSize?: [number, number] // Optional override for receipt width
 ): Promise<jsPDF> => {
     
-    const paperSize = templateConfig.layout.paperSize || 'a4';
-    const doc = new jsPDF({ format: paperSize });
+    // Support custom paper size array (e.g. [80, 200] for receipt preview)
+    let doc: jsPDF;
+    if (customPaperSize) {
+        doc = new jsPDF({ orientation: 'p', unit: 'mm', format: customPaperSize });
+    } else {
+        const paperSize = templateConfig.layout.paperSize || 'a4';
+        doc = new jsPDF({ format: paperSize });
+    }
     
     if (customFonts) registerCustomFonts(doc, customFonts);
 
@@ -371,7 +381,8 @@ const _generateConfigurablePDF = async (
             addY(headerBottomSpace);
         }
         
-        if (content.showQr && layout.qrPosition === 'header-right') {
+        // Auto QR placement if no absolute position
+        if (content.showQr && layout.qrPosition === 'header-right' && layout.qrPosX === undefined) {
             const qrImg = await getQrCodeBase64(data.qrString || data.id);
             if (qrImg) {
                 try {
@@ -418,7 +429,8 @@ const _generateConfigurablePDF = async (
         infoY += lineHeight;
         doc.text(`${labels.date}: ${formatDate(data.date, templateConfig.dateFormat)}`, rightColX, infoY, { align: 'right' });
 
-        if (content.showQr && (!layout.qrPosition || layout.qrPosition === 'details-right')) {
+        // Auto QR placement if no absolute position
+        if (content.showQr && (!layout.qrPosition || layout.qrPosition === 'details-right') && layout.qrPosX === undefined) {
             const qrImg = await getQrCodeBase64(data.qrString || data.id);
             if (qrImg) {
                 try {
@@ -449,6 +461,10 @@ const _generateConfigurablePDF = async (
         });
 
         const cw = layout.columnWidths || {};
+        
+        // Auto-adjust column widths for small paper (Receipts)
+        const isSmallPaper = pageWidth < 100;
+        
         autoTable(doc, {
             startY: currentY,
             head: [tableHead],
@@ -457,8 +473,8 @@ const _generateConfigurablePDF = async (
             styles: { font: fonts.bodyFont, fontSize: fonts.bodySize, cellPadding: layout.tableOptions?.compact ? 2 : 3, textColor: colors.text },
             headStyles: { fillColor: colors.tableHeaderBg, textColor: colors.tableHeaderText, fontStyle: 'bold', halign: (layout.tableHeaderAlign || 'left') },
             columnStyles: {
-                0: { cellWidth: 10, halign: 'center' },
-                [tableHead.length - 1]: { halign: 'right', cellWidth: cw.amount || 35 }, 
+                0: { cellWidth: isSmallPaper ? 6 : 10, halign: 'center' },
+                [tableHead.length - 1]: { halign: 'right', cellWidth: isSmallPaper ? 20 : (cw.amount || 35) }, 
                 [tableHead.length - 2]: { halign: 'right', cellWidth: hideRate ? (cw.qty || 15) : (cw.rate || 20) }, 
                 [tableHead.length - 3]: { halign: 'right', cellWidth: cw.qty || 15 }, 
             },
@@ -605,7 +621,8 @@ const _generateConfigurablePDF = async (
             }
         }
 
-        if (content.showQr && (layout.qrPosition === 'footer-left' || layout.qrPosition === 'footer-right')) {
+        // Auto QR placement if no absolute position
+        if (content.showQr && (layout.qrPosition === 'footer-left' || layout.qrPosition === 'footer-right') && layout.qrPosX === undefined) {
             const qrImg = await getQrCodeBase64(data.qrString || data.id);
             if (qrImg) {
                 const qrSize = 18;
@@ -649,6 +666,19 @@ const _generateConfigurablePDF = async (
             case 'terms': renderTerms(); break;
             case 'signature': renderSignature(); break;
             case 'footer': await renderFooter(); break;
+        }
+    }
+
+    // ABSOLUTE POSITIONING OVERLAYS (QR CODE)
+    if (content.showQr && layout.qrPosX !== undefined && layout.qrPosY !== undefined) {
+        const qrImg = await getQrCodeBase64(data.qrString || data.id);
+        if (qrImg) {
+            try {
+                // Determine page to print on (usually first page unless complex logic added)
+                doc.setPage(1); 
+                const size = 20; // Default size
+                doc.addImage(qrImg, 'PNG', layout.qrPosX, layout.qrPosY, size, size);
+            } catch(e) {}
         }
     }
 
@@ -714,6 +744,34 @@ export const generateA4InvoicePdf = async (sale: Sale, customer: Customer, profi
         totals, qrString, grandTotalNumeric: Number(sale.totalAmount), balanceDue: dueAmount
     };
     return _generateConfigurablePDF(data, profile, config, customFonts);
+};
+
+// Configurable Receipt Generation
+export const generateReceiptPDF = async (sale: Sale, customer: Customer, profile: ProfileData | null, templateConfig: InvoiceTemplateConfig, customFonts?: CustomFont[]) => {
+    // Re-use the A4 logic but pass custom paper size
+    const config = templateConfig;
+    const labels = { ...defaultLabels, ...config.content.labels };
+    const currency = config.currencySymbol || 'Rs.';
+    
+    const subTotal = sale.items.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
+    const paidAmount = (sale.payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
+    const dueAmount = Number(sale.totalAmount) - paidAmount;
+    
+    const totals: GenericDocumentData['totals'] = [
+        { label: labels.subtotal, value: formatCurrency(subTotal, currency, config.fonts.bodyFont) },
+        { label: labels.grandTotal, value: formatCurrency(Number(sale.totalAmount), currency, config.fonts.bodyFont), isBold: true, size: config.fonts.bodySize + 2 },
+    ];
+
+    const data: GenericDocumentData = {
+        id: sale.id, date: sale.date,
+        recipient: { label: labels.billedTo, name: customer.name, address: customer.address },
+        sender: { label: 'Receipt:', idLabel: labels.invoiceNo },
+        items: sale.items.map(item => ({ name: item.productName, quantity: item.quantity, rate: Number(item.price), amount: Number(item.quantity) * Number(item.price) })),
+        totals, qrString: sale.id, grandTotalNumeric: Number(sale.totalAmount), balanceDue: dueAmount
+    };
+    
+    // Receipt dimensions: 80mm width, auto height approximated by long page
+    return _generateConfigurablePDF(data, profile, config, customFonts, [80, 297]); 
 };
 
 export const generateEstimatePDF = async (quote: Quote, customer: Customer, profile: ProfileData | null, templateConfig: InvoiceTemplateConfig, customFonts?: CustomFont[]) => {

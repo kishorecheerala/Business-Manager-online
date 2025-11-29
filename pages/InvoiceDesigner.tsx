@@ -1,11 +1,13 @@
 
+
+
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Save, RotateCcw, Type, Layout, Palette, FileText, Edit3, ChevronDown, Upload, Trash2, Wand2, Grid, QrCode, Printer, Eye, ArrowLeft, CheckSquare, Square, Type as TypeIcon, AlignLeft, AlignCenter, AlignRight, Move, GripVertical, Layers, ArrowUp, ArrowDown, Table, Monitor, Loader2, ZoomIn, ZoomOut, ExternalLink, Columns, Download, FileJson, Image as ImageIcon, Plus, Landmark, Calendar, Coins, Zap, RotateCw } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { InvoiceTemplateConfig, DocumentType, InvoiceLabels, CustomFont, ProfileData, Page } from '../types';
 import Button from '../components/Button';
 import ColorPickerModal from '../components/ColorPickerModal';
-import { generateA4InvoicePdf, generateEstimatePDF, generateDebitNotePDF, generateThermalInvoicePDF, generateGenericReportPDF } from '../utils/pdfGenerator';
+import { generateA4InvoicePdf, generateEstimatePDF, generateDebitNotePDF, generateThermalInvoicePDF, generateGenericReportPDF, generateReceiptPDF } from '../utils/pdfGenerator';
 import { extractDominantColor, compressImage } from '../utils/imageUtils';
 import * as pdfjsLib from 'pdfjs-dist';
 import { useDialog } from '../context/DialogContext';
@@ -190,7 +192,8 @@ const PDFCanvasPreview: React.FC<{
                     case 'INVOICE': doc = await generateA4InvoicePdf(dummySale, dummyCustomer, profile, debouncedConfig, customFonts); break;
                     case 'ESTIMATE': doc = await generateEstimatePDF(dummySale as any, dummyCustomer, profile, debouncedConfig, customFonts); break;
                     case 'DEBIT_NOTE': doc = await generateDebitNotePDF(dummySale as any, dummyCustomer as any, profile, debouncedConfig, customFonts); break;
-                    case 'RECEIPT': doc = await generateThermalInvoicePDF(dummySale, dummyCustomer, profile, debouncedConfig, customFonts); break;
+                    // Use new Configurable Receipt Generator for preview so design changes apply
+                    case 'RECEIPT': doc = await generateReceiptPDF(dummySale, dummyCustomer, profile, debouncedConfig, customFonts); break;
                     case 'REPORT': 
                         const scenario = REPORT_SCENARIOS[reportScenario];
                         doc = await generateGenericReportPDF(
@@ -521,6 +524,7 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
                 case 'INVOICE': doc = await generateA4InvoicePdf(dummySale, dummyCustomer, state.profile, localConfig, state.customFonts); break;
                 case 'ESTIMATE': doc = await generateEstimatePDF(dummySale as any, dummyCustomer, state.profile, localConfig, state.customFonts); break;
                 case 'DEBIT_NOTE': doc = await generateDebitNotePDF(dummySale as any, dummyCustomer as any, state.profile, localConfig, state.customFonts); break;
+                // Generate Thermal PDF for Receipts
                 case 'RECEIPT': doc = await generateThermalInvoicePDF(dummySale, dummyCustomer, state.profile, localConfig, state.customFonts); break;
                 case 'REPORT': 
                     const scenario = REPORT_SCENARIOS[reportScenario];
@@ -980,6 +984,45 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
                                     <option value="footer-left">Footer Left</option>
                                     <option value="footer-right">Footer Right</option>
                                 </select>
+                                
+                                <div className="p-3 bg-gray-50 dark:bg-slate-800 rounded border dark:border-slate-700 mt-2">
+                                    <p className="text-[10px] font-bold text-slate-500 uppercase mb-2">Absolute Adjustment (Overrides above)</p>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <div className="flex justify-between items-center mb-1">
+                                                <span className="text-[10px] text-slate-500">X Position</span>
+                                                <span className="text-[10px] font-mono text-indigo-600">{localConfig.layout.qrPosX ?? 'Auto'}</span>
+                                            </div>
+                                            <input 
+                                                type="range" min="0" max="200" step="1"
+                                                value={localConfig.layout.qrPosX ?? 0} 
+                                                onChange={e => handleConfigChange('layout', 'qrPosX', parseInt(e.target.value))} 
+                                                className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                                            />
+                                        </div>
+                                        <div>
+                                            <div className="flex justify-between items-center mb-1">
+                                                <span className="text-[10px] text-slate-500">Y Position</span>
+                                                <span className="text-[10px] font-mono text-indigo-600">{localConfig.layout.qrPosY ?? 'Auto'}</span>
+                                            </div>
+                                            <input 
+                                                type="range" min="0" max="300" step="1"
+                                                value={localConfig.layout.qrPosY ?? 0} 
+                                                onChange={e => handleConfigChange('layout', 'qrPosY', parseInt(e.target.value))} 
+                                                className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                                            />
+                                        </div>
+                                    </div>
+                                    <button 
+                                        onClick={() => {
+                                            handleConfigChange('layout', 'qrPosX', undefined);
+                                            handleConfigChange('layout', 'qrPosY', undefined);
+                                        }}
+                                        className="text-[10px] text-red-500 mt-2 hover:underline"
+                                    >
+                                        Reset Position
+                                    </button>
+                                </div>
                             </div>
 
                             {/* Table Column Sizes */}
