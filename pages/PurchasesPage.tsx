@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Plus, Edit, Save, X, Search, Download, Printer, FileSpreadsheet, Upload, CheckCircle, XCircle, Info, QrCode, Calendar as CalendarIcon } from 'lucide-react';
+import { Plus, Edit, Save, X, Search, Download, Printer, FileSpreadsheet, Upload, CheckCircle, XCircle, Info, QrCode, Calendar as CalendarIcon, Image as ImageIcon } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Supplier, Purchase, Payment, Return, Page, Product, PurchaseItem } from '../types';
 import Card from '../components/Card';
@@ -41,6 +41,7 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
     const [isBatchBarcodeModalOpen, setIsBatchBarcodeModalOpen] = useState(false);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [lastPurchase, setLastPurchase] = useState<Purchase | null>(null);
+    const [viewImageModal, setViewImageModal] = useState<string | null>(null);
 
     const isDirtyRef = useRef(false);
 
@@ -163,6 +164,7 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
         showToast("Purchase recorded successfully! Inventory updated.");
         setLastPurchase(purchaseData);
         setIsBatchBarcodeModalOpen(true);
+        setView('list'); // Switch back to list view (which renders the modal)
     };
 
     const handleUpdatePurchase = (updatedPurchase: Purchase) => {
@@ -381,6 +383,17 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
                                                 </ul>
                                             </div>
 
+                                            {/* Attachments */}
+                                            {(purchase.invoiceImages?.length > 0 || purchase.invoiceUrl) && (
+                                                <div className="flex gap-2 mb-3 overflow-x-auto pb-1 custom-scrollbar">
+                                                    {(purchase.invoiceImages || [purchase.invoiceUrl]).filter(Boolean).map((img, idx) => (
+                                                        <div key={idx} className="relative h-12 w-12 flex-shrink-0 cursor-pointer border dark:border-slate-600 rounded overflow-hidden hover:opacity-80 transition-opacity" onClick={() => setViewImageModal(img!)}>
+                                                            <img src={img} alt="Invoice" className="h-full w-full object-cover" />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
                                             {/* Payment Schedule */}
                                             {!isPaid && (
                                                 <div className="mb-3">
@@ -437,7 +450,7 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
                                                         Record Payment
                                                     </Button>
                                                 )}
-                                                <Button onClick={() => setPurchaseToEdit(purchase)} variant="secondary" className="text-xs h-8">
+                                                <Button onClick={() => { setPurchaseToEdit(purchase); setView('edit_purchase'); }} variant="secondary" className="text-xs h-8">
                                                     <Edit size={14} className="mr-1" /> Edit
                                                 </Button>
                                                 <DeleteButton variant="delete" onClick={() => handleDeletePurchase(purchase.id)} />
@@ -483,6 +496,16 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
 
         return (
             <div className="space-y-4 animate-fade-in-fast">
+                {/* View Image Modal */}
+                {viewImageModal && (
+                    <div className="fixed inset-0 bg-black/80 z-[200] flex items-center justify-center p-4 animate-fade-in-fast" onClick={() => setViewImageModal(null)}>
+                        <div className="relative max-w-full max-h-full">
+                            <button className="absolute -top-10 right-0 text-white p-2" onClick={() => setViewImageModal(null)}><X size={24}/></button>
+                            <img src={viewImageModal} alt="Invoice" className="max-w-full max-h-[90vh] rounded-lg shadow-2xl" />
+                        </div>
+                    </div>
+                )}
+
                 <DataImportModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} />
                 {isBatchBarcodeModalOpen && lastPurchase && (
                     <BatchBarcodeModal 
