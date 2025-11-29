@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, Edit, Save, X, Package, IndianRupee, Percent, PackageCheck, Barcode, Printer, Filter, Grid, List, Camera, Image as ImageIcon, Eye, Trash2, QrCode, Boxes, Maximize2, Minimize2, ArrowLeft, CheckSquare, Square, Plus, Clock, AlertTriangle, Share2, MoreHorizontal, LayoutGrid, Check, Wand2, Loader2, Sparkles, MessageCircle } from 'lucide-react';
+import { Search, Edit, Save, X, Package, IndianRupee, Percent, PackageCheck, Barcode, Printer, Filter, Grid, List, Camera, Image as ImageIcon, Eye, Trash2, QrCode, Boxes, Maximize2, Minimize2, ArrowLeft, CheckSquare, Square, Plus, Clock, AlertTriangle, Share2, MoreHorizontal, LayoutGrid, Check, Wand2, Loader2, Sparkles, MessageCircle, CheckCircle, Copy, Share } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Product, PurchaseItem } from '../types';
 import Card from '../components/Card';
@@ -30,33 +30,6 @@ const dataURLtoFile = (dataurl: string, filename: string) => {
         u8arr[n] = bstr.charCodeAt(n);
     }
     return new File([u8arr], filename, { type: mime });
-};
-
-// ... (ProductImage component and QRScannerModal remain same, include them for context)
-const ProductImage: React.FC<{ src?: string; alt: string; className?: string; size?: 'sm' | 'md' | 'lg' | 'xl' }> = ({ src, alt, className = '', size = 'md' }) => {
-    const sizeClasses = {
-        sm: 'w-10 h-10',
-        md: 'w-16 h-16',
-        lg: 'w-32 h-32',
-        xl: 'w-full h-64'
-    };
-
-    if (!src) {
-        return (
-            <div className={`${sizeClasses[size]} bg-gray-100 dark:bg-slate-700 rounded-lg flex items-center justify-center text-gray-400 dark:text-slate-500 ${className}`}>
-                <Package size={size === 'sm' ? 16 : 24} />
-            </div>
-        );
-    }
-
-    return (
-        <img 
-            src={src} 
-            alt={alt} 
-            className={`${sizeClasses[size]} object-contain bg-white dark:bg-slate-800 rounded-lg border border-gray-100 dark:border-slate-600 ${className}`} 
-            loading="lazy"
-        />
-    );
 };
 
 const QRScannerModal: React.FC<{
@@ -123,6 +96,10 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [isEditing, setIsEditing] = useState(false);
     const [editedProduct, setEditedProduct] = useState<Product | null>(null);
+    
+    // Share Selection Mode
+    const [isShareSelectMode, setIsShareSelectMode] = useState(false);
+    const [selectedShareImages, setSelectedShareImages] = useState<Set<string>>(new Set());
     
     // Modals
     const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
@@ -257,7 +234,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                     const base64 = await compressImage(e.target.files[i], 800, 0.8);
                     newImages.push(base64);
                 } catch (err) {
-                    console.error("Image upload failed", err);
+                    console.error("Image upload failed", err as any);
                 }
             }
             
@@ -310,35 +287,51 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
         }
     };
 
-    const handleShareProduct = async (product: Product) => {
-        const shareData: any = {
-            title: product.name,
-            text: `*${product.name}*\nPrice: ₹${product.salePrice.toLocaleString('en-IN')}\n${product.description || ''}\n\nAvailable at: ${state.profile?.name || 'Our Store'}`,
-        };
+    const toggleShareSelection = (img: string) => {
+        const newSet = new Set(selectedShareImages);
+        if (newSet.has(img)) newSet.delete(img);
+        else newSet.add(img);
+        setSelectedShareImages(newSet);
+    };
 
-        if (product.image && navigator.canShare) {
-            try {
-                const file = dataURLtoFile(product.image, `product_${product.id}.jpg`);
-                if (navigator.canShare({ files: [file] })) {
-                    shareData.files = [file];
-                }
-            } catch (e) {
-                console.warn("Could not create image file for sharing", e);
-            }
+    const handleMultiShare = async () => {
+        if (!editedProduct) return;
+        
+        const imagesToShare = selectedShareImages.size > 0 
+            ? Array.from(selectedShareImages) 
+            : [editedProduct.image].filter(Boolean) as string[];
+
+        if (imagesToShare.length === 0) {
+            showToast("No images to share.", 'error');
+            return;
         }
 
-        try {
-            if (navigator.share) {
+        const shareData: any = {
+            title: editedProduct.name,
+            text: `*${editedProduct.name}*\nPrice: ₹${editedProduct.salePrice.toLocaleString('en-IN')}\n${editedProduct.description || ''}`,
+        };
+
+        if (navigator.canShare && navigator.share) {
+            try {
+                const files = imagesToShare.map((img, idx) => 
+                    dataURLtoFile(img, `prod_${editedProduct.id}_${idx}.jpg`)
+                );
+                
+                if (navigator.canShare({ files })) {
+                    shareData.files = files;
+                }
+                
                 await navigator.share(shareData);
-            } else {
-                // Fallback: Copy text to clipboard
-                await navigator.clipboard.writeText(shareData.text);
-                showToast("Link copied to clipboard (System share not supported)");
-                const url = `https://wa.me/?text=${encodeURIComponent(shareData.text)}`;
-                window.open(url, '_blank');
+                // Exit select mode on success
+                setIsShareSelectMode(false);
+                setSelectedShareImages(new Set());
+            } catch (e) {
+                console.warn("Share failed or cancelled", e);
+                // Fallback to text only if file share fails is redundant as `share` usually throws on cancel too
             }
-        } catch (err) {
-            console.error("Share failed", err);
+        } else {
+            // Desktop/Fallback to Text
+            handleWhatsAppShare(editedProduct);
         }
     };
 
@@ -433,7 +426,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                 )}
                 {/* Close Button */}
                 <button 
-                    onClick={() => { setSelectedProduct(null); setIsEditing(false); }} 
+                    onClick={() => { setSelectedProduct(null); setIsEditing(false); setIsShareSelectMode(false); }} 
                     className="absolute top-4 left-4 z-[5010] p-2 bg-black/30 hover:bg-black/50 backdrop-blur-md text-white rounded-full transition-all shadow-lg"
                 >
                     <ArrowLeft size={24} />
@@ -456,8 +449,8 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                 </div>
 
                 {/* Left Side (Image Gallery) */}
-                <div className="h-[45%] md:h-full w-full md:w-1/2 bg-gray-100 dark:bg-slate-950 relative flex flex-col">
-                    <div className="flex-1 relative w-full h-full flex items-center justify-center p-4">
+                <div className="h-[40%] sm:h-[50%] md:h-full w-full md:w-1/2 bg-gray-100 dark:bg-slate-950 relative flex flex-col shrink-0 transition-all duration-300">
+                    <div className="flex-1 relative w-full h-full flex items-center justify-center p-4 overflow-hidden">
                         {editedProduct.image ? (
                             <img 
                                 src={editedProduct.image} 
@@ -473,46 +466,89 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                         
                         {/* Share Overlay */}
                         {!isEditing && (
-                            <div className="absolute bottom-4 right-4 flex gap-2">
-                                <button onClick={() => handleWhatsAppShare(editedProduct)} className="p-3 bg-green-500 text-white rounded-full shadow-lg hover:scale-110 transition-transform" title="Share Text on WhatsApp">
-                                    <MessageCircle size={20} />
-                                </button>
-                                <button onClick={() => handleShareProduct(editedProduct)} className="p-3 bg-blue-600 text-white rounded-full shadow-lg hover:scale-110 transition-transform" title="Share Image & Text">
-                                    <Share2 size={20} />
-                                </button>
+                            <div className="absolute bottom-4 right-4 flex gap-2 z-20">
+                                {isShareSelectMode ? (
+                                    <button 
+                                        onClick={handleMultiShare}
+                                        disabled={selectedShareImages.size === 0}
+                                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 disabled:bg-gray-400 text-white rounded-full shadow-lg hover:scale-105 transition-all font-bold text-sm"
+                                    >
+                                        <Share2 size={16} /> Share ({selectedShareImages.size})
+                                    </button>
+                                ) : (
+                                    <>
+                                        <button onClick={() => setIsShareSelectMode(true)} className="p-3 bg-white dark:bg-slate-700 text-gray-700 dark:text-gray-200 rounded-full shadow-lg hover:scale-110 transition-transform border border-gray-200 dark:border-slate-600" title="Select Images">
+                                            <CheckSquare size={20} />
+                                        </button>
+                                        <button onClick={() => handleWhatsAppShare(editedProduct)} className="p-3 bg-green-500 text-white rounded-full shadow-lg hover:scale-110 transition-transform" title="Share Text on WhatsApp">
+                                            <MessageCircle size={20} />
+                                        </button>
+                                        <button onClick={handleMultiShare} className="p-3 bg-blue-600 text-white rounded-full shadow-lg hover:scale-110 transition-transform" title="Share Main Image & Text">
+                                            <Share2 size={20} />
+                                        </button>
+                                    </>
+                                )}
                             </div>
+                        )}
+                        
+                        {/* Cancel Selection Mode */}
+                        {isShareSelectMode && (
+                            <button 
+                                onClick={() => { setIsShareSelectMode(false); setSelectedShareImages(new Set()); }}
+                                className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/50 text-white px-3 py-1 rounded-full text-xs backdrop-blur-md hover:bg-black/70 transition-colors z-20"
+                            >
+                                Cancel Selection
+                            </button>
                         )}
                     </div>
 
                     {/* Thumbnails */}
-                    <div className="h-24 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm p-2 flex gap-2 overflow-x-auto border-t dark:border-slate-800">
+                    <div className="h-20 sm:h-24 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm p-2 flex gap-2 overflow-x-auto border-t dark:border-slate-800 shrink-0 custom-scrollbar">
                         {isEditing && (
                             <div 
                                 onClick={() => fileInputRef.current?.click()}
-                                className="w-20 h-20 flex-shrink-0 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-lg flex flex-col items-center justify-center text-gray-500 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800"
+                                className="w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-lg flex flex-col items-center justify-center text-gray-500 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800"
                             >
                                 <Camera size={20} />
                                 <span className="text-[10px] mt-1">Add</span>
                                 <input type="file" multiple accept="image/*" ref={fileInputRef} className="hidden" onChange={handleImageUpload} />
                             </div>
                         )}
-                        {[editedProduct.image, ...(editedProduct.additionalImages || [])].filter(Boolean).map((img, idx) => (
-                            <div key={idx} className="relative group w-20 h-20 flex-shrink-0 cursor-pointer">
-                                <img 
-                                    src={img} 
-                                    className={`w-full h-full object-cover rounded-lg border-2 ${editedProduct.image === img ? 'border-primary' : 'border-transparent'}`} 
-                                    onClick={() => setMainImage(img!)}
-                                />
-                                {isEditing && (
-                                    <button 
-                                        onClick={(e) => { e.stopPropagation(); removeImage(img!); }}
-                                        className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                                    >
-                                        <X size={12} />
-                                    </button>
-                                )}
-                            </div>
-                        ))}
+                        {[editedProduct.image, ...(editedProduct.additionalImages || [])].filter(Boolean).map((img, idx) => {
+                            const isSelected = selectedShareImages.has(img!);
+                            const isMain = editedProduct.image === img;
+                            return (
+                                <div key={idx} className="relative group w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 cursor-pointer transition-transform active:scale-95">
+                                    <img 
+                                        src={img} 
+                                        className={`w-full h-full object-cover rounded-lg border-2 ${
+                                            isShareSelectMode 
+                                                ? (isSelected ? 'border-blue-500 opacity-100' : 'border-transparent opacity-60 hover:opacity-100')
+                                                : (isMain ? 'border-primary' : 'border-transparent')
+                                        }`} 
+                                        onClick={() => isShareSelectMode ? toggleShareSelection(img!) : setMainImage(img!)}
+                                    />
+                                    
+                                    {isShareSelectMode && (
+                                        <div 
+                                            className={`absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center border shadow-sm ${isSelected ? 'bg-blue-500 border-blue-500' : 'bg-white/50 border-gray-400'}`}
+                                            onClick={(e) => { e.stopPropagation(); toggleShareSelection(img!); }}
+                                        >
+                                            {isSelected && <Check size={12} className="text-white" />}
+                                        </div>
+                                    )}
+
+                                    {isEditing && (
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); removeImage(img!); }}
+                                            className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        >
+                                            <X size={12} />
+                                        </button>
+                                    )}
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
 
@@ -849,7 +885,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                         <MessageCircle size={18} />
                                     </button>
                                     <button 
-                                        onClick={(e) => { e.stopPropagation(); handleShareProduct(product); }}
+                                        onClick={(e) => { e.stopPropagation(); handleMultiShare(); }}
                                         className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 text-blue-500"
                                         title="Share"
                                     >
