@@ -4,7 +4,7 @@ import Card from './Card';
 import Button from './Button';
 import { Customer } from '../types';
 import { useAppContext } from '../context/AppContext';
-import AddressAutocomplete from './AddressAutocomplete';
+import { X, User, Phone, MapPin, FileText, Hash } from 'lucide-react';
 
 interface AddCustomerModalProps {
     isOpen: boolean;
@@ -57,62 +57,131 @@ const AddCustomerModal: React.FC<AddCustomerModalProps> = ({ isOpen, onClose, on
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[51] p-4 animate-fade-in-fast">
-            <Card title="Add New Customer" className="w-full max-w-md animate-scale-in">
-                <div className="space-y-4">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[51] p-4 animate-fade-in-fast backdrop-blur-sm" role="dialog" aria-modal="true">
+            <div className="w-full sm:max-w-lg bg-white dark:bg-slate-800 rounded-xl shadow-2xl flex flex-col max-h-[90vh] animate-scale-in overflow-hidden border border-gray-200 dark:border-slate-700">
+                
+                {/* Header */}
+                <div className="p-4 border-b dark:border-slate-700 flex justify-between items-center shrink-0 bg-gray-50 dark:bg-slate-900/50">
+                    <h2 className="text-lg font-bold text-gray-800 dark:text-white">Add New Customer</h2>
+                    <button onClick={onClose} className="p-2 rounded-full text-gray-500 hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors">
+                        <X size={20}/>
+                    </button>
+                </div>
+
+                {/* Scrollable Content */}
+                <div className="p-6 overflow-y-auto custom-scrollbar flex-grow space-y-6">
+                    
+                    {/* ID Section */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Customer ID</label>
-                        <div className="flex items-center mt-1">
-                            <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm dark:bg-slate-700 dark:border-slate-600 dark:text-gray-400">
-                                CUST-
-                            </span>
-                            <input
-                                type="text"
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 ml-1">Customer ID</label>
+                        <div className="flex items-center">
+                            <span className="bg-gray-100 dark:bg-slate-700/50 border border-r-0 border-gray-200 dark:border-slate-600 px-3 py-3 rounded-l-xl text-sm text-gray-500 font-mono">CUST-</span>
+                            <input 
+                                type="text" 
                                 name="id"
-                                placeholder="Enter unique ID"
-                                value={newCustomer.id}
-                                onChange={handleInputChange}
-                                className="w-full p-2 border rounded-r-md dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
+                                placeholder="unique-id" 
+                                value={newCustomer.id} 
+                                onChange={handleInputChange} 
+                                className="w-full p-3 bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-r-xl focus:ring-2 focus:ring-primary outline-none transition-all font-mono dark:text-white" 
                                 autoFocus
                             />
                         </div>
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
-                        <input type="text" placeholder="Full Name" name="name" value={newCustomer.name} onChange={handleInputChange} className="w-full p-2 border rounded mt-1 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
+
+                    {/* Basic Info */}
+                    <div className="space-y-4">
+                        <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2 border-b dark:border-slate-700 pb-2">
+                            <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-md text-blue-600 dark:text-blue-400"><User size={16}/></div>
+                            Basic Information
+                        </h3>
+                        
+                        <div>
+                            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 ml-1">Full Name *</label>
+                            <input 
+                                type="text" 
+                                name="name"
+                                placeholder="Enter Customer Name" 
+                                value={newCustomer.name} 
+                                onChange={handleInputChange} 
+                                className="w-full p-3 bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-primary focus:bg-white dark:focus:bg-slate-800 outline-none transition-all" 
+                            />
+                        </div>
+                        
+                        <div>
+                            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 ml-1">Phone Number *</label>
+                            <div className="relative">
+                                <input 
+                                    type="tel" 
+                                    name="phone"
+                                    placeholder="Enter Phone Number" 
+                                    value={newCustomer.phone} 
+                                    onChange={handleInputChange} 
+                                    className="w-full p-3 pl-10 bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-primary focus:bg-white dark:focus:bg-slate-800 outline-none transition-all" 
+                                />
+                                <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"/>
+                            </div>
+                        </div>
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Phone</label>
-                        <input type="text" placeholder="Phone Number" name="phone" value={newCustomer.phone} onChange={handleInputChange} className="w-full p-2 border rounded mt-1 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Address (Use Google Search)</label>
-                        <AddressAutocomplete 
-                            value={newCustomer.address} 
-                            onChange={(val) => setNewCustomer(prev => ({...prev, address: val}))}
-                            placeholder="Search Address..."
-                            className="w-full p-2 border rounded mt-1 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Area/Location</label>
-                        <AddressAutocomplete 
-                            value={newCustomer.area} 
-                            onChange={(val) => setNewCustomer(prev => ({...prev, area: val}))}
-                            placeholder="e.g. Ameerpet"
-                            className="w-full p-2 border rounded mt-1 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
-                        />
-                    </div>
-                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Reference (Optional)</label>
-                        <input type="text" placeholder="Referred by..." name="reference" value={newCustomer.reference} onChange={handleInputChange} className="w-full p-2 border rounded mt-1 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
-                    </div>
-                    <div className="flex gap-2 pt-2">
-                        <Button onClick={handleSave} className="w-full">Save Customer</Button>
-                        <Button onClick={onClose} variant="secondary" className="w-full">Cancel</Button>
+
+                    {/* Address & Details */}
+                    <div className="space-y-4">
+                        <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2 border-b dark:border-slate-700 pb-2">
+                            <div className="p-1.5 bg-green-100 dark:bg-green-900/30 rounded-md text-green-600 dark:text-green-400"><MapPin size={16}/></div>
+                            Address & Details
+                        </h3>
+                        
+                        <div>
+                            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 ml-1">Address *</label>
+                            <input 
+                                type="text" 
+                                name="address"
+                                placeholder="House No, Street, Landmark" 
+                                value={newCustomer.address} 
+                                onChange={handleInputChange} 
+                                className="w-full p-3 bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-primary focus:bg-white dark:focus:bg-slate-800 outline-none transition-all" 
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 ml-1">Area / City *</label>
+                                <input 
+                                    type="text" 
+                                    name="area"
+                                    placeholder="e.g. Ameerpet" 
+                                    value={newCustomer.area} 
+                                    onChange={handleInputChange} 
+                                    className="w-full p-3 bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-primary focus:bg-white dark:focus:bg-slate-800 outline-none transition-all" 
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 ml-1">Reference</label>
+                                <input 
+                                    type="text" 
+                                    name="reference"
+                                    placeholder="Optional" 
+                                    value={newCustomer.reference} 
+                                    onChange={handleInputChange} 
+                                    className="w-full p-3 bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-primary focus:bg-white dark:focus:bg-slate-800 outline-none transition-all" 
+                                />
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </Card>
+
+                {/* Footer */}
+                <div className="p-4 border-t dark:border-slate-700 flex gap-3 bg-gray-50 dark:bg-slate-900/50 shrink-0">
+                    <Button onClick={handleSave} className="flex-[2] py-3.5 rounded-xl shadow-lg shadow-indigo-200 dark:shadow-none font-bold">
+                        Save Customer
+                    </Button>
+                    <button 
+                        onClick={onClose} 
+                        className="flex-1 py-3.5 rounded-xl font-semibold bg-white text-gray-700 hover:bg-gray-100 border border-gray-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:border-slate-600 transition-all"
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </div>
         </div>
     );
 };

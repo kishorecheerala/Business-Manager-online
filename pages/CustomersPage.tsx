@@ -13,6 +13,8 @@ import { useDialog } from '../context/DialogContext';
 import PaymentModal from '../components/PaymentModal';
 import { getLocalDateString } from '../utils/dateUtils';
 import { createCalendarEvent } from '../utils/googleCalendar';
+import DatePill from '../components/DatePill';
+import AddCustomerModal from '../components/AddCustomerModal';
 
 // --- Customer Segmentation Helper ---
 type CustomerSegment = 'VIP' | 'Regular' | 'New' | 'At-Risk';
@@ -62,7 +64,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
     const { showConfirm } = useDialog();
     const [searchTerm, setSearchTerm] = useState('');
     const [isAdding, setIsAdding] = useState(false);
-    const [newCustomer, setNewCustomer] = useState({ id: '', name: '', phone: '', address: '', area: '', reference: '' });
+    
     const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
     const [activeSaleId, setActiveSaleId] = useState<string | null>(null);
     const [actionMenuSaleId, setActionMenuSaleId] = useState<string | null>(null);
@@ -100,12 +102,12 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
     }, [state.selection, state.customers, dispatch]);
 
     useEffect(() => {
-        const currentlyDirty = (isAdding && !!(newCustomer.id || newCustomer.name || newCustomer.phone || newCustomer.address || newCustomer.area)) || isEditing;
+        const currentlyDirty = isEditing; // Simplified dirty check for now
         if (currentlyDirty !== isDirtyRef.current) {
             isDirtyRef.current = currentlyDirty;
             setIsDirty(currentlyDirty);
         }
-    }, [isAdding, newCustomer, isEditing, setIsDirty]);
+    }, [isEditing, setIsDirty]);
 
     // On unmount, we must always clean up.
     useEffect(() => {
@@ -135,35 +137,8 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
     }, [selectedCustomer]);
 
 
-    const handleAddCustomer = () => {
-        const trimmedId = newCustomer.id.trim();
-        if (!trimmedId) {
-            showToast('Customer ID is required.', 'error');
-            return;
-        }
-        if (!newCustomer.name || !newCustomer.phone || !newCustomer.address || !newCustomer.area) {
-            showToast('Please fill all required fields (Name, Phone, Address, Area).', 'error');
-            return;
-        }
-
-        const finalId = `CUST-${trimmedId}`;
-        const isIdTaken = state.customers.some(c => c.id.toLowerCase() === finalId.toLowerCase());
-        
-        if (isIdTaken) {
-            showToast(`Customer ID "${finalId}" is already taken. Please choose another one.`, 'error');
-            return;
-        }
-
-        const customerWithId: Customer = { 
-            name: newCustomer.name,
-            phone: newCustomer.phone,
-            address: newCustomer.address,
-            area: newCustomer.area,
-            id: finalId,
-            reference: newCustomer.reference || ''
-        };
-        dispatch({ type: 'ADD_CUSTOMER', payload: customerWithId });
-        setNewCustomer({ id: '', name: '', phone: '', address: '', area: '', reference: '' });
+    const handleAddCustomer = (customer: Customer) => {
+        dispatch({ type: 'ADD_CUSTOMER', payload: customer });
         setIsAdding(false);
         showToast("Customer added successfully!");
     };
@@ -610,39 +585,15 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
         <div className="space-y-4">
             <div className="flex justify-between items-center">
                 <h1 className="text-2xl font-bold text-primary">Customers</h1>
-                <Button onClick={() => setIsAdding(!isAdding)}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    {isAdding ? 'Cancel' : 'Add Customer'}
-                </Button>
+                <DatePill />
             </div>
 
-            {isAdding && (
-                <Card title="New Customer Form">
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Customer ID</label>
-                            <div className="flex items-center mt-1">
-                                <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm dark:bg-slate-700 dark:border-slate-600 dark:text-gray-400">
-                                    CUST-
-                                </span>
-                                <input 
-                                    type="text" 
-                                    placeholder="Enter unique ID" 
-                                    value={newCustomer.id} 
-                                    onChange={e => setNewCustomer({ ...newCustomer, id: e.target.value })} 
-                                    className="w-full p-2 border rounded-r-md dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" 
-                                />
-                            </div>
-                        </div>
-                        <input type="text" placeholder="Name" value={newCustomer.name} onChange={e => setNewCustomer({ ...newCustomer, name: e.target.value })} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
-                        <input type="text" placeholder="Phone" value={newCustomer.phone} onChange={e => setNewCustomer({ ...newCustomer, phone: e.target.value })} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
-                        <input type="text" placeholder="Address" value={newCustomer.address} onChange={e => setNewCustomer({ ...newCustomer, address: e.target.value })} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
-                        <input type="text" placeholder="Area/Location" value={newCustomer.area} onChange={e => setNewCustomer({ ...newCustomer, area: e.target.value })} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
-                        <input type="text" placeholder="Reference (Optional)" value={newCustomer.reference} onChange={e => setNewCustomer({ ...newCustomer, reference: e.target.value })} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
-                        <Button onClick={handleAddCustomer} className="w-full">Save Customer</Button>
-                    </div>
-                </Card>
-            )}
+            <AddCustomerModal 
+                isOpen={isAdding} 
+                onClose={() => setIsAdding(false)} 
+                onAdd={handleAddCustomer} 
+                existingCustomers={state.customers}
+            />
 
             <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />

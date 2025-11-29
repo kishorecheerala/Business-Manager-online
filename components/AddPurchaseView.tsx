@@ -1,7 +1,9 @@
 
+
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Purchase, Supplier, Product, PurchaseItem } from '../types';
-import { Plus, Info, X, Camera, Sparkles, Loader2 } from 'lucide-react';
+import { Purchase, Supplier, Product, PurchaseItem, Payment } from '../types';
+import { Plus, Info, X, Camera, Sparkles, Loader2, IndianRupee } from 'lucide-react';
 import Card from './Card';
 import Button from './Button';
 import DeleteButton from './DeleteButton';
@@ -40,21 +42,26 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
   const [items, setItems] = useState<PurchaseItem[]>(initialData?.items || []);
   const [purchaseDate, setPurchaseDate] = useState(initialData ? getLocalDateString(new Date(initialData.date)) : getLocalDateString());
   const [supplierInvoiceId, setSupplierInvoiceId] = useState(initialData?.supplierInvoiceId || '');
-  const [discount, setDiscount] = useState('0');
+  const [discount, setDiscount] = useState(initialData?.discount?.toString() || '0');
   const [paymentDueDates, setPaymentDueDates] = useState<string[]>(initialData?.paymentDueDates || []);
   
   const [isAddingSupplier, setIsAddingSupplier] = useState(false);
+  
+  // Payment Details for New Purchase
+  const [paymentDetails, setPaymentDetails] = useState({
+      amount: '',
+      method: 'CASH' as 'CASH' | 'UPI' | 'CHEQUE',
+      date: getLocalDateString(),
+      reference: '',
+  });
   
   // AI Scanning State
   const [isScanning, setIsScanning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Use consolidated calculations. Note: Purchase Items track their own GST usually, but fallback provided.
+  // Use consolidated calculations.
   const calculations = useMemo(() => {
-      const { totalAmount, gstAmount } = calculateTotals(items, parseFloat(discount) || 0);
-      // For purchases, typically grandTotal is just totalAmount (which handles GST internally in logic)
-      // but let's expose gstAmount if we want to show it later.
-      return { grandTotal: totalAmount, totalGst: gstAmount };
+      return calculateTotals(items, parseFloat(discount) || 0);
   }, [items, discount]);
 
   const handleItemUpdate = (productId: string, field: keyof PurchaseItem, value: string | number) => {
@@ -153,14 +160,37 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
           return;
       }
 
+      // Handle Initial Payment for New Purchase
+      let finalPayments = initialData?.payments || [];
+      
+      if (mode === 'add') {
+          const paidAmount = parseFloat(paymentDetails.amount) || 0;
+          if (paidAmount > calculations.totalAmount + 0.01) {
+              showToast(`Paid amount (₹${paidAmount.toLocaleString('en-IN')}) cannot be greater than the total amount (₹${calculations.totalAmount.toLocaleString('en-IN')}).`, 'error');
+              return;
+          }
+          if (paidAmount > 0) {
+              const newPayment: Payment = {
+                  id: `PAY-P-${Date.now()}`,
+                  amount: paidAmount,
+                  method: paymentDetails.method,
+                  date: new Date(`${paymentDetails.date}T${new Date().toTimeString().split(' ')[0]}`).toISOString(),
+                  reference: paymentDetails.reference.trim() || undefined,
+              };
+              finalPayments = [newPayment];
+          }
+      }
+
       onSubmit({
           id: initialData?.id || `PUR-${Date.now()}`,
           supplierId,
           items,
-          totalAmount: calculations.grandTotal,
+          totalAmount: calculations.totalAmount,
+          discount: calculations.discountAmount,
+          gstAmount: calculations.gstAmount,
           date: new Date(purchaseDate).toISOString(),
           supplierInvoiceId,
-          payments: initialData?.payments || [],
+          payments: finalPayments,
           paymentDueDates
       });
   };
@@ -278,11 +308,87 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
         </div>
       </Card>
       
-      <Card title="Total">
-          <div className="text-right text-2xl font-bold text-primary">₹{calculations.grandTotal.toLocaleString()}</div>
+      <Card title="Transaction Details">
+          <div className="space-y-6">
+              {/* Section 1: Breakdown */}
+              <div className="space-y-3">
+                  <div className="flex justify-between items-center text-gray-700 dark:text-gray-300">
+                      <span>Subtotal:</span>
+                      <span>₹{calculations.subTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-gray-700 dark:text-gray-300">
+                      <span>Discount:</span>
+                      <input 
+                          type="number" 
+                          value={discount} 
+                          onChange={e => setDiscount(e.target.value)} 
+                          className="w-28 p-1 border rounded text-right dark:bg-slate-700 dark:border-slate-600 dark:text-white" 
+                      />
+                  </div>
+                  <div className="flex justify-between items-center text-gray-700 dark:text-gray-300">
+                      <span>GST Included:</span>
+                      <span>₹{calculations.gstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                  </div>
+              </div>
+
+              {/* Section 2: Grand Total */}
+              <div className="text-center">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Grand Total</p>
+                  <p className="text-4xl font-bold text-primary">
+                      ₹{calculations.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </p>
+              </div>
+
+              {/* Section 3: Payment Details */}
+              {mode === 'add' ? (
+                  <div className="space-y-4 pt-4 border-t dark:border-slate-700">
+                      <h4 className="font-bold text-gray-700 dark:text-gray-300">Initial Payment</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Amount Paid Now</label>
+                              <div className="relative mt-1">
+                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"><IndianRupee size={14}/></span>
+                                  <input 
+                                      type="number" 
+                                      value={paymentDetails.amount} 
+                                      onChange={e => setPaymentDetails({...paymentDetails, amount: e.target.value })} 
+                                      placeholder={`Total is ₹${calculations.totalAmount.toLocaleString('en-IN')}`} 
+                                      className="w-full p-2 pl-8 border-2 border-green-300 rounded-lg shadow-inner focus:ring-green-500 focus:border-green-500 dark:bg-slate-700 dark:border-green-800 dark:text-slate-200" 
+                                  />
+                              </div>
+                          </div>
+                          <div>
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Payment Method</label>
+                              <select value={paymentDetails.method} onChange={e => setPaymentDetails({ ...paymentDetails, method: e.target.value as any})} className="w-full p-2 border rounded custom-select mt-1 dark:bg-slate-700 dark:border-slate-600 dark:text-white">
+                                  <option value="CASH">Cash</option>
+                                  <option value="UPI">UPI</option>
+                                  <option value="CHEQUE">Cheque</option>
+                              </select>
+                          </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <DateInput 
+                              label="Payment Date"
+                              value={paymentDetails.date} 
+                              onChange={e => setPaymentDetails({...paymentDetails, date: e.target.value })} 
+                          />
+                          <div>
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Reference (Optional)</label>
+                              <input type="text" placeholder="e.g. UPI ID, Cheque No." value={paymentDetails.reference} onChange={e => setPaymentDetails({...paymentDetails, reference: e.target.value })} className="w-full p-2 border rounded mt-1 dark:bg-slate-700 dark:border-slate-600 dark:text-white" />
+                          </div>
+                      </div>
+                  </div>
+              ) : (
+                  <div className="pt-4 border-t dark:border-slate-700 text-center">
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Payments for this purchase must be managed from the supplier's details page.</p>
+                  </div>
+              )}
+          </div>
       </Card>
 
-      <Button onClick={handleSubmit} className="w-full py-3 text-lg font-bold shadow-lg">Complete Purchase (Ctrl+S)</Button>
+      <Button onClick={handleSubmit} className="w-full py-3 text-lg font-bold shadow-lg">
+          {mode === 'add' ? 'Complete Purchase (Ctrl+S)' : 'Update Purchase (Ctrl+S)'}
+      </Button>
     </div>
   );
 };

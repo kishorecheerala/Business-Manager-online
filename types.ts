@@ -1,6 +1,7 @@
 
 
 
+
 import { ReactNode } from "react";
 
 export type Page = 'DASHBOARD' | 'CUSTOMERS' | 'SALES' | 'PURCHASES' | 'REPORTS' | 'RETURNS' | 'PRODUCTS' | 'INSIGHTS' | 'EXPENSES' | 'QUOTATIONS' | 'INVOICE_DESIGNER' | 'SYSTEM_OPTIMIZER';
@@ -128,6 +129,8 @@ export interface Purchase {
   supplierId: string;
   items: PurchaseItem[];
   totalAmount: number;
+  discount?: number; // New: Discount on purchase
+  gstAmount?: number; // New: GST Amount
   date: string; // ISO string
   invoiceUrl?: string; // For uploaded invoice
   supplierInvoiceId?: string; // Manual invoice ID from supplier

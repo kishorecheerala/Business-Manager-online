@@ -1,14 +1,16 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Plus, Trash2, Share2, Search, X, IndianRupee, QrCode, Save, Edit, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Share2, Search, X, IndianRupee, QrCode, Save, Edit, User, Phone, MapPin } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Sale, SaleItem, Customer, Product, Payment } from '../types';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { Html5Qrcode } from 'html5-qrcode';
 import DeleteButton from '../components/DeleteButton';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
-import { generateA4InvoicePdf } from '../utils/pdfGenerator';
-import { Html5Qrcode } from 'html5-qrcode';
+import { logoBase64 } from '../utils/logo';
 
 
 const getLocalDateString = (date = new Date()) => {
@@ -17,6 +19,16 @@ const getLocalDateString = (date = new Date()) => {
   const day = date.getDate().toString().padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
+
+const fetchImageAsBase64 = (url: string): Promise<string> =>
+  fetch(url)
+    .then(response => response.blob())
+    .then(blob => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    }));
 
 interface SalesPageProps {
   setIsDirty: (isDirty: boolean) => void;
@@ -30,51 +42,125 @@ const AddCustomerModal: React.FC<{
     onSave: () => void;
     onCancel: () => void;
 }> = React.memo(({ newCustomer, onInputChange, onSave, onCancel }) => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in-fast">
-        <Card title="Add New Customer" className="w-full max-w-md animate-scale-in">
-            <div className="space-y-4">
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[51] p-4 animate-fade-in-fast backdrop-blur-sm" role="dialog" aria-modal="true">
+        <div className="w-full sm:max-w-lg bg-white dark:bg-slate-800 rounded-xl shadow-2xl flex flex-col max-h-[90vh] animate-scale-in overflow-hidden border border-gray-200 dark:border-slate-700">
+            {/* Header */}
+            <div className="p-4 border-b dark:border-slate-700 flex justify-between items-center shrink-0 bg-gray-50 dark:bg-slate-900/50">
+                <h2 className="text-lg font-bold text-gray-800 dark:text-white">Add New Customer</h2>
+                <button onClick={onCancel} className="p-2 rounded-full text-gray-500 hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors">
+                    <X size={20}/>
+                </button>
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="p-6 overflow-y-auto custom-scrollbar flex-grow space-y-6">
+                {/* ID Section */}
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Customer ID</label>
-                    <div className="flex items-center mt-1">
-                        <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm dark:bg-slate-700 dark:border-slate-600 dark:text-gray-400">
-                            CUST-
-                        </span>
-                        <input
-                            type="text"
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 ml-1">Customer ID</label>
+                    <div className="flex items-center">
+                        <span className="bg-gray-100 dark:bg-slate-700/50 border border-r-0 border-gray-200 dark:border-slate-600 px-3 py-3 rounded-l-xl text-sm text-gray-500 font-mono">CUST-</span>
+                        <input 
+                            type="text" 
                             name="id"
-                            placeholder="Enter unique ID"
-                            value={newCustomer.id}
-                            onChange={onInputChange}
-                            className="w-full p-2 border rounded-r-md dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
+                            placeholder="unique-id" 
+                            value={newCustomer.id} 
+                            onChange={onInputChange} 
+                            className="w-full p-3 bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-r-xl focus:ring-2 focus:ring-primary outline-none transition-all font-mono dark:text-white" 
+                            autoFocus
                         />
                     </div>
                 </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
-                    <input type="text" placeholder="Full Name" name="name" value={newCustomer.name} onChange={onInputChange} className="w-full p-2 border rounded mt-1 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
+
+                {/* Basic Info */}
+                <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2 border-b dark:border-slate-700 pb-2">
+                        <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-md text-blue-600 dark:text-blue-400"><User size={16}/></div>
+                        Basic Information
+                    </h3>
+                    <div>
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 ml-1">Full Name *</label>
+                        <input 
+                            type="text" 
+                            name="name"
+                            placeholder="Enter Customer Name" 
+                            value={newCustomer.name} 
+                            onChange={onInputChange} 
+                            className="w-full p-3 bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-primary focus:bg-white dark:focus:bg-slate-800 outline-none transition-all" 
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 ml-1">Phone Number *</label>
+                        <div className="relative">
+                            <input 
+                                type="tel" 
+                                name="phone"
+                                placeholder="Enter Phone Number" 
+                                value={newCustomer.phone} 
+                                onChange={onInputChange} 
+                                className="w-full p-3 pl-10 bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-primary focus:bg-white dark:focus:bg-slate-800 outline-none transition-all" 
+                            />
+                            <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"/>
+                        </div>
+                    </div>
                 </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Phone</label>
-                    <input type="text" placeholder="Phone Number" name="phone" value={newCustomer.phone} onChange={onInputChange} className="w-full p-2 border rounded mt-1 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Address</label>
-                    <input type="text" placeholder="Full Address" name="address" value={newCustomer.address} onChange={onInputChange} className="w-full p-2 border rounded mt-1 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Area/Location</label>
-                    <input type="text" placeholder="e.g. Ameerpet" name="area" value={newCustomer.area} onChange={onInputChange} className="w-full p-2 border rounded mt-1 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
-                </div>
-                 <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Reference (Optional)</label>
-                    <input type="text" placeholder="Referred by..." name="reference" value={newCustomer.reference} onChange={onInputChange} className="w-full p-2 border rounded mt-1 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
-                </div>
-                <div className="flex gap-2">
-                    <Button onClick={onSave} className="w-full">Save Customer</Button>
-                    <Button onClick={onCancel} variant="secondary" className="w-full">Cancel</Button>
+
+                {/* Address & Details */}
+                <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2 border-b dark:border-slate-700 pb-2">
+                        <div className="p-1.5 bg-green-100 dark:bg-green-900/30 rounded-md text-green-600 dark:text-green-400"><MapPin size={16}/></div>
+                        Address & Details
+                    </h3>
+                    <div>
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 ml-1">Address *</label>
+                        <input 
+                            type="text" 
+                            name="address"
+                            placeholder="House No, Street, Landmark" 
+                            value={newCustomer.address} 
+                            onChange={onInputChange} 
+                            className="w-full p-3 bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-primary focus:bg-white dark:focus:bg-slate-800 outline-none transition-all" 
+                        />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 ml-1">Area / City *</label>
+                            <input 
+                                type="text" 
+                                name="area"
+                                placeholder="e.g. Ameerpet" 
+                                value={newCustomer.area} 
+                                onChange={onInputChange} 
+                                className="w-full p-3 bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-primary focus:bg-white dark:focus:bg-slate-800 outline-none transition-all" 
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 ml-1">Reference</label>
+                            <input 
+                                type="text" 
+                                name="reference"
+                                placeholder="Optional" 
+                                value={newCustomer.reference} 
+                                onChange={onInputChange} 
+                                className="w-full p-3 bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-primary focus:bg-white dark:focus:bg-slate-800 outline-none transition-all" 
+                            />
+                        </div>
+                    </div>
                 </div>
             </div>
-        </Card>
+
+            {/* Footer */}
+            <div className="p-4 border-t dark:border-slate-700 flex gap-3 bg-gray-50 dark:bg-slate-900/50 shrink-0">
+                <Button onClick={onSave} className="flex-[2] py-3.5 rounded-xl shadow-lg shadow-indigo-200 dark:shadow-none font-bold">
+                    Save Customer
+                </Button>
+                <button 
+                    onClick={onCancel} 
+                    className="flex-1 py-3.5 rounded-xl font-semibold bg-white text-gray-700 hover:bg-gray-100 border border-gray-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:border-slate-600 transition-all"
+                >
+                    Cancel
+                </button>
+            </div>
+        </div>
     </div>
 ));
 
@@ -206,8 +292,6 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
     const [customerSearchTerm, setCustomerSearchTerm] = useState('');
     const customerDropdownRef = useRef<HTMLDivElement>(null);
     
-    const [isGenerating, setIsGenerating] = useState(false);
-
     useOnClickOutside(customerDropdownRef, () => {
         if (isCustomerDropdownOpen) {
             setIsCustomerDropdownOpen(false);
@@ -281,13 +365,13 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
 
         if (existingItem) {
             if (existingItem.quantity + 1 > availableStock) {
-                 showToast(`Not enough stock for ${product.name}. Only ${availableStock} available.`, 'error');
+                 alert(`Not enough stock for ${product.name}. Only ${availableStock} available for this sale.`);
                  return;
             }
             setItems(items.map(i => i.productId === newItem.productId ? { ...i, quantity: i.quantity + 1 } : i));
         } else {
              if (1 > availableStock) {
-                 showToast(`Not enough stock for ${product.name}. Only ${availableStock} available.`, 'error');
+                 alert(`Not enough stock for ${product.name}. Only ${availableStock} available for this sale.`);
                  return;
             }
             setItems([...items, newItem]);
@@ -302,7 +386,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         if (product) {
             handleSelectProduct(product);
         } else {
-            showToast("Product not found in inventory.", 'error');
+            alert("Product not found in inventory.");
         }
     };
 
@@ -317,7 +401,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                     const originalQtyInSale = mode === 'edit' ? saleToEdit?.items.find(i => i.productId === productId)?.quantity || 0 : 0;
                     const availableStock = (Number(product?.quantity) || 0) + originalQtyInSale;
                     if (numValue > availableStock) {
-                        showToast(`Not enough stock for ${item.productName}. Only ${availableStock} available.`, 'error');
+                        alert(`Not enough stock for ${item.productName}. Only ${availableStock} available for this sale.`);
                         return { ...item, quantity: availableStock };
                     }
                 }
@@ -386,11 +470,11 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
     const handleAddCustomer = useCallback(() => {
         const trimmedId = newCustomer.id.trim();
         if (!trimmedId) {
-            showToast('Customer ID is required.', 'error');
+            alert('Customer ID is required.');
             return;
         }
         if (!newCustomer.name || !newCustomer.phone || !newCustomer.address || !newCustomer.area) {
-            showToast('Please fill all required fields (Name, Phone, Address, Area).', 'error');
+            alert('Please fill all required fields (Name, Phone, Address, Area).');
             return;
         }
 
@@ -398,7 +482,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         const isIdTaken = state.customers.some(c => c.id.toLowerCase() === finalId.toLowerCase());
 
         if (isIdTaken) {
-            showToast(`Customer ID "${finalId}" is already taken. Please choose another one.`, 'error');
+            alert(`Customer ID "${finalId}" is already taken. Please choose another one.`);
             return;
         }
 
@@ -414,28 +498,127 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         setNewCustomer(newCustomerInitialState);
         setIsAddingCustomer(false);
         setCustomerId(customerWithId.id);
-        showToast("Customer added successfully!", 'success');
+        showToast("Customer added successfully!");
     }, [newCustomer, state.customers, dispatch, showToast]);
 
 
-    const generateAndSharePDF = async (sale: Sale, customer: Customer) => {
+    const generateAndSharePDF = async (sale: Sale, customer: Customer, paidAmountOnSale: number) => {
       try {
-        const doc = await generateA4InvoicePdf(sale, customer, state.profile, state.invoiceTemplate, state.customFonts);
+        const doc = new jsPDF();
+        const profile = state.profile;
+        let currentY = 15;
+
+        // FIX: Change image format to PNG
+        doc.addImage(logoBase64, 'PNG', 14, 10, 25, 25);
+
+        if (profile) {
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(24);
+            doc.setTextColor('#0d9488');
+            doc.text(profile.name, 105, currentY, { align: 'center' });
+            currentY += 8;
+            doc.setFontSize(10);
+            doc.setTextColor('#333333');
+            const addressLines = doc.splitTextToSize(profile.address, 180);
+            doc.text(addressLines, 105, currentY, { align: 'center' });
+            currentY += (addressLines.length * 5);
+            doc.text(`Phone: ${profile.phone} | GSTIN: ${profile.gstNumber}`, 105, currentY, { align: 'center' });
+        }
+        
+        currentY = Math.max(currentY, 10 + 25) + 5;
+
+        doc.setDrawColor('#cccccc');
+        doc.line(14, currentY, 196, currentY);
+        currentY += 10;
+        
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text('TAX INVOICE', 105, currentY, { align: 'center' });
+        currentY += 10;
+        
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Billed To:', 14, currentY);
+        doc.text('Invoice Details:', 120, currentY);
+        currentY += 5;
+
+        doc.setFont('helvetica', 'normal');
+        doc.text(customer.name, 14, currentY);
+        doc.text(`Invoice ID: ${sale.id}`, 120, currentY);
+        currentY += 5;
+        
+        const customerAddressLines = doc.splitTextToSize(customer.address, 80);
+        doc.text(customerAddressLines, 14, currentY);
+        doc.text(`Date: ${new Date(sale.date).toLocaleString()}`, 120, currentY);
+        currentY += (customerAddressLines.length * 5) + 5;
+        
+        autoTable(doc, {
+            startY: currentY,
+            head: [['#', 'Item Description', 'Qty', 'Rate', 'Amount']],
+            body: sale.items.map((item, index) => [
+                index + 1,
+                item.productName,
+                item.quantity,
+                `Rs. ${Number(item.price).toLocaleString('en-IN')}`,
+                `Rs. ${(Number(item.quantity) * Number(item.price)).toLocaleString('en-IN')}`
+            ]),
+            theme: 'grid',
+            headStyles: { fillColor: [13, 148, 136] },
+            columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' } }
+        });
+        
+        currentY = (doc as any).lastAutoTable.finalY + 10;
+        
+        const subTotal = sale.items.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
+        const dueAmountOnSale = Number(sale.totalAmount) - paidAmountOnSale;
+        
+        const totalsX = 196;
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text('Subtotal:', totalsX - 30, currentY, { align: 'right' });
+        doc.text(`Rs. ${subTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, totalsX, currentY, { align: 'right' });
+        currentY += 7;
+
+        doc.text('Discount:', totalsX - 30, currentY, { align: 'right' });
+        doc.text(`- Rs. ${Number(sale.discount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, totalsX, currentY, { align: 'right' });
+        currentY += 7;
+
+        doc.text('GST Included:', totalsX - 30, currentY, { align: 'right' });
+        doc.text(`Rs. ${Number(sale.gstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, totalsX, currentY, { align: 'right' });
+        currentY += 7;
+        
+        doc.setFont('helvetica', 'bold');
+        doc.text('Grand Total:', totalsX - 30, currentY, { align: 'right' });
+        doc.text(`Rs. ${Number(sale.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, totalsX, currentY, { align: 'right' });
+        currentY += 7;
+
+        doc.setFont('helvetica', 'normal');
+        doc.text('Paid:', totalsX - 30, currentY, { align: 'right' });
+        doc.text(`Rs. ${paidAmountOnSale.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, totalsX, currentY, { align: 'right' });
+        currentY += 7;
+
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(dueAmountOnSale > 0.01 ? '#dc2626' : '#16a34a');
+        doc.text('Amount Due:', totalsX - 30, currentY, { align: 'right' });
+        doc.text(`Rs. ${dueAmountOnSale.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, totalsX, currentY, { align: 'right' });
+        
+        currentY = doc.internal.pageSize.height - 20;
+        doc.setFontSize(10);
+        doc.setTextColor('#888888');
+        doc.text('Thank you for your business!', 105, currentY, { align: 'center' });
+        
         const pdfBlob = doc.output('blob');
         const pdfFile = new File([pdfBlob], `Invoice-${sale.id}.pdf`, { type: 'application/pdf' });
-        
         const businessName = state.profile?.name || 'Your Business';
-        const subTotal = sale.items.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
-        const paidAmount = sale.payments.reduce((sum, p) => sum + Number(p.amount), 0);
-        const dueAmount = Number(sale.totalAmount) - paidAmount;
-
-        const whatsAppText = `Thank you for your purchase from ${businessName}!\n\n*Invoice Summary:*\nInvoice ID: ${sale.id}\nDate: ${new Date(sale.date).toLocaleString()}\n\n*Items:*\n${sale.items.map(i => `- ${i.productName} (x${i.quantity}) - Rs. ${(Number(i.price) * Number(i.quantity)).toLocaleString('en-IN')}`).join('\n')}\n\nSubtotal: Rs. ${subTotal.toLocaleString('en-IN')}\nGST: Rs. ${Number(sale.gstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}\nDiscount: Rs. ${Number(sale.discount).toLocaleString('en-IN')}\n*Total: Rs. ${Number(sale.totalAmount).toLocaleString('en-IN')}*\nPaid: Rs. ${paidAmount.toLocaleString('en-IN')}\nDue: Rs. ${dueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}\n\nHave a blessed day!`;
+        
+        const whatsAppText = `Thank you for your purchase from ${businessName}!\n\n*Invoice Summary:*\nInvoice ID: ${sale.id}\nDate: ${new Date(sale.date).toLocaleString()}\n\n*Items:*\n${sale.items.map(i => `- ${i.productName} (x${i.quantity}) - Rs. ${(Number(i.price) * Number(i.quantity)).toLocaleString('en-IN')}`).join('\n')}\n\nSubtotal: Rs. ${subTotal.toLocaleString('en-IN')}\nGST: Rs. ${Number(sale.gstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}\nDiscount: Rs. ${Number(sale.discount).toLocaleString('en-IN')}\n*Total: Rs. ${Number(sale.totalAmount).toLocaleString('en-IN')}*\nPaid: Rs. ${paidAmountOnSale.toLocaleString('en-IN')}\nDue: Rs. ${dueAmountOnSale.toLocaleString('en-IN', { minimumFractionDigits: 2 })}\n\nHave a blessed day!`;
         
         if (navigator.share && navigator.canShare({ files: [pdfFile] })) {
           try {
             if (navigator.clipboard && navigator.clipboard.writeText) {
               await navigator.clipboard.writeText(whatsAppText);
-              showToast('Invoice text copied to clipboard!', 'info');
+              showToast('Invoice text copied to clipboard!');
             }
           } catch (err) {
             console.warn('Could not copy text to clipboard:', err);
@@ -450,97 +633,81 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         }
       } catch (error) {
         console.error("PDF generation or sharing failed:", error);
-        showToast(`PDF generation failed: ${(error as Error).message}`, 'error');
+        alert(`Sale created successfully, but the PDF invoice could not be generated or shared. Error: ${(error as Error).message}`);
       }
     };
 
     const handleSubmitSale = async () => {
         if (!customerId || items.length === 0) {
-            showToast("Please select a customer and add at least one item.", 'info');
+            alert("Please select a customer and add at least one item.");
             return;
         }
 
         const customer = state.customers.find(c => c.id === customerId);
         if(!customer) {
-            showToast("Could not find the selected customer.", 'error');
+            alert("Could not find the selected customer.");
             return;
         }
         
         const { totalAmount, gstAmount, discountAmount } = calculations;
 
-        setIsGenerating(true); // Loading State
-
-        try {
-            if (mode === 'add') {
-                const paidAmount = parseFloat(paymentDetails.amount) || 0;
-                if (paidAmount > totalAmount + 0.01) {
-                    showToast(`Paid amount (₹${paidAmount.toLocaleString('en-IN')}) cannot be greater than the total amount (₹${totalAmount.toLocaleString('en-IN')}).`, 'error');
-                    setIsGenerating(false);
-                    return;
-                }
-                const payments: Payment[] = [];
-                if (paidAmount > 0) {
-                    payments.push({
-                        id: `PAY-S-${Date.now()}`, amount: paidAmount, method: paymentDetails.method,
-                        date: new Date(paymentDetails.date).toISOString(), reference: paymentDetails.reference.trim() || undefined,
-                    });
-                }
-                
-                const saleCreationDate = new Date();
-                const saleDateWithTime = new Date(`${saleDate}T${saleCreationDate.toTimeString().split(' ')[0]}`);
-                const saleId = `SALE-${saleCreationDate.getFullYear()}${(saleCreationDate.getMonth() + 1).toString().padStart(2, '0')}${saleCreationDate.getDate().toString().padStart(2, '0')}-${saleCreationDate.getHours().toString().padStart(2, '0')}${saleCreationDate.getMinutes().toString().padStart(2, '0')}${saleCreationDate.getSeconds().toString().padStart(2, '0')}`;
-                
-                const newSale: Sale = {
-                    id: saleId, customerId, items, discount: discountAmount, gstAmount, totalAmount,
-                    date: saleDateWithTime.toISOString(), payments
-                };
-                dispatch({ type: 'ADD_SALE', payload: newSale });
-                items.forEach(item => {
-                    dispatch({ type: 'UPDATE_PRODUCT_STOCK', payload: { productId: item.productId, change: -Number(item.quantity) } });
-                });
-                showToast('Sale created successfully!', 'success');
-                
-                // Allow a small delay for UI to update before blocking with PDF generation
-                setTimeout(async () => {
-                    await generateAndSharePDF(newSale, customer);
-                    setIsGenerating(false);
-                    resetForm();
-                }, 100);
-
-            } else if (mode === 'edit' && saleToEdit) {
-                const existingPayments = saleToEdit.payments || [];
-                const totalPaid = existingPayments.reduce((sum, p) => sum + Number(p.amount), 0);
-
-                if (totalAmount < totalPaid - 0.01) {
-                    showToast(`The new total amount (₹${totalAmount.toLocaleString('en-IN')}) cannot be less than the amount already paid (₹${totalPaid.toLocaleString('en-IN')}).`, 'error');
-                    setIsGenerating(false);
-                    return;
-                }
-
-                const updatedSale: Sale = {
-                    ...saleToEdit, items, discount: discountAmount, gstAmount, totalAmount,
-                };
-                dispatch({ type: 'UPDATE_SALE', payload: { oldSale: saleToEdit, updatedSale } });
-                showToast('Sale updated successfully!', 'success');
-                setIsGenerating(false);
-                resetForm();
+        if (mode === 'add') {
+            const paidAmount = parseFloat(paymentDetails.amount) || 0;
+            if (paidAmount > totalAmount + 0.01) {
+                alert(`Paid amount (₹${paidAmount.toLocaleString('en-IN')}) cannot be greater than the total amount (₹${totalAmount.toLocaleString('en-IN')}).`);
+                return;
             }
-        } catch (e) {
-            console.error(e);
-            setIsGenerating(false);
-            showToast("An unexpected error occurred.", 'error');
+            const payments: Payment[] = [];
+            if (paidAmount > 0) {
+                payments.push({
+                    id: `PAY-S-${Date.now()}`, amount: paidAmount, method: paymentDetails.method,
+                    date: new Date(paymentDetails.date).toISOString(), reference: paymentDetails.reference.trim() || undefined,
+                });
+            }
+            
+            const saleCreationDate = new Date();
+            const saleDateWithTime = new Date(`${saleDate}T${saleCreationDate.toTimeString().split(' ')[0]}`);
+            const saleId = `SALE-${saleCreationDate.getFullYear()}${(saleCreationDate.getMonth() + 1).toString().padStart(2, '0')}${saleCreationDate.getDate().toString().padStart(2, '0')}-${saleCreationDate.getHours().toString().padStart(2, '0')}${saleCreationDate.getMinutes().toString().padStart(2, '0')}${saleCreationDate.getSeconds().toString().padStart(2, '0')}`;
+            
+            const newSale: Sale = {
+                id: saleId, customerId, items, discount: discountAmount, gstAmount, totalAmount,
+                date: saleDateWithTime.toISOString(), payments
+            };
+            dispatch({ type: 'ADD_SALE', payload: newSale });
+            items.forEach(item => {
+                dispatch({ type: 'UPDATE_PRODUCT_STOCK', payload: { productId: item.productId, change: -Number(item.quantity) } });
+            });
+            showToast('Sale created successfully!');
+            await generateAndSharePDF(newSale, customer, paidAmount);
+
+        } else if (mode === 'edit' && saleToEdit) {
+            const existingPayments = saleToEdit.payments || [];
+            const totalPaid = existingPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+
+            if (totalAmount < totalPaid - 0.01) {
+                alert(`The new total amount (₹${totalAmount.toLocaleString('en-IN')}) cannot be less than the amount already paid (₹${totalPaid.toLocaleString('en-IN')}).`);
+                return;
+            }
+
+            const updatedSale: Sale = {
+                ...saleToEdit, items, discount: discountAmount, gstAmount, totalAmount,
+            };
+            dispatch({ type: 'UPDATE_SALE', payload: { oldSale: saleToEdit, updatedSale } });
+            showToast('Sale updated successfully!');
         }
+
+        resetForm();
     };
 
      const handleRecordStandalonePayment = () => {
         if (!customerId) {
-            showToast('Please select a customer to record a payment for.', 'info');
+            alert('Please select a customer to record a payment for.');
             return;
         }
 
         const paidAmount = parseFloat(paymentDetails.amount || '0');
         if (paidAmount <= 0) {
-            showToast('Please enter a valid payment amount.', 'error');
+            alert('Please enter a valid payment amount.');
             return;
         }
 
@@ -552,7 +719,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
         if (outstandingSales.length === 0) {
-            showToast('This customer has no outstanding dues.', 'info');
+            alert('This customer has no outstanding dues.');
             return;
         }
         
@@ -578,7 +745,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             remainingPayment -= amountToApply;
         }
         
-        showToast(`Payment of ₹${paidAmount.toLocaleString('en-IN')} recorded successfully.`, 'success');
+        showToast(`Payment of ₹${paidAmount.toLocaleString('en-IN')} recorded successfully.`);
         resetForm();
     };
 
@@ -810,14 +977,14 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
 
             <div className="space-y-2">
                 {canCreateSale ? (
-                    <Button onClick={handleSubmitSale} variant="secondary" className="w-full" disabled={isGenerating}>
-                        {isGenerating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Share2 className="w-4 h-4 mr-2"/>}
-                        {isGenerating ? 'Processing...' : 'Create Sale & Share Invoice (Ctrl+S)'}
+                    <Button onClick={handleSubmitSale} variant="secondary" className="w-full">
+                        <Share2 className="w-4 h-4 mr-2"/>
+                        Create Sale & Share Invoice
                     </Button>
                 ) : canUpdateSale ? (
-                    <Button onClick={handleSubmitSale} className="w-full" disabled={isGenerating}>
-                        {isGenerating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2"/>}
-                        {isGenerating ? 'Saving...' : 'Save Changes to Sale (Ctrl+S)'}
+                    <Button onClick={handleSubmitSale} className="w-full">
+                        <Save className="w-4 h-4 mr-2"/>
+                        Save Changes to Sale
                     </Button>
                 ) : canRecordPayment ? (
                      <Button onClick={handleRecordStandalonePayment} className="w-full">
@@ -829,7 +996,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                         {customerId ? (items.length === 0 ? 'Enter payment or add items' : 'Complete billing details') : 'Select a customer'}
                     </Button>
                 )}
-                <Button onClick={resetForm} variant="secondary" className="w-full bg-teal-200 hover:bg-teal-300 focus:ring-teal-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600" disabled={isGenerating}>
+                <Button onClick={resetForm} variant="secondary" className="w-full bg-teal-200 hover:bg-teal-300 focus:ring-teal-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600">
                     {mode === 'edit' ? 'Cancel Edit' : 'Clear Form'}
                 </Button>
             </div>
