@@ -1,8 +1,4 @@
 
-
-
-
-
 import React, { createContext, useReducer, useContext, useEffect, ReactNode, useState, useCallback, useRef } from 'react';
 import { Customer, Supplier, Product, Sale, Purchase, Return, BeforeInstallPromptEvent, Notification, ProfileData, Page, AppMetadata, Theme, GoogleUser, AuditLogEntry, SyncStatus, Expense, Quote, AppMetadataInvoiceSettings, InvoiceTemplateConfig, CustomFont, PurchaseItem, AppMetadataNavOrder, AppMetadataQuickActions, AppMetadataTheme } from '../types';
 import * as db from '../utils/db';
@@ -749,12 +745,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 tokenClientRef.current = initGoogleAuth(handleGoogleLoginResponse);
             }
             
-            if (options?.forceConsent) {
-                // @ts-ignore
-                tokenClientRef.current.requestAccessToken({ prompt: 'consent' });
-            } else {
-                tokenClientRef.current.requestAccessToken();
-            }
+            // Force account selection every time to avoid getting stuck on "Unverified App" screen with wrong account
+            const prompt = options?.forceConsent ? 'consent select_account' : 'select_account';
+            
+            // @ts-ignore
+            tokenClientRef.current.requestAccessToken({ prompt });
         }).catch(err => {
             console.error("Google Script Load Error:", err);
             showToast("Failed to load Google Sign-In", 'error');

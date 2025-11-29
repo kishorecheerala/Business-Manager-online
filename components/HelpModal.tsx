@@ -13,6 +13,22 @@ const helpContent = {
     title: 'Help & Documentation',
     sections: [
       {
+        title: 'Google Sign-In Issues',
+        content: (
+          <div className="space-y-2 text-sm bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg border border-yellow-100 dark:border-yellow-800">
+            <h4 className="font-bold text-yellow-800 dark:text-yellow-200">"Google hasn't verified this app"</h4>
+            <p>If you see a scary warning screen when signing in, don't worry. This happens because the app is in "Testing Mode" for personal use.</p>
+            <p><strong>To bypass it:</strong></p>
+            <ol className="list-decimal list-inside pl-2">
+                <li>Click the <strong>Advanced</strong> link on the bottom left of that screen.</li>
+                <li>Click <strong>Go to Business Manager (unsafe)</strong>.</li>
+                <li>Click <strong>Continue</strong> to finish signing in.</li>
+            </ol>
+            <p className="mt-2"><strong>Can't switch accounts?</strong> We have updated the app to force the "Choose an Account" screen every time you click Sign In.</p>
+          </div>
+        )
+      },
+      {
         title: 'Dashboard',
         content: (
           <div className="space-y-2">
@@ -182,6 +198,21 @@ const helpContent = {
   te: {
     title: 'సహాయం & డాక్యుమెంటేషన్',
     sections: [
+      {
+        title: 'గూగుల్ సైన్-ఇన్ సమస్యలు',
+        content: (
+          <div className="space-y-2 text-sm bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg border border-yellow-100 dark:border-yellow-800">
+            <h4 className="font-bold text-yellow-800 dark:text-yellow-200">"Google hasn\'t verified this app"</h4>
+            <p>సైన్ ఇన్ చేస్తున్నప్పుడు భయపెట్టే హెచ్చరిక స్క్రీన్ కనిపిస్తే, చింతించకండి. ఈ యాప్ వ్యక్తిగత వినియోగం కోసం "టెస్టింగ్ మోడ్"లో ఉన్నందున ఇది జరుగుతుంది.</p>
+            <p><strong>దాన్ని దాటవేయడానికి:</strong></p>
+            <ol className="list-decimal list-inside pl-2">
+                <li>స్క్రీన్ ఎడమ వైపున ఉన్న <strong>Advanced</strong> లింక్ పై క్లిక్ చేయండి.</li>
+                <li><strong>Go to Business Manager (unsafe)</strong> పై క్లిక్ చేయండి.</li>
+                <li>సైన్ ఇన్ పూర్తి చేయడానికి <strong>Continue</strong> పై క్లిక్ చేయండి.</li>
+            </ol>
+          </div>
+        )
+      },
       {
         title: 'డాష్‌బోర్డ్',
         content: (
