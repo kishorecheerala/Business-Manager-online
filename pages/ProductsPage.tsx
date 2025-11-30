@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Search, Edit, Save, X, Package, IndianRupee, Percent, PackageCheck, Barcode, Printer, Filter, Grid, List, Camera, Image as ImageIcon, Eye, Trash2, QrCode, Boxes, Maximize2, Minimize2, ArrowLeft, CheckSquare, Square, Plus, Clock, AlertTriangle, Share2, MoreHorizontal, LayoutGrid, Check, Wand2, Loader2, Sparkles, MessageCircle, CheckCircle, Copy, Share, GripVertical, GripHorizontal } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -12,7 +11,6 @@ import { compressImage } from '../utils/imageUtils';
 import { Html5Qrcode } from 'html5-qrcode';
 import EmptyState from '../components/EmptyState';
 import { useDialog } from '../context/DialogContext';
-import ImageCropperModal from '../components/ImageCropperModal';
 import { GoogleGenAI } from "@google/genai";
 
 interface ProductsPageProps {
@@ -21,15 +19,23 @@ interface ProductsPageProps {
 
 // Helper to convert base64 to File object for sharing
 const dataURLtoFile = (dataurl: string, filename: string) => {
-    const arr = dataurl.split(',');
-    const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/png';
-    const bstr = atob(arr[1]);
-    let n = bstr.length;
-    const u8arr = new Uint8Array(n);
-    while (n--) {
-        u8arr[n] = bstr.charCodeAt(n);
+    try {
+        if (!dataurl || typeof dataurl !== 'string') return new File([], filename);
+        const arr = dataurl.split(',');
+        if (arr.length < 2) return new File([], filename);
+        
+        const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/png';
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+            u8arr[n] = bstr.charCodeAt(n);
+        }
+        return new File([u8arr], filename, { type: mime });
+    } catch (e) {
+        console.warn("Failed to convert data URL to file", e);
+        return new File([], filename);
     }
-    return new File([u8arr], filename, { type: mime });
 };
 
 // Helper to get API Key safely
@@ -208,11 +214,12 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
 
     const filteredProducts = useMemo(() => {
         const lowerTerm = searchTerm.toLowerCase();
-        return state.products.filter(p => 
-            p.name.toLowerCase().includes(lowerTerm) || 
-            p.id.toLowerCase().includes(lowerTerm) ||
-            p.category?.toLowerCase().includes(lowerTerm)
-        );
+        return state.products.filter(p => {
+            const name = (p.name || '').toLowerCase();
+            const id = (p.id || '').toLowerCase();
+            const category = (p.category || '').toLowerCase();
+            return name.includes(lowerTerm) || id.includes(lowerTerm) || category.includes(lowerTerm);
+        });
     }, [state.products, searchTerm]);
 
     const toggleSelection = (id: string) => {
@@ -258,7 +265,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                 if (p.image) {
                     try {
                         const file = dataURLtoFile(p.image, `${p.name.replace(/[^a-z0-9]/gi, '_')}.jpg`);
-                        files.push(file);
+                        if (file.size > 0) files.push(file);
                     } catch (e: any) { console.error(e); }
                 }
             }
@@ -305,8 +312,9 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
             for (let i = 0; i < files.length; i++) {
                 try {
                     const file = files[i];
+                    // Ensure result is string and valid before pushing
                     const base64 = await compressImage(file, 800, 0.8);
-                    if (typeof base64 === 'string') {
+                    if (typeof base64 === 'string' && base64) {
                         newImages.push(base64);
                     }
                 } catch (err: any) {

@@ -290,7 +290,7 @@ const _generateConfigurablePDF = async (
         const isBanner = layout.headerStyle === 'banner';
         if (isBanner) {
             doc.setFillColor(colors.bannerBg || colors.primary);
-            doc.setRoundedRect(0, 0, pageWidth, 40 + (layout.logoSize/2), layout.borderRadius || 0, layout.borderRadius || 0, 'F');
+            doc.roundedRect(0, 0, pageWidth, 40 + (layout.logoSize/2), layout.borderRadius || 0, layout.borderRadius || 0, 'F');
             addY(5);
         }
 
