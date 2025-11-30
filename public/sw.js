@@ -1,6 +1,5 @@
-
-// Service Worker for Business Manager Pro
-const CACHE_NAME = 'business-manager-v3'; // Bumped version to force update
+// Cache-busting service worker - Forces complete refresh
+const CACHE_NAME = 'business-manager-v4'; // Bumped version
 const URLS_TO_CACHE = [
   '/',
   '/index.html',
@@ -46,7 +45,7 @@ self.addEventListener('fetch', (event) => {
   // Only handle GET requests
   if (request.method !== 'GET') return;
   
-  // Skip cross-origin unless necessary (keep simple)
+  // Skip cross-origin unless necessary
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
@@ -67,7 +66,6 @@ self.addEventListener('fetch', (event) => {
         
         return networkResponse;
       }).catch((err) => {
-        // Network failed
         console.log('[SW] Network fetch failed, staying offline');
       });
 
@@ -79,6 +77,7 @@ self.addEventListener('fetch', (event) => {
       // 3. If no cache, wait for network (and return fallback if that fails)
       return fetchPromise.catch(() => {
         // Fallback for navigation requests (HTML)
+        // IMPORTANT: This ensures "/" requests are served index.html offline
         if (request.mode === 'navigate') {
           return caches.match('/index.html');
         }
