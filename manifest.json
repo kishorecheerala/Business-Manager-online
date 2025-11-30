@@ -3,10 +3,10 @@
   "short_name": "Business Mgr",
   "description": "Offline-first PWA for managing sales, purchases, and customer dues",
   "id": "business-manager-pro",
-  "start_url": "./",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "orientation": "portrait-primary",
+  "orientation": "portrait",
   "background_color": "#f8fafc",
   "theme_color": "#0d9488",
   "icons": [

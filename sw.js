@@ -1,6 +1,4 @@
-const CACHE_VERSION = 'v1-2025-01-30-3';
-const CACHE_NAME = `business-manager-${CACHE_VERSION}`;
-// Use relative paths for static assets
+const CACHE_NAME = 'business-manager-v2';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -8,74 +6,71 @@ const STATIC_ASSETS = [
   './vite.svg'
 ];
 
+// Install Event: Cache App Shell
 self.addEventListener('install', (event) => {
+  self.skipWaiting(); // Force activation immediately
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(STATIC_ASSETS))
-      .then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(STATIC_ASSETS);
+    })
   );
 });
 
+// Activate Event: Clean up old caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys()
-      .then((names) => Promise.all(names.map((name) => name !== CACHE_NAME && caches.delete(name))))
-      .then(() => self.clients.claim())
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((name) => {
+          if (name !== CACHE_NAME) {
+            return caches.delete(name);
+          }
+        })
+      );
+    }).then(() => self.clients.claim()) // Take control immediately
   );
 });
 
+// Fetch Event: Network First for API, Cache First for Assets, Fallback for Navigation
 self.addEventListener('fetch', (event) => {
-  // Only handle GET requests
-  if (event.request.method !== 'GET') return;
-
   const url = new URL(event.request.url);
-  
-  // Skip cross-origin requests unless explicitly handled (like Google APIs)
-  if (url.origin !== self.location.origin && !url.hostname.includes('googleapis.com')) return;
 
-  // 1. Navigation Requests (HTML) - Network First, Fallback to Cache
+  // 1. Navigation Requests (HTML) - Critical for PWA Install
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
-        .then((response) => {
+        .catch(() => {
+          // If offline, serve cached index.html
+          return caches.match('./index.html')
+            .then(response => response || caches.match('index.html'));
+        })
+    );
+    return;
+  }
+
+  // 2. Static Assets (JS, CSS, Images, Manifest) - Cache First
+  if (
+    url.pathname.endsWith('.js') ||
+    url.pathname.endsWith('.css') ||
+    url.pathname.endsWith('.png') ||
+    url.pathname.endsWith('.svg') ||
+    url.pathname.endsWith('.json')
+  ) {
+    event.respondWith(
+      caches.match(event.request).then((cachedResponse) => {
+        return cachedResponse || fetch(event.request).then((response) => {
           return caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, response.clone());
             return response;
           });
-        })
-        .catch(() => {
-          return caches.match('./index.html') || caches.match('index.html');
-        })
-    );
-    return;
-  }
-
-  // 2. API/Google Calls - Network First
-  if (url.pathname.includes('/api/') || url.hostname.includes('googleapis.com')) {
-    event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          if (response.status === 200) {
-            caches.open(CACHE_NAME).then((c) => c.put(event.request, response.clone()));
-          }
-          return response;
-        })
-        .catch(() => caches.match(event.request))
-    );
-    return;
-  }
-
-  // 3. Static Assets (JS, CSS, Images) - Cache First, Fallback to Network
-  event.respondWith(
-    caches.match(event.request)
-      .then((cached) => {
-        if (cached) return cached;
-        return fetch(event.request).then((response) => {
-          if (response.status === 200) {
-            caches.open(CACHE_NAME).then((c) => c.put(event.request, response.clone()));
-          }
-          return response;
         });
       })
+    );
+    return;
+  }
+
+  // 3. Default - Network First
+  event.respondWith(
+    fetch(event.request).catch(() => caches.match(event.request))
   );
 });
