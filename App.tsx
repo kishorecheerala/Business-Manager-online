@@ -111,7 +111,7 @@ const NavItem: React.FC<NavItemProps> = ({ page, label, icon: Icon, onClick, isA
 );
 
 const AppContent: React.FC = () => {
-    const { state, dispatch, isDbLoaded, syncData, googleSignIn } = useAppContext();
+    const { state, dispatch, isDbLoaded, syncData, googleSignIn, showToast } = useAppContext();
     
     // Initialize currentPage from localStorage or default to DASHBOARD
     const [currentPage, setCurrentPage] = useState<Page>(() => {
@@ -130,22 +130,32 @@ const AppContent: React.FC = () => {
         return 'DASHBOARD';
     });
 
-    // PWA Install Prompt Capture
+    // PWA Install Prompt Capture & Install Feedback
     useEffect(() => {
         const handleInstallPrompt = (e: Event) => {
             e.preventDefault();
             dispatch({ type: 'SET_INSTALL_PROMPT_EVENT', payload: e as BeforeInstallPromptEvent });
         };
 
+        const handleAppInstalled = () => {
+            dispatch({ type: 'SET_INSTALL_PROMPT_EVENT', payload: null });
+            showToast('App installed successfully!', 'success');
+            console.log('PWA was installed');
+        };
+
         window.addEventListener('beforeinstallprompt', handleInstallPrompt);
+        window.addEventListener('appinstalled', handleAppInstalled);
 
         // Check if it was already caught by index.tsx before hydration
         if ((window as any).deferredInstallPrompt) {
             dispatch({ type: 'SET_INSTALL_PROMPT_EVENT', payload: (window as any).deferredInstallPrompt });
         }
 
-        return () => window.removeEventListener('beforeinstallprompt', handleInstallPrompt);
-    }, [dispatch]);
+        return () => {
+            window.removeEventListener('beforeinstallprompt', handleInstallPrompt);
+            window.removeEventListener('appinstalled', handleAppInstalled);
+        };
+    }, [dispatch, showToast]);
 
     // Handle PWA shortcut actions on mount (e.g., opening modals)
     useEffect(() => {

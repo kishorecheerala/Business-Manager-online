@@ -318,8 +318,8 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                     if (base64 && typeof base64 === 'string') {
                         newImages.push(base64);
                     }
-                } catch (err: unknown) {
-                    console.error("Image upload failed", err);
+                } catch (err: any) {
+                    console.error("Image upload failed", String(err));
                 }
             }
             

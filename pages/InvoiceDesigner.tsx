@@ -461,12 +461,12 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
         if (historyIndex < history.length - 1) setHistoryIndex(historyIndex + 1);
     };
 
-    const handleConfigChange = (section: keyof ExtendedLayoutConfig, key: string, value: any) => {
+    const handleConfigChange = (section: 'layout' | 'content' | 'fonts' | 'colors', key: string, value: any) => {
         const current = configRef.current;
         const newConfig = {
             ...current,
             [section]: {
-                ...current[section],
+                ...(current[section] as any),
                 [key]: value
             }
         };
@@ -509,22 +509,29 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
         handleConfigChange('layout', 'elementSpacing', newSpacing);
     };
 
+    const getMaxWidth = () => {
+        if (docType === 'RECEIPT') return 70; // 72-80mm width usually
+        return 190; // A4 printable width roughly
+    };
+
     const handleQRPosChange = (axis: 'x' | 'y', val: number) => {
         const updates: any = {};
+        const safeX = docType === 'RECEIPT' ? 20 : 150;
+        
         if (axis === 'x') {
             updates.qrPosX = val;
             if (configRef.current.layout.qrPosY === undefined) updates.qrPosY = 20; 
         } else {
             updates.qrPosY = val;
-            if (configRef.current.layout.qrPosX === undefined) updates.qrPosX = 150;
+            if (configRef.current.layout.qrPosX === undefined) updates.qrPosX = safeX;
         }
         handleBatchLayoutChange(updates);
     };
 
     const nudgeQR = (dx: number, dy: number) => {
-        // Use configRef for up-to-date state
         const currentLayout = configRef.current.layout;
-        const currentX = currentLayout.qrPosX ?? 150;
+        const safeX = docType === 'RECEIPT' ? 20 : 150;
+        const currentX = currentLayout.qrPosX ?? safeX;
         const currentY = currentLayout.qrPosY ?? 20;
         handleBatchLayoutChange({
             qrPosX: currentX + dx,
@@ -1075,7 +1082,7 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
                                                 <span className="text-[10px] font-mono text-indigo-600">{localConfig.layout.logoPosX ?? 'Auto'}</span>
                                             </div>
                                             <input 
-                                                type="range" min="0" max="200" step="1"
+                                                type="range" min="0" max={getMaxWidth()} step="1"
                                                 value={localConfig.layout.logoPosX ?? 0} 
                                                 onChange={e => handleLogoPosChange('x', parseInt(e.target.value))} 
                                                 className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"

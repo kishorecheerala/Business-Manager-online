@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'business-manager-cache-v7';
+const CACHE_NAME = 'business-manager-cache-v8';
 
 // The essential files that make up the app's shell.
 const APP_SHELL_URLS = [
@@ -7,7 +7,7 @@ const APP_SHELL_URLS = [
   '/index.html',
   '/vite.svg',
   '/pages/manifest.json',
-  '/index.tsx',
+  // '/index.tsx', // Removed source file preventing valid SW registration in build
 ];
 
 // On install, cache the app shell
