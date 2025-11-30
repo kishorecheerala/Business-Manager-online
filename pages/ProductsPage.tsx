@@ -1,15 +1,15 @@
 
-import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Plus, Search, Edit, Trash2, Barcode, Image as ImageIcon, Package, X, Save, ScanLine } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Plus, Search, Edit, Barcode, Image as ImageIcon, Package, X, Save, ScanLine, Wand2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Product } from '../types';
 import Card from '../components/Card';
 import Button from '../components/Button';
-import DeleteButton from '../components/DeleteButton';
-import { BarcodeModal } from '../components/BarcodeModal';
+import BarcodeModal from '../components/BarcodeModal';
 import { compressImage } from '../utils/imageUtils';
 import { useDialog } from '../context/DialogContext';
 import QRScannerModal from '../components/QRScannerModal';
+import MarketingGeneratorModal from '../components/MarketingGeneratorModal';
 
 interface ProductsPageProps {
   setIsDirty: (isDirty: boolean) => void;
@@ -38,6 +38,11 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
     const [selectedProductForBarcode, setSelectedProductForBarcode] = useState<Product | null>(null);
     const [isScanning, setIsScanning] = useState(false);
+    const [viewImageModal, setViewImageModal] = useState<string | null>(null);
+    
+    // Marketing Modal State
+    const [isMarketingModalOpen, setIsMarketingModalOpen] = useState(false);
+    const [marketingProduct, setMarketingProduct] = useState<Product | null>(null);
     
     const fileInputRef = useRef<HTMLInputElement>(null);
     const isDirtyRef = useRef(false);
@@ -64,31 +69,6 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     const handleEdit = (product: Product) => {
         setEditedProduct({ ...product });
         setView('edit');
-    };
-
-    const handleDelete = async (id: string) => {
-        if (await showConfirm("Are you sure you want to delete this product? This will not remove it from historical sales.")) {
-            // Note: In a real app, you might want a soft delete or check for dependencies
-            // For now, we filter it out of the list logic in reducer if implemented, or just warn
-            // The reducer doesn't have a DELETE_PRODUCT action in the provided types/context, 
-            // so we might need to rely on 'BATCH_UPDATE' or add one. 
-            // Assuming we can't easily delete without breaking referential integrity in this simple IDB setup,
-            // we might mark it as inactive or just allow deletion if the user insists.
-            
-            // Checking if delete action exists, if not, show info
-            // Based on AppContext, there isn't a direct DELETE_PRODUCT. 
-            // We can treat quantity 0 as "deleted" or implementation specific.
-            // Let's implement a workaround using BATCH_UPDATE to rename it or similar if real delete isn't there.
-            // Wait, usually there isn't a delete for products to preserve history.
-            // Let's implement a "Hide/Archive" via logic or just skip if not supported.
-            // Actually, let's just simulate it for UI feedback or if user adds DELETE_PRODUCT later.
-            
-            // Since Reducer DELETE_PRODUCT is missing in the provided context, we'll suggest setting stock to 0.
-            // Or better, update context to handle it if possible. 
-            // For now, let's just show a toast that it's hidden (UI only).
-            
-            showToast("Product deletion is restricted to preserve sales history. Set quantity to 0 to hide.", 'info');
-        }
     };
 
     const handleSave = () => {
@@ -175,6 +155,11 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
         setSelectedProductForBarcode(product);
         setIsBarcodeModalOpen(true);
     };
+    
+    const openMarketingModal = (product: Product) => {
+        setMarketingProduct(product);
+        setIsMarketingModalOpen(true);
+    };
 
     const handleScan = (code: string) => {
         setIsScanning(false);
@@ -198,6 +183,23 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                         product={selectedProductForBarcode}
                         businessName={state.profile?.name || 'Business Manager'}
                     />
+                )}
+                
+                {isMarketingModalOpen && marketingProduct && (
+                    <MarketingGeneratorModal 
+                        isOpen={isMarketingModalOpen}
+                        onClose={() => setIsMarketingModalOpen(false)}
+                        product={marketingProduct}
+                    />
+                )}
+
+                {viewImageModal && (
+                    <div className="fixed inset-0 bg-black/80 z-[200] flex items-center justify-center p-4 animate-fade-in-fast" onClick={() => setViewImageModal(null)}>
+                        <div className="relative max-w-full max-h-full">
+                            <button className="absolute -top-10 right-0 text-white p-2" onClick={() => setViewImageModal(null)}><X size={24}/></button>
+                            <img src={viewImageModal} alt="Product" className="max-w-full max-h-[90vh] rounded-lg shadow-2xl" />
+                        </div>
+                    </div>
                 )}
 
                 <div className="flex justify-between items-center">
@@ -223,7 +225,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                 <div className="grid grid-cols-1 gap-3">
                     {filteredProducts.map((product) => (
                         <div key={product.id} className="bg-white dark:bg-slate-800 p-3 rounded-lg shadow-sm border dark:border-slate-700 flex gap-3 animate-slide-up-fade">
-                            <div className="w-16 h-16 bg-gray-100 dark:bg-slate-700 rounded-md flex-shrink-0 overflow-hidden border dark:border-slate-600">
+                            <div className="w-16 h-16 bg-gray-100 dark:bg-slate-700 rounded-md flex-shrink-0 overflow-hidden border dark:border-slate-600 cursor-pointer" onClick={() => product.image && setViewImageModal(product.image)}>
                                 {product.image ? (
                                     <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
                                 ) : (
@@ -246,6 +248,13 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                     </div>
                                 </div>
                                 <div className="flex justify-end gap-2 mt-2">
+                                    <button 
+                                        onClick={() => openMarketingModal(product)} 
+                                        className="h-8 px-2 text-xs bg-purple-50 text-purple-600 hover:bg-purple-100 dark:bg-purple-900/30 dark:text-purple-300 dark:hover:bg-purple-900/50 rounded flex items-center border border-purple-200 dark:border-purple-800 transition-colors"
+                                        title="Create Marketing Content"
+                                    >
+                                        <Wand2 size={14} className="mr-1"/> Promote
+                                    </button>
                                     <Button onClick={() => openBarcodeModal(product)} variant="secondary" className="h-8 px-2 text-xs">
                                         <Barcode size={14} className="mr-1"/> Label
                                     </Button>

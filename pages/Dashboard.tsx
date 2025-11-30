@@ -1,5 +1,6 @@
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { IndianRupee, User, AlertTriangle, Download, Upload, ShoppingCart, Package, XCircle, CheckCircle, Info, ShieldCheck, ShieldX, Archive, PackageCheck, TestTube2, Sparkles, TrendingUp, ArrowRight, Zap, BrainCircuit, TrendingDown, Wallet, CalendarClock, Tag, Undo2, Crown, Calendar, Receipt, MessageCircle, Clock, History, PenTool, FileText, Loader2, RotateCw, Share } from 'lucide-react';
+import { IndianRupee, User, AlertTriangle, Download, Upload, ShoppingCart, Package, XCircle, CheckCircle, Info, ShieldCheck, ShieldX, Archive, PackageCheck, TestTube2, Sparkles, TrendingUp, ArrowRight, Zap, BrainCircuit, TrendingDown, Wallet, CalendarClock, Tag, Undo2, Crown, Calendar, Receipt, MessageCircle, Clock, History, PenTool, FileText, Loader2, RotateCw, Share, Volume2, StopCircle } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import * as db from '../utils/db';
 import Card from '../components/Card';
@@ -11,7 +12,7 @@ import { useDialog } from '../context/DialogContext';
 import PinModal from '../components/PinModal';
 import DatePill from '../components/DatePill';
 import CheckpointsModal from '../components/CheckpointsModal';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Modality } from "@google/genai";
 import { usePWAInstall } from '../hooks/usePWAInstall';
 
 interface DashboardProps {
@@ -56,8 +57,30 @@ const MetricCard: React.FC<{
     </div>
 );
 
-// ... (SmartAnalystCard, BackupStatusAlert, OverdueDuesCard, UpcomingPurchaseDuesCard, LowStockCard - Keep content same, just omitting for brevity in diff)
-// ... Keep all other components ...
+// Helper for TTS decoding
+async function decodeAudioData(data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> {
+  const dataInt16 = new Int16Array(data.buffer);
+  const frameCount = dataInt16.length / numChannels;
+  const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
+
+  for (let channel = 0; channel < numChannels; channel++) {
+    const channelData = buffer.getChannelData(channel);
+    for (let i = 0; i < frameCount; i++) {
+      channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
+    }
+  }
+  return buffer;
+}
+
+function decodeBase64(base64: string) {
+  const binaryString = atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
 
 const SmartAnalystCard: React.FC<{ 
     sales: Sale[], 
@@ -71,6 +94,9 @@ const SmartAnalystCard: React.FC<{
     const { showToast } = useAppContext();
     const [aiBriefing, setAiBriefing] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const audioContextRef = useRef<AudioContext | null>(null);
+    const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
 
     // Hardcoded insights (Default fallback)
     const staticInsights = useMemo(() => {
@@ -156,7 +182,7 @@ const SmartAnalystCard: React.FC<{
     const handleGenerateBriefing = async () => {
         setIsGenerating(true);
         try {
-            const apiKey = process.env.API_KEY;
+            const apiKey = process.env.API_KEY || localStorage.getItem('gemini_api_key');
             if (!apiKey) throw new Error("API Key not found");
 
             const ai = new GoogleGenAI({ apiKey });
@@ -192,6 +218,72 @@ const SmartAnalystCard: React.FC<{
         }
     };
 
+    const handleStopAudio = () => {
+        if (audioSourceRef.current) {
+            audioSourceRef.current.stop();
+            audioSourceRef.current = null;
+        }
+        setIsPlaying(false);
+    };
+
+    const handlePlayBriefing = async () => {
+        if (isPlaying) {
+            handleStopAudio();
+            return;
+        }
+
+        setIsPlaying(true);
+        try {
+            const apiKey = process.env.API_KEY || localStorage.getItem('gemini_api_key');
+            if (!apiKey) throw new Error("API Key not found");
+
+            const ai = new GoogleGenAI({ apiKey });
+            const briefingText = aiBriefing || "Your business is running smoothly. Check your sales and stock levels for more details.";
+            
+            // TTS Prompt
+            const prompt = `Say in a professional, encouraging news-anchor voice: "Here is your business briefing, ${ownerName}. ${briefingText.replace(/[*#]/g, '')}"`;
+
+            const response = await ai.models.generateContent({
+                model: "gemini-2.5-flash-preview-tts",
+                contents: [{ parts: [{ text: prompt }] }],
+                config: {
+                    responseModalities: [Modality.AUDIO],
+                    speechConfig: {
+                        voiceConfig: {
+                            prebuiltVoiceConfig: { voiceName: 'Kore' },
+                        },
+                    },
+                },
+            });
+
+            const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+            if (!base64Audio) throw new Error("No audio returned");
+
+            if (!audioContextRef.current) {
+                audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({sampleRate: 24000});
+            }
+            
+            const audioBuffer = await decodeAudioData(
+                decodeBase64(base64Audio),
+                audioContextRef.current,
+                24000,
+                1
+            );
+
+            const source = audioContextRef.current.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioContextRef.current.destination);
+            source.onended = () => setIsPlaying(false);
+            source.start();
+            audioSourceRef.current = source;
+
+        } catch (e) {
+            console.error("TTS Error", e);
+            showToast("Failed to play audio briefing.", 'error');
+            setIsPlaying(false);
+        }
+    };
+
     const displayInsights = aiBriefing 
         ? aiBriefing.split('\n').filter(line => line.trim().startsWith('*') || line.trim().startsWith('-') || line.trim().length > 0).slice(0, 2).map(text => ({
             icon: Sparkles,
@@ -215,14 +307,23 @@ const SmartAnalystCard: React.FC<{
                             <span className="text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">AI Powered</span>
                         </div>
                     </div>
-                    <button 
-                        onClick={handleGenerateBriefing} 
-                        disabled={isGenerating}
-                        className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-500 transition-colors"
-                        title="Refresh AI Insights"
-                    >
-                        {isGenerating ? <Loader2 size={18} className="animate-spin" /> : <RotateCw size={18} />}
-                    </button>
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={handlePlayBriefing}
+                            className={`p-2 rounded-full transition-colors ${isPlaying ? 'bg-red-100 text-red-600 animate-pulse' : 'hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-500'}`}
+                            title={isPlaying ? "Stop Briefing" : "Listen to Briefing"}
+                        >
+                            {isPlaying ? <StopCircle size={18} /> : <Volume2 size={18} />}
+                        </button>
+                        <button 
+                            onClick={handleGenerateBriefing} 
+                            disabled={isGenerating}
+                            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-500 transition-colors"
+                            title="Refresh AI Insights"
+                        >
+                            {isGenerating ? <Loader2 size={18} className="animate-spin" /> : <RotateCw size={18} />}
+                        </button>
+                    </div>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

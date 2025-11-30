@@ -1,3 +1,4 @@
+
 const CACHE_VERSION = 'v1';
 const CACHE_NAME = `business-manager-${CACHE_VERSION}`;
 
@@ -11,8 +12,8 @@ self.addEventListener('install', (event) => {
     caches.open(CACHE_NAME)
       .then((cache) => {
         console.log('[SW] Opened cache:', CACHE_NAME);
-        // Only cache the homepage - that's all we need
-        return cache.addAll(['/'])
+        // Cache relative paths to work in subdirectories/previews
+        return cache.addAll(['./', './index.html'])
           .catch((error) => {
             console.warn('[SW] Cache addAll error (may be normal):', error);
             // Don't fail install if caching fails - still activate
@@ -76,7 +77,6 @@ self.addEventListener('fetch', (event) => {
       .then((cachedResponse) => {
         // If found in cache, return it
         if (cachedResponse) {
-          console.log('[SW] Cache hit:', request.url);
           return cachedResponse;
         }
         
@@ -85,7 +85,6 @@ self.addEventListener('fetch', (event) => {
           .then((response) => {
             // Check if response is valid
             if (!response || response.status !== 200 || response.type === 'error') {
-              console.warn('[SW] Invalid response:', response?.status);
               return response;
             }
             
@@ -113,25 +112,18 @@ self.addEventListener('fetch', (event) => {
             return caches.match(request)
               .then((cachedResponse) => {
                 if (cachedResponse) {
-                  console.log('[SW] Returning cached fallback for offline');
                   return cachedResponse;
                 }
                 
                 // Last resort: return homepage
-                return caches.match('/');
+                return caches.match('./');
               })
-              .catch((cacheError) => {
-                console.error('[SW] Fallback error:', cacheError);
-                // Return a basic response so app doesn't crash
-                return new Response('Offline - no cached content available', {
-                  status: 503,
-                  statusText: 'Service Unavailable'
-                });
+              .catch(() => {
+                 return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
               });
           });
       })
-      .catch((error) => {
-        console.error('[SW] Match error:', error);
+      .catch(() => {
         return new Response('Error', { status: 500 });
       })
   );
