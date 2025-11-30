@@ -1,6 +1,6 @@
 
 // Service Worker for Business Manager Pro
-const CACHE_NAME = 'business-manager-v-final-1';
+const CACHE_NAME = 'business-manager-v2';
 const URLS_TO_CACHE = [
   './',
   './index.html',
@@ -71,13 +71,18 @@ self.addEventListener('fetch', (event) => {
         console.log('[SW] Network fetch failed, staying offline');
       });
 
-      // 2. Return cached response immediately if available, else wait for network
-      return cachedResponse || fetchPromise;
-    }).catch(() => {
-      // Fallback for navigation requests (HTML)
-      if (request.mode === 'navigate') {
-        return caches.match('./index.html');
+      // 2. Return cached response immediately if available
+      if (cachedResponse) {
+        return cachedResponse;
       }
+
+      // 3. If no cache, wait for network (and return fallback if that fails)
+      return fetchPromise.catch(() => {
+        // Fallback for navigation requests (HTML)
+        if (request.mode === 'navigate') {
+          return caches.match('./index.html');
+        }
+      });
     })
   );
 });

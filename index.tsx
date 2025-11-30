@@ -1,3 +1,4 @@
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -21,8 +22,9 @@ if ('serviceWorker' in navigator) {
       
       // Wait a moment, then register the new one
       setTimeout(() => {
+        // USE RELATIVE PATH './sw.js' to match base: './' in vite.config.ts
         navigator.serviceWorker
-          .register('/sw.js', { scope: '/' })
+          .register('./sw.js', { scope: './' })
           .then((registration) => {
             console.log('✅ New SW registered successfully');
             console.log('   Scope:', registration.scope);
