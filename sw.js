@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'business-manager-cache-v20';
+const CACHE_NAME = 'business-manager-cache-v21';
 
 // Relative paths to ensure compatibility with subdirectories or root hosting
 const APP_SHELL_URLS = [
@@ -65,9 +65,7 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Asset Strategy: Stale-While-Revalidate (good for icons/manifest)
-  // or Cache First (good for immutable assets). 
-  // Using Cache First falling back to Network here for stability.
+  // Asset Strategy: Cache First falling back to Network
   event.respondWith(
     caches.match(event.request)
       .then(cachedResponse => {
