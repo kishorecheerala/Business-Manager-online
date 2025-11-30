@@ -422,45 +422,96 @@ const _generateConfigurablePDF = async (
         if (content.showCustomerDetails === false) {
             return;
         }
+        
+        const isSmallPaper = pageWidth < 100;
         const gridY = currentY;
-        const colWidth = (pageWidth - (margin * 3)) / 2;
-        const rightColX = pageWidth - margin;
-
-        doc.setFont(fonts.bodyFont, 'bold');
-        doc.setFontSize(11);
-        doc.setTextColor(colors.primary);
-        doc.text(data.recipient.label, margin, gridY);
-        doc.text(data.sender.label, rightColX, gridY, { align: 'right' });
-
-        doc.setFont(fonts.bodyFont, 'normal');
-        doc.setFontSize(fonts.bodySize);
-        doc.setTextColor(colors.text);
-
         const lineHeight = 5 * spacingScale;
 
-        doc.text(data.recipient.name, margin, gridY + lineHeight + 1);
-        const recipientAddr = doc.splitTextToSize(data.recipient.address, colWidth);
-        doc.text(recipientAddr, margin, gridY + (lineHeight * 2) + 1);
+        if (isSmallPaper) {
+            // Stacked Layout for Receipts
+            doc.setFont(fonts.bodyFont, 'bold');
+            doc.setFontSize(11);
+            doc.setTextColor(colors.primary);
+            doc.text(data.recipient.label, margin, currentY);
+            currentY += lineHeight;
 
-        let infoY = gridY + lineHeight + 1;
-        doc.text(`${data.sender.idLabel} ${data.id}`, rightColX, infoY, { align: 'right' });
-        infoY += lineHeight;
-        doc.text(`${labels.date}: ${formatDate(data.date, templateConfig.dateFormat)}`, rightColX, infoY, { align: 'right' });
+            doc.setFont(fonts.bodyFont, 'normal');
+            doc.setFontSize(fonts.bodySize);
+            doc.setTextColor(colors.text);
+            doc.text(data.recipient.name, margin, currentY);
+            currentY += lineHeight;
+            
+            const recipientAddr = doc.splitTextToSize(data.recipient.address, pageWidth - (margin * 2));
+            doc.text(recipientAddr, margin, currentY);
+            currentY += (recipientAddr.length * lineHeight) + (2 * spacingScale);
 
-        // Auto QR placement if no absolute position
-        if (content.showQr && (!layout.qrPosition || layout.qrPosition === 'details-right') && layout.qrPosX === undefined) {
-            const qrImg = await getQrCodeBase64(data.qrString || data.id);
-            if (qrImg) {
-                try {
-                    const size = layout.qrOverlaySize || 22;
-                    doc.addImage(qrImg, 'PNG', rightColX - size, infoY + 2, size, size);
-                } catch(e) {}
+            // Sender / Invoice Info
+            doc.setFont(fonts.bodyFont, 'bold');
+            doc.setFontSize(11);
+            doc.setTextColor(colors.primary);
+            doc.text(data.sender.label, margin, currentY);
+            currentY += lineHeight;
+
+            doc.setFont(fonts.bodyFont, 'normal');
+            doc.setFontSize(fonts.bodySize);
+            doc.setTextColor(colors.text);
+            doc.text(`${data.sender.idLabel} ${data.id}`, margin, currentY);
+            currentY += lineHeight;
+            doc.text(`${labels.date}: ${formatDate(data.date, templateConfig.dateFormat)}`, margin, currentY);
+            currentY += lineHeight;
+
+            // QR Code handling for stacked layout (if auto-positioned)
+            if (content.showQr && (!layout.qrPosition || layout.qrPosition === 'details-right') && layout.qrPosX === undefined) {
+                const qrImg = await getQrCodeBase64(data.qrString || data.id);
+                if (qrImg) {
+                    try {
+                        const size = layout.qrOverlaySize || 20;
+                        doc.addImage(qrImg, 'PNG', pageWidth - margin - size, currentY, size, size);
+                        currentY += size + 5; 
+                    } catch(e) {}
+                }
             }
-        }
+            
+            currentY += 5 * spacingScale;
 
-        const recipientHeight = (lineHeight * 2) + (recipientAddr.length * lineHeight);
-        const infoHeight = (lineHeight * 4); // Approximate
-        currentY = Math.max(gridY + recipientHeight, gridY + infoHeight) + (5 * spacingScale);
+        } else {
+            // Original Side-by-Side Layout for A4
+            const colWidth = (pageWidth - (margin * 3)) / 2;
+            const rightColX = pageWidth - margin;
+
+            doc.setFont(fonts.bodyFont, 'bold');
+            doc.setFontSize(11);
+            doc.setTextColor(colors.primary);
+            doc.text(data.recipient.label, margin, gridY);
+            doc.text(data.sender.label, rightColX, gridY, { align: 'right' });
+
+            doc.setFont(fonts.bodyFont, 'normal');
+            doc.setFontSize(fonts.bodySize);
+            doc.setTextColor(colors.text);
+
+            doc.text(data.recipient.name, margin, gridY + lineHeight + 1);
+            const recipientAddr = doc.splitTextToSize(data.recipient.address, colWidth);
+            doc.text(recipientAddr, margin, gridY + (lineHeight * 2) + 1);
+
+            let infoY = gridY + lineHeight + 1;
+            doc.text(`${data.sender.idLabel} ${data.id}`, rightColX, infoY, { align: 'right' });
+            infoY += lineHeight;
+            doc.text(`${labels.date}: ${formatDate(data.date, templateConfig.dateFormat)}`, rightColX, infoY, { align: 'right' });
+
+            if (content.showQr && (!layout.qrPosition || layout.qrPosition === 'details-right') && layout.qrPosX === undefined) {
+                const qrImg = await getQrCodeBase64(data.qrString || data.id);
+                if (qrImg) {
+                    try {
+                        const size = layout.qrOverlaySize || 22;
+                        doc.addImage(qrImg, 'PNG', rightColX - size, infoY + 2, size, size);
+                    } catch(e) {}
+                }
+            }
+
+            const recipientHeight = (lineHeight * 2) + (recipientAddr.length * lineHeight);
+            const infoHeight = (lineHeight * 4); // Approximate
+            currentY = Math.max(gridY + recipientHeight, gridY + infoHeight) + (5 * spacingScale);
+        }
     };
 
     const renderTable = () => {
