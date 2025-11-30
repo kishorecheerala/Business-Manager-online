@@ -14,14 +14,36 @@
     {
       "src": "./vite.svg",
       "type": "image/svg+xml",
-      "sizes": "192x192",
+      "sizes": "any",
       "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "New Sale",
+      "short_name": "New Sale",
+      "description": "Record a new sale transaction",
+      "url": "./index.html?action=new_sale",
+      "icons": [
+        {
+          "src": "./vite.svg",
+          "type": "image/svg+xml",
+          "sizes": "192x192"
+        }
+      ]
     },
     {
-      "src": "./vite.svg",
-      "type": "image/svg+xml",
-      "sizes": "512x512",
-      "purpose": "any maskable"
+      "name": "New Customer",
+      "short_name": "New Customer",
+      "description": "Add a new customer to your records",
+      "url": "./index.html?action=new_customer",
+      "icons": [
+        {
+          "src": "./vite.svg",
+          "type": "image/svg+xml",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }
