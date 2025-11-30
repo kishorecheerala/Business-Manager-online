@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Search, Edit, Save, X, Package, IndianRupee, Percent, PackageCheck, Barcode, Printer, Filter, Grid, List, Camera, Image as ImageIcon, Eye, Trash2, QrCode, Boxes, Maximize2, Minimize2, ArrowLeft, CheckSquare, Square, Plus, Clock, AlertTriangle, Share2, MoreHorizontal, LayoutGrid, Check, Wand2, Loader2, Sparkles, MessageCircle, CheckCircle, Copy, Share, GripVertical, GripHorizontal } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -313,11 +314,11 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                 try {
                     const file = files[i];
                     // Ensure result is string and valid before pushing
-                    const base64 = await compressImage(file, 800, 0.8);
-                    if (typeof base64 === 'string' && base64) {
+                    const base64: string = await compressImage(file, 800, 0.8);
+                    if (base64 && typeof base64 === 'string') {
                         newImages.push(base64);
                     }
-                } catch (err: any) {
+                } catch (err: unknown) {
                     console.error("Image upload failed", err);
                 }
             }
@@ -447,7 +448,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
             });
             
             const text = response.text;
-            if (text && typeof text === 'string') {
+            if (typeof text === 'string') {
                 const desc = text;
                 setEditedProduct(prev => prev ? ({ ...prev, description: desc }) : null);
                 showToast("Description generated!", 'success');
@@ -483,7 +484,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
             });
 
             const text = response.text;
-            const priceText = (text && typeof text === 'string') ? text.trim() : '';
+            const priceText = typeof text === 'string' ? text.trim() : '';
             const suggestedPrice = parseFloat(priceText.replace(/[^0-9.]/g, ''));
 
             if (!isNaN(suggestedPrice)) {

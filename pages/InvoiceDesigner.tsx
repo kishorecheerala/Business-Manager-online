@@ -419,12 +419,16 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
     };
 
     const [localConfig, setLocalConfig] = useState<ExtendedLayoutConfig>(getInitialConfig('INVOICE'));
+    // Ref to hold the latest config for solving race condition
+    const configRef = useRef<ExtendedLayoutConfig>(localConfig);
     const [initialConfigJson, setInitialConfigJson] = useState('');
     const [history, setHistory] = useState<ExtendedLayoutConfig[]>([getInitialConfig('INVOICE')]);
     const [historyIndex, setHistoryIndex] = useState(0);
 
     useEffect(() => {
-        setLocalConfig(history[historyIndex]);
+        const current = history[historyIndex];
+        setLocalConfig(current);
+        configRef.current = current; // Sync ref on history navigation
     }, [historyIndex, history]);
 
     useEffect(() => {
@@ -458,43 +462,49 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
     };
 
     const handleConfigChange = (section: keyof ExtendedLayoutConfig, key: string, value: any) => {
+        const current = configRef.current;
         const newConfig = {
-            ...localConfig,
+            ...current,
             [section]: {
-                ...localConfig[section],
+                ...current[section],
                 [key]: value
             }
         };
+        configRef.current = newConfig; // Optimistic update
         pushToHistory(newConfig);
     };
 
     const handleBatchLayoutChange = (updates: Partial<ExtendedLayoutConfig['layout']>) => {
+        const current = configRef.current;
         const newConfig = {
-            ...localConfig,
+            ...current,
             layout: {
-                ...localConfig.layout,
+                ...current.layout,
                 ...updates
             }
         };
+        configRef.current = newConfig; // Optimistic update
         pushToHistory(newConfig);
     };
 
     const handleLabelsChange = (key: string, value: string) => {
+        const current = configRef.current;
         const newConfig = {
-            ...localConfig,
+            ...current,
             content: {
-                ...localConfig.content,
+                ...current.content,
                 labels: {
-                    ...localConfig.content.labels,
+                    ...current.content.labels,
                     [key]: value
                 }
             }
         };
+        configRef.current = newConfig;
         pushToHistory(newConfig);
     };
 
     const handleElementSpacingChange = (key: string, value: number) => {
-        const currentSpacing = localConfig.layout.elementSpacing || { logoBottom: 5, titleBottom: 2, addressBottom: 1, headerBottom: 5 };
+        const currentSpacing = configRef.current.layout.elementSpacing || { logoBottom: 5, titleBottom: 2, addressBottom: 1, headerBottom: 5 };
         const newSpacing = { ...currentSpacing, [key]: value };
         handleConfigChange('layout', 'elementSpacing', newSpacing);
     };
@@ -503,17 +513,19 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
         const updates: any = {};
         if (axis === 'x') {
             updates.qrPosX = val;
-            if (localConfig.layout.qrPosY === undefined) updates.qrPosY = 20; 
+            if (configRef.current.layout.qrPosY === undefined) updates.qrPosY = 20; 
         } else {
             updates.qrPosY = val;
-            if (localConfig.layout.qrPosX === undefined) updates.qrPosX = 150;
+            if (configRef.current.layout.qrPosX === undefined) updates.qrPosX = 150;
         }
         handleBatchLayoutChange(updates);
     };
 
     const nudgeQR = (dx: number, dy: number) => {
-        const currentX = localConfig.layout.qrPosX ?? 150;
-        const currentY = localConfig.layout.qrPosY ?? 20;
+        // Use configRef for up-to-date state
+        const currentLayout = configRef.current.layout;
+        const currentX = currentLayout.qrPosX ?? 150;
+        const currentY = currentLayout.qrPosY ?? 20;
         handleBatchLayoutChange({
             qrPosX: currentX + dx,
             qrPosY: currentY + dy
@@ -524,17 +536,18 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
         const updates: any = {};
         if (axis === 'x') {
             updates.logoPosX = val;
-            if (localConfig.layout.logoPosY === undefined) updates.logoPosY = 20;
+            if (configRef.current.layout.logoPosY === undefined) updates.logoPosY = 20;
         } else {
             updates.logoPosY = val;
-            if (localConfig.layout.logoPosX === undefined) updates.logoPosX = 20;
+            if (configRef.current.layout.logoPosX === undefined) updates.logoPosX = 20;
         }
         handleBatchLayoutChange(updates);
     };
 
     const nudgeLogo = (dx: number, dy: number) => {
-        const currentX = localConfig.layout.logoPosX ?? 20;
-        const currentY = localConfig.layout.logoPosY ?? 20;
+        const currentLayout = configRef.current.layout;
+        const currentX = currentLayout.logoPosX ?? 20;
+        const currentY = currentLayout.logoPosY ?? 20;
         handleBatchLayoutChange({
             logoPosX: currentX + dx,
             logoPosY: currentY + dy
@@ -553,13 +566,15 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
                 layoutUpdate.paperSize = undefined; // Force custom size calc
             }
 
+            const current = configRef.current;
             const newConfig = {
-                ...localConfig,
-                colors: { ...localConfig.colors, ...preset.colors },
-                fonts: { ...localConfig.fonts, ...preset.fonts },
-                layout: { ...localConfig.layout, ...layoutUpdate },
-                content: { ...localConfig.content, ...preset.content }
+                ...current,
+                colors: { ...current.colors, ...preset.colors },
+                fonts: { ...current.fonts, ...preset.fonts },
+                layout: { ...current.layout, ...layoutUpdate },
+                content: { ...current.content, ...preset.content }
             };
+            configRef.current = newConfig;
             pushToHistory(newConfig);
         }
     };

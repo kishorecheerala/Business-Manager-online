@@ -9,30 +9,35 @@ A comprehensive, offline-first Progressive Web App (PWA) designed to streamline 
     - **Revenue Prediction:** Forecasts month-end numbers based on current velocity.
     - **Strategic Alerts:** Identifies peak trading days, bundle opportunities, and churn risks.
     - **Visual Charts:** Interactive graphs for weekly trends, customer retention, and category performance.
-- **🛡️ Customer Risk Profiling:** Automatically analyzes customer payment history to assign a **Risk Badge** (High, Medium, Low, Safe). Helps you decide whether to offer credit to a customer.
-- **🔐 Secured Analytics:** The Business Insights section is protected by a 4-digit PIN to keep sensitive financial data safe.
-- **👥 Customer Management:** Maintain a detailed directory of customers, view their complete sales history, risk status, and manage their due payments.
+- **🪄 Magic Paste (AI):** Instantly convert text orders (from WhatsApp/SMS) into structured Sales or Purchase items using AI processing.
+- **🎨 Invoice Designer:** Design professional invoices with a real-time visual editor. Customize layouts, colors, fonts, and content to match your brand. Supports:
+    - **Absolute Positioning:** Fine-tune logo and QR code placement.
+    - **Dual Formats:** A4 and Thermal Receipt formats with live preview.
+    - **Custom Fonts:** Upload your own TTF/OTF fonts.
+- **🚀 System Optimizer:** A dedicated tool to maintain app performance.
+    - **Image Compression:** Automatically compresses large product images to save storage.
+    - **Performance Mode:** Reduces visual effects for low-end devices.
+    - **Database Maintenance:** Cleans up old logs and notifications.
+- **👥 Customer Management:** Maintain a detailed directory of customers, view their complete sales history, risk status (High/Medium/Safe), and manage their due payments.
 - **🛒 Sales Management:** Create new sales invoices, add products by searching or scanning QR codes, apply discounts, and record payments.
-- **🎨 Invoice Designer:** Design professional invoices with a real-time visual editor. Customize layouts, colors, fonts, and content to match your brand. Supports both A4 and Thermal Receipt formats with live preview.
-- **🧾 PDF Invoice Generation:** Automatically generate and share invoices (A4 or Thermal) via the native device sharing options (e.g., WhatsApp, Email).
 - **📦 Purchase & Supplier Management:** Track purchases from suppliers, manage supplier information, and record payments made to them.
-- **👔 Product & Inventory Control:** Manage a complete product catalog. Stock is automatically updated with every sale, purchase, and return. Manual stock adjustments are also supported.
+- **👔 Product & Inventory Control:** Manage a complete product catalog. Stock is automatically updated with every sale, purchase, and return. Includes bulk barcode printing.
 - **🔄 Returns Processing:** Handle both customer returns (crediting their account and adding stock back) and returns to suppliers (reducing stock and creating a credit).
-- **📈 Dues Reporting:** Generate and export a filterable list of customer dues by area and date range. Export options include PDF and CSV for easy collection tracking.
-- **🔒 Data Backup & Restore:** Since all data is stored locally on the device, a robust backup (download JSON) and restore (upload JSON) system ensures data safety and portability. Also supports **Google Drive Sync** for cloud backups.
+- **📈 Comprehensive Reports:** Generate and export reports for Dues, Sales, and Low Stock. Export options include PDF, CSV, and **Google Sheets**.
+- **🔒 Data Backup & Restore:** Since all data is stored locally on the device, a robust backup (download JSON) and restore (upload JSON) system ensures data safety. Also supports **Google Drive Sync** for cloud backups.
+- **⚙️ Customization:** Fully customizable UI themes (Colors, Gradients), Button Styles, and Navigation Menu ordering.
 - **🌐 Offline First (PWA):** Built as a Progressive Web App, it can be "installed" on a device's home screen and works seamlessly offline.
-- **📷 QR Code Scanning:** Utilize the device camera to quickly scan product QR codes when creating sales or purchase orders.
 
 ## 🛠️ Tech Stack
 
 - **Frontend:** React, TypeScript
 - **Styling:** Tailwind CSS
-- **State Management:** React Context API with `useReducer` for centralized and predictable state logic.
-- **Local Storage:** Browser `localStorage` for all data persistence, enabling offline functionality.
-- **PWA Capabilities:** Service Workers (`sw.js`) for caching and offline access, along with a `manifest.json`.
-- **Icons:** [Lucide React](https://lucide.dev/) for clean and consistent icons.
-- **PDF Generation:** [jsPDF](https://github.com/parallax/jsPDF) & [jspdf-autotable](https://github.com/simonbengtsson/jsPDF-AutoTable)
-- **QR Code Scanning:** [html5-qrcode](https://github.com/mebjas/html5-qrcode)
+- **State Management:** React Context API with `useReducer` for centralized logic.
+- **Local Storage:** Browser `localStorage` & `IndexedDB` for robust data persistence.
+- **PWA Capabilities:** Service Workers (`sw.js`) for caching and offline access.
+- **Icons:** [Lucide React](https://lucide.dev/) for consistent UI.
+- **PDF Generation:** [jsPDF](https://github.com/parallax/jsPDF) & [jspdf-autotable](https://github.com/simonbengtsson/jsPDF-AutoTable).
+- **AI Integration:** Google Gemini API for insights and text parsing.
 
 ## 📁 Project Structure
 
@@ -48,7 +53,8 @@ The project is organized into a modular and scalable structure:
 ├── src/
 │   ├── components/         # Reusable UI components (Card, Button, Charts)
 │   ├── context/            # Global state management (AppContext.tsx)
-│   ├── pages/              # Main feature pages (Dashboard, Sales, Customers, Insights, etc.)
+│   ├── pages/              # Main feature pages (Dashboard, Sales, Invoice Designer, etc.)
+│   ├── utils/              # Helper functions (PDF generation, Drive Sync, Analytics)
 │   ├── App.tsx             # Main app component with navigation logic
 │   ├── index.tsx           # Application entry point
 │   ├── types.ts            # Centralized TypeScript type definitions
@@ -60,17 +66,16 @@ The project is organized into a modular and scalable structure:
 ## 🚀 Core Functionality Deep Dive
 
 ### Data Persistence
+The application uses a "Local First" architecture. Critical data (Sales, Products) is stored in **IndexedDB** for high capacity, while settings use **LocalStorage**. This ensures instant load times and full offline capability.
 
-The application is architected to be fully client-side. All data—customers, sales, products, etc.—is stored in the browser's `localStorage` as a single JSON object. This approach ensures that the app is fast and works perfectly offline.
+### Cloud Sync
+Users can sign in with Google to sync their database to a private folder (`BusinessManager_AppData`) in their Google Drive. The sync uses a "Read-Merge-Write" strategy to prevent data loss when switching devices.
 
-**⚠️ Important:** Because data is stored only on the user's device, the **Backup & Restore** feature is critical. Users should be encouraged to back up their data regularly via JSON download or Google Drive Sync.
+### AI Features
+- **Smart Analyst:** Analyzes transaction history to provide executive summaries.
+- **Magic Paste:** Uses LLMs to parse unstructured text into structured order data.
+- **Risk Profiling:** Heuristic analysis of customer payment patterns.
 
-### State Management
-
-A global state is managed using React's `useReducer` and `useContext` hooks.
-- **`AppContext.tsx`**: This file defines the entire data schema (`AppState`), all possible state mutations (`Action`), and the main reducer logic (`appReducer`).
-- **`useAppContext`**: A custom hook that provides easy access to the global `state` and `dispatch` function throughout the component tree, eliminating the need for prop drilling.
-
-### Unsaved Changes Protection
-
-To prevent users from accidentally losing data, the app tracks "dirty" forms. If a user tries to navigate to another page or close the tab with unsaved changes in a form, a confirmation prompt will appear, asking them to confirm the action. This is achieved using a combination of React state and the `beforeunload` browser event.
+### Security
+- **PIN Protection:** Sensitive analytics and developer tools can be locked behind a 4-digit PIN.
+- **Local Data:** Data never leaves the device unless the user explicitly initiates a Cloud Backup or Export.

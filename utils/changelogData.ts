@@ -14,7 +14,8 @@ export const releases: Release[] = [
         date: new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' }),
         features: [
             '🎨 Improved Invoice Designer with precise positioning controls.',
-            '🔧 Fixed issue with QR code and Logo absolute position adjustments.'
+            '🔧 Fixed issue with QR code and Logo absolute position adjustments.',
+            '✨ Added absolute positioning customization for Logo.'
         ],
         fixes: [
             'Resolved state update conflict in nudge controls.'
