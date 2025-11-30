@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 
 interface BeforeInstallPromptEvent extends Event {
@@ -9,11 +8,21 @@ interface BeforeInstallPromptEvent extends Event {
 export const usePWAInstall = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
 
   useEffect(() => {
+    // Detect iOS
+    const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    setIsIOS(iOS);
+
     // Check if already in standalone mode
     if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) {
       setIsInstalled(true);
+    }
+
+    // Check if the event was already captured by index.html script
+    if ((window as any).deferredPrompt) {
+      setDeferredPrompt((window as any).deferredPrompt);
     }
 
     const handler = (e: Event) => {
@@ -21,6 +30,8 @@ export const usePWAInstall = () => {
       e.preventDefault();
       // Stash the event so it can be triggered later.
       setDeferredPrompt(e as BeforeInstallPromptEvent);
+      // Update global var just in case
+      (window as any).deferredPrompt = e;
     };
 
     window.addEventListener('beforeinstallprompt', handler);
@@ -28,6 +39,7 @@ export const usePWAInstall = () => {
     window.addEventListener('appinstalled', () => {
       setIsInstalled(true);
       setDeferredPrompt(null);
+      (window as any).deferredPrompt = null;
     });
 
     return () => {
@@ -46,17 +58,17 @@ export const usePWAInstall = () => {
     
     if (outcome === 'accepted') {
       console.log('User accepted the install prompt');
+      setDeferredPrompt(null);
+      (window as any).deferredPrompt = null;
     } else {
       console.log('User dismissed the install prompt');
     }
-    
-    // We've used the prompt, and can't use it again, throw it away
-    setDeferredPrompt(null);
   };
 
   return { 
     isInstallable: !!deferredPrompt && !isInstalled, 
     isInstalled, 
-    install 
+    install,
+    isIOS
   };
 };

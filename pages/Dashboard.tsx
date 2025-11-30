@@ -1,6 +1,5 @@
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { IndianRupee, User, AlertTriangle, Download, Upload, ShoppingCart, Package, XCircle, CheckCircle, Info, ShieldCheck, ShieldX, Archive, PackageCheck, TestTube2, Sparkles, TrendingUp, ArrowRight, Zap, BrainCircuit, TrendingDown, Wallet, CalendarClock, Tag, Undo2, Crown, Calendar, Receipt, MessageCircle, Clock, History, PenTool, FileText, Loader2, RotateCw } from 'lucide-react';
+import { IndianRupee, User, AlertTriangle, Download, Upload, ShoppingCart, Package, XCircle, CheckCircle, Info, ShieldCheck, ShieldX, Archive, PackageCheck, TestTube2, Sparkles, TrendingUp, ArrowRight, Zap, BrainCircuit, TrendingDown, Wallet, CalendarClock, Tag, Undo2, Crown, Calendar, Receipt, MessageCircle, Clock, History, PenTool, FileText, Loader2, RotateCw, Share } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import * as db from '../utils/db';
 import Card from '../components/Card';
@@ -590,7 +589,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
     const { state, dispatch, showToast } = useAppContext();
     const { customers, sales, purchases, products, app_metadata, suppliers, returns, profile, expenses } = state;
     const { showConfirm, showAlert } = useDialog();
-    const { isInstallable, install } = usePWAInstall();
+    const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
     
     const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
     const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth().toString());
@@ -810,8 +809,8 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                 </div>
             </div>
 
-            {/* Install Prompt Banner - If Installable */}
-            {isInstallable && (
+            {/* Install Prompt Banner - If Installable OR iOS (not installed) */}
+            {(isInstallable || (isIOS && !isInstalled)) && (
                 <div className="bg-gradient-to-r from-indigo-500 to-blue-600 text-white rounded-xl p-4 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-3 animate-slide-down-fade mb-4">
                     <div className="flex items-center gap-3">
                         <div className="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
@@ -822,12 +821,18 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                             <p className="text-xs opacity-90">Get the best experience with full screen & faster loading.</p>
                         </div>
                     </div>
-                    <button 
-                        onClick={install} 
-                        className="bg-white text-indigo-600 px-4 py-2 rounded-lg font-bold text-sm shadow hover:bg-gray-100 transition-colors whitespace-nowrap w-full sm:w-auto"
-                    >
-                        Install Now
-                    </button>
+                    {isIOS ? (
+                        <div className="flex items-center gap-2 bg-white/20 px-3 py-1.5 rounded-lg backdrop-blur-sm">
+                            <p className="text-xs font-bold text-white">Tap <Share size={12} className="inline mx-1"/> then "Add to Home Screen"</p>
+                        </div>
+                    ) : (
+                        <button 
+                            onClick={install} 
+                            className="bg-white text-indigo-600 px-4 py-2 rounded-lg font-bold text-sm shadow hover:bg-gray-100 transition-colors whitespace-nowrap w-full sm:w-auto"
+                        >
+                            Install Now
+                        </button>
+                    )}
                 </div>
             )}
             

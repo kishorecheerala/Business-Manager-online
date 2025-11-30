@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -9,7 +8,19 @@
     <title>Business Manager</title>
 
     <link rel="icon" type="image/svg+xml" href="./vite.svg" />
+    <link rel="manifest" href="./manifest.json" />
     
+    <script>
+      // Capture PWA install prompt early to prevent missing it before React loads
+      window.deferredPrompt = null;
+      window.addEventListener('beforeinstallprompt', (e) => {
+        // Prevent the mini-infobar from appearing on mobile
+        e.preventDefault();
+        // Stash the event so it can be triggered later.
+        window.deferredPrompt = e;
+      });
+    </script>
+
     <script>
       // IMMEDIATE THEME & COLOR SETUP
       (function() {

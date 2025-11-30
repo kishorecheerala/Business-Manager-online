@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v1-2025-01-30';
+const CACHE_VERSION = 'v1-2025-01-30-2';
 const CACHE_NAME = `business-manager-${CACHE_VERSION}`;
 const STATIC_ASSETS = ['/', '/index.html', '/manifest.json', '/vite.svg'];
 
