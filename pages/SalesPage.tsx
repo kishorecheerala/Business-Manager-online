@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Plus, Trash2, Share2, Search, X, IndianRupee, QrCode, Save, Edit } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -742,35 +743,6 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
 
             <Card title="Transaction Details">
                 <div className="space-y-6">
-                    {/* Receipt Format Selection */}
-                    <div className="bg-gray-50 dark:bg-slate-700/50 p-3 rounded-lg border dark:border-slate-600">
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Receipt Format</label>
-                        <div className="flex gap-4">
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input 
-                                    type="radio" 
-                                    name="receiptFormat" 
-                                    value="thermal" 
-                                    checked={receiptFormat === 'thermal'} 
-                                    onChange={() => setReceiptFormat('thermal')}
-                                    className="w-4 h-4 text-primary border-gray-300 focus:ring-primary"
-                                />
-                                <span className="text-sm text-gray-700 dark:text-gray-200">Thermal Receipt (80mm)</span>
-                            </label>
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input 
-                                    type="radio" 
-                                    name="receiptFormat" 
-                                    value="a4" 
-                                    checked={receiptFormat === 'a4'} 
-                                    onChange={() => setReceiptFormat('a4')}
-                                    className="w-4 h-4 text-primary border-gray-300 focus:ring-primary"
-                                />
-                                <span className="text-sm text-gray-700 dark:text-gray-200">A4 Invoice</span>
-                            </label>
-                        </div>
-                    </div>
-
                     {/* Section 1: Calculation Details */}
                     <div className="space-y-3">
                         <div className="flex justify-between items-center text-gray-700 dark:text-gray-300">
@@ -820,6 +792,35 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                             <p className="text-sm text-gray-600 dark:text-gray-400">Payments for this invoice must be managed from the customer's details page.</p>
                         </div>
                     )}
+
+                    {/* Receipt Format Selection */}
+                    <div className="bg-gray-50 dark:bg-slate-700/50 p-3 rounded-lg border dark:border-slate-600">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Receipt Format (Share/Download)</label>
+                        <div className="flex gap-4">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input 
+                                    type="radio" 
+                                    name="receiptFormat" 
+                                    value="thermal" 
+                                    checked={receiptFormat === 'thermal'} 
+                                    onChange={() => setReceiptFormat('thermal')}
+                                    className="w-4 h-4 text-primary border-gray-300 focus:ring-primary"
+                                />
+                                <span className="text-sm text-gray-700 dark:text-gray-200">Thermal Receipt (80mm)</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input 
+                                    type="radio" 
+                                    name="receiptFormat" 
+                                    value="a4" 
+                                    checked={receiptFormat === 'a4'} 
+                                    onChange={() => setReceiptFormat('a4')}
+                                    className="w-4 h-4 text-primary border-gray-300 focus:ring-primary"
+                                />
+                                <span className="text-sm text-gray-700 dark:text-gray-200">A4 Invoice</span>
+                            </label>
+                        </div>
+                    </div>
                 </div>
             </Card>
             
