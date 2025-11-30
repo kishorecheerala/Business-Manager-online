@@ -3,6 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="referrer" content="no-referrer-when-downgrade" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#2563eb" />
+    <meta name="description" content="Offline-first PWA for managing sales, purchases, and customer dues" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Business Manager" />
+    <meta name="mobile-web-app-capable" content="yes">
+    
+    <link rel="icon" type="image/svg+xml" href="./vite.svg" />
+    <link rel="apple-touch-icon" href="/icon-192x192.png" />
+    <link rel="manifest" href="/manifest.json" />
+    
+    <title>Business Manager</title>
+
     <script>
       // IMMEDIATE THEME & COLOR SETUP
       (function() {
@@ -55,25 +71,13 @@
               document.documentElement.style.setProperty('--header-bg', 'rgb(' + r + ' ' + g + ' ' + b + ')');
           }
           
-          // Always enforce light theme color meta for browser UI
-          document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#f8fafc');
+          // Always enforce light theme color meta for browser UI override
+          // Note: The specific PWA theme-color meta is set above
         } catch (e) {
           console.error("Theme setup error", e);
         }
       })();
     </script>
-    <link rel="icon" type="image/svg+xml" href="./vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Business Manager</title>
-    <meta name="application-name" content="Business Manager">
-    <meta name="apple-mobile-web-app-title" content="Business Manager">
-    
-    <!-- PWA additions with relative paths -->
-    <link rel="manifest" href="./manifest.json" />
-    <meta name="theme-color" content="#f8fafc">
-    <link rel="apple-touch-icon" href="./vite.svg">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="mobile-web-app-capable" content="yes">
 
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
@@ -222,23 +226,26 @@
       }
     </script>
     <script type="importmap">
-    {
-      "imports": {
-        "lucide-react": "https://aistudiocdn.com/lucide-react@^0.553.0",
-        "react/": "https://aistudiocdn.com/react@^19.2.0/",
-        "react": "https://aistudiocdn.com/react@^19.2.0",
-        "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-        "jspdf": "https://aistudiocdn.com/jspdf@^2.5.1",
-        "jspdf-autotable": "https://aistudiocdn.com/jspdf-autotable@^3.8.2",
-        "html5-qrcode": "https://aistudiocdn.com/html5-qrcode@^2.3.8",
-        "idb": "https://aistudiocdn.com/idb@^8.0.0",
-        "jsbarcode": "https://aistudiocdn.com/jsbarcode@^3.12.1",
-        "react-dom": "https://aistudiocdn.com/react-dom@^19.2.0",
-        "@google/genai": "https://esm.run/@google/genai",
-        "pdfjs-dist": "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/+esm"
-      }
-    }
-    </script>
+{
+  "imports": {
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.553.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "jspdf": "https://aistudiocdn.com/jspdf@^2.5.1",
+    "jspdf-autotable": "https://aistudiocdn.com/jspdf-autotable@^3.8.2",
+    "html5-qrcode": "https://aistudiocdn.com/html5-qrcode@^2.3.8",
+    "idb": "https://aistudiocdn.com/idb@^8.0.0",
+    "jsbarcode": "https://aistudiocdn.com/jsbarcode@^3.12.1",
+    "react-dom": "https://aistudiocdn.com/react-dom@^19.2.0",
+    "@google/genai": "https://esm.run/@google/genai",
+    "pdfjs-dist": "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/+esm",
+    "vite": "https://aistudiocdn.com/vite@^7.2.4",
+    "vite-plugin-pwa": "https://aistudiocdn.com/vite-plugin-pwa@^1.2.0",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1"
+  }
+}
+</script>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     
     <!-- Drag and Drop Polyfill for Mobile -->

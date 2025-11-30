@@ -5,44 +5,70 @@ import App from './App';
 import ErrorBoundary from './components/ErrorBoundary';
 import { BeforeInstallPromptEvent } from './types';
 
-// --- PWA Install Prompt Handling ---
-// We capture the event outside of React's lifecycle to ensure it's not missed.
-window.addEventListener('beforeinstallprompt', (e) => {
-  // Prevent the default mini-infobar from appearing on mobile
-  e.preventDefault();
-  // Stash the event so it can be triggered later by the React app.
-  (window as any).deferredInstallPrompt = e as BeforeInstallPromptEvent;
-  console.log("PWA install prompt captured");
-  
-  // Dispatch a custom event to notify React components that installation is available
-  window.dispatchEvent(new Event('pwa-install-available'));
-});
-// --- End PWA Handling ---
-
-
-// Register Service Worker for PWA
-const registerServiceWorker = () => {
+// Service Worker Registration Logic
+const registerServiceWorker = async () => {
   if ('serviceWorker' in navigator) {
     try {
-        // Use relative path for SW to be subdirectory friendly
-        const swUrl = './sw.js';
-        
-        navigator.serviceWorker.register(swUrl).then(registration => {
-          console.log('ServiceWorker registration successful with scope: ', registration.scope);
-        }).catch(error => {
-           console.warn('ServiceWorker registration failed:', error);
-        });
-    } catch (e) {
-        console.error("SW Setup Error:", e);
+      // Use relative path './sw.js' to respect base paths and potentially avoid some origin issues
+      const registration = await navigator.serviceWorker.register('./sw.js', {
+        scope: '/',
+        updateViaCache: 'none',
+      });
+      console.log('✅ Service Worker registered:', registration);
+      
+      // Periodically update the SW
+      setInterval(() => registration.update(), 60 * 60 * 1000);
+      
+      registration.addEventListener('updatefound', () => {
+        const newWorker = registration.installing;
+        if (newWorker) {
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              console.log('🔄 New SW available');
+              window.dispatchEvent(new CustomEvent('sw-update-available'));
+            }
+          });
+        }
+      });
+    } catch (error: any) {
+      // Gracefully handle origin mismatch errors common in cloud preview environments
+      if (error.message && (error.message.includes('origin') || error.message.includes('scriptURL'))) {
+        console.warn('⚠️ Service Worker registration skipped: Origin mismatch. This is normal in cloud preview environments serving assets from a CDN.');
+      } else {
+        console.error('❌ SW registration failed:', error);
+      }
     }
   }
+};
+
+// PWA Capability Registration
+const registerPWACapability = () => {
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault(); // Prevent default mini-infobar
+    console.log('✅ Install prompt available');
+    
+    // Store event for App.tsx usage (using property expected by App.tsx)
+    (window as any).deferredInstallPrompt = e as BeforeInstallPromptEvent;
+    
+    // Dispatch event to notify React components
+    window.dispatchEvent(new Event('pwa-install-available'));
+  });
+
+  window.addEventListener('appinstalled', () => {
+    console.log('✅ PWA installed');
+    (window as any).deferredInstallPrompt = null;
+  });
 };
 
 // Check if the page is already loaded before attaching listener
 if (document.readyState === 'complete') {
   registerServiceWorker();
+  registerPWACapability();
 } else {
-  window.addEventListener('load', registerServiceWorker);
+  window.addEventListener('load', () => {
+    registerServiceWorker();
+    registerPWACapability();
+  });
 }
 
 const rootElement = document.getElementById('root');

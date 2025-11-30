@@ -18,7 +18,10 @@
     "idb": "^8.0.0",
     "jsbarcode": "^3.12.1",
     "@google/genai": "latest",
-    "pdfjs-dist": "3.11.174"
+    "pdfjs-dist": "3.11.174",
+    "vite": "^7.2.4",
+    "vite-plugin-pwa": "^1.2.0",
+    "@vitejs/plugin-react": "^5.1.1"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
