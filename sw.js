@@ -1,75 +1,69 @@
-
-const CACHE_NAME = 'business-manager-v5';
-const urlsToCache = [
-  './',
+const CACHE_NAME = 'business-manager-cache-v7'; // Bump version to force update
+const URLS_TO_CACHE = [
   './index.html',
   './manifest.json',
-  './vite.svg',
+  './vite.svg'
 ];
 
-self.addEventListener('install', event => {
+// On install, cache the app shell
+self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      return cache.addAll(urlsToCache).catch(err => {
-        console.warn('Cache addAll error:', err);
-      });
-    })
+    caches.open(CACHE_NAME)
+      .then((cache) => {
+        console.log('SW: Caching app shell');
+        return cache.addAll(URLS_TO_CACHE);
+      })
+      .then(() => self.skipWaiting()) // Activate new SW immediately
   );
-  self.skipWaiting();
 });
 
-self.addEventListener('activate', event => {
+// On activate, clean up old caches to save space
+self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then(cacheNames => {
+    caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames
-          .filter(cacheName => cacheName !== CACHE_NAME)
-          .map(cacheName => caches.delete(cacheName))
+          .filter(name => name !== CACHE_NAME)
+          .map(name => caches.delete(name))
       );
-    })
+    }).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
-self.addEventListener('fetch', event => {
-  // Skip non-GET requests
-  if (event.request.method !== 'GET') {
-    return;
-  }
+// On fetch, use a robust cache-first strategy
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
 
-  const url = new URL(event.request.url);
-
-  // Strategy: Network first for navigation (HTML), Cache first for assets
-  if (event.request.mode === 'navigate') {
+  // For navigation requests (loading the app), always serve index.html from cache first.
+  // This is the most important part for the installability check.
+  if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request)
-        .catch(() => {
-          return caches.match('./index.html') || caches.match('./');
-        })
+      caches.open(CACHE_NAME)
+        .then(cache => cache.match('./index.html'))
+        .then(response => response || fetch('./index.html')) // Fallback to network
     );
     return;
   }
-
+  
+  // For other requests (CDN scripts, fonts, etc.), try cache then network.
+  // This ensures that even if the CDN is down, the app might still work if assets are cached.
   event.respondWith(
-    caches.match(event.request).then(response => {
-      if (response) {
-        return response;
+    caches.match(request).then(cachedResponse => {
+      // If we have it in cache, return it
+      if (cachedResponse) {
+        return cachedResponse;
       }
-
-      return fetch(event.request).then(response => {
-        if (!response || response.status !== 200 || response.type !== 'basic') {
-          return response;
+      
+      // Otherwise, go to network and cache the response for next time
+      return fetch(request).then(networkResponse => {
+        // Check if we received a valid response and it's from a safe source (to avoid caching errors)
+        if (networkResponse && networkResponse.status === 200 && request.method === 'GET' && (request.url.startsWith(self.location.origin) || request.url.includes('aistudiocdn.com'))) {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then(cache => {
+            cache.put(request, responseToCache);
+          });
         }
-
-        // Cache successful GET requests for same-origin resources
-        if (url.origin === self.location.origin) {
-            const responseToCache = response.clone();
-            caches.open(CACHE_NAME).then(cache => {
-              cache.put(event.request, responseToCache);
-            });
-        }
-
-        return response;
+        return networkResponse;
       });
     })
   );

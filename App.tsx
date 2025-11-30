@@ -238,9 +238,10 @@ const AppContent: React.FC = () => {
         }
 
         // 5. Dynamic App Icon (Favicon)
+        // Updated to use Theme Color as Background, White as Text
         const updateFavicon = () => {
-            const bg = state.theme === 'dark' ? '#0f172a' : '#f8fafc';
-            const fill = state.themeColor;
+            const bg = state.themeColor;
+            const fill = '#ffffff'; 
             const svgString = `
                 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <rect width="512" height="512" rx="96" fill="${bg}"/>
