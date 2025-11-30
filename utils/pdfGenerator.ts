@@ -1,4 +1,3 @@
-
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Sale, Customer, ProfileData, InvoiceTemplateConfig, CustomFont, Quote, Return, Supplier } from '../types';
@@ -119,7 +118,7 @@ export const generateThermalInvoicePDF = async (sale: Sale, customer: Customer, 
 
     let qrCodeBase64: string | null = null;
     const showQr = templateConfig?.content.showQr ?? true;
-    const showWords = templateConfig?.content.showAmountInWords ?? true;
+    const primaryColor = templateConfig?.colors.primary || '#0d9488'; // Use config color or default teal
 
     if (showQr) {
          qrCodeBase64 = await getQrCodeBase64(sale.id);
@@ -132,7 +131,7 @@ export const generateThermalInvoicePDF = async (sale: Sale, customer: Customer, 
         // 1. Header (Business Name)
         doc.setFont('times', 'bold');
         doc.setFontSize(18);
-        doc.setTextColor('#0d9488'); // Teal color from screenshot
+        doc.setTextColor(primaryColor);
         doc.text(profile?.name || 'Business Name', centerX, y, { align: 'center' });
         y += 6;
 
@@ -186,15 +185,8 @@ export const generateThermalInvoicePDF = async (sale: Sale, customer: Customer, 
         y += 5;
 
         // 5. Items Header (Simplified)
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
-        doc.text('Item', margin, y);
-        doc.text('Total', widthFull - margin, y, { align: 'right' });
-        y += 2;
-        doc.setDrawColor('#cccccc');
-        doc.line(margin, y, widthFull - margin, y);
-        y += 4;
-
+        // No heavy background header, just text
+        
         // 6. Items Loop
         doc.setFont('helvetica', 'normal');
         sale.items.forEach(item => {
@@ -904,30 +896,9 @@ export const generateA4InvoicePdf = async (sale: Sale, customer: Customer, profi
 
 // Configurable Receipt Generation
 export const generateReceiptPDF = async (sale: Sale, customer: Customer, profile: ProfileData | null, templateConfig: InvoiceTemplateConfig, customFonts?: CustomFont[]) => {
-    // UPDATED: Use custom 4-inch paper (112mm) width, variable height
-    const config = templateConfig;
-    const labels = { ...defaultLabels, ...config.content.labels };
-    const currency = config.currencySymbol || 'Rs.';
-    
-    const subTotal = sale.items.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
-    const paidAmount = (sale.payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
-    const dueAmount = Number(sale.totalAmount) - paidAmount;
-    
-    const totals: GenericDocumentData['totals'] = [
-        { label: labels.subtotal, value: formatCurrency(subTotal, currency, config.fonts.bodyFont) },
-        { label: labels.grandTotal, value: formatCurrency(Number(sale.totalAmount), currency, config.fonts.bodyFont), isBold: true, size: config.fonts.bodySize + 2 },
-    ];
-
-    const data: GenericDocumentData = {
-        id: sale.id, date: sale.date,
-        recipient: { label: labels.billedTo, name: customer.name, address: customer.address },
-        sender: { label: 'Receipt:', idLabel: labels.invoiceNo },
-        items: sale.items.map(item => ({ name: item.productName, quantity: item.quantity, rate: Number(item.price), amount: Number(item.quantity) * Number(item.price) })),
-        totals, qrString: sale.id, grandTotalNumeric: Number(sale.totalAmount), balanceDue: dueAmount
-    };
-    
-    // Receipt dimensions: 112mm width, auto height approximated by long page
-    return _generateConfigurablePDF(data, profile, config, customFonts, [112, 297]); 
+    // Redirect to the specialized thermal invoice generator to ensure consistency between Sales Page and Invoice Designer
+    // Using the same 80mm layout that is used in Sales Page
+    return generateThermalInvoicePDF(sale, customer, profile, templateConfig, customFonts);
 };
 
 export const generateEstimatePDF = async (quote: Quote, customer: Customer, profile: ProfileData | null, templateConfig: InvoiceTemplateConfig, customFonts?: CustomFont[]) => {
