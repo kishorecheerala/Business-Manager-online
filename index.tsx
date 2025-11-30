@@ -17,8 +17,8 @@ if ('serviceWorker' in navigator) {
         try {
             // Register the Service Worker with a scope that matches manifest.json
             navigator.serviceWorker
-                .register('./sw.js', {
-                    scope: './',
+                .register('/sw.js', {
+                    scope: '/',
                     updateViaCache: 'none'
                 })
                 .then(reg => {
