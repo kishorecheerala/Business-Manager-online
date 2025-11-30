@@ -238,7 +238,7 @@ const AppContent: React.FC = () => {
         }
 
         // 5. Dynamic App Icon (Favicon)
-        // Updated to use Theme Color as Background, White as Text
+        // Updated to use Theme Color as Background, White as Text, Om Symbol
         const updateFavicon = () => {
             const bg = state.themeColor;
             const fill = '#ffffff'; 

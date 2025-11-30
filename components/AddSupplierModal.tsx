@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Supplier } from '../types';
 import Button from './Button';
@@ -25,7 +24,8 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ isOpen, onClose, on
     useEffect(() => {
         if (isOpen || inline) {
             if (initialData) {
-                setFormData(initialData);
+                // Merge initialData with default state to ensure all fields exist (since Supplier type has optional fields)
+                setFormData({ ...defaultSupplierState, ...initialData });
             } else {
                 setFormData(defaultSupplierState);
             }

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Save, RotateCcw, Type, Layout, Palette, FileText, Edit3, ChevronDown, Upload, Trash2, Wand2, Grid, QrCode, Printer, Eye, ArrowLeft, CheckSquare, Square, Type as TypeIcon, AlignLeft, AlignCenter, AlignRight, Move, GripVertical, Layers, ArrowUp, ArrowDown, Table, Monitor, Loader2, ZoomIn, ZoomOut, ExternalLink, Columns, Download, FileJson, Image as ImageIcon, Plus, Landmark, Calendar, Coins, Zap, RotateCw, MoveHorizontal, MoveVertical, ArrowRight as ArrowRightIcon, Circle } from 'lucide-react';
+import { Save, RotateCcw, RotateCw, Type, Layout, Palette, FileText, Edit3, ChevronDown, Upload, Trash2, Wand2, Grid, QrCode, Printer, Eye, ArrowLeft, CheckSquare, Square, Type as TypeIcon, AlignLeft, AlignCenter, AlignRight, Move, GripVertical, Layers, ArrowUp, ArrowDown, Table, Monitor, Loader2, ZoomIn, ZoomOut, ExternalLink, Columns, Download, FileJson, Image as ImageIcon, Plus, Landmark, Calendar, Coins, Zap, MoveHorizontal, MoveVertical, ArrowRight as ArrowRightIcon, Circle } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { InvoiceTemplateConfig, DocumentType, InvoiceLabels, CustomFont, ProfileData, Page } from '../types';
 import Button from '../components/Button';
@@ -15,7 +15,7 @@ const pdfjs = (pdfjsLib as any).default || pdfjsLib;
 
 // Setup PDF.js worker
 if (pdfjs.GlobalWorkerOptions) {
-    pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
+    pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.449/build/pdf.worker.mjs`;
 }
 
 // --- Dummy Data for Previews ---
@@ -226,18 +226,12 @@ const PDFCanvasPreview: React.FC<{
                 let scale = 1.0;
                 
                 if (docType === 'RECEIPT') {
-                    // Receipt Logic: It's narrow (80mm). 
-                    // Calculate scale to fill about 40-50% of the screen width max, or fill mobile width.
-                    // 80mm is approx 227 points.
                     const desiredPreviewWidth = Math.min(containerWidth - 40, 380); 
                     scale = desiredPreviewWidth / baseViewport.width;
                 } else {
-                    // Standard Documents (A4)
-                    // Scale to fit container with padding
                     scale = (containerWidth - 40) / baseViewport.width;
                 }
 
-                // In Draft Mode, render at lower resolution
                 const finalScale = isDraftMode ? scale * 0.8 : scale * zoomLevel;
                 const viewport = page.getViewport({ scale: finalScale });
 
@@ -308,12 +302,12 @@ const PDFCanvasPreview: React.FC<{
     );
 };
 
-// --- Main Editor Component ---
 interface InvoiceDesignerProps {
     setIsDirty: (isDirty: boolean) => void;
     setCurrentPage: (page: Page) => void;
 }
 
+// --- Main Editor Component ---
 const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurrentPage }) => {
     const { state, dispatch, showToast } = useAppContext();
     
@@ -415,8 +409,6 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
         if (type === 'RECEIPT') {
             if (config.layout.margin > 5) config.layout.margin = 2;
             if (config.layout.logoSize > 20) config.layout.logoSize = 15;
-            // Force amount in words default true for receipts if undefined
-            if (config.content.showAmountInWords === undefined) config.content.showAmountInWords = true;
         }
 
         return config;
@@ -492,7 +484,7 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
     };
 
     const handleLabelsChange = (key: string, value: string) => {
-        const current = configRef.current;
+        const current = configRef.current as InvoiceTemplateConfig;
         const newConfig = {
             ...current,
             content: {
@@ -502,7 +494,7 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
                     [key]: value
                 }
             }
-        };
+        } as ExtendedLayoutConfig;
         configRef.current = newConfig;
         pushToHistory(newConfig);
     };
@@ -577,14 +569,14 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
                 layoutUpdate.paperSize = undefined; // Force custom size calc
             }
 
-            const current = configRef.current;
+            const current = configRef.current as InvoiceTemplateConfig;
             const newConfig = {
                 ...current,
                 colors: { ...current.colors, ...preset.colors },
                 fonts: { ...current.fonts, ...preset.fonts },
-                layout: { ...current.layout, ...layoutUpdate },
+                layout: { ...(current as ExtendedLayoutConfig).layout, ...layoutUpdate },
                 content: { ...current.content, ...preset.content }
-            };
+            } as ExtendedLayoutConfig;
             configRef.current = newConfig;
             pushToHistory(newConfig);
         }
@@ -760,7 +752,7 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
                 initialColor={activeColorKey ? localConfig.colors[activeColorKey] : '#000000'}
                 onChange={(color) => {
                     if (activeColorKey) {
-                        handleConfigChange('colors', activeColorKey, color);
+                        handleConfigChange('colors', activeColorKey as string, color);
                     }
                 }}
             />

@@ -1,8 +1,8 @@
 import React from 'react';
-import { Bell, ShieldAlert } from 'lucide-react';
+import { Bell, ShieldAlert, Clock, Archive } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import Button from './Button';
-import { Page } from '../types';
+import { Page, Notification } from '../types';
 
 interface NotificationsPanelProps {
   isOpen: boolean;
@@ -25,10 +25,14 @@ const timeSince = (date: string): string => {
     return "Just now";
 };
 
-const NotificationIcon: React.FC<{ type: 'backup' | 'info' }> = ({ type }) => {
+const NotificationIcon: React.FC<{ type: Notification['type'] }> = ({ type }) => {
     switch (type) {
         case 'backup':
             return <ShieldAlert className="w-5 h-5 text-red-500 flex-shrink-0" />;
+        case 'expiry':
+            return <Clock className="w-5 h-5 text-orange-500 flex-shrink-0" />;
+        case 'stock':
+            return <Archive className="w-5 h-5 text-yellow-500 flex-shrink-0" />;
         default:
             return <Bell className="w-5 h-5 text-primary flex-shrink-0" />;
     }
@@ -47,7 +51,7 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ isOpen, onClose
         });
     };
 
-    const handleNotificationClick = (id: string, type: 'backup' | 'info', actionLink?: Page) => {
+    const handleNotificationClick = (id: string, type: Notification['type'], actionLink?: Page) => {
         // Only mark non-backup notifications as read upon click.
         // The backup notification is cleared automatically when a backup is performed.
         if (type !== 'backup') {
