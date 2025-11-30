@@ -6,13 +6,16 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { BeforeInstallPromptEvent } from './types';
 
 // --- PWA Install Prompt Handling ---
-// We capture the event outside of React's lifecycle to ensure it's not missed,
-// especially with React.StrictMode's double-invocation behavior in development.
+// We capture the event outside of React's lifecycle to ensure it's not missed.
 window.addEventListener('beforeinstallprompt', (e) => {
   // Prevent the default mini-infobar from appearing on mobile
   e.preventDefault();
   // Stash the event so it can be triggered later by the React app.
   (window as any).deferredInstallPrompt = e as BeforeInstallPromptEvent;
+  console.log("PWA install prompt captured");
+  
+  // Dispatch a custom event to notify React components that installation is available
+  window.dispatchEvent(new Event('pwa-install-available'));
 });
 // --- End PWA Handling ---
 
@@ -36,7 +39,6 @@ const registerServiceWorker = () => {
 };
 
 // Check if the page is already loaded before attaching listener
-// This prevents the "invalid state" or missed registration if the script runs late
 if (document.readyState === 'complete') {
   registerServiceWorker();
 } else {

@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'business-manager-cache-v11';
+const CACHE_NAME = 'business-manager-cache-v12';
 
 // The essential files that make up the app's shell.
 // Using relative paths to support subdirectories.

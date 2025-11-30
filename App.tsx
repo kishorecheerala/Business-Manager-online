@@ -132,9 +132,10 @@ const AppContent: React.FC = () => {
 
     // PWA Install Prompt Capture & Install Feedback
     useEffect(() => {
-        const handleInstallPrompt = (e: Event) => {
-            e.preventDefault();
-            dispatch({ type: 'SET_INSTALL_PROMPT_EVENT', payload: e as BeforeInstallPromptEvent });
+        const handleInstallAvailable = () => {
+            if ((window as any).deferredInstallPrompt) {
+                dispatch({ type: 'SET_INSTALL_PROMPT_EVENT', payload: (window as any).deferredInstallPrompt });
+            }
         };
 
         const handleAppInstalled = () => {
@@ -143,16 +144,16 @@ const AppContent: React.FC = () => {
             console.log('PWA was installed');
         };
 
-        window.addEventListener('beforeinstallprompt', handleInstallPrompt);
+        window.addEventListener('pwa-install-available', handleInstallAvailable);
         window.addEventListener('appinstalled', handleAppInstalled);
 
-        // Check if it was already caught by index.tsx before hydration
+        // Check immediately on mount if the event was already stashed
         if ((window as any).deferredInstallPrompt) {
             dispatch({ type: 'SET_INSTALL_PROMPT_EVENT', payload: (window as any).deferredInstallPrompt });
         }
 
         return () => {
-            window.removeEventListener('beforeinstallprompt', handleInstallPrompt);
+            window.removeEventListener('pwa-install-available', handleInstallAvailable);
             window.removeEventListener('appinstalled', handleAppInstalled);
         };
     }, [dispatch, showToast]);
