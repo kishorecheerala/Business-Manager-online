@@ -179,7 +179,7 @@ export const testData: Omit<AppState, 'toast' | 'selection' | 'installPromptEven
         showCustomerDetails: true,
         showSignature: true,
         signatureText: 'Authorized Signatory',
-        showAmountInWords: false,
+        showAmountInWords: true, // Default to true
         showStatusStamp: false,
         labels: {
             billedTo: "Billed To",
@@ -210,7 +210,7 @@ export const testData: Omit<AppState, 'toast' | 'selection' | 'installPromptEven
         margin: 10, logoSize: 25, logoPosition: 'center', logoOffsetX: 0, logoOffsetY: 0, headerAlignment: 'center', headerStyle: 'standard', showWatermark: false, watermarkOpacity: 0.1,
         tableOptions: { hideQty: false, hideRate: false, stripedRows: false }
     },
-    content: { titleText: 'ESTIMATE', showTerms: true, showQr: false, termsText: '', footerText: 'Valid for 7 days.', showBusinessDetails: true, showCustomerDetails: true, showSignature: true }
+    content: { titleText: 'ESTIMATE', showTerms: true, showQr: false, termsText: '', footerText: 'Valid for 7 days.', showBusinessDetails: true, showCustomerDetails: true, showSignature: true, showAmountInWords: true }
   },
   debitNoteTemplate: {
     id: 'debitNoteTemplateConfig',
@@ -222,7 +222,7 @@ export const testData: Omit<AppState, 'toast' | 'selection' | 'installPromptEven
         margin: 10, logoSize: 25, logoPosition: 'center', logoOffsetX: 0, logoOffsetY: 0, headerAlignment: 'center', headerStyle: 'standard', showWatermark: false, watermarkOpacity: 0.1,
         tableOptions: { hideQty: false, hideRate: false, stripedRows: false }
     },
-    content: { titleText: 'DEBIT NOTE', showTerms: false, showQr: false, termsText: '', footerText: '', showBusinessDetails: true, showCustomerDetails: true, showSignature: true }
+    content: { titleText: 'DEBIT NOTE', showTerms: false, showQr: false, termsText: '', footerText: '', showBusinessDetails: true, showCustomerDetails: true, showSignature: true, showAmountInWords: true }
   },
   receiptTemplate: {
     id: 'receiptTemplateConfig',
@@ -234,7 +234,7 @@ export const testData: Omit<AppState, 'toast' | 'selection' | 'installPromptEven
         margin: 2, logoSize: 15, logoPosition: 'center', logoOffsetX: 0, logoOffsetY: 0, headerAlignment: 'center', headerStyle: 'standard', showWatermark: false, watermarkOpacity: 0.1,
         tableOptions: { hideQty: false, hideRate: false, stripedRows: false }
     },
-    content: { titleText: 'RECEIPT', showTerms: true, showQr: true, termsText: '', footerText: 'Thank You!', showBusinessDetails: true, showCustomerDetails: true, showSignature: false }
+    content: { titleText: 'RECEIPT', showTerms: true, showQr: true, termsText: '', footerText: 'Thank You!', showBusinessDetails: true, showCustomerDetails: true, showSignature: false, showAmountInWords: true }
   },
   reportTemplate: {
     id: 'reportTemplateConfig',

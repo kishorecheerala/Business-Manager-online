@@ -1,3 +1,4 @@
+
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Sale, Customer, ProfileData, InvoiceTemplateConfig, CustomFont, Quote, Return, Supplier } from '../types';
@@ -24,11 +25,10 @@ const defaultLabels: any = {
 const registerCustomFonts = (doc: jsPDF, fonts: CustomFont[]) => {
     fonts.forEach(font => {
         try {
-            // Assuming font.data is base64
             const fontData = font.data.split(',')[1] || font.data;
             doc.addFileToVFS(`${font.name}.ttf`, fontData);
             doc.addFont(`${font.name}.ttf`, font.name, 'normal');
-            doc.addFont(`${font.name}.ttf`, font.name, 'bold'); // Fallback
+            doc.addFont(`${font.name}.ttf`, font.name, 'bold');
         } catch(e) {
             console.warn(`Failed to register font ${font.name}`, e);
         }
@@ -39,7 +39,7 @@ const getImageType = (dataUrl: string): string => {
     if (dataUrl.startsWith('data:image/png')) return 'PNG';
     if (dataUrl.startsWith('data:image/jpeg') || dataUrl.startsWith('data:image/jpg')) return 'JPEG';
     if (dataUrl.startsWith('data:image/webp')) return 'WEBP';
-    return 'JPEG'; // Fallback
+    return 'JPEG';
 };
 
 const formatDate = (dateStr: string, format: string = 'DD/MM/YYYY'): string => {
@@ -52,20 +52,15 @@ const formatDate = (dateStr: string, format: string = 'DD/MM/YYYY'): string => {
     
     if (format === 'MM/DD/YYYY') return `${month}/${day}/${year}`;
     if (format === 'YYYY-MM-DD') return `${year}-${month}-${day}`;
-    // Default to DD/MM/YYYY with time for receipts
     return `${day}/${month}/${year}, ${hours}:${minutes}`;
 };
 
 const formatCurrency = (amount: number, symbol: string = 'Rs.', fontName: string = 'helvetica'): string => {
-    // Standard PDF fonts (Helvetica, Times, Courier) usually don't support the Indian Rupee symbol (₹).
-    // If the symbol is '₹' and a standard font is used, fallback to 'Rs.'.
     const standardFonts = ['helvetica', 'times', 'courier'];
     let displaySymbol = symbol;
-    
     if (symbol === '₹' && standardFonts.includes(fontName.toLowerCase())) {
         displaySymbol = 'Rs.';
     }
-    
     return `${displaySymbol} ${amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
 };
 
@@ -81,7 +76,6 @@ const getQrCodeBase64 = async (data: string): Promise<string> => {
             reader.readAsDataURL(blob);
         });
     } catch (e) {
-        console.warn("QR Gen failed", e);
         return '';
     }
 };
@@ -105,32 +99,43 @@ const numberToWords = (n: number): string => {
         str += (n[5] != 0) ? ((str != '') ? 'and ' : '') + (a[Number(n[5])] || b[n[5][0]] + ' ' + a[n[5][1]]) : '';
         return str;
     };
-    return inWords(num) + " Only";
+    return inWords(num).trim() + " Only";
 };
 
 // --- Thermal Receipt Generator (80mm Standard) ---
 export const generateThermalInvoicePDF = async (sale: Sale, customer: Customer, profile: ProfileData | null, templateConfig?: InvoiceTemplateConfig, customFonts?: CustomFont[]) => {
     const currency = 'Rs.';
     const widthFull = 80; 
-    const margin = 4;
+    const margin = 3;
     const pageWidth = widthFull - (margin * 2);
     const centerX = widthFull / 2;
 
     let qrCodeBase64: string | null = null;
     const showQr = templateConfig?.content.showQr ?? true;
-    const primaryColor = templateConfig?.colors.primary || '#0d9488'; // Use config color or default teal
+    const showWords = templateConfig?.content.showAmountInWords ?? true;
+    const primaryColor = templateConfig?.colors.primary || '#0d9488';
 
     if (showQr) {
          qrCodeBase64 = await getQrCodeBase64(sale.id);
     }
 
     const renderContent = (doc: jsPDF) => {
-        let y = 10;
+        let y = 8;
         if (customFonts) registerCustomFonts(doc, customFonts);
 
-        // 1. Header (Business Name)
+        // 1. Logo
+        if (profile?.logo) {
+            try {
+                const logoSize = 18;
+                const logoX = (widthFull - logoSize) / 2;
+                doc.addImage(profile.logo, getImageType(profile.logo), logoX, y, logoSize, logoSize);
+                y += logoSize + 4;
+            } catch(e) { }
+        }
+
+        // 2. Header
         doc.setFont('times', 'bold');
-        doc.setFontSize(18);
+        doc.setFontSize(16);
         doc.setTextColor(primaryColor);
         doc.text(profile?.name || 'Business Name', centerX, y, { align: 'center' });
         y += 6;
@@ -139,28 +144,24 @@ export const generateThermalInvoicePDF = async (sale: Sale, customer: Customer, 
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(9);
 
-        // 2. Invoice Meta & QR Code Layout
+        // 3. Meta & QR
         const startMetaY = y;
         const qrSize = 18;
         
-        // Invoice Details on Left
         doc.text(`Invoice: ${sale.id}`, margin, y);
-        y += 5;
+        y += 4;
         doc.text(`Date: ${formatDate(sale.date)}`, margin, y);
-        y += 5;
+        y += 4;
 
-        // QR Code on Right
         if (qrCodeBase64) {
-            // Align top of QR with top of Invoice text
             try {
-                doc.addImage(qrCodeBase64, 'PNG', widthFull - margin - qrSize, startMetaY - 4, qrSize, qrSize);
+                doc.addImage(qrCodeBase64, 'PNG', widthFull - margin - qrSize, startMetaY - 2, qrSize, qrSize);
             } catch(e) {}
         }
         
-        // Ensure Y is below both text and QR
         y = Math.max(y, startMetaY + qrSize - 2) + 4;
 
-        // 3. Billed To
+        // 4. Billed To
         doc.setFont('helvetica', 'bold');
         doc.text('Billed To:', margin, y);
         y += 4;
@@ -168,33 +169,33 @@ export const generateThermalInvoicePDF = async (sale: Sale, customer: Customer, 
         doc.text(customer.name, margin, y);
         y += 4;
         
-        // Wrap address nicely
         const addressLines = doc.splitTextToSize(customer.address, pageWidth);
         doc.text(addressLines, margin, y);
         y += (addressLines.length * 4) + 2;
 
-        // 4. Divider & Section Header
+        // 5. Purchase Details Divider
         doc.setLineWidth(0.3);
         doc.line(margin, y, widthFull - margin, y);
         y += 5;
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(10);
         doc.text('Purchase Details', centerX, y, { align: 'center' });
-        y += 3;
+        y += 2;
         doc.line(margin, y, widthFull - margin, y);
         y += 5;
 
-        // 5. Items Header (Simplified)
-        // No heavy background header, just text
-        
-        // 6. Items Loop
+        // 6. Items
         doc.setFont('helvetica', 'normal');
         sale.items.forEach(item => {
             const itemTotal = Number(item.price) * Number(item.quantity);
             
-            // Name on Line 1
+            // Format: 
+            // Item Name.......................Total
+            // (Qty x Rate)
+            
             doc.setFontSize(9);
             doc.setTextColor('#000000');
+            doc.setFont('helvetica', 'bold');
             
             const totalStr = formatCurrency(itemTotal, currency);
             const totalWidth = doc.getTextWidth(totalStr) + 2;
@@ -208,9 +209,9 @@ export const generateThermalInvoicePDF = async (sale: Sale, customer: Customer, 
             
             y += (nameLines.length * 4);
             
-            // Details (Qty @ Rate) on Line 2 (Indented)
             doc.setFontSize(8);
             doc.setTextColor('#555555');
+            doc.setFont('helvetica', 'normal');
             doc.text(`(x${item.quantity} @ ${formatCurrency(Number(item.price), currency)})`, margin + 2, y); 
             
             y += 5;
@@ -242,23 +243,29 @@ export const generateThermalInvoicePDF = async (sale: Sale, customer: Customer, 
         }
         
         addTotalRow('Total', formatCurrency(Number(sale.totalAmount), currency), true, 11);
-        
-        // Amount In Words
-        y += 2;
-        doc.setFont('helvetica', 'italic');
-        doc.setFontSize(8);
-        doc.setTextColor('#333333');
-        const words = numberToWords(Number(sale.totalAmount));
-        const wordLines = doc.splitTextToSize(words, pageWidth);
-        doc.text(wordLines, widthFull - margin, y, { align: 'right' });
-        y += (wordLines.length * 3.5) + 3;
-        doc.setTextColor('#000000');
-
         if (paid > 0) addTotalRow('Paid', formatCurrency(paid, currency));
-        if (due > 0) addTotalRow('Due', formatCurrency(due, currency), true, 10);
+        if (due > 0.01) {
+            addTotalRow('Due', formatCurrency(due, currency), true, 10);
+        } else {
+            addTotalRow('Due', 'Rs. 0.00', true, 10);
+        }
+
+        // Amount In Words
+        if (showWords) {
+            y += 3;
+            doc.setFont('helvetica', 'italic');
+            doc.setFontSize(8);
+            doc.setTextColor('#333333');
+            const words = numberToWords(Number(sale.totalAmount));
+            const wordLines = doc.splitTextToSize(words, pageWidth);
+            // Center or Right align? Right align under totals looks clean
+            doc.text(wordLines, widthFull - margin, y, { align: 'right' });
+            y += (wordLines.length * 3.5) + 3;
+            doc.setTextColor('#000000');
+        }
 
         // 8. Footer
-        y += 5;
+        y += 2;
         doc.setFont('helvetica', 'italic');
         doc.setFontSize(8);
         const footerText = templateConfig?.content.footerText || 'Thank You!';
@@ -266,14 +273,12 @@ export const generateThermalInvoicePDF = async (sale: Sale, customer: Customer, 
         doc.text(footerLines, centerX, y, { align: 'center' });
         y += (footerLines.length * 4);
         
-        return y + 5; // Total Height
+        return y + 5;
     };
 
-    // First pass to calculate height
     const dummyDoc = new jsPDF({ orientation: 'p', unit: 'mm', format: [widthFull, 1000] });
     const height = renderContent(dummyDoc);
 
-    // Second pass to render
     const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: [widthFull, height] });
     renderContent(doc);
     
@@ -294,16 +299,13 @@ export interface GenericDocumentData {
     taxBreakdown?: { rate: number, taxable: number, tax: number }[];
 }
 
-// --- Configurable PDF Engine (Modular) ---
 const _generateConfigurablePDF = async (
     data: GenericDocumentData,
     profile: ProfileData | null,
     templateConfig: InvoiceTemplateConfig,
     customFonts?: CustomFont[],
-    customPaperSize?: [number, number] // Optional override for receipt width
+    customPaperSize?: [number, number]
 ): Promise<jsPDF> => {
-    
-    // Support custom paper size array (e.g. [112, 200] for receipt preview)
     let doc: jsPDF;
     if (customPaperSize) {
         doc = new jsPDF({ orientation: 'p', unit: 'mm', format: customPaperSize });
@@ -324,27 +326,18 @@ const _generateConfigurablePDF = async (
     
     let currentY = margin;
 
-    // Helper for applying spacing
     const addY = (amount: number) => {
         currentY += amount * spacingScale;
     };
 
-    // --- Render Background Image (Stationery) ---
     if (layout.backgroundImage) {
         try {
             doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight);
-        } catch(e) {
-            console.warn("Failed to render background image", e);
-        }
+        } catch(e) {}
     }
 
-    // --- RENDERERS ---
-
     const renderHeader = async () => {
-        if (content.showBusinessDetails === false) {
-            addY(5);
-            return;
-        }
+        if (content.showBusinessDetails === false) { addY(5); return; }
 
         const isBanner = layout.headerStyle === 'banner';
         if (isBanner) {
@@ -355,25 +348,20 @@ const _generateConfigurablePDF = async (
 
         const logoUrl = profile?.logo || logoBase64;
         const isAbsoluteLogo = layout.logoPosX !== undefined && layout.logoPosY !== undefined;
-        // Keep hasLogo true so we can render it, but use different placement logic if absolute.
         const hasLogo = !!logoUrl && layout.logoSize > 5;
         
         let textY = currentY;
         let textAlign: 'left' | 'center' | 'right' = 'left';
         let renderedLogoHeight = 0;
         let textX = margin;
-        
-        // Default standard positions
         let logoX = margin;
         let logoY = currentY + (layout.logoOffsetY || 0);
 
-        // Override if absolute
         if (isAbsoluteLogo) {
              logoX = layout.logoPosX!;
              logoY = layout.logoPosY!;
         }
 
-        // Individual Spacing Values
         const logoBottomSpace = layout.elementSpacing?.logoBottom ?? 5;
         const titleBottomSpace = layout.elementSpacing?.titleBottom ?? 2;
         const addressBottomSpace = layout.elementSpacing?.addressBottom ?? 1;
@@ -387,7 +375,6 @@ const _generateConfigurablePDF = async (
             } catch (e) { renderedLogoHeight = layout.logoSize; }
         }
 
-        // Determine Text Alignment and Position based on layout config
         if (!isAbsoluteLogo) {
             if (layout.logoPosition === 'center') {
                 logoX = (pageWidth - layout.logoSize) / 2;
@@ -406,50 +393,34 @@ const _generateConfigurablePDF = async (
                 textY += 5 * spacingScale;
             }
         } else {
-            // Absolute logo: respect headerAlignment setting for text
-            if (layout.headerAlignment === 'center') {
-                textAlign = 'center'; textX = pageWidth / 2;
-            } else if (layout.headerAlignment === 'right') {
-                textAlign = 'right'; textX = pageWidth - margin;
-            } else {
-                textAlign = 'left'; textX = margin;
-            }
+            if (layout.headerAlignment === 'center') { textAlign = 'center'; textX = pageWidth / 2; } 
+            else if (layout.headerAlignment === 'right') { textAlign = 'right'; textX = pageWidth - margin; } 
+            else { textAlign = 'left'; textX = margin; }
         }
 
-        // Render Logo
         if (hasLogo) {
-            try {
-                doc.addImage(logoUrl, getImageType(logoUrl), logoX, logoY, layout.logoSize, renderedLogoHeight);
-            } catch(e) { console.warn("Failed to add logo", e); }
+            try { doc.addImage(logoUrl, getImageType(logoUrl), logoX, logoY, layout.logoSize, renderedLogoHeight); } catch(e) {}
         }
 
-        // Render Text
         if (profile) {
             doc.setFont(fonts.titleFont, 'bold');
             doc.setFontSize(fonts.headerSize);
             doc.setTextColor(isBanner ? (colors.bannerText || '#fff') : colors.primary);
             doc.text(profile.name, textX, textY, { align: textAlign });
-            
             textY += (fonts.headerSize * 0.4 + titleBottomSpace) * spacingScale;
             
             doc.setFont(fonts.bodyFont, 'normal');
             doc.setFontSize(fonts.bodySize);
             doc.setTextColor(isBanner ? (colors.bannerText || '#fff') : colors.secondary);
-            
             const addr = doc.splitTextToSize(profile.address, 90);
             doc.text(addr, textX, textY, { align: textAlign });
             textY += ((addr.length * 4) + addressBottomSpace) * spacingScale;
-            
             const contact = [profile.phone && `Ph: ${profile.phone}`, profile.gstNumber && `GST: ${profile.gstNumber}`].filter(Boolean).join(' | ');
             doc.text(contact, textX, textY, { align: textAlign });
-            
             const contentEnd = textY + 5;
-            // If absolute logo, don't let it push the flow
             const logoEnd = (hasLogo && !isAbsoluteLogo) ? logoY + renderedLogoHeight + 5 : 0;
             currentY = Math.max(contentEnd, logoEnd);
-        } else {
-            if (!isAbsoluteLogo) addY(20);
-        }
+        } else { if (!isAbsoluteLogo) addY(20); }
 
         if (!isBanner && layout.headerStyle !== 'minimal') {
             doc.setDrawColor(colors.borderColor || '#ccc');
@@ -457,7 +428,6 @@ const _generateConfigurablePDF = async (
             addY(headerBottomSpace);
         }
         
-        // Auto QR placement (Only if no absolute position set for QR)
         if (content.showQr && layout.qrPosition === 'header-right' && layout.qrPosX === undefined) {
             const qrImg = await getQrCodeBase64(data.qrString || data.id);
             if (qrImg) {
@@ -478,99 +448,40 @@ const _generateConfigurablePDF = async (
     };
 
     const renderDetails = async () => {
-        if (content.showCustomerDetails === false) {
-            return;
-        }
-        
-        const isReceiptFormat = pageWidth < 120; // 112mm or smaller
-        const gridY = currentY;
+        if (content.showCustomerDetails === false) return;
         const lineHeight = 5 * spacingScale;
+        const colWidth = (pageWidth - (margin * 3)) / 2;
+        const rightColX = pageWidth - margin;
 
-        if (isReceiptFormat) {
-            // Stacked Layout for Receipts
-            doc.setFont(fonts.bodyFont, 'bold');
-            doc.setFontSize(11);
-            doc.setTextColor(colors.primary);
-            doc.text(data.recipient.label, margin, currentY);
-            currentY += lineHeight;
+        doc.setFont(fonts.bodyFont, 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(colors.primary);
+        doc.text(data.recipient.label, margin, currentY);
+        doc.text(data.sender.label, rightColX, currentY, { align: 'right' });
 
-            doc.setFont(fonts.bodyFont, 'normal');
-            doc.setFontSize(fonts.bodySize);
-            doc.setTextColor(colors.text);
-            doc.text(data.recipient.name, margin, currentY);
-            currentY += lineHeight;
-            
-            const recipientAddr = doc.splitTextToSize(data.recipient.address, pageWidth - (margin * 2));
-            doc.text(recipientAddr, margin, currentY);
-            currentY += (recipientAddr.length * lineHeight) + (2 * spacingScale);
+        doc.setFont(fonts.bodyFont, 'normal');
+        doc.setFontSize(fonts.bodySize);
+        doc.setTextColor(colors.text);
 
-            // Sender / Invoice Info
-            doc.setFont(fonts.bodyFont, 'bold');
-            doc.setFontSize(11);
-            doc.setTextColor(colors.primary);
-            doc.text(data.sender.label, margin, currentY);
-            currentY += lineHeight;
+        doc.text(data.recipient.name, margin, currentY + lineHeight + 1);
+        const recipientAddr = doc.splitTextToSize(data.recipient.address, colWidth);
+        doc.text(recipientAddr, margin, currentY + (lineHeight * 2) + 1);
 
-            doc.setFont(fonts.bodyFont, 'normal');
-            doc.setFontSize(fonts.bodySize);
-            doc.setTextColor(colors.text);
-            doc.text(`${data.sender.idLabel} ${data.id}`, margin, currentY);
-            currentY += lineHeight;
-            doc.text(`${labels.date}: ${formatDate(data.date, templateConfig.dateFormat)}`, margin, currentY);
-            currentY += lineHeight;
+        let infoY = currentY + lineHeight + 1;
+        doc.text(`${data.sender.idLabel} ${data.id}`, rightColX, infoY, { align: 'right' });
+        infoY += lineHeight;
+        doc.text(`${labels.date}: ${formatDate(data.date, templateConfig.dateFormat)}`, rightColX, infoY, { align: 'right' });
 
-            // QR Code handling for stacked layout (if auto-positioned)
-            if (content.showQr && (!layout.qrPosition || layout.qrPosition === 'details-right') && layout.qrPosX === undefined) {
-                const qrImg = await getQrCodeBase64(data.qrString || data.id);
-                if (qrImg) {
-                    try {
-                        const size = layout.qrOverlaySize || 20;
-                        doc.addImage(qrImg, 'PNG', pageWidth - margin - size, currentY, size, size);
-                        currentY += size + 5; 
-                    } catch(e) {}
-                }
+        if (content.showQr && (!layout.qrPosition || layout.qrPosition === 'details-right') && layout.qrPosX === undefined) {
+            const qrImg = await getQrCodeBase64(data.qrString || data.id);
+            if (qrImg) {
+                try {
+                    const size = layout.qrOverlaySize || 22;
+                    doc.addImage(qrImg, 'PNG', rightColX - size, infoY + 2, size, size);
+                } catch(e) {}
             }
-            
-            currentY += 5 * spacingScale;
-
-        } else {
-            // Original Side-by-Side Layout for A4
-            const colWidth = (pageWidth - (margin * 3)) / 2;
-            const rightColX = pageWidth - margin;
-
-            doc.setFont(fonts.bodyFont, 'bold');
-            doc.setFontSize(11);
-            doc.setTextColor(colors.primary);
-            doc.text(data.recipient.label, margin, gridY);
-            doc.text(data.sender.label, rightColX, gridY, { align: 'right' });
-
-            doc.setFont(fonts.bodyFont, 'normal');
-            doc.setFontSize(fonts.bodySize);
-            doc.setTextColor(colors.text);
-
-            doc.text(data.recipient.name, margin, gridY + lineHeight + 1);
-            const recipientAddr = doc.splitTextToSize(data.recipient.address, colWidth);
-            doc.text(recipientAddr, margin, gridY + (lineHeight * 2) + 1);
-
-            let infoY = gridY + lineHeight + 1;
-            doc.text(`${data.sender.idLabel} ${data.id}`, rightColX, infoY, { align: 'right' });
-            infoY += lineHeight;
-            doc.text(`${labels.date}: ${formatDate(data.date, templateConfig.dateFormat)}`, rightColX, infoY, { align: 'right' });
-
-            if (content.showQr && (!layout.qrPosition || layout.qrPosition === 'details-right') && layout.qrPosX === undefined) {
-                const qrImg = await getQrCodeBase64(data.qrString || data.id);
-                if (qrImg) {
-                    try {
-                        const size = layout.qrOverlaySize || 22;
-                        doc.addImage(qrImg, 'PNG', rightColX - size, infoY + 2, size, size);
-                    } catch(e) {}
-                }
-            }
-
-            const recipientHeight = (lineHeight * 2) + (recipientAddr.length * lineHeight);
-            const infoHeight = (lineHeight * 4); // Approximate
-            currentY = Math.max(gridY + recipientHeight, gridY + infoHeight) + (5 * spacingScale);
         }
+        currentY = Math.max(currentY + (lineHeight * 2) + (recipientAddr.length * lineHeight), currentY + (lineHeight * 4)) + (5 * spacingScale);
     };
 
     const renderTable = () => {
@@ -590,22 +501,8 @@ const _generateConfigurablePDF = async (
         });
 
         const cw = layout.columnWidths || {};
-        
-        // Auto-adjust column widths for small paper (Receipts)
-        const isReceiptFormat = pageWidth < 120;
-        
-        // When using 'bordered' mode, we need to pass styles to autoTable
-        const tableStyles: any = { 
-            font: fonts.bodyFont, 
-            fontSize: fonts.bodySize, 
-            cellPadding: layout.tableOptions?.compact ? 2 : 3, 
-            textColor: colors.text
-        };
-        
-        if (layout.tableOptions?.bordered) {
-            tableStyles.lineWidth = 0.1;
-            tableStyles.lineColor = colors.borderColor || '#ccc';
-        }
+        const tableStyles: any = { font: fonts.bodyFont, fontSize: fonts.bodySize, cellPadding: layout.tableOptions?.compact ? 2 : 3, textColor: colors.text };
+        if (layout.tableOptions?.bordered) { tableStyles.lineWidth = 0.1; tableStyles.lineColor = colors.borderColor || '#ccc'; }
 
         autoTable(doc, {
             startY: currentY,
@@ -613,16 +510,10 @@ const _generateConfigurablePDF = async (
             body: tableBody,
             theme: layout.tableOptions?.stripedRows ? 'striped' : 'plain',
             styles: tableStyles,
-            headStyles: { 
-                fillColor: colors.tableHeaderBg, 
-                textColor: colors.tableHeaderText, 
-                fontStyle: 'bold', 
-                halign: (layout.tableHeaderAlign || 'left'),
-                ...(layout.borderRadius ? { minCellHeight: 8 } : {}) // Heuristic for rounded looks
-            },
+            headStyles: { fillColor: colors.tableHeaderBg, textColor: colors.tableHeaderText, fontStyle: 'bold', halign: (layout.tableHeaderAlign || 'left'), ...(layout.borderRadius ? { minCellHeight: 8 } : {}) },
             columnStyles: {
-                0: { cellWidth: isReceiptFormat ? 6 : 10, halign: 'center' },
-                [tableHead.length - 1]: { halign: 'right', cellWidth: isReceiptFormat ? 25 : (cw.amount || 35) }, 
+                0: { cellWidth: 10, halign: 'center' },
+                [tableHead.length - 1]: { halign: 'right', cellWidth: (cw.amount || 35) }, 
                 [tableHead.length - 2]: { halign: 'right', cellWidth: hideRate ? (cw.qty || 15) : (cw.rate || 20) }, 
                 [tableHead.length - 3]: { halign: 'right', cellWidth: cw.qty || 15 }, 
             },
@@ -633,16 +524,7 @@ const _generateConfigurablePDF = async (
 
     const renderTotals = () => {
         const totalsX = pageWidth - margin;
-        if (pageHeight - currentY < 60) { 
-            doc.addPage(); 
-            currentY = margin;
-            // Re-draw background on new page
-            if (layout.backgroundImage) {
-                try {
-                    doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight);
-                } catch(e) {}
-            }
-        }
+        if (pageHeight - currentY < 60) { doc.addPage(); currentY = margin; if (layout.backgroundImage) try { doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight); } catch(e) {} }
         
         data.totals.forEach((t) => {
             doc.setFont(fonts.bodyFont, t.isBold ? 'bold' : 'normal');
@@ -656,16 +538,9 @@ const _generateConfigurablePDF = async (
     };
 
     const renderWords = () => {
-        if (content.showAmountInWords && data.grandTotalNumeric !== undefined) {
-            if (pageHeight - currentY < 20) { 
-                doc.addPage(); 
-                currentY = margin;
-                if (layout.backgroundImage) {
-                    try {
-                        doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight);
-                    } catch(e) {}
-                }
-            }
+        const shouldShow = content.showAmountInWords !== false;
+        if (shouldShow && data.grandTotalNumeric !== undefined) {
+            if (pageHeight - currentY < 20) { doc.addPage(); currentY = margin; if (layout.backgroundImage) try { doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight); } catch(e) {} }
             doc.setFont(fonts.bodyFont, 'italic');
             doc.setFontSize(fonts.bodySize - 1);
             doc.setTextColor(colors.secondary);
@@ -682,15 +557,7 @@ const _generateConfigurablePDF = async (
 
     const renderBank = () => {
         if (content.bankDetails) {
-            if (pageHeight - currentY < 30) { 
-                doc.addPage(); 
-                currentY = margin; 
-                if (layout.backgroundImage) {
-                    try {
-                        doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight);
-                    } catch(e) {}
-                }
-            }
+            if (pageHeight - currentY < 30) { doc.addPage(); currentY = margin; if (layout.backgroundImage) try { doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight); } catch(e) {} }
             doc.setFont(fonts.bodyFont, 'bold');
             doc.setFontSize(fonts.bodySize);
             doc.setTextColor(colors.primary);
@@ -706,15 +573,7 @@ const _generateConfigurablePDF = async (
 
     const renderTerms = () => {
         if (content.showTerms && content.termsText) {
-            if (pageHeight - currentY < 30) { 
-                doc.addPage(); 
-                currentY = margin; 
-                if (layout.backgroundImage) {
-                    try {
-                        doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight);
-                    } catch(e) {}
-                }
-            }
+            if (pageHeight - currentY < 30) { doc.addPage(); currentY = margin; if (layout.backgroundImage) try { doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight); } catch(e) {} }
             doc.setFont(fonts.bodyFont, 'bold');
             doc.setFontSize(fonts.bodySize - 2);
             doc.setTextColor(colors.secondary);
@@ -730,15 +589,7 @@ const _generateConfigurablePDF = async (
     const renderSignature = () => {
         if (content.showSignature) {
             const sigY = Math.max(currentY + 10, pageHeight - 40);
-            if (pageHeight - sigY < 30) { 
-                doc.addPage(); 
-                if (layout.backgroundImage) {
-                    try {
-                        doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight);
-                    } catch(e) {}
-                }
-            }
-            
+            if (pageHeight - sigY < 30) { doc.addPage(); if (layout.backgroundImage) try { doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight); } catch(e) {} }
             doc.setFont(fonts.bodyFont, 'normal');
             doc.setFontSize(10);
             doc.setTextColor(colors.text);
@@ -758,27 +609,15 @@ const _generateConfigurablePDF = async (
     const renderFooter = async () => {
         const footerHeight = 15;
         const footerY = pageHeight - footerHeight;
-        
-        // If content has pushed passed footer, new page
-        if (currentY > footerY) { 
-            doc.addPage(); 
-            if (layout.backgroundImage) {
-                try {
-                    doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight);
-                } catch(e) {}
-            }
-        }
+        if (currentY > footerY) { doc.addPage(); if (layout.backgroundImage) try { doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight); } catch(e) {} }
 
-        // Auto QR placement if no absolute position
         if (content.showQr && (layout.qrPosition === 'footer-left' || layout.qrPosition === 'footer-right') && layout.qrPosX === undefined) {
             const qrImg = await getQrCodeBase64(data.qrString || data.id);
             if (qrImg) {
                 const qrSize = layout.qrOverlaySize || 18;
                 const qrY = footerY - qrSize - 2;
                 const qrX = layout.qrPosition === 'footer-left' ? margin : pageWidth - margin - qrSize;
-                try {
-                    doc.addImage(qrImg, 'PNG', qrX, qrY, qrSize, qrSize);
-                } catch(e) {}
+                try { doc.addImage(qrImg, 'PNG', qrX, qrY, qrSize, qrSize); } catch(e) {}
             }
         }
 
@@ -789,15 +628,12 @@ const _generateConfigurablePDF = async (
         } else {
             doc.setTextColor(colors.secondary);
         }
-        
         if (content.footerText) {
             doc.setFontSize(9);
             doc.text(content.footerText, pageWidth / 2, pageHeight - 6, { align: 'center' });
         }
     };
 
-    // --- MAIN RENDER LOOP ---
-    // Ensure ALL section keys are present in ordering logic
     const order = layout.sectionOrdering && layout.sectionOrdering.length > 0 
         ? layout.sectionOrdering 
         : ['header', 'title', 'details', 'table', 'totals', 'words', 'bankDetails', 'terms', 'signature', 'footer'];
@@ -817,12 +653,10 @@ const _generateConfigurablePDF = async (
         }
     }
 
-    // ABSOLUTE POSITIONING OVERLAYS (QR CODE)
     if (content.showQr && layout.qrPosX !== undefined && layout.qrPosY !== undefined) {
         const qrImg = await getQrCodeBase64(data.qrString || data.id);
         if (qrImg) {
             try {
-                // Determine page to print on (usually first page unless complex logic added)
                 doc.setPage(1); 
                 const size = layout.qrOverlaySize || 20; 
                 doc.addImage(qrImg, 'PNG', layout.qrPosX, layout.qrPosY, size, size);
@@ -830,7 +664,6 @@ const _generateConfigurablePDF = async (
         }
     }
 
-    // Status Stamp Overlay (rendered last on top)
     if (content.showStatusStamp && data.balanceDue !== undefined) {
         const stampText = data.balanceDue <= 0.01 ? "PAID" : "DUE";
         const color = data.balanceDue <= 0.01 ? "#10b981" : "#ef4444";
@@ -846,15 +679,13 @@ const _generateConfigurablePDF = async (
     return doc;
 };
 
-// --- Public Generators ---
-
 export const generateA4InvoicePdf = async (sale: Sale, customer: Customer, profile: ProfileData | null, templateConfig?: InvoiceTemplateConfig, customFonts?: CustomFont[]) => {
     const defaultConfig: InvoiceTemplateConfig = {
         id: 'default', currencySymbol: 'Rs.', dateFormat: 'DD/MM/YYYY',
         colors: { primary: '#0d9488', secondary: '#333333', text: '#000000', tableHeaderBg: '#0d9488', tableHeaderText: '#ffffff', bannerBg: '#0d9488', bannerText: '#ffffff', footerBg: '#f3f4f6', footerText: '#374151', borderColor: '#e5e7eb', alternateRowBg: '#f9fafb' },
         fonts: { headerSize: 22, bodySize: 10, titleFont: 'helvetica', bodyFont: 'helvetica' },
         layout: { margin: 10, logoSize: 25, logoPosition: 'center', logoOffsetX: 0, logoOffsetY: 0, headerAlignment: 'center', headerStyle: 'standard', footerStyle: 'standard', showWatermark: false, watermarkOpacity: 0.1, qrPosition: 'details-right', tableOptions: { hideQty: false, hideRate: false, stripedRows: false, bordered: false, compact: false }, elementSpacing: { logoBottom: 5, titleBottom: 2, addressBottom: 1, headerBottom: 5 } },
-        content: { titleText: 'TAX INVOICE', labels: defaultLabels, showQr: true, showTerms: true, showSignature: true, termsText: '', footerText: '', showBusinessDetails: true, showCustomerDetails: true, signatureText: '', showAmountInWords: false, showStatusStamp: false, showTaxBreakdown: false, showGst: true, qrType: 'INVOICE_ID', bankDetails: '' }
+        content: { titleText: 'TAX INVOICE', labels: defaultLabels, showQr: true, showTerms: true, showSignature: true, termsText: '', footerText: '', showBusinessDetails: true, showCustomerDetails: true, signatureText: '', showAmountInWords: true, showStatusStamp: false, showTaxBreakdown: false, showGst: true, qrType: 'INVOICE_ID', bankDetails: '' }
     };
     const config = templateConfig || defaultConfig;
     const labels = { ...defaultLabels, ...config.content.labels };
@@ -894,10 +725,7 @@ export const generateA4InvoicePdf = async (sale: Sale, customer: Customer, profi
     return _generateConfigurablePDF(data, profile, config, customFonts);
 };
 
-// Configurable Receipt Generation
 export const generateReceiptPDF = async (sale: Sale, customer: Customer, profile: ProfileData | null, templateConfig: InvoiceTemplateConfig, customFonts?: CustomFont[]) => {
-    // Redirect to the specialized thermal invoice generator to ensure consistency between Sales Page and Invoice Designer
-    // Using the same 80mm layout that is used in Sales Page
     return generateThermalInvoicePDF(sale, customer, profile, templateConfig, customFonts);
 };
 
@@ -945,7 +773,6 @@ export const generateGenericReportPDF = async (title: string, subtitle: string, 
     const spacingScale = layout.spacing !== undefined ? layout.spacing : 1.0;
     let y = margin;
 
-    // helper
     const addY = (amount: number) => {
         y += amount * spacingScale;
     };
@@ -982,7 +809,6 @@ export const generateGenericReportPDF = async (title: string, subtitle: string, 
     return doc;
 };
 
-// --- New Function: Generate PDF from Images ---
 export const generateImagesToPDF = (images: string[], fileName: string) => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -1000,11 +826,9 @@ export const generateImagesToPDF = (images: string[], fileName: string) => {
             let finalWidth, finalHeight;
 
             if (imgRatio > pageRatio) {
-                // Image is wider relative to page -> constrain width
                 finalWidth = pageWidth - margin * 2;
                 finalHeight = finalWidth / imgRatio;
             } else {
-                // Image is taller relative to page -> constrain height
                 finalHeight = pageHeight - margin * 2;
                 finalWidth = finalHeight * imgRatio;
             }
@@ -1012,7 +836,6 @@ export const generateImagesToPDF = (images: string[], fileName: string) => {
             const x = (pageWidth - finalWidth) / 2;
             const y = (pageHeight - finalHeight) / 2;
 
-            // Use the detected type from getImageProperties or try to infer
             const format = getImageType(imgData);
             doc.addImage(imgData, format, x, y, finalWidth, finalHeight);
         } catch (e) {

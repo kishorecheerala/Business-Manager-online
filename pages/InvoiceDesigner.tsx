@@ -105,7 +105,8 @@ const PRESETS: Record<string, any> = {
             borderRadius: 4,
             spacing: 1.0,
             elementSpacing: { logoBottom: 5, titleBottom: 2, addressBottom: 1, headerBottom: 5 }
-        } as any
+        } as any,
+        content: { showAmountInWords: true }
     },
     'Corporate': {
         colors: { primary: '#1e40af', secondary: '#475569', text: '#1e293b', tableHeaderBg: '#1e40af', tableHeaderText: '#ffffff', bannerBg: '#1e40af', bannerText: '#ffffff' },
@@ -136,7 +137,8 @@ const PRESETS: Record<string, any> = {
             borderRadius: 0,
             spacing: 0.9,
             elementSpacing: { logoBottom: 3, titleBottom: 1, addressBottom: 1, headerBottom: 3 }
-        } as any
+        } as any,
+        content: { showAmountInWords: true }
     },
     'Bold': {
         colors: { primary: '#dc2626', secondary: '#1f2937', text: '#111827', tableHeaderBg: '#dc2626', tableHeaderText: '#ffffff', bannerBg: '#dc2626', bannerText: '#ffffff' },
@@ -152,7 +154,7 @@ const PRESETS: Record<string, any> = {
             spacing: 1.0,
             elementSpacing: { logoBottom: 5, titleBottom: 2, addressBottom: 1, headerBottom: 5 }
         } as any,
-        content: { showStatusStamp: true }
+        content: { showStatusStamp: true, showAmountInWords: true }
     }
 };
 
@@ -413,6 +415,8 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
         if (type === 'RECEIPT') {
             if (config.layout.margin > 5) config.layout.margin = 2;
             if (config.layout.logoSize > 20) config.layout.logoSize = 15;
+            // Force amount in words default true for receipts if undefined
+            if (config.content.showAmountInWords === undefined) config.content.showAmountInWords = true;
         }
 
         return config;
