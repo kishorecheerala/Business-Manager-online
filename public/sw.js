@@ -1,5 +1,6 @@
+
 // Cache-busting service worker - Forces complete refresh
-const CACHE_NAME = 'business-manager-v4'; // Bumped version
+const CACHE_NAME = 'business-manager-v5'; // Bumped version
 const URLS_TO_CACHE = [
   '/',
   '/index.html',

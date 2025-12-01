@@ -594,12 +594,42 @@ const AppContent: React.FC = () => {
 };
 
 const App: React.FC = () => {
+    const [theme, setTheme] = useState('light')
+    const [themeReady, setThemeReady] = useState(false)
+
+    // Load theme AFTER component mounts, not during render
+    useEffect(() => {
+        try {
+            // Check localStorage specifically for the theme key used in index.html and AppContent
+            const saved = localStorage.getItem('theme') || 'light'
+            setTheme(saved)
+            
+            // Apply immediately to document to prevent flash
+            if (saved === 'dark') {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+            document.documentElement.setAttribute('data-theme', saved)
+        } catch (err) {
+            console.warn('Theme load failed:', err)
+        }
+        setThemeReady(true)
+    }, [])
+
+    // Don't render until theme is ready
+    if (!themeReady) {
+        return null
+    }
+
     return (
-        <AppProvider>
-            <DialogProvider>
-                <AppContent />
-            </DialogProvider>
-        </AppProvider>
+        <div data-theme={theme} className="contents">
+            <AppProvider>
+                <DialogProvider>
+                    <AppContent />
+                </DialogProvider>
+            </AppProvider>
+        </div>
     );
 };
 
