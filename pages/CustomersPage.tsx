@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Plus, User, Phone, MapPin, Search, Edit, Save, X, IndianRupee, ShoppingCart, Share2, Crown, ShieldAlert, BadgeCheck } from 'lucide-react';
+import { Plus, User, Phone, MapPin, Search, Edit, Save, X, IndianRupee, ShoppingCart, Share2, ChevronDown, Crown, ShieldAlert, BadgeCheck, Calendar as CalendarIcon } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Customer, Payment, Sale, Page } from '../types';
 import Card from '../components/Card';
@@ -11,8 +11,10 @@ import { useOnClickOutside } from '../hooks/useOnClickOutside';
 import { generateA4InvoicePdf, generateThermalInvoicePDF, generateGenericReportPDF } from '../utils/pdfGenerator';
 import { useDialog } from '../context/DialogContext';
 import PaymentModal from '../components/PaymentModal';
-import AddCustomerModal from '../components/AddCustomerModal';
 import { getLocalDateString } from '../utils/dateUtils';
+import { createCalendarEvent } from '../utils/googleCalendar';
+import DatePill from '../components/DatePill';
+import AddCustomerModal from '../components/AddCustomerModal';
 
 // --- Customer Segmentation Helper ---
 type CustomerSegment = 'VIP' | 'Regular' | 'New' | 'At-Risk';
@@ -62,6 +64,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
     const { showConfirm } = useDialog();
     const [searchTerm, setSearchTerm] = useState('');
     const [isAdding, setIsAdding] = useState(false);
+    
     const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
     const [actionMenuSaleId, setActionMenuSaleId] = useState<string | null>(null);
 
@@ -98,7 +101,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
     }, [state.selection, state.customers, dispatch]);
 
     useEffect(() => {
-        const currentlyDirty = isEditing;
+        const currentlyDirty = isEditing; // Simplified dirty check for now
         if (currentlyDirty !== isDirtyRef.current) {
             isDirtyRef.current = currentlyDirty;
             setIsDirty(currentlyDirty);
@@ -201,6 +204,35 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
         
         setPaymentModalState({ isOpen: false, saleId: null });
         setPaymentDetails({ amount: '', method: 'CASH', date: getLocalDateString(), reference: '' });
+    };
+
+    const handleAddReminder = async (customerName: string, saleId: string) => {
+        if (!state.googleUser?.accessToken) {
+            showToast("Please sign in to Google to use Calendar integration.", 'info');
+            return;
+        }
+
+        const date = prompt("Enter reminder date (YYYY-MM-DD):", getLocalDateString());
+        if (!date) return;
+
+        try {
+            // Set time to 10:00 AM
+            const startTime = new Date(date);
+            startTime.setHours(10, 0, 0, 0);
+
+            await createCalendarEvent(state.googleUser.accessToken, {
+                summary: `Payment Follow-up: ${customerName}`,
+                description: `Invoice ID: ${saleId}\nReminder created from Business Manager.`,
+                startTime: startTime.toISOString()
+            });
+            showToast("Reminder added to your Google Calendar!", 'success');
+        } catch (error: any) {
+            if (error.message === "AUTH_ERROR") {
+                showToast("Calendar permission denied. Please Sign Out and Sign In again.", 'error');
+            } else {
+                showToast("Failed to create event.", 'error');
+            }
+        }
     };
 
     // Updated Handlers for PDF Generation
@@ -440,6 +472,15 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                                                         </div>
                                                     )}
                                                 </div>
+                                                {!isPaid && (
+                                                    <button 
+                                                        onClick={() => handleAddReminder(selectedCustomer.name, sale.id)} 
+                                                        className="p-2 text-amber-600 hover:bg-amber-100 rounded-full" 
+                                                        title="Add Reminder to Calendar"
+                                                    >
+                                                        <CalendarIcon size={16} />
+                                                    </button>
+                                                )}
                                                 <DeleteButton 
                                                     variant="delete" 
                                                     onClick={(e) => { e.stopPropagation(); handleDeleteSale(sale.id); }} 
@@ -535,10 +576,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
         <div className="space-y-4">
             <div className="flex justify-between items-center">
                 <h1 className="text-2xl font-bold text-primary">Customers</h1>
-                <Button onClick={() => setIsAdding(!isAdding)}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    {isAdding ? 'Cancel' : 'Add Customer'}
-                </Button>
+                <DatePill />
             </div>
 
             <AddCustomerModal 

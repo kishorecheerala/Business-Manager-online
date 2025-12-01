@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useMemo, useLayoutEffect } from 'react';
 import { 
   Home, Users, ShoppingCart, Package, Menu, Plus, UserPlus, PackagePlus, 
@@ -193,6 +194,47 @@ const AppContent: React.FC = () => {
         window.scrollTo(0, 0); 
     }, [currentPage]);
 
+    // Double Back to Exit Logic
+    useEffect(() => {
+        // Push a dummy state initially so 'back' event is captured by popstate
+        window.history.pushState(null, '', window.location.pathname);
+
+        let backPressCount = 0;
+        let backPressTimer: any;
+
+        const handlePopState = (event: PopStateEvent) => {
+            // Prevent default back navigation if we want to intercept it
+            // However, popstate fires AFTER the history change.
+            // So we need to re-push the state if we want to stay.
+            
+            backPressCount++;
+            
+            if (backPressCount === 1) {
+                // First press: Show warning and stay in app
+                showToast("Press back again to exit", "info");
+                // Push state again so next back press triggers popstate again
+                window.history.pushState(null, '', window.location.pathname);
+                
+                // Reset counter after 2 seconds
+                backPressTimer = setTimeout(() => {
+                    backPressCount = 0;
+                }, 2000);
+            } else {
+                // Second press: Do nothing (allow exit/back)
+                // Or explicitly close if in a PWA wrapper?
+                // Standard behavior is just letting the history pop naturally now.
+                clearTimeout(backPressTimer);
+            }
+        };
+
+        window.addEventListener('popstate', handlePopState);
+        
+        return () => {
+            window.removeEventListener('popstate', handlePopState);
+            clearTimeout(backPressTimer);
+        };
+    }, []);
+
     // Apply Theme & Dynamic Icon
     useEffect(() => {
         // 1. Dark Mode Class
@@ -324,26 +366,8 @@ const AppContent: React.FC = () => {
 
     const isMoreBtnActive = mobileMoreItems.some(item => item.page === currentPage);
 
-    // Swipe Navigation Removed as per user request to prevent accidental closure/navigation
-    /*
-    useSwipe({
-        onSwipeLeft: () => {
-            // Simple cycle through top 5 items for swipe
-            const topPages = state.navOrder.slice(0, 5);
-            const idx = topPages.indexOf(currentPage);
-            if (idx >= 0 && idx < topPages.length - 1) {
-                handleNavigation(topPages[idx + 1] as Page);
-            }
-        },
-        onSwipeRight: () => {
-            const topPages = state.navOrder.slice(0, 5);
-            const idx = topPages.indexOf(currentPage);
-            if (idx > 0) {
-                handleNavigation(topPages[idx - 1] as Page);
-            }
-        }
-    });
-    */
+    // Swipe Navigation Removed to prevent accidental closure
+    // The user requested to disable single swipe closure, relying on double-back button logic instead.
 
     if (!isDbLoaded) return <AppSkeletonLoader />;
 

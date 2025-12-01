@@ -497,7 +497,7 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
                 {/* View Image Modal */}
                 {viewImageModal && (
                     <div className="fixed inset-0 bg-black/80 z-[2000] flex items-center justify-center p-4 animate-fade-in-fast" onClick={() => setViewImageModal(null)}>
-                        <div className="relative max-w-full max-h-full">
+                        <div className="relative max-w-full max-h-full" onClick={(e) => e.stopPropagation()}>
                             <button className="absolute -top-10 right-0 text-white p-2" onClick={() => setViewImageModal(null)}><X size={24}/></button>
                             <img src={viewImageModal} alt="Invoice" className="max-w-full max-h-[90vh] rounded-lg shadow-2xl" />
                         </div>

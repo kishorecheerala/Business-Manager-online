@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Plus, Trash2, Share2, Search, X, IndianRupee, QrCode, Save, Edit } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -635,7 +636,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                                 </button>
 
                                 {isCustomerDropdownOpen && (
-                                    <div className="absolute top-full left-0 w-full mt-1 bg-white dark:bg-slate-900 rounded-md shadow-lg border dark:border-slate-700 z-[1000] animate-fade-in-fast">
+                                    <div className="absolute top-full left-0 w-full mt-1 bg-white dark:bg-slate-900 rounded-md shadow-lg border dark:border-slate-700 z-[100] animate-fade-in-fast">
                                         <div className="p-2 border-b dark:border-slate-700">
                                             <input
                                                 type="text"
