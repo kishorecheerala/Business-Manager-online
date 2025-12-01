@@ -1,3 +1,4 @@
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -8,16 +9,14 @@ import ErrorBoundary from './components/ErrorBoundary';
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     // Use relative path for SW to ensure it works even if not at domain root
-    // We catch errors to prevent console noise in preview environments (like StackBlitz/Google SCF)
+    // This fixes the "scriptURL does not match origin" error when served from subpaths
     navigator.serviceWorker
       .register('./sw.js', { scope: './' })
       .then((registration) => {
         console.log('✅ Service Worker registered with scope:', registration.scope);
       })
       .catch((err) => {
-        // Log as warning instead of error to "skip" the red failure in console
-        // This is common in preview environments where origin mismatch occurs
-        console.warn('⚠️ Service Worker registration skipped (non-critical):', err.message);
+        console.error('❌ Service Worker registration failed:', err);
       });
   });
 }
