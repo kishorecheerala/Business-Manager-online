@@ -6,17 +6,21 @@ import ErrorBoundary from './components/ErrorBoundary';
 
 // Register Service Worker FIRST - before anything else
 // This ensures the install script runs as early as possible for PWA capabilities
-if ('serviceWorker' in navigator) {
+
+// SKIP Service Worker in AI Studio / Sandbox environments to prevent "Origin Mismatch" errors
+// The preview environment often serves content from dynamic domains (googleusercontent) that clash with absolute path resolution
+if (window.location.origin.includes('ai.studio') || window.location.origin.includes('googleusercontent')) {
+  console.log('Skipping Service Worker registration in AI Studio/Sandbox environment.');
+} else if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    // Use absolute path for SW to ensure it works from root and avoid relative path confusion
     // We register at root scope to control the whole app
     navigator.serviceWorker
-      .register('/sw.js', { scope: '/' })
+      .register('./sw.js', { scope: './' })
       .then((registration) => {
         console.log('✅ Service Worker registered with scope:', registration.scope);
       })
       .catch((err) => {
-        console.error('❌ Service Worker registration failed:', err);
+        console.warn('❌ Service Worker registration failed:', err);
       });
   });
 }
