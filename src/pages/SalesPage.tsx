@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Plus, Trash2, Share2, Search, X, IndianRupee, QrCode, Save, Edit, ScanLine } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -15,6 +16,7 @@ import { useHotkeys } from '../hooks/useHotkeys';
 import AddCustomerModal from '../components/AddCustomerModal';
 import ProductSearchModal from '../components/ProductSearchModal';
 import QRScannerModal from '../components/QRScannerModal';
+import DateInput from '../components/DateInput';
 import { generateA4InvoicePdf, generateReceiptPDF } from '../utils/pdfGenerator';
 
 const fetchImageAsBase64 = (url: string): Promise<string> =>
@@ -370,7 +372,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
     const pageTitle = mode === 'edit' ? `Edit Sale: ${saleToEdit?.id}` : 'New Sale / Payment';
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-4 animate-fade-in-fast">
             {isAddingCustomer && 
                 <AddCustomerModal 
                     isOpen={isAddingCustomer}
@@ -465,16 +467,12 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                         </div>
                     </div>
                     
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Sale Date</label>
-                        <input 
-                            type="date" 
-                            value={saleDate} 
-                            onChange={e => setSaleDate(e.target.value)} 
-                            className="w-full p-2 border rounded mt-1 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
-                            disabled={mode === 'edit'}
-                        />
-                    </div>
+                    <DateInput 
+                        label="Sale Date"
+                        value={saleDate} 
+                        onChange={e => setSaleDate(e.target.value)}
+                        disabled={mode === 'edit'}
+                    />
 
                     {customerId && customerTotalDue !== null && mode === 'add' && (
                         <div className="p-2 bg-gray-50 dark:bg-slate-700/50 rounded-lg text-center border dark:border-slate-700">
