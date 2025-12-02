@@ -266,7 +266,7 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
 
                 {/* 2. Main Navigation & Actions */}
                 <div className="p-2 space-y-1 border-b border-gray-100 dark:border-slate-700 pb-3">
-                    <button onClick={onProfileClick} className="menu-item">
+                    <button onClick={() => { onClose(); onProfileClick(); }} className="menu-item">
                         <User className="w-5 h-5 text-blue-500" />
                         <span className="flex-grow text-sm font-medium">Business Profile</span>
                         <ChevronRight className="w-4 h-4 text-gray-400" />

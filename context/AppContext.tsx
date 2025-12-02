@@ -899,10 +899,53 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 const sales = await db.getAll('sales');
                 const products = await db.getAll('products');
                 const purchases = await db.getAll('purchases');
+                const profileData = await db.getAll('profile');
+                const app_metadata = await db.getAll('app_metadata');
                 
+                // Extract settings from metadata to update UI state immediately
+                const themeMeta = app_metadata.find(m => m.id === 'themeSettings') as any;
+                const invSettings = app_metadata.find(m => m.id === 'invoiceSettings') as any;
+                const uiPrefsMeta = app_metadata.find(m => m.id === 'uiPreferences') as any;
+                const navOrderMeta = app_metadata.find(m => m.id === 'navOrder') as any;
+                const quickActionsMeta = app_metadata.find(m => m.id === 'quickActions') as any;
+                
+                // Load Templates if available
+                const invoiceTemplate = (app_metadata.find(m => m.id === 'invoiceTemplateConfig') as any);
+                const estimateTemplate = (app_metadata.find(m => m.id === 'estimateTemplateConfig') as any);
+                const debitNoteTemplate = (app_metadata.find(m => m.id === 'debitNoteTemplateConfig') as any);
+                const receiptTemplate = (app_metadata.find(m => m.id === 'receiptTemplateConfig') as any);
+                const reportTemplate = (app_metadata.find(m => m.id === 'reportTemplateConfig') as any);
+
+                // Build payload with fallbacks to current stateRefs to avoid overwriting with undefined if cloud data is partial
+                const payload: Partial<AppState> = { 
+                    customers, 
+                    sales, 
+                    products, 
+                    purchases,
+                    profile: profileData[0] || stateRef.current.profile,
+                    app_metadata
+                };
+
+                // Helper to conditionally add to payload if exists in DB
+                if (themeMeta) {
+                    payload.theme = themeMeta.theme;
+                    payload.themeColor = themeMeta.color;
+                    payload.themeGradient = themeMeta.gradient;
+                }
+                if (invSettings) payload.invoiceSettings = invSettings;
+                if (uiPrefsMeta) payload.uiPreferences = uiPrefsMeta;
+                if (navOrderMeta) payload.navOrder = navOrderMeta.order;
+                if (quickActionsMeta) payload.quickActions = quickActionsMeta.actions;
+                
+                if (invoiceTemplate) payload.invoiceTemplate = invoiceTemplate;
+                if (estimateTemplate) payload.estimateTemplate = estimateTemplate;
+                if (debitNoteTemplate) payload.debitNoteTemplate = debitNoteTemplate;
+                if (receiptTemplate) payload.receiptTemplate = receiptTemplate;
+                if (reportTemplate) payload.reportTemplate = reportTemplate;
+
                 dispatch({ 
                     type: 'SET_STATE', 
-                    payload: { customers, sales, products, purchases } 
+                    payload
                 });
             }
 
