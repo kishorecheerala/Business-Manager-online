@@ -164,10 +164,14 @@ export const generateThermalInvoicePDF = async (sale: Sale, customer: Customer, 
                     if (logoPos === 'right') x = widthFull - margin - logoSize;
                 }
                 
-                doc.addImage(profile.logo, getImageType(profile.logo), x, ly, logoSize, logoSize);
+                const imgProps = doc.getImageProperties(profile.logo);
+                const ratio = imgProps.width / imgProps.height;
+                const h = logoSize / ratio;
+
+                doc.addImage(profile.logo, getImageType(profile.logo), x, ly, logoSize, h);
                 
                 if (!isAbsoluteLogo) {
-                    y += logoSize + (spacing.logoBottom ?? 4);
+                    y += h + (spacing.logoBottom ?? 4);
                 }
             } catch(e) { }
         }
