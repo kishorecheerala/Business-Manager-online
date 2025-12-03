@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { IndianRupee, User, AlertTriangle, Download, Upload, ShoppingCart, Package, ShieldCheck, ShieldX, Archive, PackageCheck, TestTube2, Sparkles, TrendingUp, TrendingDown, CalendarClock, Volume2, StopCircle, X, RotateCw, BrainCircuit, Loader2, MessageCircle, Share } from 'lucide-react';
+import { IndianRupee, User, AlertTriangle, Download, Upload, ShoppingCart, Package, XCircle, CheckCircle, Info, ShieldCheck, ShieldX, Archive, PackageCheck, TestTube2, Sparkles, TrendingUp, ArrowRight, Zap, BrainCircuit, TrendingDown, Wallet, CalendarClock, Tag, Undo2, Crown, Calendar, Receipt, MessageCircle, Clock, History, PenTool, FileText, Loader2, RotateCw, Share, Volume2, StopCircle } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import * as db from '../utils/db';
 import Card from '../components/Card';
@@ -8,7 +8,6 @@ import { Page, Customer, Sale, Purchase, Supplier, Product, Return, AppMetadataB
 import { testData, testProfile } from '../utils/testData';
 import { useDialog } from '../context/DialogContext';
 import PinModal from '../components/PinModal';
-import DatePill from '../components/DatePill';
 import CheckpointsModal from '../components/CheckpointsModal';
 import { GoogleGenAI, Modality } from "@google/genai";
 import { usePWAInstall } from '../hooks/usePWAInstall';
@@ -634,20 +633,6 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
     const { customers, sales, purchases, products, app_metadata, suppliers, returns, profile, expenses } = state;
     const { showConfirm, showAlert } = useDialog();
     const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
-    const [bannerDismissed, setBannerDismissed] = useState(false);
-    
-    useEffect(() => {
-        // Check session storage for dismissed state
-        const dismissed = sessionStorage.getItem('pwa_banner_dismissed');
-        if (dismissed === 'true') {
-            setBannerDismissed(true);
-        }
-    }, []);
-
-    const handleDismissBanner = () => {
-        setBannerDismissed(true);
-        sessionStorage.setItem('pwa_banner_dismissed', 'true');
-    };
     
     const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
     const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth().toString());
@@ -843,38 +828,16 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
             )}
             
             {/* Header Section */}
-            <div className="flex flex-row items-center justify-between gap-2 relative mb-6">
-                <div className="flex-shrink-0">
-                     <span className="text-xs sm:text-sm font-medium px-3 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/20 shadow-sm cursor-default flex flex-col items-start gap-0.5 max-w-full">
-                        <span className="text-[10px] text-gray-500 dark:text-gray-400">{getTimeBasedGreeting()},</span>
-                        <strong className="truncate max-w-[120px] sm:max-w-[150px] text-sm">{profile?.ownerName || 'Owner'}</strong>
-                    </span>
-                </div>
-
-                <div className="flex-grow text-center">
-                    <h1 className="text-lg sm:text-2xl md:text-3xl font-bold text-primary tracking-tight drop-shadow-sm truncate">
-                        Dashboard
-                    </h1>
-                </div>
-                
-                <div className="flex-shrink-0">
-                    <DatePill />
-                </div>
+            <div className="flex flex-row items-center justify-center gap-2 relative mb-6">
+                <h1 className="text-2xl sm:text-3xl font-bold text-primary tracking-tight drop-shadow-sm truncate">
+                    Dashboard
+                </h1>
             </div>
 
-            {/* Install Prompt Banner - Shows if installable AND NOT dismissed this session */}
-            {(isInstallable || (isIOS && !isInstalled)) && !bannerDismissed && (
-                <div className="bg-gradient-to-r from-indigo-500 to-blue-600 text-white rounded-xl p-4 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-3 animate-slide-down-fade mb-4 relative">
-                    {/* Close Button */}
-                    <button 
-                        onClick={handleDismissBanner}
-                        className="absolute top-2 right-2 p-1 hover:bg-white/20 rounded-full transition-colors"
-                        aria-label="Dismiss install banner"
-                    >
-                        <X size={16} />
-                    </button>
-
-                    <div className="flex items-center gap-3 pr-8">
+            {/* Install Prompt Banner */}
+            {(isInstallable || (isIOS && !isInstalled)) && (
+                <div className="bg-gradient-to-r from-indigo-500 to-blue-600 text-white rounded-xl p-4 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-3 animate-slide-down-fade mb-4">
+                    <div className="flex items-center gap-3">
                         <div className="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
                             <Download size={24} />
                         </div>
@@ -973,12 +936,6 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                                         <strong>Tip:</strong> Send the backup file to your email or save it to Google Drive for safe keeping.
                                     </p>
                                 </div>
-                            </div>
-                            
-                            <div className="mt-4 pt-4 border-t dark:border-slate-700">
-                                <Button onClick={() => setIsCheckpointsModalOpen(true)} variant="secondary" className="w-full text-xs h-8">
-                                    Manage Checkpoints
-                                </Button>
                             </div>
                         </div>
                     </Card>

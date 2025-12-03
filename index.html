@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -8,9 +9,9 @@
     
     <title>Business Manager</title>
 
-    <link rel="icon" type="image/svg+xml" href="./vite.svg" />
-    <link rel="manifest" href="./manifest.json" />
-    <link rel="apple-touch-icon" href="./vite.svg">
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/vite.svg">
     
     <script>
       // Capture PWA install prompt early to prevent missing it before React loads
@@ -183,7 +184,7 @@
         border-bottom: 1px solid rgba(255, 255, 255, 0.05);
       }
 
-      /* Pre-React loader styles - Modified: No Box, Just Text */
+      /* Pre-React loader styles - Matches App Icon Style */
       .pre-loader-container {
         display: flex;
         justify-content: center;
@@ -199,16 +200,20 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background-color: transparent;
-        color: rgb(var(--primary-color));
-        font-size: 10rem;
+        width: 120px;
+        height: 120px;
+        background-color: rgb(var(--primary-color));
+        color: white;
+        border-radius: 22.5px; /* Matches roughly 18% radius of svg */
+        font-size: 4rem;
         font-family: serif;
         font-weight: bold;
+        box-shadow: 0 10px 25px rgba(var(--primary-color), 0.4);
         animation: pulse-om 2s infinite ease-in-out;
       }
       @keyframes pulse-om {
         0%, 100% { transform: scale(1); opacity: 1; }
-        50% { transform: scale(1.1); opacity: 0.8; }
+        50% { transform: scale(1.05); opacity: 0.9; box-shadow: 0 15px 35px rgba(var(--primary-color), 0.6); }
       }
     </style>
 

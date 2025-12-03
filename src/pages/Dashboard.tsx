@@ -1,6 +1,5 @@
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { IndianRupee, User, AlertTriangle, Download, Upload, ShoppingCart, Package, ShieldCheck, ShieldX, Archive, PackageCheck, TestTube2, Sparkles, TrendingUp, TrendingDown, CalendarClock, Volume2, StopCircle, X, RotateCw, BrainCircuit, Loader2, MessageCircle, Share } from 'lucide-react';
+import { IndianRupee, User, AlertTriangle, Download, Upload, ShoppingCart, Package, XCircle, CheckCircle, Info, ShieldCheck, ShieldX, Archive, PackageCheck, TestTube2, Sparkles, TrendingUp, ArrowRight, Zap, BrainCircuit, TrendingDown, Wallet, CalendarClock, Tag, Undo2, Crown, Calendar, Receipt, MessageCircle, Clock, History, PenTool, FileText, Loader2, RotateCw, Share, Volume2, StopCircle } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import * as db from '../utils/db';
 import Card from '../components/Card';
@@ -635,19 +634,6 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
     const { customers, sales, purchases, products, app_metadata, suppliers, returns, profile, expenses } = state;
     const { showConfirm, showAlert } = useDialog();
     const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
-    const [bannerDismissed, setBannerDismissed] = useState(false);
-    
-    useEffect(() => {
-        const dismissed = sessionStorage.getItem('pwa_banner_dismissed');
-        if (dismissed === 'true') {
-            setBannerDismissed(true);
-        }
-    }, []);
-
-    const handleDismissBanner = () => {
-        setBannerDismissed(true);
-        sessionStorage.setItem('pwa_banner_dismissed', 'true');
-    };
     
     const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
     const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth().toString());
@@ -678,9 +664,11 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
     const stats = useMemo(() => {
         const yearInt = parseInt(selectedYear);
         
+        // 1. Yearly
         const filteredYearSales = sales.filter(s => new Date(s.date).getFullYear() === yearInt);
         const filteredYearPurchases = purchases.filter(p => new Date(p.date).getFullYear() === yearInt);
         
+        // 2. Monthly
         let filteredMonthSales = [];
         let filteredMonthPurchases = [];
 
@@ -696,11 +684,13 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
         const monthSalesTotal = filteredMonthSales.reduce((sum, s) => sum + Number(s.totalAmount), 0);
         const monthPurchasesTotal = filteredMonthPurchases.reduce((sum, p) => sum + Number(p.totalAmount), 0);
         
+        // Customer Dues (All time)
         const totalCustomerDues = sales.reduce((sum, s) => {
             const paid = (s.payments || []).reduce((pSum, p) => pSum + Number(p.amount), 0);
             return sum + (Number(s.totalAmount) - paid);
         }, 0);
 
+        // Supplier Dues (All time)
         const totalSupplierDues = purchases.reduce((sum, p) => {
             const paid = (p.payments || []).reduce((pSum, p) => pSum + Number(p.amount), 0);
             return sum + (Number(p.totalAmount) - paid);
@@ -838,6 +828,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                 />
             )}
             
+            {/* Header Section */}
             <div className="flex flex-row items-center justify-between gap-2 relative mb-6">
                 <div className="flex-shrink-0">
                      <span className="text-xs sm:text-sm font-medium px-3 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/20 shadow-sm cursor-default flex flex-col items-start gap-0.5 max-w-full">
@@ -857,17 +848,10 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                 </div>
             </div>
 
-            {(isInstallable || (isIOS && !isInstalled)) && !bannerDismissed && (
-                <div className="bg-gradient-to-r from-indigo-500 to-blue-600 text-white rounded-xl p-4 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-3 animate-slide-down-fade mb-4 relative">
-                    <button 
-                        onClick={handleDismissBanner}
-                        className="absolute top-2 right-2 p-1 hover:bg-white/20 rounded-full transition-colors"
-                        aria-label="Dismiss install banner"
-                    >
-                        <X size={16} />
-                    </button>
-
-                    <div className="flex items-center gap-3 pr-8">
+            {/* Install Prompt Banner */}
+            {(isInstallable || (isIOS && !isInstalled)) && (
+                <div className="bg-gradient-to-r from-indigo-500 to-blue-600 text-white rounded-xl p-4 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-3 animate-slide-down-fade mb-4">
+                    <div className="flex items-center gap-3">
                         <div className="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
                             <Download size={24} />
                         </div>
@@ -898,6 +882,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                 ownerName={profile?.ownerName || 'Owner'}
             />
             
+            {/* Toolbar for Period Selectors */}
             <div className="flex justify-end items-center mb-1">
                  <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-1 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700">
                      <select 
@@ -965,12 +950,6 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                                         <strong>Tip:</strong> Send the backup file to your email or save it to Google Drive for safe keeping.
                                     </p>
                                 </div>
-                            </div>
-                            
-                            <div className="mt-4 pt-4 border-t dark:border-slate-700">
-                                <Button onClick={() => setIsCheckpointsModalOpen(true)} variant="secondary" className="w-full text-xs h-8">
-                                    Manage Checkpoints
-                                </Button>
                             </div>
                         </div>
                     </Card>

@@ -59,7 +59,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
 };
 
 const LABEL_MAP: Record<string, string> = {
-    'DASHBOARD': 'Dashboard',
+    'DASHBOARD': 'Home',
     'CUSTOMERS': 'Customers',
     'SALES': 'Sales',
     'PURCHASES': 'Purchases',
@@ -314,7 +314,8 @@ const AppContent: React.FC = () => {
         if (state.themeGradient) {
             localStorage.setItem('themeGradient', state.themeGradient);
         } else {
-            localStorage.removeItem('themeGradient');
+            // Save 'none' to indicate explicit solid preference, distinguishing from "new user" (null)
+            localStorage.setItem('themeGradient', 'none');
         }
 
         // 5. Dynamic Icons (Favicon, Apple Touch, Manifest)
@@ -444,32 +445,30 @@ const AppContent: React.FC = () => {
                         </div>
 
                         {/* Center: Title - Absolutely Centered */}
-                        <div className="absolute left-0 right-0 top-0 h-16 flex items-center justify-center pointer-events-none z-10 px-16">
+                        <div className="absolute left-0 right-0 top-0 h-16 flex items-center justify-center pointer-events-none z-10 px-14">
                             <button 
                                 onClick={() => handleNavigation('DASHBOARD')}
-                                className="pointer-events-auto flex flex-col items-center justify-center hover:opacity-90 transition-opacity h-full py-1"
+                                className="pointer-events-auto flex flex-col items-center justify-center hover:opacity-80 transition-opacity"
                             >
-                                <h1 className="text-lg sm:text-xl font-bold tracking-tight truncate max-w-[200px] sm:max-w-[300px] leading-tight drop-shadow-sm">
+                                <h1 className="text-lg font-bold tracking-tight leading-tight drop-shadow-sm">
                                     {state.profile?.name || 'Business Manager'}
                                 </h1>
                                 
                                 {state.googleUser && (
-                                    <div className="flex items-center gap-1.5 mt-0.5 animate-fade-in-fast">
-                                        <span className="text-[10px] sm:text-xs font-medium text-white/95 truncate max-w-[150px] drop-shadow-sm">
-                                            {state.googleUser.name}
-                                        </span>
+                                    <div className="flex items-center gap-2 text-[10px] sm:text-xs font-medium text-white/90 mt-0.5">
+                                        <span className="drop-shadow-sm">{state.googleUser.name}</span>
                                         
                                         {/* Status Dot */}
                                         <div className="relative flex h-2 w-2 shrink-0">
-                                          {state.syncStatus === 'syncing' && (
+                                          {state.syncStatus === 'success' && (
                                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                                           )}
-                                          <span className={`relative inline-flex rounded-full h-2 w-2 ${state.syncStatus === 'error' ? 'bg-red-500' : 'bg-green-400'} shadow-sm`}></span>
+                                          <span className={`relative inline-flex rounded-full h-2 w-2 ${state.syncStatus === 'success' ? 'bg-green-500' : 'bg-gray-400'}`}></span>
                                         </div>
 
                                         {/* Sync Time */}
-                                        <span className="text-[9px] sm:text-[10px] font-mono text-white/80 font-medium tracking-wide">
-                                            {state.lastSyncTime ? new Date(state.lastSyncTime).toLocaleTimeString('en-US', {hour: 'numeric', minute:'2-digit', hour12: true}) : 'Connected'}
+                                        <span className="font-mono opacity-90">
+                                            {state.lastSyncTime ? new Date(state.lastSyncTime).toLocaleTimeString('en-US', {hour: 'numeric', minute:'2-digit', hour12: true}) : ''}
                                         </span>
                                     </div>
                                 )}
@@ -492,7 +491,7 @@ const AppContent: React.FC = () => {
                                     setIsCloudDebugOpen(true);
                                 }}
                                 className="relative p-2 hover:bg-white/20 rounded-full transition-colors"
-                                title={!state.googleUser ? 'Sign In to Backup' : state.syncStatus === 'error' ? 'Sync Failed (Click to Retry)' : state.syncStatus === 'syncing' ? 'Auto-Sync in progress...' : `Last Backup: ${state.lastSyncTime ? new Date(state.lastSyncTime).toLocaleString() : 'Not synced yet'}`}
+                                title={!state.googleUser ? 'Sign In to Backup' : state.syncStatus === 'error' ? 'Sync Failed (Click to Retry)' : state.syncStatus === 'syncing' ? 'Auto-Sync in progress...' : `Last Backup: ${state.lastSyncTime ? new Date(state.lastSyncTime).toLocaleTimeString() : 'Not synced yet'}`}
                             >
                                 {state.syncStatus === 'syncing' ? (
                                     <RefreshCw size={20} className="animate-spin" />
