@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { IndianRupee, User, AlertTriangle, Download, Upload, ShoppingCart, Package, XCircle, CheckCircle, Info, ShieldCheck, ShieldX, Archive, PackageCheck, TestTube2, Sparkles, TrendingUp, ArrowRight, Zap, BrainCircuit, TrendingDown, Wallet, CalendarClock, Tag, Undo2, Crown, Calendar, Receipt, MessageCircle, Clock, History, PenTool, FileText, Loader2, RotateCw, Share, Volume2, StopCircle } from 'lucide-react';
+import { IndianRupee, User, AlertTriangle, Download, Upload, ShoppingCart, Package, ShieldCheck, ShieldX, Archive, PackageCheck, TestTube2, Sparkles, TrendingUp, TrendingDown, CalendarClock, Volume2, StopCircle, X, RotateCw, BrainCircuit, Loader2, MessageCircle, Share } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import * as db from '../utils/db';
 import Card from '../components/Card';
@@ -634,6 +634,20 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
     const { customers, sales, purchases, products, app_metadata, suppliers, returns, profile, expenses } = state;
     const { showConfirm, showAlert } = useDialog();
     const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
+    const [bannerDismissed, setBannerDismissed] = useState(false);
+    
+    useEffect(() => {
+        // Check session storage for dismissed state
+        const dismissed = sessionStorage.getItem('pwa_banner_dismissed');
+        if (dismissed === 'true') {
+            setBannerDismissed(true);
+        }
+    }, []);
+
+    const handleDismissBanner = () => {
+        setBannerDismissed(true);
+        sessionStorage.setItem('pwa_banner_dismissed', 'true');
+    };
     
     const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
     const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth().toString());
@@ -848,10 +862,19 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                 </div>
             </div>
 
-            {/* Install Prompt Banner */}
-            {(isInstallable || (isIOS && !isInstalled)) && (
-                <div className="bg-gradient-to-r from-indigo-500 to-blue-600 text-white rounded-xl p-4 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-3 animate-slide-down-fade mb-4">
-                    <div className="flex items-center gap-3">
+            {/* Install Prompt Banner - Shows if installable AND NOT dismissed this session */}
+            {(isInstallable || (isIOS && !isInstalled)) && !bannerDismissed && (
+                <div className="bg-gradient-to-r from-indigo-500 to-blue-600 text-white rounded-xl p-4 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-3 animate-slide-down-fade mb-4 relative">
+                    {/* Close Button */}
+                    <button 
+                        onClick={handleDismissBanner}
+                        className="absolute top-2 right-2 p-1 hover:bg-white/20 rounded-full transition-colors"
+                        aria-label="Dismiss install banner"
+                    >
+                        <X size={16} />
+                    </button>
+
+                    <div className="flex items-center gap-3 pr-8">
                         <div className="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
                             <Download size={24} />
                         </div>
