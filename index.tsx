@@ -4,16 +4,25 @@ import { App } from './App'
 import './index.css'
 
 // Service Worker Registration
-// Skip registration in sandbox/preview environments to avoid origin mismatch errors
-const isSandbox = location.origin.includes('ai.studio') || location.origin.includes('usercontent.goog');
+// Skip registration in preview environments (AI Studio, StackBlitz, etc.) to prevent origin mismatch errors.
+// These environments often serve the app in a sandboxed iframe with a different origin than the top window.
+const isPreview = window.location.origin.includes('ai.studio') || 
+                  window.location.origin.includes('usercontent.goog') ||
+                  window.location.origin.includes('webcontainer.io');
 
-if (isSandbox) {
-  console.log('Skipping Service Worker registration in sandbox environment');
+if (isPreview) {
+  console.log('Skipping Service Worker registration in preview environment');
 } else if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
+    // Use relative paths to handle sub-path deployments
     navigator.serviceWorker
-      .register('/sw.js', { scope: '/' })
-      .catch(err => console.error('SW registration failed:', err));
+      .register('./sw.js', { scope: './' })
+      .then((registration) => {
+        console.log('✅ Service Worker registered with scope:', registration.scope);
+      })
+      .catch((error) => {
+        console.error('❌ Service Worker registration failed:', error);
+      });
   });
 }
 
