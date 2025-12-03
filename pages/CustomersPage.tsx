@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Plus, User, Phone, MapPin, Search, Edit, Save, X, IndianRupee, ShoppingCart, Share2, Crown, ShieldAlert, BadgeCheck } from 'lucide-react';
+import { Plus, User, Phone, MapPin, Search, Edit, Save, X, IndianRupee, ShoppingCart, Share2, Crown, ShieldAlert, BadgeCheck, MessageCircle, Map, Mail, Shield, Send } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Customer, Payment, Sale, Page } from '../types';
 import Card from '../components/Card';
@@ -313,6 +313,12 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
         }
     };
 
+    const handleOpenMap = (e: React.MouseEvent, address: string) => {
+        e.stopPropagation();
+        const query = encodeURIComponent(address);
+        window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
+    };
+
     const filteredCustomers = useMemo(() => {
         const lowerTerm = searchTerm.toLowerCase();
         return state.customers.filter(c =>
@@ -384,10 +390,42 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                             <div><label className="text-sm font-medium">Reference</label><input type="text" name="reference" value={editedCustomer.reference ?? ''} onChange={handleInputChange} className="w-full p-2 border rounded" /></div>
                         </div>
                     ) : (
-                        <div className="space-y-1 text-gray-700">
-                             <p><strong>ID:</strong> {selectedCustomer.id}</p>
-                            <p><strong>Phone:</strong> {selectedCustomer.phone}</p>
-                            <p><strong>Address:</strong> {selectedCustomer.address}</p>
+                        <div className="space-y-3 text-gray-700">
+                             <div>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 font-mono mb-2">ID: {selectedCustomer.id}</p>
+                                <div className="flex flex-wrap gap-2">
+                                    <a 
+                                        href={`tel:${selectedCustomer.phone}`} 
+                                        className="flex items-center gap-2 px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-lg hover:bg-green-100 transition-colors text-sm font-medium dark:bg-green-900/30 dark:border-green-800 dark:text-green-300"
+                                    >
+                                        <Phone size={14} /> Call
+                                    </a>
+                                    <a 
+                                        href={`https://wa.me/${selectedCustomer.phone.replace(/\D/g, '')}`} 
+                                        target="_blank"
+                                        className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors text-sm font-medium dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-300"
+                                    >
+                                        <MessageCircle size={14} /> WhatsApp
+                                    </a>
+                                    <a 
+                                        href={`truecaller://search_number?phoneNumber=${selectedCustomer.phone.replace(/\D/g, '')}`} 
+                                        className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-300"
+                                    >
+                                        <Shield size={14} /> Truecaller
+                                    </a>
+                                </div>
+                             </div>
+                            
+                            <div className="flex items-center gap-2">
+                                <p><strong>Address:</strong> {selectedCustomer.address}</p>
+                                <button 
+                                    onClick={(e) => handleOpenMap(e, selectedCustomer.address + ', ' + selectedCustomer.area)}
+                                    className="p-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                    title="View on Google Maps"
+                                >
+                                    <Map size={14} />
+                                </button>
+                            </div>
                             <p><strong>Area:</strong> {selectedCustomer.area}</p>
                             {selectedCustomer.reference && <p><strong>Reference:</strong> {selectedCustomer.reference}</p>}
                         </div>
@@ -578,8 +616,21 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                                         <User size={16}/> {customer.name}
                                         <SegmentBadge segment={getCustomerSegment(customerSales)} />
                                     </p>
-                                    <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2"><Phone size={14}/> {customer.phone}</p>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2"><MapPin size={14}/> {customer.area}</p>
+                                    <div className="flex flex-col gap-1 mt-1">
+                                        <a href={`tel:${customer.phone}`} className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2 hover:text-primary transition-colors" onClick={(e) => e.stopPropagation()}>
+                                            <Phone size={14}/> {customer.phone}
+                                        </a>
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2"><MapPin size={14}/> {customer.area}</p>
+                                            <button 
+                                                onClick={(e) => handleOpenMap(e, customer.address + ', ' + customer.area)}
+                                                className="p-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded hover:bg-green-200 dark:hover:bg-green-800 transition-colors"
+                                                title="View on Google Maps"
+                                            >
+                                                <Map size={14} />
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div className="text-right flex-shrink-0 ml-4">
                                     <div className="flex items-center justify-end gap-1 text-green-600 dark:text-green-400">

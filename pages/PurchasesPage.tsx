@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Plus, Edit, Save, X, Search, Download, Printer, FileSpreadsheet, Upload, CheckCircle, XCircle, Info, QrCode, Calendar as CalendarIcon, Image as ImageIcon } from 'lucide-react';
+import { Plus, Edit, Save, X, Search, Download, Printer, FileSpreadsheet, Upload, CheckCircle, XCircle, Info, QrCode, Calendar as CalendarIcon, Image as ImageIcon, Phone, CreditCard, ExternalLink, Shield, Building, MessageCircle } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Supplier, Purchase, Payment, Return, Page, Product, PurchaseItem } from '../types';
 import Card from '../components/Card';
@@ -308,6 +308,13 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
                 showToast("Payment schedule updated.");
             };
 
+            const sendPurchaseOrder = (purchase: Purchase) => {
+                const itemsText = purchase.items.map(i => `${i.productName} (x${i.quantity})`).join('\n');
+                const text = `New Order for ${selectedSupplier.name}:\n\n${itemsText}\n\nTotal Est: Rs. ${purchase.totalAmount}`;
+                const url = `https://wa.me/${selectedSupplier.phone.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`;
+                window.open(url, '_blank');
+            };
+
             return (
                 <div className="space-y-6 animate-fade-in-fast">
                     <ConfirmationModal
@@ -336,13 +343,55 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
                     </div>
 
                     <Card>
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <p className="text-gray-600 dark:text-gray-300 flex items-center gap-2"><span className="font-bold">Phone:</span> {selectedSupplier.phone}</p>
-                                <p className="text-gray-600 dark:text-gray-300 flex items-center gap-2"><span className="font-bold">Location:</span> {selectedSupplier.location}</p>
-                                {selectedSupplier.gstNumber && <p className="text-gray-600 dark:text-gray-300 flex items-center gap-2"><span className="font-bold">GST:</span> {selectedSupplier.gstNumber}</p>}
+                        <div className="flex flex-col gap-4">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <p className="text-gray-600 dark:text-gray-300 flex items-center gap-2"><span className="font-bold">Phone:</span> {selectedSupplier.phone}</p>
+                                    <p className="text-gray-600 dark:text-gray-300 flex items-center gap-2"><span className="font-bold">Location:</span> {selectedSupplier.location}</p>
+                                    {selectedSupplier.gstNumber && <p className="text-gray-600 dark:text-gray-300 flex items-center gap-2"><span className="font-bold">GST:</span> {selectedSupplier.gstNumber}</p>}
+                                </div>
+                                <Button onClick={() => setView('edit_supplier')} variant="secondary" className="h-8 text-xs"><Edit size={14} className="mr-2"/> Edit Details</Button>
                             </div>
-                            <Button onClick={() => setView('edit_supplier')} variant="secondary"><Edit size={16} className="mr-2"/> Edit Details</Button>
+                            
+                            {/* Actions Bar */}
+                            <div className="flex flex-wrap gap-2 pt-2 border-t dark:border-slate-700">
+                                <a 
+                                    href={`tel:${selectedSupplier.phone}`} 
+                                    className="flex items-center gap-2 px-3 py-2 bg-green-50 text-green-700 border border-green-200 rounded-lg hover:bg-green-100 transition-colors text-sm font-medium dark:bg-green-900/30 dark:border-green-800 dark:text-green-300"
+                                >
+                                    <Phone size={16} /> Call
+                                </a>
+                                <a 
+                                    href={`https://wa.me/${selectedSupplier.phone.replace(/\D/g, '')}`} 
+                                    target="_blank"
+                                    className="flex items-center gap-2 px-3 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors text-sm font-medium dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-300"
+                                >
+                                    <MessageCircle size={16} /> WhatsApp
+                                </a>
+                                <a 
+                                    href={`truecaller://search_number?phoneNumber=${selectedSupplier.phone.replace(/\D/g, '')}`} 
+                                    className="flex items-center gap-2 px-3 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-300"
+                                >
+                                    <Shield size={16} /> Identify
+                                </a>
+                                {selectedSupplier.gstNumber && (
+                                    <a 
+                                        href={`https://services.gst.gov.in/services/searchtp`} 
+                                        target="_blank"
+                                        className="flex items-center gap-2 px-3 py-2 bg-orange-50 text-orange-700 border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium dark:bg-orange-900/30 dark:border-orange-800 dark:text-orange-300"
+                                    >
+                                        <Building size={16} /> Verify GST
+                                    </a>
+                                )}
+                                {selectedSupplier.upi && (
+                                    <a 
+                                        href={`upi://pay?pa=${selectedSupplier.upi}&pn=${encodeURIComponent(selectedSupplier.name)}&cu=INR`} 
+                                        className="flex items-center gap-2 px-3 py-2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors text-sm font-medium dark:bg-indigo-900/30 dark:border-indigo-800 dark:text-indigo-300"
+                                    >
+                                        <CreditCard size={16} /> Pay UPI
+                                    </a>
+                                )}
+                            </div>
                         </div>
                     </Card>
 
@@ -448,6 +497,9 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
                                                         Record Payment
                                                     </Button>
                                                 )}
+                                                <Button onClick={() => sendPurchaseOrder(purchase)} variant="secondary" className="text-xs h-8 text-green-700 hover:bg-green-100 border-green-200">
+                                                    <MessageCircle size={14} className="mr-1" /> Send Order
+                                                </Button>
                                                 <Button onClick={() => { setPurchaseToEdit(purchase); setView('edit_purchase'); }} variant="secondary" className="text-xs h-8">
                                                     <Edit size={14} className="mr-1" /> Edit
                                                 </Button>
@@ -497,7 +549,7 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
                 {/* View Image Modal */}
                 {viewImageModal && (
                     <div className="fixed inset-0 bg-black/80 z-[2000] flex items-center justify-center p-4 animate-fade-in-fast" onClick={() => setViewImageModal(null)}>
-                        <div className="relative max-w-full max-h-full">
+                        <div className="relative max-w-full max-h-full" onClick={(e) => e.stopPropagation()}>
                             <button className="absolute -top-10 right-0 text-white p-2" onClick={() => setViewImageModal(null)}><X size={24}/></button>
                             <img src={viewImageModal} alt="Invoice" className="max-w-full max-h-[90vh] rounded-lg shadow-2xl" />
                         </div>
