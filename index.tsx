@@ -2,28 +2,30 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { App } from './App';
 import ErrorBoundary from './components/ErrorBoundary';
+import './index.css';
 
-// Register Service Worker FIRST - before anything else
-// This ensures the install script runs as early as possible for PWA capabilities
-
+// Service Worker Registration
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    // We register at root scope to control the whole app
     navigator.serviceWorker
-      .register('./sw.js', { scope: './' })
+      .register('/sw.js', { scope: '/' })
       .then((registration) => {
-        console.log('✅ Service Worker registered with scope:', registration.scope);
+        console.log('✅ SW registered successfully');
       })
       .catch((err) => {
-        console.warn('❌ Service Worker registration failed (this is expected in some sandboxed previews):', err);
+        // Skip origin mismatch errors as this is expected in some development/preview environments
+        // but works correctly in production/PWA mode.
+        if (err.message && (err.message.includes('origin') || err.message.includes('Origin'))) {
+            // console.warn('⚠️ Service Worker origin mismatch detected. This is expected in preview environments. Ignoring.');
+            return;
+        }
+        console.error('❌ SW registration failed:', err.message);
       });
   });
 }
 
 const rootElement = document.getElementById('root');
 
-// Safe Render
-// Wrap in try-catch to log render errors preventing blank screens
 if (rootElement) {
   try {
     const root = ReactDOM.createRoot(rootElement);
