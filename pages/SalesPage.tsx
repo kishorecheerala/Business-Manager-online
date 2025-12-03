@@ -393,7 +393,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                     onScanned={handleProductScanned}
                 />
             }
-            <h1 className="text-2xl font-bold text-primary">{pageTitle}</h1>
+            <h1 className="text-xl font-bold text-primary">{pageTitle}</h1>
             
             <Card>
                 <div className="space-y-4">

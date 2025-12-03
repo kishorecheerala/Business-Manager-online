@@ -60,7 +60,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
 };
 
 const LABEL_MAP: Record<string, string> = {
-    'DASHBOARD': 'Home',
+    'DASHBOARD': 'Dashboard',
     'CUSTOMERS': 'Customers',
     'SALES': 'Sales',
     'PURCHASES': 'Purchases',
@@ -131,6 +131,20 @@ const AppContent: React.FC = () => {
         } catch(e) {}
         return 'DASHBOARD';
     });
+
+    // --- Global Timer for Header ---
+    const [currentDateTime, setCurrentDateTime] = useState(new Date());
+    useEffect(() => {
+        const timer = setInterval(() => setCurrentDateTime(new Date()), 1000);
+        return () => clearInterval(timer);
+    }, []);
+
+    const getTimeBasedGreeting = () => {
+        const hour = currentDateTime.getHours();
+        if (hour < 12) return 'Good Morning';
+        if (hour < 17) return 'Good Afternoon';
+        return 'Good Evening';
+    };
 
     // Handle PWA shortcut actions on mount (e.g., opening modals)
     useEffect(() => {
@@ -394,9 +408,10 @@ const AppContent: React.FC = () => {
     // Main Content Class Logic
     // If INVOICE_DESIGNER: Fixed full height, internal scrolling.
     // Standard Pages: Native body scrolling (min-h-screen).
+    // Increased top padding to accommodate the taller header + banner
     const mainClass = currentPage === 'INVOICE_DESIGNER' 
         ? 'h-[100dvh] overflow-hidden' 
-        : `min-h-screen pt-16`;
+        : `min-h-screen pt-[7rem]`; // 64px header + 40px banner = ~104px (6.5rem), using 7rem for safety
 
     return (
         <div className={`min-h-screen flex flex-col bg-background dark:bg-slate-950 text-text dark:text-slate-200 font-sans transition-colors duration-300 ${state.theme}`}>
@@ -406,94 +421,100 @@ const AppContent: React.FC = () => {
             
             {/* Header - Hidden on Invoice Designer to maximize space */}
             {currentPage !== 'INVOICE_DESIGNER' && (
-                <header className="fixed top-0 left-0 right-0 h-16 bg-theme text-white shadow-lg z-40 px-3 sm:px-4 flex items-center justify-between transition-all duration-300">
+                <header className="fixed top-0 left-0 right-0 z-40 bg-theme shadow-lg transition-all duration-300">
                     
-                    {/* Left: Menu & Search */}
-                    <div className="flex items-center gap-1 sm:gap-2 z-20">
-                        <button onClick={() => setIsMenuOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors" title="Menu (Ctrl+M)">
-                            <Menu size={24} />
-                        </button>
-                        <button onClick={() => setIsSearchOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors" title="Search (Ctrl+K)">
-                            <Search size={20} />
-                        </button>
-                    </div>
-
-                    {/* Center: Title - Absolutely Centered */}
-                    <div className="absolute left-0 right-0 flex justify-center pointer-events-none z-10">
-                        <button 
-                            onClick={() => handleNavigation('DASHBOARD')}
-                            className="pointer-events-auto flex flex-col items-center justify-center hover:opacity-80 transition-opacity py-1"
-                        >
-                            <h1 className="text-lg sm:text-xl font-bold tracking-tight truncate max-w-[200px] sm:max-w-[300px] leading-tight">
-                                {state.profile?.name || 'Business Manager'}
-                            </h1>
-                            {state.googleUser && (
-                                <span className="text-[10px] font-medium text-white/80 leading-none mt-0.5 flex items-center gap-1">
-                                    {state.googleUser.name.split(' ')[0]} • {state.syncStatus === 'syncing' ? 'Syncing...' : (state.lastSyncTime ? new Date(state.lastSyncTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Unsynced')}
-                                </span>
-                            )}
-                        </button>
-                    </div>
-
-                    {/* Right: Actions */}
-                    <div className="flex items-center gap-1 sm:gap-2 z-20">
-                        
-                        {/* Cloud Sync / Sign In Button */}
-                        <button 
-                            onClick={() => { 
-                                if (!state.googleUser) {
-                                    setIsSignInModalOpen(true);
-                                } else {
-                                    // Always attempt to sync, even on error (Retry)
-                                    syncData(); 
-                                }
-                            }} 
-                            onContextMenu={(e) => {
-                                // Right click to open diagnostics
-                                e.preventDefault();
-                                setIsCloudDebugOpen(true);
-                            }}
-                            className="relative p-2 hover:bg-white/20 rounded-full transition-colors"
-                            title={!state.googleUser ? 'Sign In to Backup' : state.syncStatus === 'error' ? 'Sync Failed (Click to Retry)' : state.syncStatus === 'syncing' ? 'Auto-Sync in progress...' : `Last Backup: ${state.lastSyncTime ? new Date(state.lastSyncTime).toLocaleString() : 'Not synced yet'}`}
-                        >
-                            {state.syncStatus === 'syncing' ? (
-                                <RefreshCw size={20} className="animate-spin" />
-                            ) : state.syncStatus === 'error' ? (
-                                <CloudOff size={20} className="text-red-300" />
-                            ) : (
-                                <Cloud size={20} className={!state.googleUser ? "opacity-70" : ""} />
-                            )}
-                            
-                            {/* Status Dot - Only visible if user is logged in */}
-                            {state.googleUser && state.syncStatus !== 'syncing' && (
-                                <span className={`absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full border-2 border-white/20 ${
-                                    state.syncStatus === 'success' ? 'bg-green-400' : 
-                                    state.syncStatus === 'error' ? 'bg-red-500' : 
-                                    'bg-gray-300'
-                                }`}></span>
-                            )}
-                        </button>
-
-                        {/* AI Button - Always visible */}
-                        <button onClick={() => setIsAskAIOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
-                            <Sparkles size={20} />
-                        </button>
-
-                        {/* Notifications */}
-                        <div className="relative" ref={notificationsRef}>
-                            <button onClick={() => setIsNotificationsOpen(!isNotificationsOpen)} className="p-2 hover:bg-white/20 rounded-full transition-colors relative">
-                                <Bell size={20} />
-                                {state.notifications.some(n => !n.read) && (
-                                    <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-slate-800"></span>
-                                )}
+                    {/* Top Row: Navigation & Actions (h-16) */}
+                    <div className="h-16 px-3 sm:px-4 flex items-center justify-between text-white relative">
+                        {/* Left: Menu & Search */}
+                        <div className="flex items-center gap-1 sm:gap-2 z-20">
+                            <button onClick={() => setIsMenuOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors" title="Menu (Ctrl+M)">
+                                <Menu size={24} />
                             </button>
-                            <NotificationsPanel isOpen={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)} onNavigate={handleNavigation} />
+                            <button onClick={() => setIsSearchOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors" title="Search (Ctrl+K)">
+                                <Search size={20} />
+                            </button>
                         </div>
 
-                        {/* Help Button - Hidden on small mobile */}
-                        <button onClick={() => setIsHelpOpen(true)} className="hidden sm:block p-2 hover:bg-white/20 rounded-full transition-colors">
-                            <HelpCircle size={20} />
-                        </button>
+                        {/* Center: Title - Absolutely Centered */}
+                        <div className="absolute left-0 right-0 flex justify-center pointer-events-none z-10">
+                            <button 
+                                onClick={() => handleNavigation('DASHBOARD')}
+                                className="pointer-events-auto flex flex-col items-center justify-center hover:opacity-80 transition-opacity py-1"
+                            >
+                                <h1 className="text-lg sm:text-xl font-bold tracking-tight truncate max-w-[200px] sm:max-w-[300px] leading-tight">
+                                    {state.profile?.name || 'Business Manager'}
+                                </h1>
+                            </button>
+                        </div>
+
+                        {/* Right: Actions */}
+                        <div className="flex items-center gap-1 sm:gap-2 z-20">
+                            {/* Cloud Sync / Sign In Button */}
+                            <button 
+                                onClick={() => { 
+                                    if (!state.googleUser) {
+                                        setIsSignInModalOpen(true);
+                                    } else {
+                                        syncData(); 
+                                    }
+                                }} 
+                                onContextMenu={(e) => {
+                                    e.preventDefault();
+                                    setIsCloudDebugOpen(true);
+                                }}
+                                className="relative p-2 hover:bg-white/20 rounded-full transition-colors"
+                                title={!state.googleUser ? 'Sign In to Backup' : state.syncStatus === 'error' ? 'Sync Failed (Click to Retry)' : state.syncStatus === 'syncing' ? 'Auto-Sync in progress...' : `Last Backup: ${state.lastSyncTime ? new Date(state.lastSyncTime).toLocaleString() : 'Not synced yet'}`}
+                            >
+                                {state.syncStatus === 'syncing' ? (
+                                    <RefreshCw size={20} className="animate-spin" />
+                                ) : state.syncStatus === 'error' ? (
+                                    <CloudOff size={20} className="text-red-300" />
+                                ) : (
+                                    <Cloud size={20} className={!state.googleUser ? "opacity-70" : ""} />
+                                )}
+                                {state.googleUser && state.syncStatus !== 'syncing' && (
+                                    <span className={`absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full border-2 border-white/20 ${
+                                        state.syncStatus === 'success' ? 'bg-green-400' : 
+                                        state.syncStatus === 'error' ? 'bg-red-500' : 
+                                        'bg-gray-300'
+                                    }`}></span>
+                                )}
+                            </button>
+
+                            {/* AI Button - Always visible */}
+                            <button onClick={() => setIsAskAIOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+                                <Sparkles size={20} />
+                            </button>
+
+                            {/* Notifications */}
+                            <div className="relative" ref={notificationsRef}>
+                                <button onClick={() => setIsNotificationsOpen(!isNotificationsOpen)} className="p-2 hover:bg-white/20 rounded-full transition-colors relative">
+                                    <Bell size={20} />
+                                    {state.notifications.some(n => !n.read) && (
+                                        <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-slate-800"></span>
+                                    )}
+                                </button>
+                                <NotificationsPanel isOpen={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)} onNavigate={handleNavigation} />
+                            </div>
+
+                            {/* Help Button - Hidden on small mobile */}
+                            <button onClick={() => setIsHelpOpen(true)} className="hidden sm:block p-2 hover:bg-white/20 rounded-full transition-colors">
+                                <HelpCircle size={20} />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Bottom Row: Info Banner (h-10) */}
+                    <div className="h-10 bg-white/10 backdrop-blur-md border-t border-white/10 flex items-center justify-between px-4 text-white text-xs sm:text-sm font-medium">
+                        <div className="flex-1 text-left opacity-90 truncate pr-2">
+                            {getTimeBasedGreeting()}, <span className="font-bold">{state.profile?.ownerName || 'Owner'}</span>
+                        </div>
+                        <div className="flex-shrink-0 text-center font-bold uppercase tracking-wider px-3 py-0.5 bg-white/10 rounded-full text-[10px] sm:text-xs">
+                            {LABEL_MAP[currentPage]}
+                        </div>
+                        <div className="flex-1 text-right opacity-90 truncate pl-2">
+                            {currentDateTime.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })} {currentDateTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                        </div>
                     </div>
                 </header>
             )}

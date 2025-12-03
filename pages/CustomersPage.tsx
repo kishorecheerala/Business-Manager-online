@@ -578,8 +578,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
             )}
 
             <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-bold text-primary">Customers</h1>
-                <Button onClick={() => setIsAdding(!isAdding)}>
+                <Button onClick={() => setIsAdding(!isAdding)} className="w-full">
                     <Plus className="w-4 h-4 mr-2" />
                     {isAdding ? 'Cancel' : 'Add Customer'}
                 </Button>

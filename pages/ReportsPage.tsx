@@ -6,13 +6,13 @@ import Card from '../components/Card';
 import Button from '../components/Button';
 import { Customer, Sale, Supplier, Page, Product } from '../types';
 import Dropdown from '../components/Dropdown';
-import DatePill from '../components/DatePill';
 import { generateGenericReportPDF } from '../utils/pdfGenerator';
 import { exportReportToSheet } from '../utils/googleSheets';
 
 interface CustomerWithDue extends Customer {
   dueAmount: number;
   lastPaidDate: string | null;
+  salesWithDue: Sale[];
 }
 
 interface ReportsPageProps {
@@ -53,8 +53,6 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                 rows
             );
             
-            // Create a toast with action
-            // Since our toast component is simple, we show success and open window
             showToast("Export successful! Opening Google Sheet...", "success");
             window.open(url, '_blank');
         } catch (error: any) {
@@ -430,13 +428,6 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
 
     return (
         <div className="space-y-6">
-             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                <div className="flex items-center gap-3">
-                    <h1 className="text-2xl font-bold text-primary">Reports</h1>
-                    <DatePill />
-                </div>
-            </div>
-
             <div className="border-b dark:border-slate-700">
                 <nav className="-mb-px flex space-x-6 overflow-x-auto">
                     <button 
@@ -529,16 +520,14 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                                                     {c.name}
                                                 </button>
                                             </td>
-                                            <td className="p-2">{c.area}</td><td className="p-2">{c.lastPaidDate || 'N/A'}</td><td className="p-2 text-right font-semibold text-red-600 dark:text-red-400">₹{c.dueAmount.toLocaleString('en-IN')}</td>
+                                            <td className="p-2">{c.area}</td><td className="p-2">{c.lastPaidDate || 'N/A'}</td><td className="p-2 text-right font-semibold text-red-600 dark:text-red-400">Rs. {c.dueAmount.toLocaleString('en-IN')}</td>
                                         </tr>
-                                    )) : <tr><td colSpan={4} className="text-center p-4 text-gray-500 dark:text-gray-400">No dues found for the selected filters.</td></tr>}
+                                    )) : <tr><td colSpan={4} className="p-4 text-center text-gray-500">No data found matching filters.</td></tr>}
                                 </tbody>
-                                <tfoot className="font-bold bg-gray-100 dark:bg-slate-800 dark:text-slate-200">
-                                    <tr>
-                                        <td colSpan={3} className="p-2 text-right">Total Due</td><td className="p-2 text-right">₹{totalDuesFiltered.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                                    </tr>
-                                </tfoot>
                             </table>
+                        </div>
+                        <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900 rounded-lg text-right">
+                            <span className="font-bold text-red-800 dark:text-red-200">Total Outstanding: Rs. {totalDuesFiltered.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                         </div>
                     </Card>
 
@@ -552,28 +541,16 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                             <table className="w-full text-sm">
                                 <thead className="text-left text-gray-600 bg-gray-50 dark:bg-slate-700 dark:text-gray-300">
                                     <tr>
-                                        <th className="p-2">Name</th>
-                                        <th className="p-2">Last Purchase Date</th>
-                                        <th className="p-2 text-right">Total Purchased</th>
-                                        <th className="p-2 text-right">Total Paid</th>
-                                        <th className="p-2 text-right">Outstanding Due</th>
+                                        <th className="p-2">Name</th><th className="p-2 text-right">Total Billed</th><th className="p-2 text-right">Total Paid</th><th className="p-2 text-right">Balance</th>
                                     </tr>
                                 </thead>
                                 <tbody className="dark:text-slate-300">
-                                    {customerAccountSummary.map(s => (
-                                        <tr key={s.customer.id} className="border-b dark:border-slate-700">
-                                            <td className="p-2 font-semibold">
-                                                <button 
-                                                    onClick={() => handleCustomerClick(s.customer.id)}
-                                                    className="text-primary hover:underline text-left"
-                                                >
-                                                    {s.customer.name}
-                                                </button>
-                                            </td>
-                                            <td className="p-2">{s.lastPurchaseDate || 'N/A'}</td>
-                                            <td className="p-2 text-right">₹{s.totalPurchased.toLocaleString('en-IN')}</td>
-                                            <td className="p-2 text-right text-green-600 dark:text-green-400">₹{s.totalPaid.toLocaleString('en-IN')}</td>
-                                            <td className="p-2 text-right font-semibold text-red-600 dark:text-red-400">₹{s.outstandingDue.toLocaleString('en-IN')}</td>
+                                    {customerAccountSummary.map((s, i) => (
+                                        <tr key={i} className="border-b dark:border-slate-700">
+                                            <td className="p-2">{s.customer.name}</td>
+                                            <td className="p-2 text-right">Rs. {s.totalPurchased.toLocaleString('en-IN')}</td>
+                                            <td className="p-2 text-right text-green-600 dark:text-green-400">Rs. {s.totalPaid.toLocaleString('en-IN')}</td>
+                                            <td className={`p-2 text-right font-bold ${s.outstandingDue > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'}`}>Rs. {s.outstandingDue.toLocaleString('en-IN')}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -582,26 +559,26 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                     </Card>
                 </div>
             )}
-            
+
             {activeTab === 'supplier' && (
                 <div className="animate-fade-in-fast space-y-6">
-                    <Card title="Filters">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Filter by Supplier</label>
-                            <div className="mt-1">
-                                <Dropdown 
-                                    options={[{value: 'all', label: 'All Suppliers'}, ...uniqueSuppliers.map(s => ({ value: s.id, label: s.name }))]}
-                                    value={supplierFilter}
-                                    onChange={setSupplierFilter}
-                                    searchable={true}
-                                    searchPlaceholder="Search suppliers..."
-                                    icon="search"
-                                />
-                            </div>
+                    <Card title="Supplier Filters">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Filter by Supplier</label>
+                        <div className="mt-1">
+                            <Dropdown 
+                                options={[{value: 'all', label: 'All Suppliers'}, ...uniqueSuppliers.map(s => ({ value: s.id, label: s.name }))]}
+                                value={supplierFilter}
+                                onChange={setSupplierFilter}
+                                searchable={true}
+                                icon="search"
+                            />
+                        </div>
+                        <div className="text-right mt-2">
+                            <Button onClick={() => setSupplierFilter('all')} variant="secondary" className="text-xs">Clear Filter</Button>
                         </div>
                     </Card>
 
-                     <Card title="Supplier Dues Report">
+                    <Card title="Supplier Dues Report">
                         <div className="flex gap-2 mb-4">
                             <Button onClick={generateSupplierDuesPDF}><Download className="w-4 h-4 mr-2" /> PDF</Button>
                             <Button onClick={generateSupplierDuesCSV} variant="secondary"><Download className="w-4 h-4 mr-2" /> CSV</Button>
@@ -610,37 +587,44 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                                 <thead className="text-left text-gray-600 bg-gray-50 dark:bg-slate-700 dark:text-gray-300">
-                                    <tr><th className="p-2">Supplier</th><th className="p-2">Purchase ID</th><th className="p-2">Next Due Date</th><th className="p-2 text-right">Due Amount</th></tr>
+                                    <tr>
+                                        <th className="p-2">Supplier</th><th className="p-2">Invoice ID</th><th className="p-2">Next Due Date</th><th className="p-2 text-right">Amount Due</th>
+                                    </tr>
                                 </thead>
                                 <tbody className="dark:text-slate-300">
-                                    {supplierDues.length > 0 ? supplierDues.map(p => (
-                                        <tr key={p.id} className="border-b dark:border-slate-700">
-                                            <td className="p-2 font-semibold">{p.supplierName}</td><td className="p-2">{p.id}</td><td className="p-2">{p.nextDueDate || 'N/A'}</td><td className="p-2 text-right font-semibold text-red-600 dark:text-red-400">₹{p.dueAmount.toLocaleString('en-IN')}</td>
+                                    {supplierDues.length > 0 ? supplierDues.map((p, i) => (
+                                        <tr key={i} className="border-b dark:border-slate-700">
+                                            <td className="p-2 font-semibold">{p.supplierName}</td>
+                                            <td className="p-2">{p.id}</td>
+                                            <td className="p-2">{p.nextDueDate}</td>
+                                            <td className="p-2 text-right font-bold text-red-600 dark:text-red-400">Rs. {p.dueAmount.toLocaleString('en-IN')}</td>
                                         </tr>
-                                    )) : <tr><td colSpan={4} className="text-center p-4 text-gray-500 dark:text-gray-400">No supplier dues found.</td></tr>}
+                                    )) : <tr><td colSpan={4} className="p-4 text-center text-gray-500">No outstanding supplier dues.</td></tr>}
                                 </tbody>
                             </table>
                         </div>
                     </Card>
-                    
+
                     <Card title="Supplier Account Summary">
                         <div className="flex gap-2 mb-4">
                             <Button onClick={generateSupplierSummaryPDF}><Download className="w-4 h-4 mr-2" /> PDF</Button>
                             <Button onClick={generateSupplierSummaryCSV} variant="secondary"><Download className="w-4 h-4 mr-2" /> CSV</Button>
                             <SheetButton onClick={exportSupplierSummaryToSheets} />
                         </div>
-                         <div className="overflow-x-auto">
+                        <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                                 <thead className="text-left text-gray-600 bg-gray-50 dark:bg-slate-700 dark:text-gray-300">
-                                    <tr><th className="p-2">Name</th><th className="p-2 text-right">Total Purchased</th><th className="p-2 text-right">Total Paid</th><th className="p-2 text-right">Outstanding Due</th></tr>
+                                    <tr>
+                                        <th className="p-2">Supplier Name</th><th className="p-2 text-right">Total Purchased</th><th className="p-2 text-right">Total Paid</th><th className="p-2 text-right">Balance</th>
+                                    </tr>
                                 </thead>
                                 <tbody className="dark:text-slate-300">
-                                    {supplierAccountSummary.map(s => (
-                                        <tr key={s.supplier.id} className="border-b dark:border-slate-700">
-                                            <td className="p-2 font-semibold">{s.supplier.name}</td>
-                                            <td className="p-2 text-right">₹{s.totalPurchased.toLocaleString('en-IN')}</td>
-                                            <td className="p-2 text-right text-green-600 dark:text-green-400">₹{s.totalPaid.toLocaleString('en-IN')}</td>
-                                            <td className="p-2 text-right font-semibold text-red-600 dark:text-red-400">₹{s.outstandingDue.toLocaleString('en-IN')}</td>
+                                    {supplierAccountSummary.map((s, i) => (
+                                        <tr key={i} className="border-b dark:border-slate-700">
+                                            <td className="p-2">{s.supplier.name}</td>
+                                            <td className="p-2 text-right">Rs. {s.totalPurchased.toLocaleString('en-IN')}</td>
+                                            <td className="p-2 text-right text-green-600 dark:text-green-400">Rs. {s.totalPaid.toLocaleString('en-IN')}</td>
+                                            <td className={`p-2 text-right font-bold ${s.outstandingDue > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'}`}>Rs. {s.outstandingDue.toLocaleString('en-IN')}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -653,30 +637,25 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
             {activeTab === 'stock' && (
                 <div className="animate-fade-in-fast space-y-6">
                     <Card title="Low Stock Reorder Report">
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                            This report lists all items with less than 5 units in stock. Use this to place orders with your suppliers.
-                        </p>
                         <div className="flex gap-2 mb-4">
-                            <Button onClick={generateLowStockPDF} className="bg-red-600 hover:bg-red-700 focus:ring-red-600"><Download className="w-4 h-4 mr-2" /> Download Reorder PDF</Button>
+                            <Button onClick={generateLowStockPDF}><Download className="w-4 h-4 mr-2" /> PDF</Button>
                             <SheetButton onClick={exportLowStockToSheets} />
                         </div>
-                        <div className="overflow-x-auto max-h-96">
+                        <div className="overflow-x-auto">
                             <table className="w-full text-sm">
-                                <thead className="text-left text-gray-600 bg-gray-50 dark:bg-slate-700 dark:text-gray-300 sticky top-0">
+                                <thead className="text-left text-gray-600 bg-gray-50 dark:bg-slate-700 dark:text-gray-300">
                                     <tr>
-                                        <th className="p-2">Product Name</th>
-                                        <th className="p-2 text-center">Stock</th>
-                                        <th className="p-2 text-right">Last Cost</th>
+                                        <th className="p-2">Product Name</th><th className="p-2 text-center">Current Stock</th><th className="p-2 text-right">Last Purchase Cost</th>
                                     </tr>
                                 </thead>
                                 <tbody className="dark:text-slate-300">
-                                    {lowStockItems.length > 0 ? lowStockItems.map(p => (
-                                        <tr key={p.id} className="border-b dark:border-slate-700">
+                                    {lowStockItems.length > 0 ? lowStockItems.map((p, i) => (
+                                        <tr key={i} className="border-b dark:border-slate-700">
                                             <td className="p-2 font-semibold">{p.name}</td>
-                                            <td className="p-2 text-center font-bold text-red-600">{p.quantity}</td>
-                                            <td className="p-2 text-right">₹{p.purchasePrice.toLocaleString('en-IN')}</td>
+                                            <td className="p-2 text-center text-red-600 font-bold">{p.quantity}</td>
+                                            <td className="p-2 text-right">Rs. {p.purchasePrice.toLocaleString('en-IN')}</td>
                                         </tr>
-                                    )) : <tr><td colSpan={3} className="text-center p-4 text-gray-500 dark:text-gray-400">Inventory is healthy. No low stock items.</td></tr>}
+                                    )) : <tr><td colSpan={3} className="p-4 text-center text-green-600">All stock levels are healthy!</td></tr>}
                                 </tbody>
                             </table>
                         </div>
