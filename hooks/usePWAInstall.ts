@@ -1,12 +1,8 @@
 import { useState, useEffect } from 'react';
-
-interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
-}
+import { pwaManager } from '../src/utils/pwa-register';
 
 export const usePWAInstall = () => {
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [isInstallable, setIsInstallable] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
 
@@ -15,60 +11,46 @@ export const usePWAInstall = () => {
     const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
     setIsIOS(iOS);
 
-    // Check if already in standalone mode
-    if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) {
-      setIsInstalled(true);
-    }
+    // Initial State Check
+    const checkStandalone = () => {
+       const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
+       setIsInstalled(!!isStandalone);
+    };
+    checkStandalone();
+    window.matchMedia('(display-mode: standalone)').addEventListener('change', checkStandalone);
 
-    // Check if the event was already captured by index.html script
-    if ((window as any).deferredPrompt) {
-      setDeferredPrompt((window as any).deferredPrompt);
-    }
-
-    const handler = (e: Event) => {
-      // Prevent the mini-infobar from appearing on mobile
-      e.preventDefault();
-      // Stash the event so it can be triggered later.
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
-      // Update global var just in case
-      (window as any).deferredPrompt = e;
+    // Event Listeners for PWA Manager
+    const handleInstallReady = () => {
+        console.log("Hook: Install Ready");
+        setIsInstallable(true);
+    };
+    
+    const handleInstalled = () => {
+        setIsInstalled(true);
+        setIsInstallable(false);
     };
 
-    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener('pwa-install-ready', handleInstallReady);
+    window.addEventListener('pwa-installed', handleInstalled);
 
-    window.addEventListener('appinstalled', () => {
-      setIsInstalled(true);
-      setDeferredPrompt(null);
-      (window as any).deferredPrompt = null;
-    });
+    // Check if prompt was already captured before component mounted
+    if (pwaManager.deferredPrompt) {
+        setIsInstallable(true);
+    }
 
     return () => {
-      window.removeEventListener('beforeinstallprompt', handler);
+        window.matchMedia('(display-mode: standalone)').removeEventListener('change', checkStandalone);
+        window.removeEventListener('pwa-install-ready', handleInstallReady);
+        window.removeEventListener('pwa-installed', handleInstalled);
     };
   }, []);
 
   const install = async () => {
-    if (!deferredPrompt) return;
-
-    // Show the install prompt
-    deferredPrompt.prompt();
-
-    // Wait for the user to respond to the prompt
-    const { outcome } = await deferredPrompt.userChoice;
-    
-    if (outcome === 'accepted') {
-      console.log('User accepted the install prompt');
-      setDeferredPrompt(null);
-      (window as any).deferredPrompt = null;
-    } else {
-      console.log('User dismissed the install prompt');
-    }
+      const success = await pwaManager.promptInstall();
+      if (success) {
+          setIsInstallable(false);
+      }
   };
 
-  return { 
-    isInstallable: !!deferredPrompt && !isInstalled, 
-    isInstalled, 
-    install,
-    isIOS
-  };
+  return { isInstallable, isInstalled, isIOS, install };
 };
