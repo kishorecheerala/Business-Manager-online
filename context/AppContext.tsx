@@ -154,8 +154,8 @@ const initialState: AppState = {
     selection: null,
     pin: null,
     theme: 'light',
-    themeColor: '#0d9488',
-    themeGradient: 'linear-gradient(135deg, #0d9488 0%, #2563eb 100%)', // Default Oceanic Gradient
+    themeColor: '#8b5cf6',
+    themeGradient: 'linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%)', // Default Nebula Gradient
     googleUser: null,
     syncStatus: 'idle',
     lastSyncTime: null,
@@ -709,7 +709,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             const loadedColor = themeMeta?.color || state.themeColor;
             let loadedGradient = themeMeta?.gradient;
             
-            // If DB didn't have preference, and localStorage doesn't either, use Default Oceanic
+            // If DB didn't have preference, and localStorage doesn't either, use Default Nebula
             if (loadedGradient === undefined) {
                const lsGradient = safeGetItem('themeGradient');
                if (lsGradient === 'none') {

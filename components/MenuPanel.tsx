@@ -120,9 +120,9 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
     };
 
     const resetTheme = () => {
-        dispatch({ type: 'SET_THEME_COLOR', payload: '#0d9488' });
-        // Reset to default gradient (Oceanic)
-        dispatch({ type: 'SET_THEME_GRADIENT', payload: 'linear-gradient(135deg, #0d9488 0%, #2563eb 100%)' });
+        dispatch({ type: 'SET_THEME_COLOR', payload: '#8b5cf6' });
+        // Reset to default gradient (Nebula)
+        dispatch({ type: 'SET_THEME_GRADIENT', payload: 'linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%)' });
         dispatch({ type: 'SET_THEME', payload: 'light' });
     };
 

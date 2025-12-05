@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="referrer" content="no-referrer-when-downgrade" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#0d9488" />
+    <meta name="theme-color" content="#8b5cf6" />
     
     <title>Business Manager</title>
 
@@ -42,12 +42,12 @@
           }
           
           // 2. Handle Custom Theme Color with Adaptive Contrast
-          var savedColor = localStorage.getItem('themeColor') || '#0d9488'; // Default Teal
+          var savedColor = localStorage.getItem('themeColor') || '#8b5cf6'; // Default Nebula (Violet)
           
-          // DEFAULT GRADIENT (Oceanic) if not set. 'none' means user explicitly chose solid.
+          // DEFAULT GRADIENT (Nebula) if not set. 'none' means user explicitly chose solid.
           var savedGradient = localStorage.getItem('themeGradient');
           if (savedGradient === null) {
-             savedGradient = 'linear-gradient(135deg, #0d9488 0%, #2563eb 100%)';
+             savedGradient = 'linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%)';
           } else if (savedGradient === 'none') {
              savedGradient = ''; // Explicitly no gradient (solid mode)
           }
@@ -118,8 +118,8 @@
 
       :root {
         /* Fallback if JS fails, though JS runs first */
-        --primary-color: 13 148 136; 
-        --header-bg: rgb(13, 148, 136);
+        --primary-color: 139 92 246; 
+        --header-bg: rgb(139, 92, 246);
       }
 
       html {
