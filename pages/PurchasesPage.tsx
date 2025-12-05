@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Plus, Edit, Save, X, Search, Download, Printer, FileSpreadsheet, Upload, CheckCircle, XCircle, Info, QrCode, Calendar as CalendarIcon, Image as ImageIcon, Share2, MessageCircle, Eye } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -264,6 +265,34 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
         window.open(url, '_blank');
     };
 
+    // Define the Image Viewer Modal JSX here to use in multiple places
+    const imageViewerModal = viewImageModal ? (
+        <div className="fixed inset-0 bg-black/95 z-[2000] flex flex-col items-center justify-center p-4 animate-fade-in-fast" onClick={() => setViewImageModal(null)}>
+            {/* Header Toolbar */}
+            <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-50 bg-gradient-to-b from-black/50 to-transparent" onClick={(e) => e.stopPropagation()}>
+                    <h3 className="text-white font-medium text-lg drop-shadow-md">Invoice Viewer</h3>
+                    <div className="flex gap-4">
+                        <a 
+                        href={viewImageModal} 
+                        download={`Invoice_Original_${Date.now()}.jpg`}
+                        className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-full backdrop-blur-md transition-colors flex items-center gap-2 px-4 shadow-lg border border-white/10"
+                        title="Download Original High-Res"
+                        onClick={(e) => e.stopPropagation()}
+                        >
+                        <Download size={20} /> <span className="hidden sm:inline font-bold text-sm">Download Original</span>
+                        </a>
+                        <button onClick={() => setViewImageModal(null)} className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-full backdrop-blur-md transition-colors shadow-lg border border-white/10">
+                        <X size={24}/>
+                        </button>
+                    </div>
+            </div>
+            
+            <div className="relative w-full h-full flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+                <img src={viewImageModal} alt="Invoice" className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" />
+            </div>
+        </div>
+    ) : null;
+
     const renderContent = () => {
         if (view === 'add_purchase' || view === 'edit_purchase') {
             return (
@@ -354,6 +383,9 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
 
             return (
                 <div className="space-y-6 animate-fade-in-fast">
+                    {/* Ensure Image Modal is rendered here in the details view */}
+                    {imageViewerModal}
+
                     <ConfirmationModal
                         isOpen={confirmModalState.isOpen}
                         onClose={() => setConfirmModalState({ isOpen: false, purchaseIdToDelete: null })}
@@ -572,32 +604,7 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
         return (
             <div className="space-y-4 animate-fade-in-fast">
                 {/* View Image Modal */}
-                {viewImageModal && (
-                    <div className="fixed inset-0 bg-black/95 z-[2000] flex flex-col items-center justify-center p-4 animate-fade-in-fast" onClick={() => setViewImageModal(null)}>
-                        {/* Header Toolbar */}
-                        <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-50 bg-gradient-to-b from-black/50 to-transparent" onClick={(e) => e.stopPropagation()}>
-                             <h3 className="text-white font-medium text-lg drop-shadow-md">Invoice Viewer</h3>
-                             <div className="flex gap-4">
-                                 <a 
-                                    href={viewImageModal} 
-                                    download={`Invoice_Original_${Date.now()}.jpg`}
-                                    className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-full backdrop-blur-md transition-colors flex items-center gap-2 px-4 shadow-lg border border-white/10"
-                                    title="Download Original High-Res"
-                                    onClick={(e) => e.stopPropagation()}
-                                 >
-                                    <Download size={20} /> <span className="hidden sm:inline font-bold text-sm">Download Original</span>
-                                 </a>
-                                 <button onClick={() => setViewImageModal(null)} className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-full backdrop-blur-md transition-colors shadow-lg border border-white/10">
-                                    <X size={24}/>
-                                 </button>
-                             </div>
-                        </div>
-                        
-                        <div className="relative w-full h-full flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
-                            <img src={viewImageModal} alt="Invoice" className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" />
-                        </div>
-                    </div>
-                )}
+                {imageViewerModal}
 
                 {isBatchBarcodeModalOpen && lastPurchase && (
                     <BatchBarcodeModal 
