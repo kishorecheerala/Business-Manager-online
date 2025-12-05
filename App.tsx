@@ -319,7 +319,7 @@ const AppContent: React.FC = () => {
             localStorage.removeItem('themeGradient');
         }
 
-        // 5. Dynamic Icons (Favicon, Apple Touch, Manifest)
+        // 5. Dynamic Icons (Favicon, Apple Touch ONLY)
         const updateIcons = () => {
             const bg = state.themeColor;
             const fill = '#ffffff'; 
@@ -340,34 +340,8 @@ const AppContent: React.FC = () => {
             const metaTheme = document.querySelector("meta[name='theme-color']");
             if (metaTheme) metaTheme.setAttribute("content", bg);
 
-            // Dynamic Manifest Update (Blob URL)
-            // This allows the PWA install prompt to potentially pick up the new icon/color on some browsers
-            const manifestLink = document.querySelector("link[rel='manifest']") as HTMLLinkElement;
-            if (manifestLink) {
-                const dynamicManifest = {
-                    name: "Business Manager Pro",
-                    short_name: "Business Mgr",
-                    id: "/?source=pwa",
-                    start_url: "./index.html",
-                    scope: ".",
-                    background_color: "#f8fafc",
-                    display: "standalone",
-                    orientation: "portrait",
-                    theme_color: bg,
-                    description: "A comprehensive sales, purchase, and customer management application.",
-                    icons: [
-                        { src: dataUrl, sizes: "192x192", type: "image/svg+xml", purpose: "any" },
-                        { src: dataUrl, sizes: "512x512", type: "image/svg+xml", purpose: "any" },
-                        { src: dataUrl, sizes: "512x512", type: "image/svg+xml", purpose: "maskable" }
-                    ]
-                };
-                
-                const stringManifest = JSON.stringify(dynamicManifest);
-                const blob = new Blob([stringManifest], {type: 'application/json'});
-                const manifestURL = URL.createObjectURL(blob);
-                
-                manifestLink.href = manifestURL;
-            }
+            // IMPORTANT: Do NOT update manifest link dynamically. 
+            // WebAPKs require a static manifest URL to install correctly on Android.
         };
         updateIcons();
 
