@@ -8,9 +8,9 @@ const DevineLoader: React.FC = () => {
         {/* Subtle background ambiance - drastically reduced opacity */}
         <div className="absolute inset-0 bg-primary/5 blur-[80px] rounded-full animate-pulse"></div>
         
-        {/* The Symbol - STRICTLY 300px to match index.html */}
+        {/* The Symbol - STRICTLY 350px to match index.html */}
         <div 
-            className="relative z-10 text-[300px] leading-none font-serif font-bold text-primary select-none"
+            className="relative z-10 text-[350px] leading-none font-serif font-bold text-primary select-none"
             style={{ 
                 animation: 'devine-pulse 3s ease-in-out infinite',
                 textShadow: '0 4px 10px rgba(0,0,0,0.05)' 
@@ -41,17 +41,17 @@ const DevineLoader: React.FC = () => {
             0% { 
                 transform: scale(0.95); 
                 opacity: 0.85; 
-                filter: drop-shadow(0 0 2px rgba(var(--primary-color) / 0.1)); 
+                filter: drop-shadow(0 0 2px rgb(var(--primary-color) / 0.1)); 
             }
             50% { 
                 transform: scale(1.05); 
                 opacity: 1; 
-                filter: drop-shadow(0 0 15px rgba(var(--primary-color) / 0.3)); 
+                filter: drop-shadow(0 0 10px rgb(var(--primary-color) / 0.25)); 
             }
             100% { 
                 transform: scale(0.95); 
                 opacity: 0.85; 
-                filter: drop-shadow(0 0 2px rgba(var(--primary-color) / 0.1)); 
+                filter: drop-shadow(0 0 2px rgb(var(--primary-color) / 0.1)); 
             }
         }
         @keyframes progress-indeterminate {

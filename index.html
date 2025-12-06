@@ -22,6 +22,9 @@
       :root {
         --primary-color: 139 92 246; /* Default Violet */
       }
+      html {
+        -webkit-text-size-adjust: 100%;
+      }
       body {
         margin: 0;
         background-color: #f8fafc;
@@ -44,7 +47,7 @@
       }
       .pre-loader-om {
           font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
-          font-size: 300px;
+          font-size: 350px !important;
           line-height: 1;
           font-weight: 700;
           color: rgb(var(--primary-color));
@@ -98,7 +101,7 @@
       }
       @keyframes pulse-om {
           0% { transform: scale(0.95); opacity: 0.85; filter: drop-shadow(0 0 2px rgb(var(--primary-color) / 0.1)); }
-          50% { transform: scale(1.05); opacity: 1; filter: drop-shadow(0 0 15px rgb(var(--primary-color) / 0.3)); }
+          50% { transform: scale(1.05); opacity: 1; filter: drop-shadow(0 0 10px rgb(var(--primary-color) / 0.25)); }
           100% { transform: scale(0.95); opacity: 0.85; filter: drop-shadow(0 0 2px rgb(var(--primary-color) / 0.1)); }
       }
       @keyframes progress-indeterminate {
