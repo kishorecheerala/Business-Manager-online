@@ -31,19 +31,22 @@ const MetricCard: React.FC<{
 }> = ({ icon: Icon, title, value, color, iconBgColor, textColor, unit = '₹', subValue, onClick, delay }) => (
     <div
         onClick={onClick}
-        className={`rounded-lg shadow-md p-5 flex items-center transition-all duration-300 hover:shadow-xl hover:scale-[1.01] ${color} ${onClick ? 'cursor-pointer' : ''} animate-slide-up-fade group`}
+        className={`bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-start justify-between transition-all duration-300 hover:shadow-md hover:scale-[1.02] cursor-pointer animate-slide-up-fade relative overflow-hidden group h-full`}
         style={{ animationDelay: `${delay || 0}ms` }}
         role={onClick ? 'button' : undefined}
         tabIndex={onClick ? 0 : undefined}
         onKeyDown={onClick ? (e) => (e.key === 'Enter' || e.key === ' ') && onClick() : undefined}
     >
-        <div className={`p-4 ${iconBgColor} rounded-full flex-shrink-0 transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6`}>
-            <Icon className={`w-8 h-8 ${textColor}`} />
+        <div className={`p-3 rounded-full mb-3 ${iconBgColor} transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6`}>
+            <Icon className={`w-6 h-6 ${textColor}`} />
         </div>
-        <div className="ml-5 flex-grow">
-            <p className={`font-bold text-xl ${textColor}`}>{title}</p>
-            <p className={`text-3xl font-extrabold ${textColor} break-all mt-1`}>{unit}{typeof value === 'number' ? value.toLocaleString('en-IN') : value}</p>
-            {subValue && <p className={`text-sm font-medium mt-1 opacity-90 ${textColor}`}>{subValue}</p>}
+        
+        <div className="w-full">
+            <p className={`text-sm font-semibold text-gray-500 dark:text-gray-400 mb-0.5`}>{title}</p>
+            <h3 className={`text-xl sm:text-2xl font-bold ${textColor} break-all leading-tight tracking-tight`}>
+                {unit}{typeof value === 'number' ? value.toLocaleString('en-IN') : value}
+            </h3>
+            {subValue && <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 font-medium truncate">{subValue}</p>}
         </div>
     </div>
 );
@@ -885,10 +888,20 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
             )}
             
             {/* Header Section */}
-            <div className="flex items-center justify-center mb-6">
-                <h1 className="text-xl font-bold text-primary tracking-tight drop-shadow-sm truncate">
-                    Dashboard
-                </h1>
+            <div className="flex flex-row items-center justify-between gap-2 relative mb-6">
+                <div className="flex-shrink-0">
+                     {/* Greeting Removed */}
+                </div>
+
+                <div className="flex-grow text-center">
+                    <h1 className="text-lg sm:text-2xl md:text-3xl font-bold text-primary tracking-tight drop-shadow-sm truncate">
+                        Dashboard
+                    </h1>
+                </div>
+                
+                <div className="flex-shrink-0">
+                    
+                </div>
             </div>
 
             {/* Install Prompt Banner - Shows if installable AND NOT dismissed this session */}
@@ -955,11 +968,11 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <MetricCard icon={IndianRupee} title="Sales" value={stats.monthSalesTotal} subValue={`${stats.salesCount} orders`} color="bg-primary/5 dark:bg-primary/10" iconBgColor="bg-primary/20" textColor="text-primary" onClick={() => setCurrentPage('SALES')} delay={0} />
-                <MetricCard icon={Package} title="Purchases" value={stats.monthPurchasesTotal} subValue="Inventory cost" color="bg-blue-50 dark:bg-blue-900/20" iconBgColor="bg-blue-100 dark:bg-blue-800" textColor="text-blue-700 dark:text-blue-100" onClick={() => setCurrentPage('PURCHASES')} delay={100} />
-                <MetricCard icon={User} title="Cust. Dues" value={stats.totalCustomerDues} subValue="Total Receivable" color="bg-purple-50 dark:bg-purple-900/20" iconBgColor="bg-purple-100 dark:bg-purple-800" textColor="text-purple-700 dark:text-purple-100" onClick={() => setCurrentPage('CUSTOMERS')} delay={200} />
-                <MetricCard icon={ShoppingCart} title="My Payables" value={stats.totalSupplierDues} subValue="Total Payable" color="bg-amber-50 dark:bg-amber-900/20" iconBgColor="bg-amber-100 dark:bg-amber-800" textColor="text-amber-700 dark:text-amber-100" onClick={() => setCurrentPage('PURCHASES')} delay={300} />
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                <MetricCard icon={IndianRupee} title="Sales" value={stats.monthSalesTotal} subValue={`${stats.salesCount} orders`} color="bg-white dark:bg-slate-800" iconBgColor="bg-primary/20" textColor="text-primary" onClick={() => setCurrentPage('SALES')} delay={0} />
+                <MetricCard icon={Package} title="Purchases" value={stats.monthPurchasesTotal} subValue="Inventory cost" color="bg-white dark:bg-slate-800" iconBgColor="bg-blue-100 dark:bg-blue-800" textColor="text-blue-700 dark:text-blue-100" onClick={() => setCurrentPage('PURCHASES')} delay={100} />
+                <MetricCard icon={User} title="Cust. Dues" value={stats.totalCustomerDues} subValue="Total Receivable" color="bg-white dark:bg-slate-800" iconBgColor="bg-purple-100 dark:bg-purple-800" textColor="text-purple-700 dark:text-purple-100" onClick={() => setCurrentPage('CUSTOMERS')} delay={200} />
+                <MetricCard icon={ShoppingCart} title="My Payables" value={stats.totalSupplierDues} subValue="Total Payable" color="bg-white dark:bg-slate-800" iconBgColor="bg-amber-100 dark:bg-amber-800" textColor="text-amber-700 dark:text-amber-100" onClick={() => setCurrentPage('PURCHASES')} delay={300} />
             </div>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
