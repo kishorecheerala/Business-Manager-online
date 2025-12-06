@@ -1,18 +1,18 @@
+
 import React from 'react';
 
 const DevineLoader: React.FC = () => {
   return (
     <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-background/95 backdrop-blur-xl animate-fade-in cursor-wait">
       <div className="relative flex items-center justify-center mb-8">
-        {/* Subtle background ambiance - drastically reduced opacity */}
-        <div className="absolute inset-0 bg-primary/5 blur-[80px] rounded-full animate-pulse"></div>
+        {/* Subtle background ambiance */}
+        <div className="absolute inset-0 bg-primary/5 blur-[100px] rounded-full animate-pulse"></div>
         
-        {/* The Symbol - Size set to 250px as requested */}
+        {/* The Symbol */}
         <div 
-            className="relative z-10 text-[250px] leading-none font-serif font-bold text-primary select-none"
+            className="relative z-10 text-[200px] leading-none font-serif font-bold text-primary select-none"
             style={{ 
-                animation: 'devine-pulse 3s ease-in-out infinite',
-                textShadow: '0 4px 10px rgba(0,0,0,0.05)' 
+                animation: 'devine-pulse 4s ease-in-out infinite',
             }}
         >
             ॐ
@@ -21,7 +21,14 @@ const DevineLoader: React.FC = () => {
 
       {/* Loading Indicators */}
       <div className="flex flex-col items-center gap-4 z-10 w-64">
-        <p className="text-lg font-bold text-primary/80 tracking-widest uppercase">Loading...</p>
+        <div className="text-lg font-bold text-primary/80 tracking-widest uppercase flex items-end leading-none h-6">
+            LOADING
+            <div className="flex ml-1 mb-1">
+                <span className="animate-dot-1 mx-[1px]">.</span>
+                <span className="animate-dot-2 mx-[1px]">.</span>
+                <span className="animate-dot-3 mx-[1px]">.</span>
+            </div>
+        </div>
         
         {/* Progress Bar */}
         <div className="w-full h-1.5 bg-gray-200 dark:bg-slate-800 rounded-full overflow-hidden">
@@ -33,19 +40,22 @@ const DevineLoader: React.FC = () => {
       <style>{`
         @keyframes devine-pulse {
             0% { 
-                transform: scale(0.95); 
-                opacity: 0.85; 
-                filter: drop-shadow(0 0 2px rgba(var(--primary-color) / 0.1)); 
+                transform: scale(0.85); 
+                opacity: 0.4; 
+                text-shadow: 0 0 0px rgb(var(--primary-color) / 0);
             }
             50% { 
-                transform: scale(1.05); 
+                transform: scale(1.15); 
                 opacity: 1; 
-                filter: drop-shadow(0 0 10px rgba(var(--primary-color) / 0.25)); 
+                text-shadow: 
+                    0 0 10px rgb(var(--primary-color) / 0.8),
+                    0 0 30px rgb(var(--primary-color) / 0.6),
+                    0 0 60px rgb(var(--primary-color) / 0.4);
             }
             100% { 
-                transform: scale(0.95); 
-                opacity: 0.85; 
-                filter: drop-shadow(0 0 2px rgba(var(--primary-color) / 0.1)); 
+                transform: scale(0.85); 
+                opacity: 0.4; 
+                text-shadow: 0 0 0px rgb(var(--primary-color) / 0);
             }
         }
         @keyframes progress-indeterminate {
@@ -56,6 +66,14 @@ const DevineLoader: React.FC = () => {
         .animate-progress-indeterminate {
             animation: progress-indeterminate 1.5s infinite ease-in-out;
         }
+        /* Dot Animation */
+        @keyframes dot-bounce {
+            0%, 100% { opacity: 0.2; transform: translateY(0); }
+            50% { opacity: 1; transform: translateY(-4px); }
+        }
+        .animate-dot-1 { animation: dot-bounce 1.4s infinite both; animation-delay: 0s; }
+        .animate-dot-2 { animation: dot-bounce 1.4s infinite both; animation-delay: 0.2s; }
+        .animate-dot-3 { animation: dot-bounce 1.4s infinite both; animation-delay: 0.4s; }
       `}</style>
     </div>
   );

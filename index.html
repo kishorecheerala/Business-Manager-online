@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -47,17 +48,15 @@
       }
       .pre-loader-om {
           font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
-          font-size: 300px !important;
+          font-size: 200px !important;
           line-height: 1;
           font-weight: 700;
           color: rgb(var(--primary-color));
-          animation: pulse-om 3s ease-in-out infinite;
-          /* Subtle Glow */
-          text-shadow: 0 0 20px rgba(var(--primary-color), 0.2); 
+          animation: pulse-om 4s ease-in-out infinite;
           margin-bottom: 32px;
           user-select: none;
           display: block;
-          will-change: transform, opacity;
+          will-change: transform, opacity, text-shadow;
       }
       .pre-loader-info {
           display: flex;
@@ -108,19 +107,22 @@
       /* Animation Keyframes */
       @keyframes pulse-om {
           0% { 
-            transform: scale(0.95); 
-            opacity: 0.85; 
-            text-shadow: 0 0 15px rgba(var(--primary-color), 0.1);
+            transform: scale(0.85); 
+            opacity: 0.4; 
+            text-shadow: 0 0 0px rgb(var(--primary-color) / 0);
           }
           50% { 
-            transform: scale(1.05); 
+            transform: scale(1.15); 
             opacity: 1; 
-            text-shadow: 0 0 30px rgba(var(--primary-color), 0.3);
+            text-shadow: 
+                0 0 10px rgb(var(--primary-color) / 0.8),
+                0 0 30px rgb(var(--primary-color) / 0.6),
+                0 0 60px rgb(var(--primary-color) / 0.4);
           }
           100% { 
-            transform: scale(0.95); 
-            opacity: 0.85; 
-            text-shadow: 0 0 15px rgba(var(--primary-color), 0.1);
+            transform: scale(0.85); 
+            opacity: 0.4; 
+            text-shadow: 0 0 0px rgb(var(--primary-color) / 0);
           }
       }
       @keyframes progress-indeterminate {
@@ -130,7 +132,7 @@
       }
       @keyframes dot-flash {
           0%, 100% { opacity: 0.2; transform: translateY(0); }
-          50% { opacity: 1; transform: translateY(-3px); }
+          50% { opacity: 1; transform: translateY(-4px); }
       }
     </style>
 
