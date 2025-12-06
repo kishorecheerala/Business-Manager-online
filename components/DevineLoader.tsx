@@ -8,12 +8,11 @@ const DevineLoader: React.FC = () => {
         {/* Subtle background ambiance - drastically reduced opacity */}
         <div className="absolute inset-0 bg-primary/5 blur-[80px] rounded-full animate-pulse"></div>
         
-        {/* The Symbol - Set to 300px to match index.css */}
+        {/* The Symbol - STRICTLY 300px to match index.html */}
         <div 
             className="relative z-10 text-[300px] leading-none font-serif font-bold text-primary select-none"
             style={{ 
                 animation: 'devine-pulse 3s ease-in-out infinite',
-                // Very subtle static shadow for depth, minimal glow
                 textShadow: '0 4px 10px rgba(0,0,0,0.05)' 
             }}
         >
@@ -23,12 +22,12 @@ const DevineLoader: React.FC = () => {
 
       {/* Loading Indicators */}
       <div className="flex flex-col items-center gap-4 z-10 w-64">
-        <p className="text-lg font-bold text-primary/80 tracking-widest uppercase flex items-end gap-1">
-            Loading
+        <div className="text-lg font-bold text-primary/80 tracking-widest uppercase flex items-end justify-center">
+            LOADING
             <span className="loading-dot dot-1">.</span>
             <span className="loading-dot dot-2">.</span>
             <span className="loading-dot dot-3">.</span>
-        </p>
+        </div>
         
         {/* Progress Bar */}
         <div className="w-full h-1.5 bg-gray-200 dark:bg-slate-800 rounded-full overflow-hidden">
@@ -47,7 +46,7 @@ const DevineLoader: React.FC = () => {
             50% { 
                 transform: scale(1.05); 
                 opacity: 1; 
-                filter: drop-shadow(0 0 10px rgba(var(--primary-color) / 0.25)); 
+                filter: drop-shadow(0 0 15px rgba(var(--primary-color) / 0.3)); 
             }
             100% { 
                 transform: scale(0.95); 
@@ -70,10 +69,11 @@ const DevineLoader: React.FC = () => {
         .loading-dot {
             display: inline-block;
             animation: dot-flash 1.4s infinite both;
+            margin-left: 2px;
         }
-        .dot-1 { animation-delay: -0.32s; }
-        .dot-2 { animation-delay: -0.16s; }
-        .dot-3 { animation-delay: 0s; }
+        .dot-1 { animation-delay: 0s; }
+        .dot-2 { animation-delay: 0.2s; }
+        .dot-3 { animation-delay: 0.4s; }
       `}</style>
     </div>
   );
