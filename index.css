@@ -91,7 +91,7 @@ body {
   transform: translateX(20px);
 }
 
-/* Preloader Animation */
+/* Preloader Animation (Matches DevineLoader.tsx) */
 .pre-loader-container {
     position: fixed;
     top: 0;
@@ -99,6 +99,7 @@ body {
     width: 100%;
     height: 100%;
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
     background-color: #f8fafc;
@@ -111,16 +112,74 @@ body {
 
 .pre-loader-om {
     font-family: serif;
-    font-size: min(25vw, 220px);
+    font-size: 250px; /* Matched to React Component */
+    line-height: 1;
     font-weight: bold;
-    color: #8b5cf6;
-    animation: pulse-om 2s infinite ease-in-out;
+    color: rgb(var(--primary-color));
+    animation: pulse-om 3s ease-in-out infinite;
+    text-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    margin-bottom: 20px;
+}
+
+.pre-loader-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    width: 256px;
+}
+
+.pre-loader-text {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: rgba(var(--primary-color), 0.8);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-family: sans-serif;
+}
+
+.pre-loader-bar-bg {
+    width: 100%;
+    height: 6px;
+    background-color: #e5e7eb;
+    border-radius: 9999px;
+    overflow: hidden;
+}
+
+.dark .pre-loader-bar-bg {
+    background-color: #1e293b;
+}
+
+.pre-loader-bar-fill {
+    height: 100%;
+    background: linear-gradient(to right, rgba(var(--primary-color), 0.4), rgb(var(--primary-color)));
+    width: 100%;
+    transform-origin: left;
+    animation: progress-indeterminate 1.5s infinite ease-in-out;
 }
 
 @keyframes pulse-om {
-    0% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.1); opacity: 0.8; }
-    100% { transform: scale(1); opacity: 1; }
+    0% { 
+        transform: scale(0.95); 
+        opacity: 0.85; 
+        filter: drop-shadow(0 0 2px rgba(var(--primary-color), 0.1)); 
+    }
+    50% { 
+        transform: scale(1.05); 
+        opacity: 1; 
+        filter: drop-shadow(0 0 10px rgba(var(--primary-color), 0.25)); 
+    }
+    100% { 
+        transform: scale(0.95); 
+        opacity: 0.85; 
+        filter: drop-shadow(0 0 2px rgba(var(--primary-color), 0.1)); 
+    }
+}
+
+@keyframes progress-indeterminate {
+    0% { transform: translateX(-100%); }
+    50% { transform: translateX(0%); }
+    100% { transform: translateX(100%); }
 }
 
 /* Skeleton Screen Styles (Used in AppSkeletonLoader) */
