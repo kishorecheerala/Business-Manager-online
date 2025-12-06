@@ -8,9 +8,9 @@ const DevineLoader: React.FC = () => {
         {/* Subtle background ambiance - drastically reduced opacity */}
         <div className="absolute inset-0 bg-primary/5 blur-[80px] rounded-full animate-pulse"></div>
         
-        {/* The Symbol - Set to 250px */}
+        {/* The Symbol - Set to 300px to match index.css */}
         <div 
-            className="relative z-10 text-[250px] leading-none font-serif font-bold text-primary select-none"
+            className="relative z-10 text-[300px] leading-none font-serif font-bold text-primary select-none"
             style={{ 
                 animation: 'devine-pulse 3s ease-in-out infinite',
                 // Very subtle static shadow for depth, minimal glow

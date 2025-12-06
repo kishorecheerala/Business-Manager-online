@@ -111,14 +111,14 @@ body {
 }
 
 .pre-loader-om {
-    font-family: serif;
-    font-size: 250px; /* Matched to React Component */
+    font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+    font-size: 300px; /* Increased to match React Component */
     line-height: 1;
-    font-weight: bold;
+    font-weight: 700;
     color: rgb(var(--primary-color));
     animation: pulse-om 3s ease-in-out infinite;
     text-shadow: 0 4px 10px rgba(0,0,0,0.05);
-    margin-bottom: 20px;
+    margin-bottom: 32px;
 }
 
 .pre-loader-info {
