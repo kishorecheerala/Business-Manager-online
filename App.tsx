@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useRef, useEffect, useMemo, useLayoutEffect, Suspense } from 'react';
 import { 
   Home, Users, ShoppingCart, Package, Menu, Plus, UserPlus, PackagePlus, 
@@ -407,6 +405,11 @@ const AppContent: React.FC = () => {
     const mainClass = currentPage === 'INVOICE_DESIGNER' 
         ? 'h-[100dvh] overflow-hidden' 
         : `min-h-screen pt-[7rem]`; // 64px header + 40px banner = ~104px (6.5rem), using 7rem for safety
+    
+    // Nav Bar Styling based on Preference
+    const navClass = state.uiPreferences?.cardStyle === 'glass' 
+        ? 'glass border-t border-white/20 dark:border-slate-700/50' 
+        : 'bg-white dark:bg-slate-800 border-t border-gray-200 dark:border-slate-700';
 
     return (
         <div className={`min-h-screen flex flex-col bg-background dark:bg-slate-950 text-text dark:text-slate-200 font-sans transition-colors duration-300 ${state.theme}`}>
@@ -610,7 +613,7 @@ const AppContent: React.FC = () => {
             
             {/* Bottom Navigation */}
             {currentPage !== 'INVOICE_DESIGNER' && (
-            <nav className="fixed bottom-0 left-0 right-0 glass pb-[env(safe-area-inset-bottom)] z-50 border-t border-gray-200/50 dark:border-slate-700/50">
+            <nav className={`fixed bottom-0 left-0 right-0 pb-[env(safe-area-inset-bottom)] z-50 transition-colors duration-300 ${navClass}`}>
                 {/* Desktop View - Scrollable */}
                 <div className="hidden md:flex w-full overflow-x-auto custom-scrollbar">
                     <div className="flex flex-nowrap mx-auto items-center gap-2 lg:gap-6 p-2 px-6 min-w-max">
