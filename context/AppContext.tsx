@@ -45,7 +45,7 @@ export interface AppState {
   font: string; // New: App Font
   googleUser: GoogleUser | null;
   syncStatus: SyncStatus;
-  lastSyncTime: number | null;
+  lastSyncTime: null | number | string; // Allow string for legacy compatibility or strict number? Let's use number but handle string parsing
   lastLocalUpdate: number;
   devMode: boolean;
   performanceMode: boolean;

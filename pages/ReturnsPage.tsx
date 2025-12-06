@@ -210,7 +210,6 @@ const ReturnsPage: React.FC<ReturnsPageProps> = ({ setIsDirty }) => {
                      <h1 className="text-2xl font-bold text-primary flex items-center gap-2">
                         Returns Management
                     </h1>
-                    <DatePill />
                 </div>
             </div>
 

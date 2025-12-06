@@ -7,7 +7,6 @@ import Card from '../components/Card';
 import Button from '../components/Button';
 import BarcodeModal from '../components/BarcodeModal';
 import BatchBarcodeModal from '../components/BatchBarcodeModal';
-import DatePill from '../components/DatePill';
 import { compressImage } from '../utils/imageUtils'; 
 import { Html5Qrcode } from 'html5-qrcode';
 import EmptyState from '../components/EmptyState';
@@ -244,7 +243,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     const handleExportCSV = () => {
         const headers = ['ID', 'Name', 'Category', 'Unit', 'Quantity', 'Purchase Price', 'Sale Price', 'Wholesale Price', 'GST %', 'Description'];
         const rows = state.products.map(p => 
-            `"${p.id}","${p.name}","${p.category || ''}","${p.unit || 'Pcs'}",${p.quantity},${p.purchasePrice},${p.salePrice},${p.wholesalePrice || p.salePrice},${p.gstPercent},"${p.description || ''}"`
+            `"${p.id}","${p.name}","${p.category || ''}",${p.unit || 'Pcs'}",${p.quantity},${p.purchasePrice},${p.salePrice},${p.wholesalePrice || p.salePrice},${p.gstPercent},"${p.description || ''}"`
         );
         const csvContent = [headers.join(','), ...rows].join('\n');
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -711,7 +710,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <div className="flex justify-between items-center mb-1">
-                                            <label className="text-xs font-bold text-gray-500 uppercase">Sale Price (Retail)</label>
+                                            <label className="text-xs font-bold text-gray-500 uppercase">Sale Price</label>
                                             <button 
                                                 onClick={handleAIGeneratePrice}
                                                 disabled={isSuggestingPrice || !editedProduct.purchasePrice}
@@ -734,24 +733,14 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase">Wholesale Price</label>
+                                        <label className="text-xs font-bold text-gray-500 uppercase">Stock Qty</label>
                                         <input 
                                             type="number" 
-                                            value={editedProduct.wholesalePrice || ''} 
-                                            onChange={e => setEditedProduct({...editedProduct, wholesalePrice: parseFloat(e.target.value) || 0})}
-                                            className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white font-medium"
-                                            placeholder="Optional"
+                                            value={editedProduct.quantity} 
+                                            onChange={e => setEditedProduct({...editedProduct, quantity: parseFloat(e.target.value) || 0})}
+                                            className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white font-bold"
                                         />
                                     </div>
-                                </div>
-                                <div>
-                                    <label className="text-xs font-bold text-gray-500 uppercase">Stock Qty</label>
-                                    <input 
-                                        type="number" 
-                                        value={editedProduct.quantity} 
-                                        onChange={e => setEditedProduct({...editedProduct, quantity: parseFloat(e.target.value) || 0})}
-                                        className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white font-bold"
-                                    />
                                 </div>
                                 <div>
                                     <div className="flex justify-between items-center mb-1">
@@ -784,24 +773,6 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                         />
                                     </div>
                                     <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase">Unit (UOM)</label>
-                                        <select 
-                                            value={editedProduct.unit || 'Pcs'} 
-                                            onChange={e => setEditedProduct({...editedProduct, unit: e.target.value})}
-                                            className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white"
-                                        >
-                                            <option value="Pcs">Pieces (Pcs)</option>
-                                            <option value="Kg">Kilogram (Kg)</option>
-                                            <option value="Gm">Gram (Gm)</option>
-                                            <option value="Ltr">Liter (Ltr)</option>
-                                            <option value="Ml">Milliliter (Ml)</option>
-                                            <option value="Mtr">Meter (Mtr)</option>
-                                            <option value="Box">Box</option>
-                                            <option value="Set">Set</option>
-                                            <option value="Dzn">Dozen</option>
-                                        </select>
-                                    </div>
-                                    <div>
                                         <label className="text-xs font-bold text-gray-500 uppercase">Purchase Price</label>
                                         <input 
                                             type="number" 
@@ -819,7 +790,6 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                     <div className="flex items-center gap-2">
                                         <span className="bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded text-xs font-mono">{editedProduct.id}</span>
                                         {editedProduct.category && <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 px-2 py-0.5 rounded text-xs font-bold uppercase">{editedProduct.category}</span>}
-                                        {editedProduct.unit && <span className="bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-300 px-2 py-0.5 rounded text-xs font-bold">{editedProduct.unit}</span>}
                                     </div>
                                 </div>
 
@@ -827,17 +797,12 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                     <div>
                                         <p className="text-xs text-gray-500 uppercase mb-1">Price</p>
                                         <p className="text-2xl font-bold text-primary">₹{editedProduct.salePrice.toLocaleString('en-IN')}</p>
-                                        {editedProduct.wholesalePrice && (
-                                            <p className="text-xs text-gray-500 mt-1">
-                                                Wholesale: <strong>₹{editedProduct.wholesalePrice.toLocaleString('en-IN')}</strong>
-                                            </p>
-                                        )}
                                     </div>
                                     <div className="w-px bg-gray-300 dark:bg-slate-600"></div>
                                     <div>
                                         <p className="text-xs text-gray-500 uppercase mb-1">Stock</p>
                                         <p className={`text-2xl font-bold ${editedProduct.quantity < 5 ? 'text-red-500' : 'text-gray-700 dark:text-white'}`}>
-                                            {editedProduct.quantity} <span className="text-sm font-normal text-gray-500">{editedProduct.unit || 'Pcs'}</span>
+                                            {editedProduct.quantity}
                                         </p>
                                     </div>
                                 </div>
@@ -867,7 +832,10 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
 
     return (
         <div className="space-y-4 animate-fade-in-fast h-full flex flex-col">
-            {isStockAdjustOpen && <StockAdjustmentModal isOpen={isStockAdjustOpen} onClose={() => setIsStockAdjustOpen(false)} />}
+            {isStockAdjustOpen && (
+                <StockAdjustmentModal isOpen={isStockAdjustOpen} onClose={() => setIsStockAdjustOpen(false)} />
+            )}
+            
             {isBarcodeModalOpen && selectedProduct && (
                 <BarcodeModal 
                     isOpen={isBarcodeModalOpen} 
@@ -930,10 +898,9 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 flex-shrink-0">
                 <div className="flex items-center gap-3">
                     <h1 className="text-2xl font-bold text-primary">Products</h1>
-                    <DatePill />
                 </div>
                 
-                <div className="flex gap-2 w-full sm:w-auto">
+                <div className="flex gap-2 w-full sm:w-auto overflow-x-auto">
                     {/* View Toggle */}
                     <div className="flex bg-gray-100 dark:bg-slate-800 rounded-lg p-1">
                         <button 
@@ -950,12 +917,12 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                         </button>
                     </div>
 
-                    <Button onClick={handleExportCSV} variant="secondary" className="px-3" title="Export CSV">
-                        <FileSpreadsheet size={18} />
+                    <Button onClick={() => setIsStockAdjustOpen(true)} variant="secondary" className="px-3" title="Audit Stock">
+                        <Scale size={18} />
                     </Button>
 
-                    <Button onClick={() => setIsStockAdjustOpen(true)} variant="secondary" className="px-3 bg-amber-100 text-amber-800 hover:bg-amber-200 border-amber-200 dark:bg-amber-900/30 dark:text-amber-200" title="Stock Adjustment">
-                        <Scale size={18} />
+                    <Button onClick={handleExportCSV} variant="secondary" className="px-3" title="Export CSV">
+                        <FileSpreadsheet size={18} />
                     </Button>
 
                     <Button onClick={() => {
@@ -965,8 +932,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                             quantity: 0,
                             purchasePrice: 0,
                             salePrice: 0,
-                            gstPercent: 0,
-                            unit: 'Pcs'
+                            gstPercent: 0
                         };
                         setSelectedProduct(newProd);
                         setEditedProduct(newProd);
@@ -1068,7 +1034,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                             <div className="text-right flex-shrink-0">
                                 <p className="font-bold text-primary">₹{product.salePrice.toLocaleString('en-IN')}</p>
                                 <p className={`text-xs font-medium ${product.quantity < 5 ? 'text-red-500' : 'text-gray-500'}`}>
-                                    {product.quantity} {product.unit || ''}
+                                    {product.quantity} in stock
                                 </p>
                             </div>
                         </div>
@@ -1125,7 +1091,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                 <h3 className="font-bold text-sm text-gray-800 dark:text-white truncate mb-1">{product.name}</h3>
                                 <div className="flex justify-between items-center">
                                     <span className="text-primary font-bold text-sm">₹{product.salePrice}</span>
-                                    <span className="text-xs text-gray-500">{product.quantity} {product.unit || ''}</span>
+                                    <span className="text-xs text-gray-500">{product.quantity} left</span>
                                 </div>
                             </div>
                         </div>
