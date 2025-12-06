@@ -7,6 +7,7 @@ import Card from '../components/Card';
 import Button from '../components/Button';
 import BarcodeModal from '../components/BarcodeModal';
 import BatchBarcodeModal from '../components/BatchBarcodeModal';
+import DatePill from '../components/DatePill';
 import { compressImage } from '../utils/imageUtils'; 
 import { Html5Qrcode } from 'html5-qrcode';
 import EmptyState from '../components/EmptyState';
@@ -111,8 +112,6 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
     const [isBatchBarcodeModalOpen, setIsBatchBarcodeModalOpen] = useState(false);
     const [isScannerOpen, setIsScannerOpen] = useState(false);
-    const [isCropperOpen, setIsCropperOpen] = useState(false);
-    const [tempImageForCrop, setTempImageForCrop] = useState<string | null>(null);
     const [isStockAdjustOpen, setIsStockAdjustOpen] = useState(false);
     
     const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
@@ -241,9 +240,9 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     };
 
     const handleExportCSV = () => {
-        const headers = ['ID', 'Name', 'Category', 'Unit', 'Quantity', 'Purchase Price', 'Sale Price', 'Wholesale Price', 'GST %', 'Description'];
+        const headers = ['ID', 'Name', 'Category', 'Quantity', 'Purchase Price', 'Sale Price', 'GST %', 'Description'];
         const rows = state.products.map(p => 
-            `"${p.id}","${p.name}","${p.category || ''}",${p.unit || 'Pcs'}",${p.quantity},${p.purchasePrice},${p.salePrice},${p.wholesalePrice || p.salePrice},${p.gstPercent},"${p.description || ''}"`
+            `"${p.id}","${p.name}","${p.category || ''}",${p.quantity},${p.purchasePrice},${p.salePrice},${p.gstPercent},"${p.description || ''}"`
         );
         const csvContent = [headers.join(','), ...rows].join('\n');
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -323,36 +322,39 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     };
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            try {
-                const file = e.target.files[0];
-                const base64 = await compressImage(file, 1200, 0.9); // Get high quality first
-                setTempImageForCrop(base64);
-                setIsCropperOpen(true);
-            } catch (err: any) {
-                console.error("Image upload failed", err);
-                showToast("Failed to load image.", 'error');
-            } finally {
-                if (fileInputRef.current) fileInputRef.current.value = '';
+        if (e.target.files && e.target.files.length > 0 && editedProduct) {
+            const newImages: string[] = [];
+            const files = e.target.files;
+            
+            for (let i = 0; i < files.length; i++) {
+                try {
+                    const file = files[i];
+                    const base64 = await compressImage(file, 800, 0.8);
+                    if (typeof base64 === 'string') {
+                        newImages.push(base64);
+                    }
+                } catch (err: any) {
+                    console.error("Image upload failed", err);
+                }
             }
+            
+            // If primary image is empty, use first new image
+            let updatedProduct = { ...editedProduct };
+            
+            if (!updatedProduct.image && newImages.length > 0) {
+                updatedProduct.image = newImages[0];
+                // Add rest to additional
+                if (newImages.length > 1) {
+                    const currentAdditional: string[] = updatedProduct.additionalImages || [];
+                    updatedProduct.additionalImages = [...currentAdditional, ...newImages.slice(1)];
+                }
+            } else {
+                const currentAdditional: string[] = updatedProduct.additionalImages || [];
+                updatedProduct.additionalImages = [...currentAdditional, ...newImages];
+            }
+            
+            setEditedProduct(updatedProduct);
         }
-    };
-
-    const handleCroppedImage = (croppedBase64: string) => {
-        if (!editedProduct) return;
-        
-        let updatedProduct = { ...editedProduct };
-        
-        if (!updatedProduct.image) {
-            updatedProduct.image = croppedBase64;
-        } else {
-            const currentAdditional: string[] = updatedProduct.additionalImages || [];
-            updatedProduct.additionalImages = [...currentAdditional, croppedBase64];
-        }
-        
-        setEditedProduct(updatedProduct);
-        setIsCropperOpen(false);
-        setTempImageForCrop(null);
     };
 
     const setMainImage = (img: string) => {
@@ -533,14 +535,6 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                 ref={detailContainerRef}
                 className="fixed inset-0 w-full h-full z-[5000] bg-white dark:bg-slate-900 flex flex-col md:flex-row overflow-hidden animate-fade-in-fast"
             >
-                {isCropperOpen && (
-                    <ImageCropperModal
-                        isOpen={isCropperOpen}
-                        imageSrc={tempImageForCrop}
-                        onClose={() => { setIsCropperOpen(false); setTempImageForCrop(null); }}
-                        onCrop={handleCroppedImage}
-                    />
-                )}
                 {isBarcodeModalOpen && (
                     <BarcodeModal 
                         isOpen={isBarcodeModalOpen} 
@@ -782,6 +776,17 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                         />
                                     </div>
                                 </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 uppercase">GST %</label>
+                                        <input 
+                                            type="number" 
+                                            value={editedProduct.gstPercent} 
+                                            onChange={e => setEditedProduct({...editedProduct, gstPercent: parseFloat(e.target.value) || 0})}
+                                            className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white"
+                                        />
+                                    </div>
+                                </div>
                             </div>
                         ) : (
                             <>
@@ -898,6 +903,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 flex-shrink-0">
                 <div className="flex items-center gap-3">
                     <h1 className="text-2xl font-bold text-primary">Products</h1>
+                    <DatePill />
                 </div>
                 
                 <div className="flex gap-2 w-full sm:w-auto overflow-x-auto">

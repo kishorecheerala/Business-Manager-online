@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Save, RotateCcw, RotateCw, Type, Layout, Palette, FileText, Edit3, ChevronDown, Upload, Trash2, Wand2, Grid, QrCode, Printer, Eye, ArrowLeft, CheckSquare, Square, Type as TypeIcon, AlignLeft, AlignCenter, AlignRight, Move, GripVertical, Layers, ArrowUp, ArrowDown, Table, Monitor, Loader2, ZoomIn, ZoomOut, ExternalLink, Columns, Download, FileJson, Image as ImageIcon, Plus, Landmark, Calendar, Coins, Zap, MoveHorizontal, MoveVertical, ArrowRight as ArrowRightIcon, Circle } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -14,7 +15,7 @@ const pdfjs = (pdfjsLib as any).default || pdfjsLib;
 
 // Setup PDF.js worker
 if (pdfjs.GlobalWorkerOptions) {
-    pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
+    pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.449/build/pdf.worker.mjs`;
 }
 
 // --- Dummy Data for Previews ---
@@ -76,6 +77,18 @@ const REPORT_SCENARIOS = {
 };
 
 type ReportScenarioKey = keyof typeof REPORT_SCENARIOS;
+
+interface ExtendedLayoutConfig extends InvoiceTemplateConfig {
+    layout: InvoiceTemplateConfig['layout'] & {
+        sectionOrdering: string[];
+        uppercaseHeadings?: boolean;
+        boldBorders?: boolean;
+        columnWidths?: { qty?: number; rate?: number; amount?: number; }; 
+        tablePadding?: number; 
+        tableHeaderAlign?: 'left' | 'center' | 'right';
+        borderRadius?: number;
+    };
+}
 
 // --- Templates Presets ---
 const PRESETS: Record<string, any> = {
