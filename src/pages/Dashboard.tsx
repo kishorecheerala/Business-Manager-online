@@ -31,19 +31,19 @@ const MetricCard: React.FC<{
 }> = ({ icon: Icon, title, value, color, iconBgColor, textColor, unit = '₹', subValue, onClick, delay }) => (
     <div
         onClick={onClick}
-        className={`rounded-lg shadow-md p-5 flex items-center transition-all duration-300 hover:shadow-xl hover:scale-[1.01] ${color} ${onClick ? 'cursor-pointer' : ''} animate-slide-up-fade group`}
+        className={`rounded-lg shadow-md p-3 sm:p-5 flex items-center transition-all duration-300 hover:shadow-xl hover:scale-[1.01] ${color} ${onClick ? 'cursor-pointer' : ''} animate-slide-up-fade group`}
         style={{ animationDelay: `${delay || 0}ms` }}
         role={onClick ? 'button' : undefined}
         tabIndex={onClick ? 0 : undefined}
         onKeyDown={onClick ? (e) => (e.key === 'Enter' || e.key === ' ') && onClick() : undefined}
     >
-        <div className={`p-4 ${iconBgColor} rounded-full flex-shrink-0 transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6`}>
-            <Icon className={`w-8 h-8 ${textColor}`} />
+        <div className={`p-3 sm:p-4 ${iconBgColor} rounded-full flex-shrink-0 transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6`}>
+            <Icon className={`w-6 h-6 sm:w-8 sm:h-8 ${textColor}`} />
         </div>
-        <div className="ml-5 flex-grow">
-            <p className={`font-bold text-xl ${textColor}`}>{title}</p>
-            <p className={`text-3xl font-extrabold ${textColor} break-all mt-1`}>{unit}{typeof value === 'number' ? value.toLocaleString('en-IN') : value}</p>
-            {subValue && <p className={`text-sm font-medium mt-1 opacity-90 ${textColor}`}>{subValue}</p>}
+        <div className="ml-3 sm:ml-5 flex-grow min-w-0">
+            <p className={`font-bold text-sm sm:text-xl ${textColor} truncate`}>{title}</p>
+            <p className={`text-xl sm:text-3xl font-extrabold ${textColor} break-all mt-0.5 sm:mt-1`}>{unit}{typeof value === 'number' ? value.toLocaleString('en-IN') : value}</p>
+            {subValue && <p className={`text-xs sm:text-sm font-medium mt-0.5 sm:mt-1 opacity-90 ${textColor} truncate`}>{subValue}</p>}
         </div>
     </div>
 );
@@ -80,7 +80,7 @@ const SmartAnalystCard: React.FC<{
     purchases: Purchase[], 
     returns: Return[], 
     expenses: Expense[], 
-    ownerName: string,
+    ownerName: string, 
     onNavigate: (page: Page, id: string) => void;
 }> = ({ sales, products, customers, purchases, returns, expenses, ownerName, onNavigate }) => {
     const { showToast } = useAppContext();
@@ -256,93 +256,91 @@ const SmartAnalystCard: React.FC<{
 
     return (
         <>
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md p-5 animate-slide-up-fade border-t-4 border-primary transition-all hover:shadow-xl hover:scale-[1.01]">
-                <div className="flex justify-between items-start mb-6">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg text-indigo-600 dark:text-indigo-400">
-                            <BrainCircuit className="w-6 h-6" />
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md p-4 animate-slide-up-fade border-t-4 border-primary transition-all hover:shadow-xl hover:scale-[1.01]">
+                <div className="flex justify-between items-center mb-3">
+                    <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg text-indigo-600 dark:text-indigo-400">
+                            <BrainCircuit className="w-5 h-5" />
                         </div>
                         <div>
-                            <h3 className="font-bold text-lg text-slate-800 dark:text-white">Smart Analyst</h3>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wide">Local Intelligence</p>
+                            <h3 className="font-bold text-base text-slate-800 dark:text-white">Smart Analyst</h3>
                         </div>
                     </div>
                     <div className="flex gap-2">
                             <button 
                             onClick={handlePlayBriefing}
-                            className={`p-2 rounded-full transition-all border ${isPlaying ? 'bg-red-50 text-red-600 border-red-200 animate-pulse' : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:bg-slate-50'}`}
+                            className={`p-1.5 rounded-full transition-all border ${isPlaying ? 'bg-red-50 text-red-600 border-red-200 animate-pulse' : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:bg-slate-50'}`}
                         >
-                            {isPlaying ? <StopCircle size={18} /> : <Volume2 size={18} />}
+                            {isPlaying ? <StopCircle size={16} /> : <Volume2 size={16} />}
                         </button>
                             <button 
                             onClick={handleGenerateBriefing} 
                             disabled={isGenerating}
-                            className="p-2 rounded-full bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:bg-slate-50 transition-colors"
+                            className="p-1.5 rounded-full bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:bg-slate-50 transition-colors"
                             title="Refresh AI Insights"
                         >
-                            {isGenerating ? <Loader2 size={18} className="animate-spin" /> : <RotateCw size={18} />}
+                            {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <RotateCw size={16} />}
                         </button>
                     </div>
                 </div>
                 
                 {/* Metrics Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Full Width Today's Collection */}
-                    <div className="col-span-1 sm:col-span-2 bg-gradient-to-r from-emerald-500 to-teal-600 p-5 rounded-xl shadow-lg flex items-center justify-between relative overflow-hidden group/card text-white">
-                            <div className="absolute right-0 top-0 p-4 opacity-10 group-hover/card:opacity-20 transition-opacity transform rotate-12 scale-150 translate-x-4 -translate-y-2">
-                            <IndianRupee size={100} />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {/* Today's Collection */}
+                    <div className="relative overflow-hidden bg-gradient-to-br from-emerald-500 to-teal-600 p-3 rounded-lg shadow-sm text-white group/card">
+                            <div className="absolute right-[-10px] top-[-10px] opacity-10 group-hover/card:opacity-20 transition-opacity transform rotate-12">
+                            <IndianRupee size={80} />
                             </div>
-                            <div className="z-10">
-                            <p className="text-emerald-100 mb-1 flex items-center gap-1 uppercase tracking-wide font-bold text-xs">
-                                <Wallet size={14}/> Today's Collection
+                            <div className="relative z-10">
+                            <p className="text-emerald-100 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide mb-0.5">
+                                <Wallet size={12}/> Today
                             </p>
-                            <p className="font-bold text-4xl tracking-tight">₹{analysis.todaysCollection.toLocaleString()}</p>
-                            <p className="text-xs text-emerald-100/80 mt-1 font-medium">Cash received today</p>
+                            <p className="font-bold text-2xl tracking-tight">₹{analysis.todaysCollection.toLocaleString()}</p>
                             </div>
-                            <div className="bg-white/20 p-3 rounded-full z-10 backdrop-blur-sm">
-                            <TrendingUp size={28} className="text-white" />
+                            <div className="absolute bottom-3 right-3 bg-white/20 p-1.5 rounded-full backdrop-blur-sm">
+                            <TrendingUp size={16} className="text-white" />
                             </div>
                     </div>
 
                     <button 
                         onClick={() => setDetailType('deadStock')}
-                        className="p-4 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/20 transition-all text-left group relative"
+                        className="p-3 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/20 transition-all text-left group relative"
                     >
-                        <div className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <ArrowRight size={16} className="text-amber-600 dark:text-amber-400" />
+                        <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <ArrowRight size={14} className="text-amber-600 dark:text-amber-400" />
                         </div>
-                        <div className="flex items-center gap-2 mb-2">
-                            <div className="p-1.5 bg-amber-100 dark:bg-amber-900/30 rounded text-amber-600 dark:text-amber-400">
-                                <Archive size={16}/>
+                        <div className="flex items-center gap-2 mb-1">
+                            <div className="p-1 bg-amber-100 dark:bg-amber-900/30 rounded text-amber-600 dark:text-amber-400">
+                                <Archive size={14}/>
                             </div>
-                            <p className="text-xs font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wide">Dead Stock</p>
+                            <p className="text-[10px] font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wide">Dead Stock</p>
                         </div>
-                        <p className="font-bold text-2xl text-slate-800 dark:text-white">{analysis.deadStockList.length}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Items > 60 days unsold</p>
+                        <p className="font-bold text-xl text-slate-800 dark:text-white">{analysis.deadStockList.length}</p>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400">Items &gt; 60 days</p>
                     </button>
 
                     <button 
                         onClick={() => setDetailType('churn')}
-                        className="p-4 rounded-xl border border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/20 transition-all text-left group relative"
+                        className="p-3 rounded-lg border border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/20 transition-all text-left group relative"
                     >
-                        <div className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <ArrowRight size={16} className="text-red-600 dark:text-red-400" />
+                        <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <ArrowRight size={14} className="text-red-600 dark:text-red-400" />
                         </div>
-                        <div className="flex items-center gap-2 mb-2">
-                             <div className="p-1.5 bg-red-100 dark:bg-red-900/30 rounded text-red-600 dark:text-red-400">
-                                <UserX size={16}/>
+                        <div className="flex items-center gap-2 mb-1">
+                             <div className="p-1 bg-red-100 dark:bg-red-900/30 rounded text-red-600 dark:text-red-400">
+                                <UserX size={14}/>
                             </div>
-                            <p className="text-xs font-bold text-red-700 dark:text-red-300 uppercase tracking-wide">Churn Risk</p>
+                            <p className="text-[10px] font-bold text-red-700 dark:text-red-300 uppercase tracking-wide">Churn Risk</p>
                         </div>
-                        <p className="font-bold text-2xl text-slate-800 dark:text-white">{analysis.churnList.length}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Inactive customers</p>
+                        <p className="font-bold text-xl text-slate-800 dark:text-white">{analysis.churnList.length}</p>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400">Inactive users</p>
                     </button>
                 </div>
                 
-                <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-700">
+                <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
                     <div className="flex items-start gap-2">
-                        <Sparkles size={16} className="text-indigo-500 mt-0.5 shrink-0" />
-                        <p className="text-xs text-slate-600 dark:text-slate-300 italic leading-relaxed">
+                        <Sparkles size={14} className="text-indigo-500 mt-0.5 shrink-0" />
+                        <p className="text-xs text-slate-600 dark:text-slate-300 italic leading-relaxed line-clamp-2">
                             "{aiBriefing || analysis.briefing}"
                         </p>
                     </div>
@@ -1053,7 +1051,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 <MetricCard icon={IndianRupee} title="Sales" value={stats.monthSalesTotal} subValue={`${stats.salesCount} orders`} color="bg-primary/5 dark:bg-primary/10" iconBgColor="bg-primary/20" textColor="text-primary" onClick={() => setCurrentPage('SALES')} delay={0} />
                 <MetricCard icon={Package} title="Purchases" value={stats.monthPurchasesTotal} subValue="Inventory cost" color="bg-blue-50 dark:bg-blue-900/20" iconBgColor="bg-blue-100 dark:bg-blue-800" textColor="text-blue-700 dark:text-blue-100" onClick={() => setCurrentPage('PURCHASES')} delay={100} />
                 <MetricCard icon={User} title="Cust. Dues" value={stats.totalCustomerDues} subValue="Total Receivable" color="bg-purple-50 dark:bg-purple-900/20" iconBgColor="bg-purple-100 dark:bg-purple-800" textColor="text-purple-700 dark:text-purple-100" onClick={() => setCurrentPage('CUSTOMERS')} delay={200} />
