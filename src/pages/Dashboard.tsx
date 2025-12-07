@@ -1,10 +1,10 @@
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { IndianRupee, User, AlertTriangle, Download, Upload, ShoppingCart, Package, ShieldCheck, ShieldX, Archive, PackageCheck, TestTube2, Sparkles, TrendingUp, TrendingDown, CalendarClock, Volume2, StopCircle, X, RotateCw, BrainCircuit, Loader2, MessageCircle, Share, Award, Wallet, ArrowRight, Phone, UserX, Zap, Activity } from 'lucide-react';
+import { IndianRupee, User, AlertTriangle, Download, Upload, ShoppingCart, Package, ShieldCheck, ShieldX, Archive, PackageCheck, TestTube2, Sparkles, TrendingUp, TrendingDown, CalendarClock, Volume2, StopCircle, X, RotateCw, BrainCircuit, Loader2, MessageCircle, Share, Award, Wallet, ArrowRight, Phone, UserX, Zap, Activity, LayoutDashboard } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import * as db from '../utils/db';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import Dropdown from '../components/Dropdown';
 import { Page, Customer, Sale, Purchase, Supplier, Product, Return, AppMetadataBackup, Expense } from '../types';
 import { testData, testProfile } from '../utils/testData';
 import { useDialog } from '../context/DialogContext';
@@ -970,20 +970,11 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
             )}
             
             {/* Header Section */}
-            <div className="flex flex-row items-center justify-between gap-2 relative mb-6">
-                <div className="flex-shrink-0">
-                     {/* Greeting Removed */}
+            <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                    <LayoutDashboard className="w-6 h-6" />
                 </div>
-
-                <div className="flex-grow text-center">
-                    <h1 className="text-lg sm:text-2xl md:text-3xl font-bold text-primary tracking-tight drop-shadow-sm truncate">
-                        Dashboard
-                    </h1>
-                </div>
-                
-                <div className="flex-shrink-0">
-                    
-                </div>
+                <h1 className="text-3xl font-bold text-primary">Dashboard</h1>
             </div>
 
             {/* Install Prompt Banner - Shows if installable AND NOT dismissed this session */}
@@ -1033,21 +1024,19 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
             {/* Toolbar for Period Selectors */}
             <div className="flex justify-end items-center mb-1">
                  <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-1 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700">
-                     <select 
-                        value={selectedMonth} 
-                        onChange={(e) => setSelectedMonth(e.target.value)} 
-                        className="p-1.5 border-none bg-transparent text-sm font-semibold text-gray-700 dark:text-gray-200 focus:ring-0 cursor-pointer hover:text-primary transition-colors"
-                    >
-                        {monthOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                    </select>
+                     <Dropdown 
+                        options={monthOptions}
+                        value={selectedMonth}
+                        onChange={setSelectedMonth}
+                        className="w-32"
+                     />
                     <div className="h-4 w-px bg-gray-300 dark:bg-slate-600"></div>
-                    <select 
-                        value={selectedYear} 
-                        onChange={(e) => setSelectedYear(e.target.value)} 
-                        className="p-1.5 border-none bg-transparent text-sm font-semibold text-gray-700 dark:text-gray-200 focus:ring-0 cursor-pointer hover:text-primary transition-colors"
-                    >
-                        {getYears.map(y => <option key={y} value={y}>{y}</option>)}
-                    </select>
+                     <Dropdown 
+                        options={getYears.map(y => ({ value: y, label: y }))}
+                        value={selectedYear}
+                        onChange={setSelectedYear}
+                        className="w-24"
+                     />
                 </div>
             </div>
 

@@ -320,6 +320,13 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
           .slice(0, 50); // Limit to last 50 for performance
     }, [state.sales, state.customers, historySearch]);
+    
+    // Recent Sales for Bottom Bar
+    const recentSales = useMemo(() => {
+        return [...state.sales]
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+            .slice(0, 3);
+    }, [state.sales]);
 
     const handleAddCustomer = (customer: Customer) => {
         dispatch({ type: 'ADD_CUSTOMER', payload: customer });
@@ -494,7 +501,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
     const pageTitle = mode === 'edit' ? `Edit Sale: ${saleToEdit?.id}` : 'New Sale / Payment';
 
     return (
-        <div className="space-y-4 animate-fade-in-fast relative">
+        <div className="space-y-4 animate-fade-in-fast relative pb-10">
             {isAddingCustomer && 
                 <AddCustomerModal 
                     isOpen={isAddingCustomer}
@@ -826,6 +833,36 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                             {mode === 'edit' ? 'Cancel Edit' : 'Clear Form'}
                         </Button>
                     </div>
+
+                    {/* Recent Transactions Section */}
+                    {recentSales.length > 0 && (
+                        <div className="mt-8 pt-4 border-t dark:border-slate-700">
+                            <h3 className="text-lg font-bold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
+                                <History size={20} /> Recent Transactions
+                            </h3>
+                            <div className="space-y-3">
+                                {recentSales.map(sale => {
+                                    const customer = state.customers.find(c => c.id === sale.customerId);
+                                    return (
+                                        <div 
+                                            key={sale.id}
+                                            onClick={() => handleEditFromHistory(sale)}
+                                            className="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm flex justify-between items-center cursor-pointer hover:border-primary transition-colors"
+                                        >
+                                            <div>
+                                                <p className="font-bold text-sm text-gray-800 dark:text-white">{customer?.name || 'Unknown'}</p>
+                                                <p className="text-xs text-gray-500 font-mono">{sale.id}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="font-bold text-sm text-primary">₹{sale.totalAmount.toLocaleString('en-IN')}</p>
+                                                <p className="text-xs text-gray-500">{new Date(sale.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
                 </>
             ) : (
                 // HISTORY TAB CONTENT

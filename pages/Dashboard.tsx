@@ -971,20 +971,8 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
             )}
             
             {/* Header Section */}
-            <div className="flex flex-row items-center justify-between gap-2 relative mb-6">
-                <div className="flex-shrink-0">
-                     {/* Greeting Removed */}
-                </div>
-
-                <div className="flex-grow text-center">
-                    <h1 className="text-lg sm:text-2xl md:text-3xl font-bold text-primary tracking-tight drop-shadow-sm truncate">
-                        Dashboard
-                    </h1>
-                </div>
-                
-                <div className="flex-shrink-0">
-                    
-                </div>
+            <div className="mb-6 text-center">
+                <h1 className="text-3xl font-bold text-primary">Dashboard</h1>
             </div>
 
             {/* Install Prompt Banner - Shows if installable AND NOT dismissed this session */}
