@@ -1,6 +1,6 @@
 {
   "id": "business-manager-pro-v1",
-  "name": "Business Manager Pro",
+  "name": "Business Manager Prod",
   "short_name": "Business Manager",
   "description": "Comprehensive offline-first business management with AI insights, advanced diagnostics, and robust data protection.",
   "start_url": "./index.html",

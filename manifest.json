@@ -1,6 +1,6 @@
 {
   "name": "Business Manager",
-  "short_name": "Business Mgr",
+  "short_name": "Business Manager",
   "description": "Sales & inventory management",
   "display": "standalone",
   "scope": "/",
