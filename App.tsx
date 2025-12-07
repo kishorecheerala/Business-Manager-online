@@ -511,13 +511,16 @@ const AppContent: React.FC = () => {
                     
                     {/* Top Row: Navigation & Actions (h-16) */}
                     <div className="h-16 px-3 sm:px-4 flex items-center justify-between text-white relative">
-                        {/* Left: Menu & Search */}
+                        {/* Left: Menu & Search & AI */}
                         <div className="flex items-center gap-1 sm:gap-2 z-20">
                             <button onClick={() => setIsMenuOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors" title="Menu (Ctrl+M)">
                                 <Menu size={24} />
                             </button>
                             <button onClick={() => setIsSearchOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors" title="Search (Ctrl+K)">
                                 <Search size={20} />
+                            </button>
+                            <button onClick={() => setIsAskAIOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors" title="AI Assistant">
+                                <Sparkles size={20} />
                             </button>
                         </div>
 
@@ -607,11 +610,6 @@ const AppContent: React.FC = () => {
                                         'bg-gray-300'
                                     }`}></span>
                                 )}
-                            </button>
-
-                            {/* AI Button - Always visible */}
-                            <button onClick={() => setIsAskAIOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
-                                <Sparkles size={20} />
                             </button>
 
                             {/* Notifications */}
