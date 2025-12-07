@@ -1,5 +1,5 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import jsPDF from 'jspdf';
 import JsBarcode from 'jsbarcode';
 import Card from './Card';
@@ -27,11 +27,6 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({ isOpen, product, onC
   const [paperType, setPaperType] = useState<'roll' | 'a4'>('roll');
   const labelPreviewCanvasRef = useRef<HTMLCanvasElement>(null);
   const printIframeRef = useRef<HTMLIFrameElement | null>(null);
-
-  useEffect(() => {
-      if (isOpen) document.body.style.overflow = 'hidden';
-      return () => { document.body.style.overflow = ''; };
-  }, [isOpen]);
 
   const generateLabelCanvas = (): HTMLCanvasElement => {
     const labelCanvas = document.createElement('canvas');
@@ -264,9 +259,20 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({ isOpen, product, onC
 
   if (!isOpen || !product) return null;
 
-  return createPortal(
+  return (
     <div 
-        className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+        style={{ 
+            position: 'fixed', 
+            top: 0, 
+            left: 0, 
+            right: 0, 
+            bottom: 0, 
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+        }}
+        className="p-4"
     >
       <div className="absolute inset-0 bg-black/50 animate-fade-in-fast" onClick={onClose} />
       <Card className="relative z-10 w-full max-w-md animate-scale-in">
@@ -331,8 +337,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({ isOpen, product, onC
           <Button onClick={onClose} variant="secondary" className="w-full">Cancel</Button>
         </div>
       </Card>
-    </div>,
-    document.body
+    </div>
   );
 };
 

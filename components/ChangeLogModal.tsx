@@ -1,5 +1,5 @@
-
-import React from 'react';
+import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Sparkles, Zap, Bug, Calendar } from 'lucide-react';
 import Card from './Card';
 import Button from './Button';
@@ -11,11 +11,19 @@ interface ChangeLogModalProps {
 }
 
 const ChangeLogModal: React.FC<ChangeLogModalProps> = ({ isOpen, onClose }) => {
+    useEffect(() => {
+        if (isOpen) document.body.style.overflow = 'hidden';
+        return () => { document.body.style.overflow = ''; };
+    }, [isOpen]);
+
     if (!isOpen) return null;
 
-    return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4 animate-fade-in-fast">
-            <Card className="w-full max-w-md p-0 overflow-hidden animate-scale-in border-none shadow-2xl relative flex flex-col max-h-[85vh]">
+    return createPortal(
+        <div 
+            className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+        >
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in-fast" onClick={onClose} />
+            <Card className="relative z-10 w-full max-w-md p-0 overflow-hidden animate-scale-in border-none shadow-2xl flex flex-col max-h-full">
                 {/* Header */}
                 <div className="bg-gradient-to-br from-indigo-600 to-purple-700 p-6 text-white relative shrink-0">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/3 blur-2xl"></div>
@@ -93,7 +101,8 @@ const ChangeLogModal: React.FC<ChangeLogModalProps> = ({ isOpen, onClose }) => {
                     </Button>
                 </div>
             </Card>
-        </div>
+        </div>,
+        document.body
     );
 };
 

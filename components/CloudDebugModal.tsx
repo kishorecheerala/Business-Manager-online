@@ -1,5 +1,5 @@
-
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Download, Folder, FileText, RefreshCw, Terminal, AlertTriangle, LogIn } from 'lucide-react';
 import Card from './Card';
 import Button from './Button';
@@ -19,6 +19,11 @@ const CloudDebugModal: React.FC<CloudDebugModalProps> = ({ isOpen, onClose }) =>
   const [details, setDetails] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [restoringId, setRestoringId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, [isOpen]);
 
   const runDiagnostics = async () => {
     if (!state.googleUser?.accessToken) {
@@ -74,9 +79,12 @@ const CloudDebugModal: React.FC<CloudDebugModalProps> = ({ isOpen, onClose }) =>
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[130] p-4 animate-fade-in-fast">
-      <Card className="w-full max-w-2xl h-[85vh] flex flex-col p-0 overflow-hidden animate-scale-in">
+  return createPortal(
+    <div 
+        className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+    >
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-fade-in-fast" onClick={onClose} />
+      <Card className="relative z-10 w-full max-w-2xl h-full flex flex-col p-0 overflow-hidden animate-scale-in">
         <div className="bg-slate-800 text-white p-4 flex justify-between items-center shrink-0">
           <div className="flex items-center gap-2">
             <Terminal size={20} className="text-yellow-400" />
@@ -176,7 +184,8 @@ const CloudDebugModal: React.FC<CloudDebugModalProps> = ({ isOpen, onClose }) =>
             </div>
         </div>
       </Card>
-    </div>
+    </div>,
+    document.body
   );
 };
 

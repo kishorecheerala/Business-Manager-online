@@ -1,5 +1,5 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Globe } from 'lucide-react';
 import Card from './Card';
 
@@ -189,13 +189,21 @@ const helpContent = {
 const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
   const [language, setLanguage] = useState<'en' | 'te'>('en');
 
+  useEffect(() => {
+      if (isOpen) document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = ''; };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const content = helpContent[language];
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4 animate-fade-in-fast">
-      <Card className="w-full max-w-2xl h-[80vh] flex flex-col p-0 animate-scale-in overflow-hidden relative">
+  return createPortal(
+    <div 
+        className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+    >
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-fade-in-fast" onClick={onClose} />
+      <Card className="relative z-10 w-full max-w-2xl h-full flex flex-col p-0 animate-scale-in overflow-hidden">
         {/* Header */}
         <div className="bg-theme p-4 flex justify-between items-center text-white shrink-0">
             <h2 className="font-bold text-lg flex items-center gap-2">
@@ -227,7 +235,8 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
             ))}
         </div>
       </Card>
-    </div>
+    </div>,
+    document.body
   );
 };
 

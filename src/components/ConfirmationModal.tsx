@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
+
+import React, { useState } from 'react';
 import Card from './Card';
 import Button from './Button';
 
@@ -15,16 +15,22 @@ interface ConfirmationModalProps {
 }
 
 const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ isOpen, onClose, onConfirm, title, children, confirmText, cancelText, confirmVariant = 'danger' }) => {
-  useEffect(() => {
-      if (isOpen) document.body.style.overflow = 'hidden';
-      return () => { document.body.style.overflow = ''; };
-  }, [isOpen]);
-
   if (!isOpen) return null;
 
-  return createPortal(
+  return (
     <div 
-        className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+        style={{ 
+            position: 'fixed', 
+            top: 0, 
+            left: 0, 
+            right: 0, 
+            bottom: 0, 
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+        }}
+        className="p-4"
     >
       <div className="absolute inset-0 bg-black/50 animate-fade-in-fast" onClick={onClose} />
       <Card title={title} className="relative z-10 w-full max-w-md animate-scale-in">
@@ -40,8 +46,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ isOpen, onClose, 
           </div>
         </div>
       </Card>
-    </div>,
-    document.body
+    </div>
   );
 };
 

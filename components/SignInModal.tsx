@@ -1,5 +1,5 @@
-
-import React from 'react';
+import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Check, Cloud, Shield, RefreshCw, Calendar, FileSpreadsheet } from 'lucide-react';
 import Card from './Card';
 import { useAppContext } from '../context/AppContext';
@@ -12,6 +12,11 @@ interface SignInModalProps {
 const SignInModal: React.FC<SignInModalProps> = ({ isOpen, onClose }) => {
   const { googleSignIn } = useAppContext();
 
+  useEffect(() => {
+      if (isOpen) document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = ''; };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleSignIn = () => {
@@ -19,9 +24,12 @@ const SignInModal: React.FC<SignInModalProps> = ({ isOpen, onClose }) => {
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[200] p-4 animate-fade-in-fast backdrop-blur-sm">
-      <Card className="w-full max-w-md p-0 overflow-hidden animate-scale-in border-none shadow-2xl relative bg-white dark:bg-slate-900">
+  return createPortal(
+    <div 
+        className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+    >
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in-fast" onClick={onClose} />
+      <Card className="relative z-10 w-full max-w-md p-0 overflow-hidden animate-scale-in border-none shadow-2xl bg-white dark:bg-slate-900">
         <button 
             onClick={onClose} 
             className="absolute top-4 right-4 p-2 rounded-full bg-black/10 hover:bg-black/20 text-white transition-colors z-20"
@@ -94,7 +102,8 @@ const SignInModal: React.FC<SignInModalProps> = ({ isOpen, onClose }) => {
             </div>
         </div>
       </Card>
-    </div>
+    </div>,
+    document.body
   );
 };
 

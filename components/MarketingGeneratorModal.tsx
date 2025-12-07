@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { X, Image as ImageIcon, Video, Loader2, Download, Wand2, RefreshCw, WifiOff, Camera, Upload } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
@@ -167,7 +166,7 @@ const MarketingGeneratorModal: React.FC<MarketingGeneratorModalProps> = ({ isOpe
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] p-4 animate-fade-in-fast backdrop-blur-sm">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[99999] p-4 animate-fade-in-fast backdrop-blur-sm">
             <Card className="w-full max-w-lg p-0 overflow-hidden animate-scale-in border-none shadow-2xl bg-white dark:bg-slate-900">
                 <div className="p-4 border-b dark:border-slate-800 flex justify-between items-center bg-gradient-to-r from-pink-600 to-purple-600 text-white">
                     <div className="flex items-center gap-2">

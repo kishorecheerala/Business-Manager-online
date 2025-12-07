@@ -1,5 +1,5 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Download, Upload, Info, CheckCircle, XCircle, Users, Package as PackageIcon, Boxes, ShoppingCart } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { StoreName } from '../utils/db';
@@ -67,6 +67,11 @@ export const DataImportModal: React.FC<DataImportModalProps> = ({ isOpen, onClos
   const { showConfirm } = useDialog();
   const [activeTab, setActiveTab] = useState<Tab>('customers');
   const [importStatus, setImportStatus] = useState<{ type: 'info' | 'success' | 'error', message: string } | null>(null);
+
+  useEffect(() => {
+    if (isOpen) document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, [isOpen]);
 
   const templates = {
     customers: {
@@ -255,9 +260,10 @@ export const DataImportModal: React.FC<DataImportModalProps> = ({ isOpen, onClos
     purchases: { label: "Purchases", icon: ShoppingCart, storeName: 'purchases' as StoreName },
   };
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4 animate-fade-in-fast" aria-modal="true" role="dialog">
-      <Card className="w-full max-w-4xl animate-scale-in">
+  return createPortal(
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4" aria-modal="true" role="dialog">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-fade-in-fast" onClick={onClose} />
+      <Card className="relative z-10 w-full max-w-4xl animate-scale-in">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold text-primary">Import Data from CSV</h2>
           <button onClick={onClose} className="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"><X size={24} /></button>
@@ -321,6 +327,7 @@ export const DataImportModal: React.FC<DataImportModalProps> = ({ isOpen, onClos
             </div>
         </div>
       </Card>
-    </div>
+    </div>,
+    document.body
   );
 };

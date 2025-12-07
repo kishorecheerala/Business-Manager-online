@@ -1,5 +1,5 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import Card from './Card';
 import Button from './Button';
 import { Product } from '../types';
@@ -22,9 +22,7 @@ const QuantityInputModal: React.FC<QuantityInputModalProps> = ({ isOpen, onClose
     if (isOpen) {
       setQuantity('1'); // Reset quantity when modal opens
       setTimeout(() => inputRef.current?.focus(), 100); // Autofocus input
-      document.body.style.overflow = 'hidden';
     }
-    return () => { document.body.style.overflow = ''; };
   }, [isOpen]);
   
   if (!isOpen || !product) return null;
@@ -44,9 +42,20 @@ const QuantityInputModal: React.FC<QuantityInputModalProps> = ({ isOpen, onClose
     }
   };
 
-  return createPortal(
+  return (
     <div 
-        className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+        style={{ 
+            position: 'fixed', 
+            top: 0, 
+            left: 0, 
+            right: 0, 
+            bottom: 0, 
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+        }}
+        className="p-4"
     >
       <div className="absolute inset-0 bg-black/50 animate-fade-in-fast" onClick={onClose} />
       <Card className="relative z-10 w-full max-w-sm animate-scale-in">
@@ -78,8 +87,7 @@ const QuantityInputModal: React.FC<QuantityInputModalProps> = ({ isOpen, onClose
           </div>
         </div>
       </Card>
-    </div>,
-    document.body
+    </div>
   );
 };
 

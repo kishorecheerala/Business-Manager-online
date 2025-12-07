@@ -1,5 +1,5 @@
+
 import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { Supplier } from '../types';
 import Button from './Button';
 import Card from './Card';
@@ -31,9 +31,6 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ isOpen, onClose, on
                 setFormData(defaultSupplierState);
             }
         }
-        
-        if (isOpen && !inline) document.body.style.overflow = 'hidden';
-        return () => { document.body.style.overflow = ''; };
     }, [isOpen, inline, initialData]);
 
     const handleSave = () => {
@@ -212,9 +209,20 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ isOpen, onClose, on
         );
     }
 
-    return createPortal(
+    return (
          <div 
-             className="fixed inset-0 z-[99999] flex items-end sm:items-center justify-center sm:p-4"
+             style={{ 
+                position: 'fixed', 
+                top: 0, 
+                left: 0, 
+                right: 0, 
+                bottom: 0, 
+                zIndex: 99999,
+                display: 'flex',
+                alignItems: 'end',
+                justifyContent: 'center'
+             }}
+             className="sm:items-center sm:p-4"
          >
              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in-fast" onClick={onClose} />
             {/* Modal Container */}
@@ -239,8 +247,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ isOpen, onClose, on
                  {/* Footer */}
                  {footerButtons}
             </div>
-        </div>,
-        document.body
+        </div>
     );
 };
 

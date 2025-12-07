@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
+
+import React, { useState } from 'react';
 import Card from './Card';
 import Button from './Button';
 import Input from './Input';
 import Dropdown from './Dropdown';
 import { Customer } from '../types';
 import { useAppContext } from '../context/AppContext';
-import { X, User, Phone, MapPin } from 'lucide-react';
+import { X, User, Phone, MapPin, FileText, Hash, Tag } from 'lucide-react';
 
 interface AddCustomerModalProps {
     isOpen: boolean;
@@ -18,11 +18,6 @@ interface AddCustomerModalProps {
 const AddCustomerModal: React.FC<AddCustomerModalProps> = ({ isOpen, onClose, onAdd, existingCustomers }) => {
     const { showToast } = useAppContext();
     const [newCustomer, setNewCustomer] = useState({ id: '', name: '', phone: '', address: '', area: '', reference: '', priceTier: 'RETAIL' as 'RETAIL' | 'WHOLESALE' });
-
-    useEffect(() => {
-        if (isOpen) document.body.style.overflow = 'hidden';
-        return () => { document.body.style.overflow = ''; };
-    }, [isOpen]);
 
     const handleSave = () => {
         const trimmedId = newCustomer.id.trim();
@@ -64,9 +59,20 @@ const AddCustomerModal: React.FC<AddCustomerModalProps> = ({ isOpen, onClose, on
 
     if (!isOpen) return null;
 
-    return createPortal(
+    return (
         <div 
-            className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+            style={{ 
+                position: 'fixed', 
+                top: 0, 
+                left: 0, 
+                right: 0, 
+                bottom: 0, 
+                zIndex: 99999,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+            }}
+            className="p-4"
         >
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in-fast" onClick={onClose} />
             <div className="relative z-10 w-full sm:max-w-lg bg-white dark:bg-slate-800 rounded-xl shadow-2xl flex flex-col max-h-[90vh] animate-scale-in overflow-hidden border border-gray-200 dark:border-slate-700">
@@ -190,8 +196,7 @@ const AddCustomerModal: React.FC<AddCustomerModalProps> = ({ isOpen, onClose, on
                     </button>
                 </div>
             </div>
-        </div>,
-        document.body
+        </div>
     );
 };
 

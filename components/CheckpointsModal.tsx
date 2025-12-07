@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { X, RotateCcw, Trash2, Clock, CheckCircle } from 'lucide-react';
 import Card from './Card';
@@ -67,7 +66,7 @@ const CheckpointsModal: React.FC<CheckpointsModalProps> = ({ isOpen, onClose }) 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4 animate-fade-in-fast">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[99999] p-4 animate-fade-in-fast">
       <Card className="w-full max-w-md animate-scale-in flex flex-col max-h-[80vh]">
         <div className="flex justify-between items-center mb-4 shrink-0">
           <h2 className="text-xl font-bold text-primary flex items-center gap-2">

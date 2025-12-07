@@ -1,5 +1,5 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { Html5Qrcode } from 'html5-qrcode';
 import { X } from 'lucide-react';
 import Card from './Card';
@@ -13,11 +13,6 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({ onClose, onScanned }) =
     const [scanStatus, setScanStatus] = useState<string>("Initializing camera...");
     const scannerId = "qr-reader-modal";
     const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
-
-    useEffect(() => {
-        document.body.style.overflow = 'hidden';
-        return () => { document.body.style.overflow = ''; };
-    }, []);
 
     useEffect(() => {
         // Ensure DOM element exists before initializing
@@ -56,9 +51,20 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({ onClose, onScanned }) =
         };
     }, [onScanned]);
 
-    return createPortal(
+    return (
         <div 
-            className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+            style={{ 
+                position: 'fixed', 
+                top: 0, 
+                left: 0, 
+                right: 0, 
+                bottom: 0, 
+                zIndex: 99999,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+            }}
+            className="p-4"
         >
             <div className="absolute inset-0 bg-black/75 backdrop-blur-sm animate-fade-in-fast" onClick={onClose} />
             <Card title="Scan QR Code" className="relative z-10 w-full max-w-md animate-scale-in">
@@ -68,8 +74,7 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({ onClose, onScanned }) =
                 <div id={scannerId} className="w-full mt-4 rounded-lg overflow-hidden border bg-black min-h-[300px]"></div>
                 <p className="text-center text-sm my-2 text-gray-600 dark:text-gray-400">{scanStatus}</p>
             </Card>
-        </div>,
-        document.body
+        </div>
     );
 };
 

@@ -1,5 +1,5 @@
-
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import Card from './Card';
 import Button from './Button';
 import { Lock } from 'lucide-react';
@@ -27,6 +27,8 @@ const PinModal: React.FC<PinModalProps> = ({ mode, onSetPin, onCorrectPin, corre
         setTimeout(() => {
             pinInputRef.current?.focus();
         }, 100);
+        document.body.style.overflow = 'hidden';
+        return () => { document.body.style.overflow = ''; };
     }, [mode]);
     
     const handlePinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -96,65 +98,73 @@ const PinModal: React.FC<PinModalProps> = ({ mode, onSetPin, onCorrectPin, corre
         ? 'Create a 4-digit PIN to secure your Business Insights.'
         : 'Enter your 4-digit PIN to continue.';
 
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[200] p-4 animate-fade-in-fast">
-            <Card className="w-full max-w-sm animate-scale-in">
-                <div className="text-center">
-                    <Lock size={24} className="mx-auto text-primary mb-2" />
-                    <h2 className="text-xl font-bold text-primary">{title}</h2>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 mb-4">{description}</p>
-                </div>
-                <div className="space-y-4">
-                    <input
-                        ref={pinInputRef}
-                        type="password"
-                        inputMode="numeric"
-                        pattern="\d{4}"
-                        maxLength={4}
-                        value={pin}
-                        onChange={handlePinChange}
-                        onKeyPress={handleKeyPress}
-                        className="w-full p-3 text-center text-2xl tracking-[1em] bg-gray-100 border-2 border-gray-300 rounded-lg focus:border-primary focus:ring-primary dark:bg-slate-700 dark:border-slate-600 dark:text-white"
-                        placeholder="----"
-                        autoComplete="off"
-                    />
-                    {mode === 'setup' && (
-                        <input
-                            ref={confirmInputRef}
-                            type="password"
-                            inputMode="numeric"
-                            pattern="\d{4}"
-                            maxLength={4}
-                            value={confirmPin}
-                            onChange={handleConfirmPinChange}
-                            onKeyPress={handleKeyPress}
-                            className="w-full p-3 text-center text-2xl tracking-[1em] bg-gray-100 border-2 border-gray-300 rounded-lg focus:border-primary focus:ring-primary dark:bg-slate-700 dark:border-slate-600 dark:text-white"
-                            placeholder="----"
-                            autoComplete="off"
-                        />
-                    )}
-                    {error && <p className="text-red-600 text-sm text-center">{error}</p>}
-                    <div className="flex flex-col gap-2">
-                        <Button ref={submitButtonRef} onClick={handleSubmit} className="w-full">
-                            {mode === 'setup' ? 'Set PIN' : 'Unlock'}
-                        </Button>
+    return createPortal(
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in-fast" onClick={onCancel} />
+            <Card title={title} className="relative z-10 w-full max-w-sm animate-scale-in shadow-2xl bg-white dark:bg-slate-900 border dark:border-slate-700">
+                <div className="space-y-6">
+                    <div className="text-center">
+                        <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Lock size={32} className="text-indigo-600 dark:text-indigo-400" />
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">{description}</p>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="flex justify-center">
+                            <input
+                                ref={pinInputRef}
+                                type="password"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                value={pin}
+                                onChange={handlePinChange}
+                                onKeyDown={handleKeyPress}
+                                placeholder="Enter PIN"
+                                maxLength={4}
+                                className="w-48 text-center text-3xl tracking-[0.5em] font-mono p-2 border-b-2 border-slate-300 focus:border-indigo-500 bg-transparent outline-none transition-colors dark:text-white dark:border-slate-600"
+                                autoFocus
+                            />
+                        </div>
+
+                        {mode === 'setup' && (
+                            <div className="flex justify-center animate-fade-in-up">
+                                <input
+                                    ref={confirmInputRef}
+                                    type="password"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    value={confirmPin}
+                                    onChange={handleConfirmPinChange}
+                                    onKeyDown={handleKeyPress}
+                                    placeholder="Confirm PIN"
+                                    maxLength={4}
+                                    className="w-48 text-center text-3xl tracking-[0.5em] font-mono p-2 border-b-2 border-slate-300 focus:border-indigo-500 bg-transparent outline-none transition-colors dark:text-white dark:border-slate-600"
+                                />
+                            </div>
+                        )}
+
+                        {error && <p className="text-sm text-red-500 text-center font-medium animate-shake">{error}</p>}
+                    </div>
+
+                    <div className="flex gap-3 pt-2">
                         {onCancel && (
-                             <Button onClick={onCancel} variant="secondary" className="w-full bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600">
-                                Go Back
+                            <Button onClick={onCancel} variant="secondary" className="flex-1">
+                                Cancel
                             </Button>
                         )}
-                    </div>
-                    {mode === 'enter' && onResetRequest && (
-                        <button
-                            onClick={onResetRequest}
-                            className="text-sm text-center text-blue-600 hover:underline mt-2 w-full dark:text-blue-400"
+                        <Button 
+                            ref={submitButtonRef} 
+                            onClick={handleSubmit} 
+                            className={`flex-1 shadow-lg ${onCancel ? '' : 'w-full'}`}
                         >
-                            Forgot PIN? Reset
-                        </button>
-                    )}
+                            {mode === 'setup' ? 'Set PIN' : 'Unlock'}
+                        </Button>
+                    </div>
                 </div>
             </Card>
-        </div>
+        </div>,
+        document.body
     );
 };
 

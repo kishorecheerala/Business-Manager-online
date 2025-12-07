@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
+
+import React, { useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { Product } from '../types';
 import Card from './Card';
@@ -13,14 +13,20 @@ interface ProductSearchModalProps {
 const ProductSearchModal: React.FC<ProductSearchModalProps> = ({ products, onClose, onSelect }) => {
     const [productSearchTerm, setProductSearchTerm] = useState('');
 
-    useEffect(() => {
-        document.body.style.overflow = 'hidden';
-        return () => { document.body.style.overflow = ''; };
-    }, []);
-
-    return createPortal(
+    return (
         <div 
-            className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+            style={{ 
+                position: 'fixed', 
+                top: 0, 
+                left: 0, 
+                right: 0, 
+                bottom: 0, 
+                zIndex: 99999,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+            }}
+            className="p-4"
         >
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-fade-in-fast" onClick={onClose} />
           <Card className="relative z-10 w-full max-w-lg animate-scale-in">
@@ -59,8 +65,7 @@ const ProductSearchModal: React.FC<ProductSearchModalProps> = ({ products, onClo
               {products.length === 0 && <p className="text-center text-gray-500">No products found.</p>}
             </div>
           </Card>
-        </div>,
-        document.body
+        </div>
     );
 };
 

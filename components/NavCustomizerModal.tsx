@@ -1,5 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, GripVertical, Check, Info, Plus, Trash2 } from 'lucide-react';
 import Card from './Card';
 import Button from './Button';
@@ -68,7 +68,9 @@ const NavCustomizerModal: React.FC<NavCustomizerModalProps> = ({ isOpen, onClose
         if (isOpen) {
             setCurrentNavOrder([...state.navOrder]);
             setCurrentQuickActions([...state.quickActions]);
+            document.body.style.overflow = 'hidden';
         }
+        return () => { document.body.style.overflow = ''; };
     }, [isOpen, state.navOrder, state.quickActions]);
 
     const handleSave = () => {
@@ -148,9 +150,12 @@ const NavCustomizerModal: React.FC<NavCustomizerModalProps> = ({ isOpen, onClose
 
     if (!isOpen) return null;
 
-    return (
-        <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 animate-fade-in-fast backdrop-blur-sm">
-            <Card className="w-full max-w-sm h-[80vh] flex flex-col p-0 overflow-hidden bg-gray-50 dark:bg-slate-900 border-none shadow-2xl">
+    return createPortal(
+        <div 
+            className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+        >
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in-fast" onClick={onClose} />
+            <Card className="relative z-10 w-full max-w-sm h-full flex flex-col p-0 overflow-hidden bg-gray-50 dark:bg-slate-900 border-none shadow-2xl">
                 <div className="bg-white dark:bg-slate-800 p-4 border-b dark:border-slate-700 flex justify-between items-center shrink-0">
                     <h2 className="text-lg font-bold text-gray-800 dark:text-white">Customize</h2>
                     <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700">
@@ -306,7 +311,8 @@ const NavCustomizerModal: React.FC<NavCustomizerModalProps> = ({ isOpen, onClose
                     </Button>
                 </div>
             </Card>
-        </div>
+        </div>,
+        document.body
     );
 };
 

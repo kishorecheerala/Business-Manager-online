@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import Card from './Card';
 import Button from './Button';
@@ -41,7 +40,7 @@ const GlobalDialog: React.FC<GlobalDialogProps> = ({ isOpen, type, message, opti
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[10000] p-4 animate-fade-in-fast">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100000] p-4 animate-fade-in-fast">
       <Card title={options.title} className="w-full max-w-sm animate-scale-in shadow-2xl">
         <div className="space-y-4">
           <p className="text-gray-700 dark:text-gray-300 text-base leading-relaxed">{message}</p>

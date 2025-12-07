@@ -1,5 +1,5 @@
+
 import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { X, Save, AlertTriangle, Scale, History } from 'lucide-react';
 import Card from './Card';
 import Button from './Button';
@@ -30,11 +30,6 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({ isOpen, onC
 
     const product = state.products.find(p => p.id === selectedProductId);
     const difference = product ? (parseInt(actualStock) || 0) - product.quantity : 0;
-
-    useEffect(() => {
-        if (isOpen) document.body.style.overflow = 'hidden';
-        return () => { document.body.style.overflow = ''; };
-    }, [isOpen]);
 
     const handleSave = () => {
         if (!product) {
@@ -73,9 +68,20 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({ isOpen, onC
 
     if (!isOpen) return null;
 
-    return createPortal(
+    return (
         <div 
-            className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+            style={{ 
+                position: 'fixed', 
+                top: 0, 
+                left: 0, 
+                right: 0, 
+                bottom: 0, 
+                zIndex: 99999,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+            }}
+            className="p-4"
         >
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in-fast" onClick={onClose} />
             <Card className="relative z-10 w-full max-w-md animate-scale-in border-none shadow-2xl">
@@ -171,8 +177,7 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({ isOpen, onC
                     </div>
                 </div>
             </Card>
-        </div>,
-        document.body
+        </div>
     );
 };
 

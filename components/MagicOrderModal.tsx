@@ -1,5 +1,5 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Wand2, Loader2, ArrowRight, WifiOff } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import Card from './Card';
@@ -18,6 +18,11 @@ const MagicOrderModal: React.FC<MagicOrderModalProps> = ({ isOpen, onClose, prod
     const { state, showToast } = useAppContext();
     const [inputText, setInputText] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
+
+    useEffect(() => {
+        if (isOpen) document.body.style.overflow = 'hidden';
+        return () => { document.body.style.overflow = ''; };
+    }, [isOpen]);
 
     const handleProcess = async () => {
         if (!inputText.trim()) return;
@@ -95,9 +100,12 @@ const MagicOrderModal: React.FC<MagicOrderModalProps> = ({ isOpen, onClose, prod
 
     if (!isOpen) return null;
 
-    return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4 animate-fade-in-fast">
-            <Card className="w-full max-w-lg p-0 overflow-hidden animate-scale-in border-none shadow-2xl relative bg-white dark:bg-slate-900">
+    return createPortal(
+        <div 
+            className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+        >
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in-fast" onClick={onClose} />
+            <Card className="relative z-10 w-full max-w-lg p-0 overflow-hidden animate-scale-in border-none shadow-2xl bg-white dark:bg-slate-900">
                 <div className="bg-gradient-to-r from-violet-600 to-indigo-600 p-4 flex justify-between items-center text-white shrink-0">
                     <div className="flex items-center gap-2">
                         <Wand2 size={20} className="text-yellow-300" />
@@ -143,7 +151,8 @@ const MagicOrderModal: React.FC<MagicOrderModalProps> = ({ isOpen, onClose, prod
                     )}
                 </div>
             </Card>
-        </div>
+        </div>,
+        document.body
     );
 };
 

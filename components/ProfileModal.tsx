@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Save, Camera, Trash2, Image as ImageIcon } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { ProfileData } from '../types';
@@ -36,6 +37,11 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     }
   }, [state.profile, isOpen]);
 
+  useEffect(() => {
+    if (isOpen) document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, [isOpen]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -65,13 +71,14 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div 
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4 animate-fade-in-fast" 
-      aria-modal="true" 
-      role="dialog"
+        className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+        aria-modal="true" 
+        role="dialog"
     >
-      <Card className="w-full max-w-lg animate-scale-in overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-fade-in-fast" onClick={onClose} />
+      <Card className="relative z-10 w-full max-w-lg animate-scale-in overflow-hidden flex flex-col max-h-full">
         <div className="flex justify-between items-center mb-4 shrink-0">
           <h2 className="text-xl font-bold text-primary">My Business Profile</h2>
           <button onClick={onClose} className="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
@@ -141,7 +148,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
             </Button>
         </div>
       </Card>
-    </div>
+    </div>,
+    document.body
   );
 };
 

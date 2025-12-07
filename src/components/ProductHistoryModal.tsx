@@ -1,5 +1,5 @@
-import React, { useMemo, useEffect } from 'react';
-import { createPortal } from 'react-dom';
+
+import React, { useMemo } from 'react';
 import { X, ArrowUpRight, ArrowDownLeft, Calendar, TrendingUp, User, Package, History, AlertCircle } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Product } from '../types';
@@ -25,11 +25,6 @@ interface HistoryEntry {
 
 const ProductHistoryModal: React.FC<ProductHistoryModalProps> = ({ isOpen, onClose, product }) => {
     const { state } = useAppContext();
-
-    useEffect(() => {
-        if (isOpen) document.body.style.overflow = 'hidden';
-        return () => { document.body.style.overflow = ''; };
-    }, [isOpen]);
 
     const historyData = useMemo(() => {
         const entries: HistoryEntry[] = [];
@@ -141,9 +136,20 @@ const ProductHistoryModal: React.FC<ProductHistoryModalProps> = ({ isOpen, onClo
 
     if (!isOpen) return null;
 
-    return createPortal(
+    return (
         <div 
-            className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+            style={{ 
+                position: 'fixed', 
+                top: 0, 
+                left: 0, 
+                right: 0, 
+                bottom: 0, 
+                zIndex: 99999,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+            }}
+            className="p-4"
         >
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in-fast" onClick={onClose} />
             <Card className="relative z-10 w-full max-w-2xl h-[85vh] flex flex-col p-0 overflow-hidden animate-scale-in border-none shadow-2xl bg-white dark:bg-slate-900">
@@ -255,8 +261,7 @@ const ProductHistoryModal: React.FC<ProductHistoryModalProps> = ({ isOpen, onClo
                     <Button onClick={onClose} variant="secondary" className="w-full">Close</Button>
                 </div>
             </Card>
-        </div>,
-        document.body
+        </div>
     );
 };
 

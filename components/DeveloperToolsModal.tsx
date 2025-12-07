@@ -1,5 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Database, Terminal, CloudLightning, Zap, Trash2, RefreshCw, HardDrive, Save, AlertTriangle, Bell, Bug, History, RotateCcw, PlusCircle } from 'lucide-react';
 import Card from './Card';
 import Button from './Button';
@@ -25,6 +25,7 @@ const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({ isOpen, onClo
 
   useEffect(() => {
     if (isOpen) {
+        document.body.style.overflow = 'hidden';
         if (navigator.storage && navigator.storage.estimate) {
             navigator.storage.estimate().then(estimate => {
                 if (estimate.usage !== undefined && estimate.quota !== undefined) {
@@ -34,6 +35,7 @@ const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({ isOpen, onClo
         }
         loadSnapshots();
     }
+    return () => { document.body.style.overflow = ''; };
   }, [isOpen]);
 
   const loadSnapshots = async () => {
@@ -168,9 +170,12 @@ const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({ isOpen, onClo
       return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[120] p-4 animate-fade-in-fast">
-      <Card className="w-full max-w-4xl h-[85vh] flex flex-col p-0 overflow-hidden animate-scale-in bg-slate-50 dark:bg-slate-900 border-2 border-indigo-500 shadow-2xl">
+  return createPortal(
+    <div 
+        className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+    >
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in-fast" onClick={onClose} />
+      <Card className="relative z-10 w-full max-w-4xl h-full flex flex-col p-0 overflow-hidden animate-scale-in bg-slate-50 dark:bg-slate-900 border-2 border-indigo-500 shadow-2xl">
         
         {/* Header */}
         <div className="bg-slate-800 text-white p-4 flex justify-between items-center shrink-0">
@@ -370,7 +375,8 @@ const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({ isOpen, onClo
             </div>
         </div>
       </Card>
-    </div>
+    </div>,
+    document.body
   );
 };
 

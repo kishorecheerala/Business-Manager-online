@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Check, Copy } from 'lucide-react';
 import Card from './Card';
@@ -155,7 +154,7 @@ const ColorPickerModal: React.FC<ColorPickerModalProps> = ({ isOpen, onClose, in
 
     return (
         <div 
-            className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 animate-fade-in-fast backdrop-blur-sm"
+            className="fixed inset-0 bg-black/60 flex items-center justify-center z-[99999] p-4 animate-fade-in-fast backdrop-blur-sm"
             onMouseUp={handleMouseUp}
             onTouchEnd={handleMouseUp}
         >

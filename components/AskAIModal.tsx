@@ -1,5 +1,5 @@
-
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Send, Sparkles, Bot, User, Loader2, Key, AlertTriangle, Mic, Volume2, StopCircle, WifiOff } from 'lucide-react';
 import { GoogleGenAI, LiveServerMessage, Modality, FunctionDeclaration, Type } from "@google/genai";
 import { useAppContext } from '../context/AppContext';
@@ -133,6 +133,7 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose, onNavigate }) 
   // Check for API key on open
   useEffect(() => {
     if (isOpen) {
+        document.body.style.overflow = 'hidden';
         if (!state.isOnline) {
             setMessages(prev => [...prev, { 
                 id: 'sys-offline', 
@@ -167,11 +168,14 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose, onNavigate }) 
             }
         };
         checkConfig();
+    } else {
+        document.body.style.overflow = '';
     }
     
     // Cleanup live session on close
     return () => {
         stopLiveSession();
+        document.body.style.overflow = '';
     };
   }, [isOpen, state.isOnline]);
 
@@ -391,9 +395,12 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose, onNavigate }) 
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4 animate-fade-in-fast">
-      <Card className="w-full max-w-lg h-[80vh] flex flex-col p-0 overflow-hidden animate-scale-in relative">
+  return createPortal(
+    <div 
+        className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+    >
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-fade-in-fast" onClick={onClose} />
+      <Card className="relative z-10 w-full max-w-lg h-full flex flex-col p-0 overflow-hidden animate-scale-in">
         {/* Header */}
         <div className="bg-theme p-4 flex justify-between items-center text-white shrink-0">
             <div className="flex items-center gap-2">
@@ -541,7 +548,8 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose, onNavigate }) 
             </div>
         )}
       </Card>
-    </div>
+    </div>,
+    document.body
   );
 };
 
