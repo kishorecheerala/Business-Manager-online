@@ -1029,11 +1029,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         loadData();
     }, []);
 
-    const syncData = async () => {
-        // Use stateRef to access current state even within closures
+    const syncData = async (token?: string) => {
+        // Use provided token OR state-based token
         const currentState = stateRef.current;
-        
-        if (!currentState.googleUser || !currentState.googleUser.accessToken) {
+        const accessToken = token || currentState.googleUser?.accessToken;
+
+        if (!accessToken) {
             showToast("Please sign in to sync.", 'error');
             return;
         }
@@ -1041,7 +1042,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         dispatch({ type: 'SET_SYNC_STATUS', payload: 'syncing' });
         try {
             // 1. Read Cloud Data
-            const cloudData = await DriveService.read(currentState.googleUser.accessToken);
+            const cloudData = await DriveService.read(accessToken);
             
             // 2. Merge Strategies
             if (cloudData) {
@@ -1053,7 +1054,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             const freshData = await db.exportData();
             
             // 4. Write to Cloud
-            await DriveService.write(currentState.googleUser.accessToken, freshData);
+            await DriveService.write(accessToken, freshData);
             
             // 5. Update State UI
             const time = Date.now();
@@ -1070,10 +1071,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 const expenses = await db.getAll('expenses');
                 const quotes = await db.getAll('quotes');
                 const trash = await db.getAll('trash');
+                const profileData = await db.getAll('profile');
+                const app_metadata = await db.getAll('app_metadata');
+                const notifications = await db.getAll('notifications');
+                const audit_logs = await db.getAll('audit_logs');
                 
                 dispatch({ 
                     type: 'SET_STATE', 
-                    payload: { customers, products, sales, purchases, returns, expenses, quotes, trash } 
+                    payload: { 
+                        customers, 
+                        products, 
+                        sales, 
+                        purchases, 
+                        returns, 
+                        expenses, 
+                        quotes, 
+                        trash, 
+                        profile: profileData[0] || null,
+                        app_metadata,
+                        notifications,
+                        audit_logs
+                    } 
                 });
             }
             
@@ -1112,7 +1130,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             showToast("Signed in successfully!", 'success');
 
             // Optionally auto-sync after login
-            setTimeout(() => syncData(), 1000);
+            // Pass the token directly to avoid state update race conditions
+            setTimeout(() => syncData(response.access_token), 500);
         }
     };
 
