@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, ReactNode, useMemo } from 'react';
 import { ChevronDown, Search } from 'lucide-react';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
@@ -70,7 +69,7 @@ const Dropdown: React.FC<DropdownProps> = ({
   const TriggerIcon = icon === 'search' ? Search : ChevronDown;
 
   return (
-    <div ref={dropdownRef} className={`relative ${className} ${isOpen ? 'z-[1000]' : ''}`}>
+    <div ref={dropdownRef} className={`relative ${className} ${isOpen ? 'z-40' : ''}`}>
       <button
         type="button"
         onClick={handleTriggerClick}
@@ -89,7 +88,7 @@ const Dropdown: React.FC<DropdownProps> = ({
       
       {isOpen && (
         <div 
-          className="absolute top-full left-0 w-full mt-1 bg-white dark:bg-slate-800 rounded-lg shadow-xl border dark:border-slate-700 z-[1000] animate-scale-in flex flex-col overflow-hidden ring-1 ring-black/5"
+          className="absolute top-full left-0 w-full mt-1 bg-white dark:bg-slate-800 rounded-lg shadow-xl border dark:border-slate-700 z-10 animate-scale-in flex flex-col overflow-hidden ring-1 ring-black/5"
           style={{ maxHeight: '250px' }}
         >
           {searchable && (
