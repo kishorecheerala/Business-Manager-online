@@ -1,11 +1,11 @@
 
+
 import React, { useState, useRef, useEffect, useMemo, useLayoutEffect, Suspense } from 'react';
 import { 
   Home, Users, ShoppingCart, Package, Menu, Plus, UserPlus, PackagePlus, 
   Receipt, Undo2, FileText, BarChart2, Settings, PenTool, Gauge, Search, 
   Sparkles, Bell, HelpCircle, Cloud, CloudOff, RefreshCw, Layout, Edit,
-  X, Download, Sun, Moon, CalendarClock, WifiOff, Database, PauseCircle, Trash2,
-  ScanLine, QrCode
+  X, Download, Sun, Moon, CalendarClock, WifiOff, Database, PauseCircle, Trash2
 } from 'lucide-react';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { DialogProvider } from './context/DialogContext';
@@ -85,15 +85,15 @@ const LABEL_MAP: Record<string, string> = {
 };
 
 const QUICK_ACTION_REGISTRY: Record<string, { icon: React.ElementType, label: string, page: Page, action?: string }> = {
-    'add_sale': { icon: ShoppingCart, label: 'New Sale', page: 'SALES', action: 'new' },
-    'magic_order': { icon: Sparkles, label: 'Magic Order', page: 'SALES', action: 'magic' },
-    'add_purchase': { icon: PackagePlus, label: 'New Purchase', page: 'PURCHASES', action: 'new' },
-    'scan_invoice': { icon: ScanLine, label: 'Scan Bill', page: 'PURCHASES', action: 'scan' },
-    'add_customer': { icon: UserPlus, label: 'Add Customer', page: 'CUSTOMERS', action: 'new' },
-    'scan_barcode': { icon: QrCode, label: 'Scan Item', page: 'PRODUCTS', action: 'scan' },
-    'add_expense': { icon: Receipt, label: 'Add Expense', page: 'EXPENSES', action: 'new' },
-    'add_quote': { icon: FileText, label: 'New Estimate', page: 'QUOTATIONS', action: 'new' },
+    'add_sale': { icon: ShoppingCart, label: 'Sale', page: 'SALES', action: 'new' },
+    'add_customer': { icon: UserPlus, label: 'Customer', page: 'CUSTOMERS', action: 'new' },
+    'add_expense': { icon: Receipt, label: 'Expense', page: 'EXPENSES', action: 'new' },
+    'add_purchase': { icon: PackagePlus, label: 'Purchase', page: 'PURCHASES', action: 'new' },
+    'add_quote': { icon: FileText, label: 'Estimate', page: 'QUOTATIONS', action: 'new' },
     'add_return': { icon: Undo2, label: 'Return', page: 'RETURNS', action: 'new' },
+    'view_products': { icon: Package, label: 'Products', page: 'PRODUCTS' },
+    'view_reports': { icon: FileText, label: 'Reports', page: 'REPORTS' },
+    'view_insights': { icon: BarChart2, label: 'Insights', page: 'INSIGHTS' },
 };
 
 interface NavItemProps {
@@ -624,8 +624,8 @@ const AppContent: React.FC = () => {
                                 <NotificationsPanel isOpen={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)} onNavigate={handleNavigation} />
                             </div>
 
-                            {/* Help Button - Hidden on small mobile */}
-                            <button onClick={() => setIsHelpOpen(true)} className="hidden sm:block p-2 hover:bg-white/20 rounded-full transition-colors">
+                            {/* Help Button - Visible on all devices */}
+                            <button onClick={() => setIsHelpOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
                                 <HelpCircle size={20} />
                             </button>
                         </div>
