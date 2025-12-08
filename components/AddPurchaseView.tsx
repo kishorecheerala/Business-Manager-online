@@ -53,7 +53,6 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
   const [paymentDueDates, setPaymentDueDates] = useState<string[]>(initialData?.paymentDueDates || []);
   const [openCalendarId, setOpenCalendarId] = useState<string | null>(null);
 
-  // FIX: Moved state declarations before they are used in `isDirty` useMemo hook.
   // Initialize images from either new array or legacy single url field
   const [invoiceImages, setInvoiceImages] = useState<string[]>(
       initialData?.invoiceImages || (initialData?.invoiceUrl ? [initialData.invoiceUrl] : [])
@@ -386,11 +385,6 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <Button onClick={handleBack}>&larr; Back</Button>
-        {mode === 'add' && (
-          <Button onClick={handleClear} variant="secondary" className="bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800">
-            Clear Form
-          </Button>
-        )}
       </div>
 
       <AddSupplierModal 
@@ -583,7 +577,7 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
         </div>
       </Card>
       
-      <Card title="Transaction Details" className={`relative ${openCalendarId === 'purchaseDate' ? 'z-0' : openCalendarId === 'paymentDate' || openCalendarId?.startsWith('due-') ? 'z-30' : 'z-0'}`}>
+      <Card title="Transaction Details" className={`relative ${openCalendarId === 'purchaseDate' ? 'z-10' : openCalendarId === 'paymentDate' || openCalendarId?.startsWith('due-') ? 'z-40' : 'z-20'}`}>
           <div className="space-y-6">
               {/* Section 1: Breakdown */}
               <div className="space-y-3">
@@ -690,10 +684,17 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
           </div>
       </Card>
 
-      <Button onClick={handleSubmit} className="w-full py-3 text-lg font-bold shadow-lg">
-          <Save size={20} className="mr-2" />
-          {mode === 'add' ? 'Complete Purchase' : 'Update Purchase'}
-      </Button>
+      <div className="space-y-2">
+        <Button onClick={handleSubmit} className="w-full py-3 text-lg font-bold shadow-lg">
+            <Save size={20} className="mr-2" />
+            {mode === 'add' ? 'Complete Purchase' : 'Update Purchase'}
+        </Button>
+        {mode === 'add' && (
+          <Button onClick={handleClear} variant="secondary" className="w-full bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800">
+            Clear Form
+          </Button>
+        )}
+      </div>
     </div>
   );
 };
