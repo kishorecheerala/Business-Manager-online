@@ -188,18 +188,7 @@ const getLocalStorageState = () => {
     let googleUser = null;
     try {
         const storedUser = localStorage.getItem('googleUser');
-        if (storedUser) {
-            const parsedUser = JSON.parse(storedUser);
-            // Check expiry buffer (e.g. expire 5 mins early to be safe)
-            const now = Date.now();
-            if (parsedUser.expiresAt && now >= (parsedUser.expiresAt - 5 * 60 * 1000)) {
-                console.log("Stored Google session expired or invalid.");
-                localStorage.removeItem('googleUser');
-                googleUser = null;
-            } else {
-                googleUser = parsedUser;
-            }
-        }
+        if (storedUser) googleUser = JSON.parse(storedUser);
     } catch(e) {}
 
     let lastSyncTime = null;
@@ -299,7 +288,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
   switch (action.type) {
     case 'SET_STATE': 
         return { ...state, ...action.payload };
-    // ... (All other cases remain identical to original) ...
+
     case 'ADD_CUSTOMER':
         const newCustomer = action.payload;
         db.saveCollection('customers', [...state.customers, newCustomer]);
@@ -1029,91 +1018,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         loadData();
     }, []);
 
-    const syncData = async (token?: string) => {
-        // Use provided token OR state-based token
-        const currentState = stateRef.current;
-        const accessToken = token || currentState.googleUser?.accessToken;
-
-        if (!accessToken) {
-            showToast("Please sign in to sync.", 'error');
-            return;
-        }
-
-        dispatch({ type: 'SET_SYNC_STATUS', payload: 'syncing' });
-        try {
-            // 1. Read Cloud Data
-            const cloudData = await DriveService.read(accessToken);
-            
-            // 2. Merge Strategies
-            if (cloudData) {
-                await db.mergeData(cloudData);
-            }
-
-            // 3. Re-read Local Data to reflect merges
-            // Re-fetch everything from DB after merge to get current state for upload
-            const freshData = await db.exportData();
-            
-            // 4. Write to Cloud
-            await DriveService.write(accessToken, freshData);
-            
-            // 5. Update State UI
-            const time = Date.now();
-            dispatch({ type: 'SET_LAST_SYNC_TIME', payload: time });
-            dispatch({ type: 'SET_SYNC_STATUS', payload: 'success' });
-            
-            // If we merged data, we should reload the app state from DB to show new items
-            if (cloudData) {
-                const customers = await db.getAll('customers');
-                const products = await db.getAll('products');
-                const sales = await db.getAll('sales');
-                const purchases = await db.getAll('purchases');
-                const returns = await db.getAll('returns');
-                const expenses = await db.getAll('expenses');
-                const quotes = await db.getAll('quotes');
-                const trash = await db.getAll('trash');
-                const profileData = await db.getAll('profile');
-                const app_metadata = await db.getAll('app_metadata');
-                const notifications = await db.getAll('notifications');
-                const audit_logs = await db.getAll('audit_logs');
-                
-                dispatch({ 
-                    type: 'SET_STATE', 
-                    payload: { 
-                        customers, 
-                        products, 
-                        sales, 
-                        purchases, 
-                        returns, 
-                        expenses, 
-                        quotes, 
-                        trash, 
-                        profile: profileData[0] || null,
-                        app_metadata,
-                        notifications,
-                        audit_logs
-                    } 
-                });
-            }
-            
-            showToast("Sync complete!", 'success');
-
-        } catch (error: any) {
-            console.error("Sync failed", error);
-            
-            // Handle Auth Errors (401/403)
-            const errMsg = error?.message || '';
-            if (errMsg.includes('401') || errMsg.includes('403') || errMsg.includes('Token')) {
-                dispatch({ type: 'SET_GOOGLE_USER', payload: null });
-                showToast("Session expired. Please sign in again.", 'error');
-                dispatch({ type: 'SET_SYNC_STATUS', payload: 'error' });
-                return;
-            }
-
-            dispatch({ type: 'SET_SYNC_STATUS', payload: 'error' });
-            showToast("Sync failed. Check connection.", 'error');
-        }
-    };
-
     const handleGoogleLoginResponse = async (response: any) => {
         if (response.access_token) {
             const userInfo = await getUserInfo(response.access_token);
@@ -1130,24 +1034,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             showToast("Signed in successfully!", 'success');
 
             // Optionally auto-sync after login
-            // Pass the token directly to avoid state update race conditions
-            setTimeout(() => syncData(response.access_token), 500);
+            setTimeout(() => syncData(), 1000);
         }
     };
-
-    // Ref to hold the latest login handler to avoid stale closures in initGoogleAuth
-    const loginResponseRef = useRef(handleGoogleLoginResponse);
-
-    useEffect(() => {
-        loginResponseRef.current = handleGoogleLoginResponse;
-    }, [handleGoogleLoginResponse]);
 
     const googleSignIn = (options?: { forceConsent?: boolean }) => {
         if (!tokenClientRef.current) {
             loadGoogleScript()
                 .then(() => {
-                    // Use the ref to always call the latest version of the handler
-                    tokenClientRef.current = initGoogleAuth((res) => loginResponseRef.current(res));
+                    tokenClientRef.current = initGoogleAuth(handleGoogleLoginResponse);
                     const prompt = options?.forceConsent ? 'consent' : ''; 
                     tokenClientRef.current.requestAccessToken({ prompt });
                 })
@@ -1169,6 +1064,70 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
         dispatch({ type: 'SET_GOOGLE_USER', payload: null });
         showToast("Signed out.", 'info');
+    };
+
+    const syncData = async () => {
+        if (!state.googleUser || !state.googleUser.accessToken) {
+            showToast("Please sign in to sync.", 'error');
+            return;
+        }
+
+        dispatch({ type: 'SET_SYNC_STATUS', payload: 'syncing' });
+        try {
+            // 1. Read Cloud Data
+            const cloudData = await DriveService.read(state.googleUser.accessToken);
+            
+            // 2. Merge Strategies
+            if (cloudData) {
+                await db.mergeData(cloudData);
+            }
+
+            // 3. Re-read Local Data to reflect merges
+            // Re-fetch everything from DB after merge to get current state for upload
+            const freshData = await db.exportData();
+            
+            // 4. Write to Cloud
+            await DriveService.write(state.googleUser.accessToken, freshData);
+            
+            // 5. Update State UI
+            const time = Date.now();
+            dispatch({ type: 'SET_LAST_SYNC_TIME', payload: time });
+            dispatch({ type: 'SET_SYNC_STATUS', payload: 'success' });
+            
+            // If we merged data, we should reload the app state from DB to show new items
+            if (cloudData) {
+                const customers = await db.getAll('customers');
+                const products = await db.getAll('products');
+                const sales = await db.getAll('sales');
+                const purchases = await db.getAll('purchases');
+                const returns = await db.getAll('returns');
+                const expenses = await db.getAll('expenses');
+                const quotes = await db.getAll('quotes');
+                const trash = await db.getAll('trash');
+                
+                dispatch({ 
+                    type: 'SET_STATE', 
+                    payload: { customers, products, sales, purchases, returns, expenses, quotes, trash } 
+                });
+            }
+            
+            showToast("Sync complete!", 'success');
+
+        } catch (error: any) {
+            console.error("Sync failed", error);
+            
+            // Handle Auth Errors (401/403)
+            const errMsg = error?.message || '';
+            if (errMsg.includes('401') || errMsg.includes('403') || errMsg.includes('Token')) {
+                dispatch({ type: 'SET_GOOGLE_USER', payload: null });
+                showToast("Session expired. Please sign in again.", 'error');
+                dispatch({ type: 'SET_SYNC_STATUS', payload: 'error' });
+                return;
+            }
+
+            dispatch({ type: 'SET_SYNC_STATUS', payload: 'error' });
+            showToast("Sync failed. Check connection.", 'error');
+        }
     };
 
     // ... restore function implementation ...

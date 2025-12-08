@@ -21,10 +21,9 @@ const SignInModal: React.FC<SignInModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   const handleSignIn = () => {
-    // Allow click even if "offline" but warn user. 
-    // Sometimes navigator.onLine is false but connection works, or user wants to try.
     if (!state.isOnline) {
-        showToast("Internet connection appears to be offline. Sign in may fail.", 'info');
+        showToast("Internet connection required to sign in.", 'error');
+        return;
     }
     googleSignIn();
     onClose();
@@ -94,10 +93,11 @@ const SignInModal: React.FC<SignInModalProps> = ({ isOpen, onClose }) => {
             <div className="pt-4 space-y-3">
                 <button 
                     onClick={handleSignIn}
-                    className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-200 dark:shadow-none transition-all flex items-center justify-center gap-2 group"
+                    disabled={!state.isOnline}
+                    className={`w-full py-3.5 ${!state.isOnline ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white font-bold rounded-xl shadow-lg shadow-blue-200 dark:shadow-none transition-all flex items-center justify-center gap-2 group`}
                 >
-                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5 bg-white rounded-full p-0.5" />
-                    Sign In with Google
+                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className={`w-5 h-5 bg-white rounded-full p-0.5 ${!state.isOnline ? 'opacity-50' : ''}`} />
+                    {state.isOnline ? 'Sign In with Google' : 'Offline - Connect to Internet'}
                 </button>
                 <button 
                     onClick={onClose} 
@@ -108,7 +108,8 @@ const SignInModal: React.FC<SignInModalProps> = ({ isOpen, onClose }) => {
             </div>
         </div>
       </Card>
-    </div>
+    </div>,
+    document.body
   );
 };
 
