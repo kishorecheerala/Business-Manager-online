@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Plus, Trash2, Share2, Search, X, IndianRupee, QrCode, Save, Edit, ScanLine, PauseCircle, PlayCircle, Clock, History, ArrowRight, FileText } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
-import { Sale, SaleItem, Customer, Product, Payment } from '../types';
+import { Sale, SaleItem, Customer, Product, Payment, ParkedSale } from '../types';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import DeleteButton from '../components/DeleteButton';
@@ -19,39 +19,34 @@ import Input from '../components/Input';
 import Dropdown from '../components/Dropdown';
 import PaymentModal from '../components/PaymentModal';
 
-// Interface for Draft/Parked Sales
-interface ParkedSale {
-    id: string;
-    customerId: string;
-    items: SaleItem[];
-    date: number;
-}
-
 interface SalesPageProps {
   setIsDirty: (isDirty: boolean) => void;
 }
 
 const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
     const { state, dispatch, showToast } = useAppContext();
+    const { currentSale, parkedSales } = state; // Access global draft/parked state
     
-    const [mode, setMode] = useState<'add' | 'edit'>('add');
+    // Initialize form from Global State (Restores progress on navigation)
+    const [mode, setMode] = useState<'add' | 'edit'>((currentSale.editId ? 'edit' : 'add'));
     const [saleToEdit, setSaleToEdit] = useState<Sale | null>(null);
 
-    const [customerId, setCustomerId] = useState('');
-    const [items, setItems] = useState<SaleItem[]>([]);
-    const [discount, setDiscount] = useState('0');
-    const [saleDate, setSaleDate] = useState(getLocalDateString());
+    const [customerId, setCustomerId] = useState(currentSale.customerId || '');
+    const [items, setItems] = useState<SaleItem[]>(currentSale.items || []);
+    const [discount, setDiscount] = useState(currentSale.discount || '0');
+    const [saleDate, setSaleDate] = useState(currentSale.date || getLocalDateString());
     
-    // Add Payment Modal State for Editing
-    const [editPaymentModal, setEditPaymentModal] = useState<{ isOpen: boolean, saleId: string | null, payment: Payment | null }>({ isOpen: false, saleId: null, payment: null });
-    const [tempPaymentDetails, setTempPaymentDetails] = useState({
+    // Payment Details State (Synced with Global Draft)
+    const [paymentDetails, setPaymentDetails] = useState(currentSale.paymentDetails || {
         amount: '',
         method: 'CASH' as 'CASH' | 'UPI' | 'CHEQUE',
         date: getLocalDateString(),
         reference: '',
     });
 
-    const [paymentDetails, setPaymentDetails] = useState({
+    // Add Payment Modal State for Editing Existing Sales
+    const [editPaymentModal, setEditPaymentModal] = useState<{ isOpen: boolean, saleId: string | null, payment: Payment | null }>({ isOpen: false, saleId: null, payment: null });
+    const [tempPaymentDetails, setTempPaymentDetails] = useState({
         amount: '',
         method: 'CASH' as 'CASH' | 'UPI' | 'CHEQUE',
         date: getLocalDateString(),
@@ -69,32 +64,34 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
     const customerDropdownRef = useRef<HTMLDivElement>(null);
     
-    // Parked Sales State
-    const [parkedSales, setParkedSales] = useState<ParkedSale[]>([]);
     const [isDraftsOpen, setIsDraftsOpen] = useState(false);
     
-    // History Search State
-    const [historySearch, setHistorySearch] = useState('');
-
     useOnClickOutside(customerDropdownRef, () => {
         if (isCustomerDropdownOpen) {
             setIsCustomerDropdownOpen(false);
         }
     });
 
-    // Load Parked Sales from LocalStorage on mount
+    // --- Auto-Sync Local Form to Global State ---
+    // This ensures that if the user navigates away, App.tsx can detect "Active Sale" state
     useEffect(() => {
-        const savedDrafts = localStorage.getItem('parked_sales');
-        if (savedDrafts) {
-            try {
-                setParkedSales(JSON.parse(savedDrafts));
-            } catch(e) {
-                console.error("Failed to load drafts");
-            }
-        }
-    }, []);
+        const timer = setTimeout(() => {
+            dispatch({
+                type: 'UPDATE_CURRENT_SALE',
+                payload: {
+                    customerId,
+                    items,
+                    discount,
+                    date: saleDate,
+                    paymentDetails,
+                    editId: mode === 'edit' ? saleToEdit?.id : undefined
+                }
+            });
+        }, 300); // Debounce to prevent excessive dispatches
+        return () => clearTimeout(timer);
+    }, [customerId, items, discount, saleDate, paymentDetails, mode, saleToEdit, dispatch]);
 
-    // Helper to load a sale for editing (used by effect and recent list)
+    // Handle External Selection (e.g. "Edit" from Customer Page)
     const loadSaleForEditing = (sale: Sale) => {
         setSaleToEdit(sale);
         setMode('edit');
@@ -104,11 +101,9 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         setSaleDate(getLocalDateString(new Date(sale.date)));
         setPaymentDetails({ amount: '', method: 'CASH', date: getLocalDateString(), reference: '' });
         
-        // Switch to form tab and scroll to top
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    // Effect to handle switching to edit mode from another page
     useEffect(() => {
         if (state.selection?.page === 'SALES' && state.selection.action === 'edit') {
             const sale = state.sales.find(s => s.id === state.selection.id);
@@ -120,21 +115,20 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
     }, [state.selection, state.sales, dispatch]);
 
     useEffect(() => {
+        // We use global state 'currentSale' for dirty checking in App.tsx navigation,
+        // but we still need 'isDirty' prop for prompt on window close or back button.
         const dateIsDirty = mode === 'add' && saleDate !== getLocalDateString();
         const formIsDirty = !!customerId || items.length > 0 || discount !== '0' || !!paymentDetails.amount || dateIsDirty;
         const currentlyDirty = formIsDirty || isAddingCustomer;
+        
         if (currentlyDirty !== isDirtyRef.current) {
             isDirtyRef.current = currentlyDirty;
             setIsDirty(currentlyDirty);
         }
     }, [customerId, items, discount, paymentDetails.amount, isAddingCustomer, setIsDirty, saleDate, mode]);
 
-
-    // On unmount, we must always clean up.
     useEffect(() => {
-        return () => {
-            setIsDirty(false);
-        };
+        return () => setIsDirty(false);
     }, [setIsDirty]);
 
     const resetForm = () => {
@@ -151,6 +145,8 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         setIsSelectingProduct(false);
         setMode('add');
         setSaleToEdit(null);
+        // Also clear global state
+        dispatch({ type: 'CLEAR_CURRENT_SALE' });
     };
     
     // --- Park/Draft Functions ---
@@ -160,38 +156,35 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             return;
         }
 
-        const newDraft: ParkedSale = {
-            id: `DRAFT-${Date.now()}`,
-            customerId,
-            items,
-            date: Date.now()
-        };
-
-        const updatedDrafts = [newDraft, ...parkedSales];
-        setParkedSales(updatedDrafts);
-        localStorage.setItem('parked_sales', JSON.stringify(updatedDrafts));
-        
+        dispatch({ type: 'PARK_CURRENT_SALE' });
         showToast("Sale parked successfully.", 'success');
-        resetForm();
+        
+        // Reset local UI immediately
+        setCustomerId('');
+        setItems([]);
+        setDiscount('0');
+        setSaleDate(getLocalDateString());
+        setPaymentDetails({ amount: '', method: 'CASH', date: getLocalDateString(), reference: '' });
     };
 
     const handleResumeDraft = (draft: ParkedSale) => {
+        dispatch({ type: 'RESUME_PARKED_SALE', payload: draft });
+        
+        // Populate local state immediately
         setCustomerId(draft.customerId);
         setItems(draft.items);
-        
-        // Remove from drafts
-        const updatedDrafts = parkedSales.filter(d => d.id !== draft.id);
-        setParkedSales(updatedDrafts);
-        localStorage.setItem('parked_sales', JSON.stringify(updatedDrafts));
-        
+        setDiscount(draft.discount || '0');
+        setSaleDate(draft.date ? getLocalDateString(new Date(draft.date)) : getLocalDateString());
+        if (draft.paymentDetails) {
+            setPaymentDetails(draft.paymentDetails);
+        }
+
         setIsDraftsOpen(false);
         showToast("Draft resumed.", 'success');
     };
 
     const handleDeleteDraft = (draftId: string) => {
-        const updatedDrafts = parkedSales.filter(d => d.id !== draftId);
-        setParkedSales(updatedDrafts);
-        localStorage.setItem('parked_sales', JSON.stringify(updatedDrafts));
+        dispatch({ type: 'DELETE_PARKED_SALE', payload: draftId });
     };
 
     const handleSelectProduct = (product: Product) => {
@@ -203,7 +196,6 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         };
 
         const existingItem = items.find(i => i.productId === newItem.productId);
-        
         const originalQtyInSale = mode === 'edit' ? saleToEdit?.items.find(i => i.productId === product.id)?.quantity || 0 : 0;
         const availableStock = Number(product.quantity) + originalQtyInSale;
 
@@ -220,7 +212,6 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             }
             setItems([...items, newItem]);
         }
-        
         setIsSelectingProduct(false);
     };
     
@@ -255,7 +246,6 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         }));
     };
 
-
     const handleRemoveItem = (productId: string) => {
         setItems(items.filter(item => item.productId !== productId));
     };
@@ -275,7 +265,6 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
 
     const customerTotalDue = useMemo(() => {
         if (!customerId) return null;
-
         const customerSales = state.sales.filter(s => s.customerId === customerId);
         if (customerSales.length === 0) return 0;
         
@@ -448,7 +437,6 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         resetForm();
     };
 
-    // Update Payment Logic
     const handleEditPaymentClick = (saleId: string, payment: Payment) => {
         setTempPaymentDetails({
             amount: payment.amount.toString(),
@@ -475,7 +463,6 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             payload: { saleId: editPaymentModal.saleId, payment: updatedPayment } 
         });
         
-        // Update local saleToEdit if currently editing it
         if (saleToEdit && saleToEdit.id === editPaymentModal.saleId) {
              const updatedPayments = saleToEdit.payments.map(p => p.id === updatedPayment.id ? updatedPayment : p);
              setSaleToEdit({...saleToEdit, payments: updatedPayments});
@@ -488,7 +475,6 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
     const canCreateSale = customerId && items.length > 0 && mode === 'add';
     const canUpdateSale = customerId && items.length > 0 && mode === 'edit';
     const canRecordPayment = customerId && items.length === 0 && parseFloat(paymentDetails.amount || '0') > 0 && customerTotalDue != null && customerTotalDue > 0.01 && mode === 'add';
-    const pageTitle = mode === 'edit' ? `Edit Sale: ${saleToEdit?.id}` : 'New Sale / Payment';
 
     return (
         <div className="space-y-4 animate-fade-in-fast relative pb-10">
@@ -519,8 +505,8 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                 isOpen={editPaymentModal.isOpen}
                 onClose={() => setEditPaymentModal({ isOpen: false, saleId: null, payment: null })}
                 onSubmit={handleUpdatePayment}
-                totalAmount={0} // Not relevant for editing existing
-                dueAmount={0} // Not relevant
+                totalAmount={0}
+                dueAmount={0}
                 paymentDetails={tempPaymentDetails}
                 setPaymentDetails={setTempPaymentDetails}
             />

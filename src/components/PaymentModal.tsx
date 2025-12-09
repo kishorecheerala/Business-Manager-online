@@ -3,7 +3,7 @@ import React from 'react';
 import Card from './Card';
 import Button from './Button';
 import Dropdown from './Dropdown';
-import DateInput from './DateInput';
+import ModernDateInput from './ModernDateInput';
 import Input from './Input';
 import { useAppContext } from '../context/AppContext';
 
@@ -15,7 +15,7 @@ interface PaymentModalProps {
     dueAmount: number;
     paymentDetails: {
         amount: string;
-        method: 'CASH' | 'UPI' | 'CHEQUE';
+        method: 'CASH' | 'UPI' | 'CHEQUE' | 'RETURN_CREDIT';
         date: string;
         reference: string;
     };
@@ -100,7 +100,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                         />
                     </div>
                     
-                    <DateInput
+                    <ModernDateInput
                         label="Payment Date"
                         value={paymentDetails.date} 
                         onChange={e => setPaymentDetails({ ...paymentDetails, date: e.target.value })} 
