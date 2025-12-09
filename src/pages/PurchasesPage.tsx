@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, Edit, Save, X, Search, Download, Printer, FileSpreadsheet, Upload, CheckCircle, XCircle, Info, QrCode, Calendar as CalendarIcon, Image as ImageIcon, Share2, MessageCircle, Eye, FileText, MapPin } from 'lucide-react';
+import { Plus, Edit, Save, X, Search, Download, Printer, FileSpreadsheet, Upload, CheckCircle, XCircle, Info, QrCode, Calendar as CalendarIcon, Image as ImageIcon, Share2, MessageCircle, Eye, FileText, MapPin, IndianRupee } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Supplier, Purchase, Payment, Return, Page, Product, PurchaseItem } from '../types';
 import Card from '../components/Card';
@@ -712,17 +712,19 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
                                         <div className="grid grid-cols-2 gap-4 pt-3 border-t border-dashed border-gray-200 dark:border-slate-700 mt-1">
                                             <div>
                                                 <p className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider">Total Purchase Value</p>
-                                                <p className="text-sm font-bold text-gray-700 dark:text-gray-200">₹{totalPurchased.toLocaleString('en-IN')}</p>
+                                                <div className="flex items-center gap-1 text-sm font-bold text-gray-700 dark:text-gray-200">
+                                                   <IndianRupee size={12} /> {totalPurchased.toLocaleString('en-IN')}
+                                                </div>
                                             </div>
                                             
                                             <div className="text-right">
                                                 <p className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider">Next Payment Schedule</p>
                                                 {nextDueDate ? (
-                                                    <p className={`text-sm font-bold flex items-center justify-end gap-1 ${isOverdue ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                                                        <CalendarIcon size={14} />
+                                                    <div className={`text-sm font-bold flex items-center justify-end gap-1 ${isOverdue ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                                                        <CalendarIcon size={12} /> 
                                                         {nextDueDate.toLocaleDateString()}
                                                         {isOverdue && <span className="text-[10px] bg-red-100 dark:bg-red-900/30 px-1 rounded ml-1">Overdue</span>}
-                                                    </p>
+                                                    </div>
                                                 ) : due > 0 ? (
                                                     <p className="text-sm font-medium text-gray-400 italic">No scheduled date</p>
                                                 ) : (
