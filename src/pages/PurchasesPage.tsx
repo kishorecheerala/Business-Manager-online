@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, Edit, Save, X, Search, Download, Printer, FileSpreadsheet, Upload, CheckCircle, XCircle, Info, QrCode, Calendar as CalendarIcon, Image as ImageIcon, Share2, MessageCircle, Eye, FileText } from 'lucide-react';
+import { Plus, Edit, Save, X, Search, Download, Printer, FileSpreadsheet, Upload, CheckCircle, XCircle, Info, QrCode, Calendar as CalendarIcon, Image as ImageIcon, Share2, MessageCircle, Eye, FileText, MapPin } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Supplier, Purchase, Payment, Return, Page, Product, PurchaseItem } from '../types';
 import Card from '../components/Card';
@@ -666,6 +667,25 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
                             const totalPaid = supplierPurchases.reduce((sum, p) => sum + (p.payments || []).reduce((psum, pay) => psum + Number(pay.amount), 0), 0);
                             const due = totalPurchased - totalPaid;
 
+                            // Calculate Next Due Date
+                            let nextDueDate: Date | null = null;
+                            const allDueDates: number[] = [];
+                            supplierPurchases.forEach(p => {
+                                const pPaid = (p.payments || []).reduce((acc, pay) => acc + Number(pay.amount), 0);
+                                const pDue = Number(p.totalAmount) - pPaid;
+                                // Check if there's a due amount AND scheduled dates
+                                if (pDue > 1 && p.paymentDueDates) {
+                                    p.paymentDueDates.forEach(d => allDueDates.push(new Date(d).getTime()));
+                                }
+                            });
+                            
+                            if (allDueDates.length > 0) {
+                                allDueDates.sort((a, b) => a - b);
+                                nextDueDate = new Date(allDueDates[0]);
+                            }
+                            
+                            const isOverdue = nextDueDate && nextDueDate.getTime() < new Date().setHours(0,0,0,0);
+
                             return (
                                 <Card 
                                     key={supplier.id} 
@@ -673,16 +693,44 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
                                     style={{ animationDelay: `${index * 50}ms` }}
                                     onClick={() => setSelectedSupplier(supplier)}
                                 >
-                                    <div className="flex justify-between items-center">
-                                        <div>
-                                            <h3 className="font-bold text-lg text-gray-800 dark:text-white">{supplier.name}</h3>
-                                            <p className="text-sm text-gray-500 dark:text-gray-400">{supplier.location}</p>
+                                    <div className="flex flex-col gap-3">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <h3 className="font-bold text-lg text-gray-800 dark:text-white">{supplier.name}</h3>
+                                                <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                                                    <MapPin size={12} /> {supplier.location}
+                                                </p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">Outstanding Due</p>
+                                                <p className={`font-bold text-lg ${due > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                                                    ₹{due.toLocaleString('en-IN')}
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div className="text-right">
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">Outstanding Due</p>
-                                            <p className={`font-bold text-lg ${due > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-                                                ₹{due.toLocaleString('en-IN')}
-                                            </p>
+                                        
+                                        <div className="grid grid-cols-2 gap-4 pt-3 border-t border-dashed border-gray-200 dark:border-slate-700 mt-1">
+                                            <div>
+                                                <p className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider">Total Purchase Value</p>
+                                                <p className="text-sm font-bold text-gray-700 dark:text-gray-200">₹{totalPurchased.toLocaleString('en-IN')}</p>
+                                            </div>
+                                            
+                                            <div className="text-right">
+                                                <p className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider">Next Payment Schedule</p>
+                                                {nextDueDate ? (
+                                                    <p className={`text-sm font-bold flex items-center justify-end gap-1 ${isOverdue ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                                                        <CalendarIcon size={14} />
+                                                        {nextDueDate.toLocaleDateString()}
+                                                        {isOverdue && <span className="text-[10px] bg-red-100 dark:bg-red-900/30 px-1 rounded ml-1">Overdue</span>}
+                                                    </p>
+                                                ) : due > 0 ? (
+                                                    <p className="text-sm font-medium text-gray-400 italic">No scheduled date</p>
+                                                ) : (
+                                                    <p className="text-sm font-bold text-green-600 dark:text-green-400 flex items-center justify-end gap-1">
+                                                        <CheckCircle size={14} /> All Clear
+                                                    </p>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </Card>
