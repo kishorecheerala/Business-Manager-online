@@ -261,7 +261,7 @@ const LedgerModal: React.FC<LedgerModalProps> = ({ isOpen, onClose, partyId, par
                         >
                             <FileSpreadsheet size={14} className="mr-2" /> {isExporting ? 'Exporting...' : 'Sheets'}
                         </Button>
-                        <Button onClick={handleDownloadPDF} variant="secondary" className="h-8 text-xs">
+                        <Button onClick={handleDownloadPDF} className="h-8 text-xs bg-[#E1251B] text-white hover:bg-[#C41C12] border-transparent shadow-sm">
                             <Download size={14} className="mr-2" /> PDF
                         </Button>
                     </div>
