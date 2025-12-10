@@ -100,6 +100,15 @@ const QUICK_ACTION_REGISTRY: Record<string, { icon: React.ElementType, label: st
     'view_insights': { icon: BarChart2, label: 'Insights', page: 'INSIGHTS' },
 };
 
+const QUICK_ACTION_SHORTCUTS: Record<string, string> = {
+    'add_sale': 'S',
+    'add_customer': 'C',
+    'add_expense': 'E',
+    'add_purchase': 'P',
+    'add_quote': 'Q',
+    'add_return': 'R',
+};
+
 interface NavItemProps {
     page: string;
     label: string;
@@ -269,6 +278,7 @@ const AppContent: React.FC = () => {
 
     useEffect(() => {
         const root = document.documentElement;
+        const body = document.body;
 
         if (state.theme === 'dark') {
             root.classList.add('dark');
@@ -307,11 +317,23 @@ const AppContent: React.FC = () => {
             localStorage.removeItem('themeGradient');
         }
 
+        // --- UI Customizer Class Application ---
+        // Clear old classes
+        body.classList.remove('font-size-small', 'font-size-normal', 'font-size-large', 'compact');
+        
+        // Add new classes
+        if (state.uiPreferences?.fontSize) {
+            body.classList.add(`font-size-${state.uiPreferences.fontSize}`);
+        }
+        if (state.uiPreferences?.density === 'compact') {
+            body.classList.add('compact');
+        }
+
         const updateIcons = () => {
             const bg = state.themeColor;
             const svgString = `
                 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" font-size="400" font-family="serif" fill="${bg}" font-weight="bold">ॐ</text>
+                <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" font-size="400" font-family="serif" fill="${bg}" font-weight="bold">🕉️</text>
                 </svg>
             `.trim();
             
@@ -325,7 +347,7 @@ const AppContent: React.FC = () => {
         };
         updateIcons();
 
-    }, [state.theme, state.themeColor, state.themeGradient, state.font]);
+    }, [state.theme, state.themeColor, state.themeGradient, state.font, state.uiPreferences]);
 
     useEffect(() => {
         logPageView(currentPage);
@@ -352,6 +374,21 @@ const AppContent: React.FC = () => {
         }
     };
     
+    // --- Keyboard Shortcuts ---
+    Object.keys(QUICK_ACTION_REGISTRY).forEach(actionId => {
+        const shortcut = QUICK_ACTION_SHORTCUTS[actionId];
+        const action = QUICK_ACTION_REGISTRY[actionId];
+        if (shortcut && action) {
+            useHotkeys(shortcut, () => {
+                showToast(`Quick Add: New ${action.label}`, 'info');
+                if (action.action) {
+                    dispatch({ type: 'SET_SELECTION', payload: { page: action.page, id: action.action as any } });
+                }
+                handleNavigation(action.page);
+            }, { alt: true, preventDefault: true });
+        }
+    });
+
     const { mainNavItems, pinnedItems, mobileMoreItems } = useMemo(() => {
         const order = state.navOrder || [];
         
@@ -729,7 +766,7 @@ const AppContent: React.FC = () => {
                             <div className={`p-1 rounded-full transition-all duration-300 ${isMobileQuickAddOpen ? 'bg-primary/10 scale-110' : ''}`}>
                                 <Plus className={`w-6 h-6 transition-transform duration-300 ${isMobileQuickAddOpen ? 'rotate-45' : 'group-hover:scale-105'}`} strokeWidth={isMobileQuickAddOpen ? 2.5 : 2} />
                             </div>
-                            <span className="text-[9px] sm:text-[10px] font-semibold mt-1 leading-tight">Add</span>
+                            <span className="text-[9px] sm:text-[10px] font-semibold mt-1 leading-tight">Quick Add</span>
                         </button>
                         {isMobileQuickAddOpen && (
                             <div className="absolute bottom-[calc(100%+16px)] right-0 w-[85vw] max-w-[340px] bg-white/95 dark:bg-slate-800/95 backdrop-blur-2xl rounded-3xl shadow-2xl border border-gray-100 dark:border-slate-700 p-5 animate-slide-up-fade origin-bottom-right z-50 ring-1 ring-black/5">
@@ -746,6 +783,7 @@ const AppContent: React.FC = () => {
                                 <div className="grid grid-cols-3 gap-3">
                                     {state.quickActions.map((actionId, idx) => {
                                         const action = QUICK_ACTION_REGISTRY[actionId];
+                                        const shortcut = QUICK_ACTION_SHORTCUTS[actionId];
                                         if (!action) return null;
                                         return (
                                             <button
@@ -759,8 +797,13 @@ const AppContent: React.FC = () => {
                                                 }}
                                                 className="flex flex-col items-center justify-center w-full py-3 rounded-2xl transition-all duration-200 bg-gray-50/50 dark:bg-slate-700/30 hover:bg-white dark:hover:bg-slate-700 border border-transparent hover:border-gray-200 dark:hover:border-slate-600 shadow-sm hover:shadow-md active:scale-95 group"
                                             >
-                                                <div className="p-3 rounded-2xl bg-primary/10 text-primary mb-2 shadow-sm ring-1 ring-primary/20 group-hover:scale-110 transition-transform duration-300">
+                                                <div className="relative p-3 rounded-2xl bg-primary/10 text-primary mb-2 shadow-sm ring-1 ring-primary/20 group-hover:scale-110 transition-transform duration-300">
                                                     <action.icon className="w-6 h-6" strokeWidth={2.5} />
+                                                    {shortcut && (
+                                                        <span className="absolute -top-1 -right-1 bg-slate-500 text-white text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full border-2 border-white dark:border-slate-800/95">
+                                                            {shortcut}
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <span className="text-xs font-bold text-gray-700 dark:text-gray-200 text-center leading-tight">{action.label}</span>
                                             </button>

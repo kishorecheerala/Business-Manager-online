@@ -139,7 +139,7 @@ const DEFAULT_TEMPLATE: InvoiceTemplateConfig = {
 };
 
 const DEFAULT_NAV_ORDER = [
-    'DASHBOARD', 'SALES', 'PURCHASES', 'PRODUCTS', 'CUSTOMERS',
+    'DASHBOARD', 'CUSTOMERS', 'SALES', 'PURCHASES', 'PRODUCTS',
     'REPORTS', 'EXPENSES', 'RETURNS', 'QUOTATIONS', 
     'INSIGHTS', 'INVOICE_DESIGNER'
 ];
@@ -151,10 +151,10 @@ const DEFAULT_QUICK_ACTIONS = [
 const DEFAULT_UI_PREFS: AppMetadataUIPreferences = {
     id: 'uiPreferences',
     buttonStyle: 'rounded',
-    cardStyle: 'solid',
+    cardStyle: 'glass',
     toastPosition: 'top-center',
     density: 'comfortable',
-    navStyle: 'docked',
+    navStyle: 'floating',
     fontSize: 'normal'
 };
 

@@ -205,6 +205,7 @@ const NavCustomizerModal: React.FC<NavCustomizerModalProps> = ({ isOpen, onClose
                                                 onDragOver={handleDragOver}
                                                 onDrop={(e) => handleDrop(e, idx, 'nav')}
                                                 onClick={() => handleItemClick(idx, 'nav')}
+                                                style={{ touchAction: 'none' }}
                                                 className={`flex items-center gap-3 p-3 border-b dark:border-slate-700 last:border-0 active:bg-blue-50 dark:active:bg-blue-900/30 transition-colors cursor-move ${isSelected ? 'bg-blue-100 dark:bg-blue-900/50 ring-2 ring-inset ring-blue-500' : ''}`}
                                             >
                                                 <GripVertical size={18} className="text-gray-400" />
@@ -232,6 +233,7 @@ const NavCustomizerModal: React.FC<NavCustomizerModalProps> = ({ isOpen, onClose
                                                 onDragOver={handleDragOver}
                                                 onDrop={(e) => handleDrop(e, actualIdx, 'nav')}
                                                 onClick={() => handleItemClick(actualIdx, 'nav')}
+                                                style={{ touchAction: 'none' }}
                                                 className={`flex items-center gap-3 p-3 border-b dark:border-slate-700 last:border-0 active:bg-blue-50 dark:active:bg-blue-900/30 transition-colors cursor-move ${isSelected ? 'bg-blue-100 dark:bg-blue-900/50 ring-2 ring-inset ring-blue-500' : ''}`}
                                             >
                                                 <GripVertical size={18} className="text-gray-400" />
@@ -262,6 +264,7 @@ const NavCustomizerModal: React.FC<NavCustomizerModalProps> = ({ isOpen, onClose
                                                 onDragOver={handleDragOver}
                                                 onDrop={(e) => handleDrop(e, idx, 'quick')}
                                                 onClick={() => handleItemClick(idx, 'quick')}
+                                                style={{ touchAction: 'none' }}
                                                 className={`flex items-center gap-3 p-3 border-b dark:border-slate-700 last:border-0 active:bg-blue-50 dark:active:bg-blue-900/30 transition-colors cursor-move ${isSelected ? 'bg-blue-100 dark:bg-blue-900/50 ring-2 ring-inset ring-blue-500' : ''}`}
                                             >
                                                 <GripVertical size={18} className="text-gray-400" />

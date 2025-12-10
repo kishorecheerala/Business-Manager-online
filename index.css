@@ -1,15 +1,10 @@
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
+/* --- Base Styles & Variables --- */
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
   
-  /* Default variables */
-  --primary-color: 139 92 246; /* Fallback RGB */
+  /* --primary-color is set dynamically in index.html */
   --header-bg: linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%);
   --app-font: 'Inter';
 }
@@ -21,8 +16,6 @@ body {
 }
 
 /* --- Theme Engine --- */
-
-/* This class connects the React State (CSS Variable) to the Header Background */
 .bg-theme {
   background: var(--header-bg);
 }
@@ -31,7 +24,7 @@ body {
   color: rgb(var(--primary-color));
 }
 
-/* --- Components --- */
+/* --- Custom Components --- */
 
 /* Glassmorphism Utility */
 .glass {
@@ -39,7 +32,6 @@ body {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
-
 .dark .glass {
   background: rgba(15, 23, 42, 0.75);
 }
@@ -91,97 +83,6 @@ body {
   transform: translateX(20px);
 }
 
-/* Preloader Animation (Matches DevineLoader.tsx) */
-.pre-loader-container {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    background-color: #f8fafc;
-    z-index: 9999;
-}
-
-.dark .pre-loader-container {
-    background-color: #0f172a;
-}
-
-.pre-loader-om {
-    font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
-    font-size: 300px; /* Increased to match React Component */
-    line-height: 1;
-    font-weight: 700;
-    color: rgb(var(--primary-color));
-    animation: pulse-om 3s ease-in-out infinite;
-    text-shadow: 0 4px 10px rgba(0,0,0,0.05);
-    margin-bottom: 32px;
-}
-
-.pre-loader-info {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 16px;
-    width: 256px;
-}
-
-.pre-loader-text {
-    font-size: 1.125rem;
-    font-weight: 700;
-    color: rgba(var(--primary-color), 0.8);
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    font-family: sans-serif;
-}
-
-.pre-loader-bar-bg {
-    width: 100%;
-    height: 6px;
-    background-color: #e5e7eb;
-    border-radius: 9999px;
-    overflow: hidden;
-}
-
-.dark .pre-loader-bar-bg {
-    background-color: #1e293b;
-}
-
-.pre-loader-bar-fill {
-    height: 100%;
-    background: linear-gradient(to right, rgba(var(--primary-color), 0.4), rgb(var(--primary-color)));
-    width: 100%;
-    transform-origin: left;
-    animation: progress-indeterminate 1.5s infinite ease-in-out;
-}
-
-@keyframes pulse-om {
-    0% { 
-        transform: scale(0.95); 
-        opacity: 0.85; 
-        filter: drop-shadow(0 0 2px rgba(var(--primary-color), 0.1)); 
-    }
-    50% { 
-        transform: scale(1.05); 
-        opacity: 1; 
-        filter: drop-shadow(0 0 10px rgba(var(--primary-color), 0.25)); 
-    }
-    100% { 
-        transform: scale(0.95); 
-        opacity: 0.85; 
-        filter: drop-shadow(0 0 2px rgba(var(--primary-color), 0.1)); 
-    }
-}
-
-@keyframes progress-indeterminate {
-    0% { transform: translateX(-100%); }
-    50% { transform: translateX(0%); }
-    100% { transform: translateX(100%); }
-}
-
 /* Skeleton Screen Styles (Used in AppSkeletonLoader) */
 .sk-app {
     width: 100%;
@@ -194,7 +95,6 @@ body {
 .dark .sk-app {
     background: #0f172a;
 }
-
 .sk-header {
     height: 64px;
     background: #e2e8f0;
@@ -207,7 +107,6 @@ body {
 .dark .sk-header {
     background: #1e293b;
 }
-
 .sk-nav {
     height: 60px;
     position: fixed;
@@ -222,7 +121,6 @@ body {
     background: #1e293b;
     border-top: 1px solid #334155;
 }
-
 .sk-bone {
     background-color: #cbd5e1;
     border-radius: 4px;
@@ -231,7 +129,6 @@ body {
 .dark .sk-bone {
     background-color: #334155;
 }
-
 .sk-card {
     background: white;
     border-radius: 12px;
@@ -243,8 +140,22 @@ body {
     background: #1e293b;
     border-color: #334155;
 }
-
 @keyframes pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: .5; }
 }
+
+/* --- UI Customizer Styles --- */
+
+/* Font Size Control */
+body.font-size-small { font-size: 14px; }
+body.font-size-normal { font-size: 16px; }
+body.font-size-large { font-size: 18px; }
+
+/* Density Control */
+body.compact .p-4, body.compact .sm\:p-6 { padding: 0.75rem; }
+body.compact .p-3, body.compact .sm\:p-5 { padding: 0.5rem; }
+body.compact .py-2 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+body.compact .text-sm { font-size: 0.8rem; line-height: 1.1rem; }
+body.compact .text-xs { font-size: 0.7rem; line-height: 1rem; }
+body.compact .menu-item { padding: 8px 10px; }

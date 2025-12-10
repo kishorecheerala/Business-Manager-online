@@ -57,7 +57,6 @@
           user-select: none;
           display: block;
           will-change: transform, opacity, text-shadow;
-          font-style: italic;
       }
       .pre-loader-info {
           display: flex;
@@ -175,7 +174,7 @@
           document.documentElement.style.setProperty('--primary-color', r + ' ' + g + ' ' + b);
           
           // 3. Dynamic Icon Generation (For Tab Icon Only)
-          var svgIcon = '<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg"><text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" font-size="380" font-family="serif" fill="' + savedColor + '" font-weight="normal" font-style="italic">S</text></svg>';
+          var svgIcon = '<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg"><text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" font-size="400" font-family="serif" fill="' + savedColor + '" font-weight="bold">🕉️</text></svg>';
           var iconDataUrl = 'data:image/svg+xml,' + encodeURIComponent(svgIcon);
           
           var link = document.querySelector("link[rel~='icon']");
@@ -289,7 +288,7 @@
   <body class="bg-background dark:bg-slate-900 text-text dark:text-slate-300 antialiased selection:bg-primary selection:text-white">
     <div id="root">
       <div class="pre-loader-container">
-        <div class="pre-loader-om">S</div>
+        <div class="pre-loader-om">🕉️</div>
         <div class="pre-loader-info">
             <div class="pre-loader-text">
                 LOADING
