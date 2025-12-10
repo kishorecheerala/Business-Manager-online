@@ -1,38 +1,18 @@
+// Cache-busting service worker - Forces complete refresh
+const CACHE_VERSION = 'v-robust-1';
+const CACHE_NAME = `business-manager-${CACHE_VERSION}`;
 
-// Robust Offline Service Worker
-const CACHE_NAME = 'saree-business-manager-v-1.0.1';
+console.log('[SW] Cache version:', CACHE_NAME);
 
-// Critical external assets to pre-cache for offline functionality
-const EXTERNAL_ASSETS = [
-  'https://cdn.tailwindcss.com',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Playfair+Display:wght@400;700&family=Poppins:wght@400;600&family=Roboto:wght@400;500&family=Space+Mono:wght@400;700&display=swap',
-  'https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js',
-  'https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/default.css',
-  'https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/index.min.js',
-  'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.449/build/pdf.worker.mjs' 
-];
-
-// Install - Pre-cache critical assets
+// Install - don't wait, skip immediately
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing:', CACHE_NAME);
+  console.log('[SW] Installing with cache:', CACHE_NAME);
   self.skipWaiting();
-  
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      // Cache app shell and external deps
-      return cache.addAll([
-        './',
-        './index.html',
-        './manifest.json',
-        ...EXTERNAL_ASSETS
-      ]).catch(err => console.error("Pre-caching failed:", err));
-    })
-  );
 });
 
-// Activate - Clean up old caches
+// Activate - clear all old caches
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating');
+  console.log('[SW] Activating - clearing old caches');
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
@@ -48,31 +28,31 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch - Stale-While-Revalidate Strategy
+// Fetch - network first, then cache
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   
-  // Handle API calls or non-GET requests: Network Only
-  if (request.method !== 'GET' || request.url.includes('/api/')) {
-    return;
-  }
-
+  if (request.method !== 'GET') return;
+  
   event.respondWith(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.match(request).then((cachedResponse) => {
-        const fetchPromise = fetch(request).then((networkResponse) => {
-          // Update cache with new version if valid
-          if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
-            cache.put(request, networkResponse.clone());
-          }
-          return networkResponse;
-        }).catch(() => {
-           // Network failed, nothing to do here (we rely on cachedResponse)
+    fetch(request)
+      .then((response) => {
+        if (!response || response.status !== 200) {
+          return response;
+        }
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => {
+          cache.put(request, clone);
         });
-
-        // Return cached response immediately if available, otherwise wait for network
-        return cachedResponse || fetchPromise;
-      });
-    })
+        return response;
+      })
+      .catch(() => {
+        return caches.match(request).then((cached) => {
+          // If offline and cache missing, return basic offline response if possible
+          return cached || new Response('Offline');
+        });
+      })
   );
 });
+
+console.log('[SW] Service Worker loaded - Cache busting enabled');
