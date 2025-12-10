@@ -10,30 +10,34 @@ import { AppProvider, useAppContext } from './context/AppContext';
 import { DialogProvider } from './context/DialogContext';
 import { Page } from './types';
 
-// Components (Eager Load)
-import MenuPanel from './components/MenuPanel';
-import NotificationsPanel from './components/NotificationsPanel';
-import AskAIModal from './components/AskAIModal';
-import HelpModal from './components/HelpModal';
-import UniversalSearch from './components/UniversalSearch';
-import DeveloperToolsModal from './components/DeveloperToolsModal';
-import CloudDebugModal from './components/CloudDebugModal';
-import ProfileModal from './components/ProfileModal';
-import DevineLoader from './components/DevineLoader';
-import NavCustomizerModal from './components/NavCustomizerModal';
-import Toast from './components/Toast';
-import ChangeLogModal from './components/ChangeLogModal';
-import SignInModal from './components/SignInModal';
-import PinModal from './components/PinModal';
+// Components (Eager Load - Critical for App Skeleton)
 import Card from './components/Card';
 import Button from './components/Button';
-import OnboardingScreen from './components/OnboardingScreen'; // Imported OnboardingScreen
+import OnboardingScreen from './components/OnboardingScreen'; // Imported Eagerly for fast First Paint
+import DevineLoader from './components/DevineLoader';
+import Toast from './components/Toast';
+
+// Components (Lazy Load - Load only when app is fully interactive or needed)
+const MenuPanel = React.lazy(() => import('./components/MenuPanel'));
+const NotificationsPanel = React.lazy(() => import('./components/NotificationsPanel'));
+const AskAIModal = React.lazy(() => import('./components/AskAIModal'));
+const HelpModal = React.lazy(() => import('./components/HelpModal'));
+const UniversalSearch = React.lazy(() => import('./components/UniversalSearch'));
+const DeveloperToolsModal = React.lazy(() => import('./components/DeveloperToolsModal'));
+const CloudDebugModal = React.lazy(() => import('./components/CloudDebugModal'));
+const ProfileModal = React.lazy(() => import('./components/ProfileModal'));
+const NavCustomizerModal = React.lazy(() => import('./components/NavCustomizerModal'));
+const ChangeLogModal = React.lazy(() => import('./components/ChangeLogModal'));
+const SignInModal = React.lazy(() => import('./components/SignInModal'));
+const PinModal = React.lazy(() => import('./components/PinModal'));
+
+// Hooks
 import { useOnClickOutside } from './hooks/useOnClickOutside';
 import { useHotkeys } from './hooks/useHotkeys';
 import { logPageView } from './utils/analyticsLogger';
 import { APP_VERSION } from './utils/changelogData';
 
-// Pages (Lazy Load for Performance)
+// Pages (Lazy Load)
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
 const CustomersPage = React.lazy(() => import('./pages/CustomersPage'));
 const SalesPage = React.lazy(() => import('./pages/SalesPage'));
@@ -49,7 +53,7 @@ const SystemOptimizerPage = React.lazy(() => import('./pages/SystemOptimizerPage
 const SQLAssistantPage = React.lazy(() => import('./pages/SQLAssistantPage'));
 const TrashPage = React.lazy(() => import('./pages/TrashPage'));
 
-// Icon Map for dynamic rendering
+// Icon Map
 const ICON_MAP: Record<string, React.ElementType> = {
     'DASHBOARD': Home,
     'CUSTOMERS': Users,
@@ -123,9 +127,7 @@ const NavItem: React.FC<NavItemProps> = ({ page, label, icon: Icon, onClick, isA
 const AppContent: React.FC = () => {
     const { state, dispatch, isDbLoaded, syncData, googleSignIn, showToast } = useAppContext();
     
-    // Initialize currentPage from localStorage or default to DASHBOARD
     const [currentPage, setCurrentPage] = useState<Page>(() => {
-        // Check for PWA shortcuts in URL query params
         const params = new URLSearchParams(window.location.search);
         const action = params.get('action');
         if (action === 'new_sale') return 'SALES';
@@ -133,7 +135,6 @@ const AppContent: React.FC = () => {
 
         try {
             const saved = localStorage.getItem('business_manager_last_page');
-            // Exclude admin/utility pages from auto-restore to prevent getting stuck
             const excludedPages = ['INVOICE_DESIGNER', 'SYSTEM_OPTIMIZER', 'SQL_ASSISTANT', 'TRASH'];
             if (saved && Object.keys(ICON_MAP).includes(saved) && !excludedPages.includes(saved)) {
                 return saved as Page;
@@ -142,7 +143,6 @@ const AppContent: React.FC = () => {
         return 'DASHBOARD';
     });
 
-    // --- Global Timer for Header ---
     const [currentDateTime, setCurrentDateTime] = useState(new Date());
     useEffect(() => {
         const timer = setInterval(() => setCurrentDateTime(new Date()), 1000);
@@ -158,22 +158,18 @@ const AppContent: React.FC = () => {
 
     const getGreetingIcon = () => {
         const hour = currentDateTime.getHours();
-        // Day time: 6 AM to 6 PM (18:00)
         if (hour >= 6 && hour < 18) {
             return <Sun className="w-4 h-4 text-yellow-300 animate-[spin_10s_linear_infinite]" />;
         }
         return <Moon className="w-4 h-4 text-blue-200 animate-pulse" />;
     };
 
-    // Handle PWA shortcut actions on mount (e.g., opening modals)
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         const action = params.get('action');
         if (action === 'new_customer') {
             dispatch({ type: 'SET_SELECTION', payload: { page: 'CUSTOMERS', id: 'new' } });
-            // Clean URL safely
             try {
-                // Use replaceState with current path to remove query params if possible, otherwise ignore
                 const newUrl = window.location.pathname;
                 window.history.replaceState({}, '', newUrl);
             } catch (e) {
@@ -198,7 +194,6 @@ const AppContent: React.FC = () => {
     const [isSignInModalOpen, setIsSignInModalOpen] = useState(false);
     const [isLocked, setIsLocked] = useState(false);
     
-    // Park Sale Modal
     const [parkModalState, setParkModalState] = useState<{ isOpen: boolean, targetPage: Page | null }>({ isOpen: false, targetPage: null });
 
     const moreMenuRef = useRef<HTMLDivElement>(null);
@@ -209,22 +204,18 @@ const AppContent: React.FC = () => {
     useOnClickOutside(mobileQuickAddRef, () => setIsMobileQuickAddOpen(false));
     useOnClickOutside(notificationsRef, () => setIsNotificationsOpen(false));
 
-    // Global Hotkeys
     useHotkeys('k', () => setIsSearchOpen(true), { ctrl: true });
     useHotkeys('m', () => setIsMenuOpen(prev => !prev), { ctrl: true });
 
-    // Handle initial selection from context if any (override localStorage)
     useEffect(() => {
         if (state.selection && state.selection.page) {
             setCurrentPage(state.selection.page);
         }
     }, [state.selection]);
 
-    // Check for App Updates (Change Log)
     useEffect(() => {
         const storedVersion = localStorage.getItem('app_version');
         if (storedVersion !== APP_VERSION) {
-            // Small delay to allow initial render settle
             setTimeout(() => setIsChangeLogOpen(true), 1500);
         }
     }, []);
@@ -234,16 +225,12 @@ const AppContent: React.FC = () => {
         localStorage.setItem('app_version', APP_VERSION);
     };
 
-    // Persist current page navigation & Scroll to Top
-    // Use useLayoutEffect to ensure scroll happens before paint
     useLayoutEffect(() => {
         localStorage.setItem('business_manager_last_page', currentPage);
         window.scrollTo(0, 0); 
     }, [currentPage]);
 
-    // Double Back to Exit Logic
     useEffect(() => {
-        // Wrapper for safer history manipulation (avoids crashes in restricted frames/blobs)
         const safePushState = (data: any, title: string, url?: string | null) => {
             try {
                 window.history.pushState(data, title, url);
@@ -252,34 +239,22 @@ const AppContent: React.FC = () => {
             }
         };
 
-        // Push a dummy state initially so 'back' event is captured by popstate
-        // Passing null for URL respects current location (safer for blobs)
         safePushState(null, '', null); 
 
         let backPressCount = 0;
         let backPressTimer: any;
 
         const handlePopState = (event: PopStateEvent) => {
-            // Prevent default back navigation if we want to intercept it
-            // However, popstate fires AFTER the history change.
-            // So we need to re-push the state if we want to stay.
-            
             backPressCount++;
             
             if (backPressCount === 1) {
-                // First press: Show warning and stay in app
                 showToast("Press back again to exit", "info");
-                // Push state again so next back press triggers popstate again
                 safePushState(null, '', null);
                 
-                // Reset counter after 2 seconds
                 backPressTimer = setTimeout(() => {
                     backPressCount = 0;
                 }, 2000);
             } else {
-                // Second press: Do nothing (allow exit/back)
-                // Or explicitly close if in a PWA wrapper?
-                // Standard behavior is just letting the history pop naturally now.
                 clearTimeout(backPressTimer);
             }
         };
@@ -292,18 +267,15 @@ const AppContent: React.FC = () => {
         };
     }, []);
 
-    // Apply Theme & Dynamic Icon
     useEffect(() => {
         const root = document.documentElement;
 
-        // 1. Dark Mode Class
         if (state.theme === 'dark') {
             root.classList.add('dark');
         } else {
             root.classList.remove('dark');
         }
         
-        // 2. Dynamic Primary Color
         const hex = state.themeColor.replace(/^#/, '');
         if (/^[0-9A-F]{6}$/i.test(hex)) {
             const r = parseInt(hex.substring(0, 2), 16);
@@ -314,7 +286,6 @@ const AppContent: React.FC = () => {
             root.style.setProperty('--primary-color', '13 148 136'); 
         }
 
-        // 3. Header Background
         if (state.themeGradient) {
             root.style.setProperty('--header-bg', state.themeGradient);
             root.style.setProperty('--theme-gradient', state.themeGradient);
@@ -323,12 +294,10 @@ const AppContent: React.FC = () => {
             root.style.setProperty('--theme-gradient', `linear-gradient(135deg, ${state.themeColor} 0%, ${state.themeColor} 100%)`);
         }
 
-        // 4. App Font (This ensures font selection works instantly)
         if (state.font) {
             root.style.setProperty('--app-font', state.font);
         }
 
-        // 5. Persist to LocalStorage
         localStorage.setItem('theme', state.theme);
         localStorage.setItem('themeColor', state.themeColor);
         localStorage.setItem('font', state.font);
@@ -338,9 +307,8 @@ const AppContent: React.FC = () => {
             localStorage.removeItem('themeGradient');
         }
 
-        // 6. Dynamic Icons (Favicon, Apple Touch ONLY) - UPDATED TO REMOVE BOX
         const updateIcons = () => {
-            const bg = state.themeColor; // Use theme color for text now
+            const bg = state.themeColor;
             const svgString = `
                 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" font-size="400" font-family="serif" fill="${bg}" font-weight="bold">ॐ</text>
@@ -349,29 +317,21 @@ const AppContent: React.FC = () => {
             
             const dataUrl = `data:image/svg+xml,${encodeURIComponent(svgString)}`;
             
-            // Update Favicon links
             const links = document.querySelectorAll("link[rel*='icon']");
             links.forEach(link => (link as HTMLLinkElement).href = dataUrl);
 
-            // Update Meta Theme Color
             const metaTheme = document.querySelector("meta[name='theme-color']");
             if (metaTheme) metaTheme.setAttribute("content", bg);
-
-            // IMPORTANT: Do NOT update manifest link dynamically. 
-            // WebAPKs require a static manifest URL to install correctly on Android.
         };
         updateIcons();
 
     }, [state.theme, state.themeColor, state.themeGradient, state.font]);
 
-    // Analytics: Log page changes
     useEffect(() => {
         logPageView(currentPage);
     }, [currentPage]);
 
-    // Handle Unsaved Changes & Navigation Interception
     const handleNavigation = (page: Page) => {
-        // Special Handling for Sales Page: Park or Clear
         if (currentPage === 'SALES') {
              const { customerId, items } = state.currentSale;
              const hasActiveSale = !!customerId || items.length > 0;
@@ -382,7 +342,6 @@ const AppContent: React.FC = () => {
              }
         }
 
-        // Standard Dirty Check for other pages (Customers, Purchases etc.)
         if (isDirty && currentPage !== 'SALES') {
             if (window.confirm('You have unsaved changes. Are you sure you want to leave?')) {
                 setIsDirty(false);
@@ -393,6 +352,36 @@ const AppContent: React.FC = () => {
         }
     };
     
+    const { mainNavItems, pinnedItems, mobileMoreItems } = useMemo(() => {
+        const order = state.navOrder || [];
+        
+        const allDesktopItems = order
+            .filter(id => id !== 'SYSTEM_OPTIMIZER')
+            .map(id => ({
+                page: id, label: LABEL_MAP[id], icon: ICON_MAP[id]
+            }));
+
+        const pinnedIds = order.slice(0, 4);
+        const menuIds = order.slice(4);
+
+        const pinnedItems = pinnedIds.map(id => ({ page: id, label: LABEL_MAP[id], icon: ICON_MAP[id] }));
+        const mobileMoreItems = menuIds.map(id => ({ page: id, label: LABEL_MAP[id], icon: ICON_MAP[id] }));
+
+        return { mainNavItems: allDesktopItems, pinnedItems, mobileMoreItems };
+    }, [state.navOrder]);
+
+    const isMoreBtnActive = mobileMoreItems.some(item => item.page === currentPage);
+
+    const handleLockApp = () => {
+        setIsLocked(true);
+        setIsMenuOpen(false);
+    };
+
+    const toggleTheme = () => {
+        const newTheme = state.theme === 'light' ? 'dark' : 'light';
+        dispatch({ type: 'SET_THEME', payload: newTheme });
+    };
+
     const handleParkAction = (action: 'park' | 'discard' | 'cancel') => {
         if (action === 'cancel') {
             setParkModalState({ isOpen: false, targetPage: null });
@@ -410,41 +399,7 @@ const AppContent: React.FC = () => {
             setCurrentPage(parkModalState.targetPage);
         }
         setParkModalState({ isOpen: false, targetPage: null });
-        // Force clear dirty flag if it was set by SalesPage logic
         setIsDirty(false);
-    };
-
-    // Calculate Navigation Layout based on user preference order
-    const { mainNavItems, pinnedItems, mobileMoreItems } = useMemo(() => {
-        const order = state.navOrder || [];
-        
-        const allDesktopItems = order
-            .filter(id => id !== 'SYSTEM_OPTIMIZER')
-            .map(id => ({
-                page: id, label: LABEL_MAP[id], icon: ICON_MAP[id]
-            }));
-
-        // Mobile: 4 items + More + FAB (at end)
-        const pinnedIds = order.slice(0, 4);
-        const menuIds = order.slice(4);
-
-        const pinnedItems = pinnedIds.map(id => ({ page: id, label: LABEL_MAP[id], icon: ICON_MAP[id] }));
-        const mobileMoreItems = menuIds.map(id => ({ page: id, label: LABEL_MAP[id], icon: ICON_MAP[id] }));
-
-        return { mainNavItems: allDesktopItems, pinnedItems, mobileMoreItems };
-    }, [state.navOrder]);
-
-    const isMoreBtnActive = mobileMoreItems.some(item => item.page === currentPage);
-
-    // Lock App Handler
-    const handleLockApp = () => {
-        setIsLocked(true);
-        setIsMenuOpen(false);
-    };
-
-    const toggleTheme = () => {
-        const newTheme = state.theme === 'light' ? 'dark' : 'light';
-        dispatch({ type: 'SET_THEME', payload: newTheme });
     };
 
     if (!isDbLoaded) return <DevineLoader />;
@@ -459,12 +414,10 @@ const AppContent: React.FC = () => {
         );
     }
 
-    // Main Content Class Logic
     const mainClass = currentPage === 'INVOICE_DESIGNER' 
         ? 'h-[100dvh] overflow-hidden' 
-        : `min-h-screen pt-[7rem]`; // 64px header + 40px banner = ~104px (6.5rem), using 7rem for safety
+        : `min-h-screen pt-[7rem]`;
     
-    // Nav Bar Styling based on Preference
     let navContainerClass = state.uiPreferences?.cardStyle === 'glass' 
         ? 'glass border-white/20 dark:border-slate-700/50' 
         : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700';
@@ -477,19 +430,40 @@ const AppContent: React.FC = () => {
 
     return (
         <div className={`min-h-screen flex flex-col bg-background dark:bg-slate-950 text-text dark:text-slate-200 font-sans transition-colors duration-300 ${state.theme}`}>
-            {/* Lock Screen Overlay */}
-            {isLocked && (
-                <div className="fixed inset-0 z-[1000] bg-background dark:bg-slate-950 flex items-center justify-center">
-                    <PinModal 
-                        mode="enter" 
-                        correctPin={state.pin} 
-                        onCorrectPin={() => setIsLocked(false)}
-                        // No onCancel prop = no back button = forced lock
-                    />
-                </div>
-            )}
+            {/* Lazy Load Suspense Wrapper for Modals */}
+            <Suspense fallback={null}>
+                {isLocked && (
+                    <div className="fixed inset-0 z-[1000] bg-background dark:bg-slate-950 flex items-center justify-center">
+                        <PinModal 
+                            mode="enter" 
+                            correctPin={state.pin} 
+                            onCorrectPin={() => setIsLocked(false)}
+                        />
+                    </div>
+                )}
 
-            {/* Park Sale Modal */}
+                <ChangeLogModal isOpen={isChangeLogOpen} onClose={handleCloseChangeLog} />
+                <SignInModal isOpen={isSignInModalOpen} onClose={() => setIsSignInModalOpen(false)} />
+                <MenuPanel 
+                    isOpen={isMenuOpen} 
+                    onClose={() => setIsMenuOpen(false)} 
+                    onProfileClick={() => setIsProfileModalOpen(true)}
+                    onNavigate={handleNavigation}
+                    onOpenDevTools={() => setIsDevToolsOpen(true)}
+                    onOpenChangeLog={() => setIsChangeLogOpen(true)}
+                    onOpenSignIn={() => setIsSignInModalOpen(true)}
+                    onLockApp={handleLockApp}
+                />
+                <UniversalSearch isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} onNavigate={handleNavigation} />
+                <AskAIModal isOpen={isAskAIOpen} onClose={() => setIsAskAIOpen(false)} onNavigate={handleNavigation} />
+                <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
+                <DeveloperToolsModal isOpen={isDevToolsOpen} onClose={() => setIsDevToolsOpen(false)} onOpenCloudDebug={() => setIsCloudDebugOpen(true)} />
+                <CloudDebugModal isOpen={isCloudDebugOpen} onClose={() => setIsCloudDebugOpen(false)} />
+                <ProfileModal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} />
+                <NavCustomizerModal isOpen={isNavCustomizerOpen} onClose={() => setIsNavCustomizerOpen(false)} />
+            </Suspense>
+
+            {/* Park Sale Modal (Eager or Lightweight) */}
             {parkModalState.isOpen && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[2000] p-4 animate-fade-in-fast backdrop-blur-sm">
                     <Card className="w-full max-w-sm animate-scale-in border-l-4 border-amber-500">
@@ -513,16 +487,11 @@ const AppContent: React.FC = () => {
             )}
 
             <Toast />
-            <ChangeLogModal isOpen={isChangeLogOpen} onClose={handleCloseChangeLog} />
-            <SignInModal isOpen={isSignInModalOpen} onClose={() => setIsSignInModalOpen(false)} />
             
-            {/* Header - Hidden on Invoice Designer to maximize space */}
+            {/* Header */}
             {currentPage !== 'INVOICE_DESIGNER' && (
                 <header className="fixed top-0 left-0 right-0 z-40 bg-theme shadow-lg transition-all duration-300">
-                    
-                    {/* Top Row: Navigation & Actions (h-16) */}
                     <div className="h-16 px-3 sm:px-4 flex items-center justify-between text-white relative">
-                        {/* Left: Menu & Search & AI */}
                         <div className="flex items-center gap-1 sm:gap-2 z-20">
                             <button onClick={() => setIsMenuOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors" title="Menu (Ctrl+M)">
                                 <Menu size={24} />
@@ -535,7 +504,6 @@ const AppContent: React.FC = () => {
                             </button>
                         </div>
 
-                        {/* Center: Title - Absolutely Centered */}
                         <div className="absolute left-0 right-0 top-0 bottom-0 flex flex-col justify-center items-center pointer-events-none z-10 px-16">
                             <button 
                                 onClick={() => handleNavigation('DASHBOARD')}
@@ -550,16 +518,12 @@ const AppContent: React.FC = () => {
                                             <span className="text-[10px] sm:text-xs font-medium text-white/95 truncate max-w-[150px] drop-shadow-sm">
                                                 {state.googleUser.name}
                                             </span>
-                                            
-                                            {/* Status Dot */}
                                             <div className="relative flex h-2 w-2 shrink-0">
                                               {state.syncStatus === 'syncing' && (
                                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                                               )}
                                               <span className={`relative inline-flex rounded-full h-2 w-2 ${state.syncStatus === 'error' ? 'bg-red-500' : 'bg-green-400'} shadow-sm`}></span>
                                             </div>
-
-                                            {/* Sync Time */}
                                             <span className="text-[9px] sm:text-[10px] font-mono text-white/80 font-medium tracking-wide">
                                                 {state.lastSyncTime ? new Date(state.lastSyncTime).toLocaleTimeString('en-US', {hour: 'numeric', minute:'2-digit', hour12: true}) : 'Connected'}
                                             </span>
@@ -571,9 +535,7 @@ const AppContent: React.FC = () => {
                             </button>
                         </div>
 
-                        {/* Right: Actions */}
                         <div className="flex items-center gap-1 sm:gap-2 z-20">
-                            {/* Offline Indicator - Only visible when offline */}
                             {!state.isOnline && (
                                 <div className="hidden sm:flex items-center gap-1 px-2 py-1 bg-red-500/20 rounded-full border border-red-400/50 mr-1 animate-pulse">
                                     <WifiOff size={14} className="text-white" />
@@ -581,7 +543,6 @@ const AppContent: React.FC = () => {
                                 </div>
                             )}
 
-                            {/* Theme Toggle Button - New */}
                             <button 
                                 onClick={toggleTheme}
                                 className="p-2 hover:bg-white/20 rounded-full transition-colors hidden sm:block"
@@ -590,7 +551,6 @@ const AppContent: React.FC = () => {
                                 {state.theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
                             </button>
 
-                            {/* Cloud Sync / Sign In Button */}
                             <button 
                                 onClick={(e) => { 
                                     e.stopPropagation();
@@ -605,7 +565,6 @@ const AppContent: React.FC = () => {
                                     setIsCloudDebugOpen(true);
                                 }}
                                 className="relative p-2 hover:bg-white/20 rounded-full transition-colors"
-                                title={!state.googleUser ? 'Sign In to Backup' : state.syncStatus === 'error' ? 'Sync Failed (Click to Retry)' : state.syncStatus === 'syncing' ? 'Auto-Sync in progress...' : `Last Backup: ${state.lastSyncTime ? new Date(state.lastSyncTime).toLocaleString() : 'Not synced yet'}`}
                             >
                                 {state.syncStatus === 'syncing' ? (
                                     <RefreshCw size={20} className="animate-spin" />
@@ -623,7 +582,6 @@ const AppContent: React.FC = () => {
                                 )}
                             </button>
 
-                            {/* Notifications */}
                             <div className="relative" ref={notificationsRef}>
                                 <button onClick={() => setIsNotificationsOpen(!isNotificationsOpen)} className="p-2 hover:bg-white/20 rounded-full transition-colors relative">
                                     <Bell size={20} />
@@ -631,18 +589,17 @@ const AppContent: React.FC = () => {
                                         <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-slate-800"></span>
                                     )}
                                 </button>
-                                {/* The panel inside has its own z-index, see NotificationsPanel.tsx */}
-                                <NotificationsPanel isOpen={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)} onNavigate={handleNavigation} />
+                                <Suspense fallback={null}>
+                                    <NotificationsPanel isOpen={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)} onNavigate={handleNavigation} />
+                                </Suspense>
                             </div>
 
-                            {/* Help Button - Visible on all devices */}
                             <button onClick={() => setIsHelpOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
                                 <HelpCircle size={20} />
                             </button>
                         </div>
                     </div>
 
-                    {/* Bottom Row: Info Banner (h-10) */}
                     <div className="h-10 bg-white/10 backdrop-blur-md border-t border-white/10 flex items-center justify-between px-4 text-white text-xs sm:text-sm font-medium">
                         <div className="flex-1 text-left opacity-90 truncate pr-2 flex items-center gap-2">
                             {getGreetingIcon()}
@@ -679,29 +636,10 @@ const AppContent: React.FC = () => {
                 </div>
             </main>
 
-            {/* Modals & Overlays */}
-            <MenuPanel 
-                isOpen={isMenuOpen} 
-                onClose={() => setIsMenuOpen(false)} 
-                onProfileClick={() => setIsProfileModalOpen(true)}
-                onNavigate={handleNavigation}
-                onOpenDevTools={() => setIsDevToolsOpen(true)}
-                onOpenChangeLog={() => setIsChangeLogOpen(true)}
-                onOpenSignIn={() => setIsSignInModalOpen(true)}
-                onLockApp={handleLockApp}
-            />
-            <UniversalSearch isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} onNavigate={handleNavigation} />
-            <AskAIModal isOpen={isAskAIOpen} onClose={() => setIsAskAIOpen(false)} onNavigate={handleNavigation} />
-            <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
-            <DeveloperToolsModal isOpen={isDevToolsOpen} onClose={() => setIsDevToolsOpen(false)} onOpenCloudDebug={() => setIsCloudDebugOpen(true)} />
-            <CloudDebugModal isOpen={isCloudDebugOpen} onClose={() => setIsCloudDebugOpen(false)} />
-            <ProfileModal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} />
-            <NavCustomizerModal isOpen={isNavCustomizerOpen} onClose={() => setIsNavCustomizerOpen(false)} />
-            
             {/* Bottom Navigation */}
             {currentPage !== 'INVOICE_DESIGNER' && (
             <nav className={`fixed pb-[env(safe-area-inset-bottom)] z-50 transition-all duration-300 ${navContainerClass}`}>
-                {/* Desktop View - Scrollable */}
+                {/* Desktop View */}
                 <div className="hidden md:flex w-full overflow-x-auto custom-scrollbar">
                     <div className="flex flex-nowrap mx-auto items-center gap-2 lg:gap-6 p-2 px-6 min-w-max">
                         {mainNavItems.map(item => (
@@ -718,9 +656,8 @@ const AppContent: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Mobile View - Custom Layout */}
+                {/* Mobile View */}
                 <div className="flex md:hidden justify-between items-end px-3 pb-2 pt-1 mx-auto w-full max-w-md relative">
-                    {/* Pinned Items (First 4) */}
                     {pinnedItems.map(item => (
                         <NavItem 
                             key={item.page}
@@ -765,9 +702,7 @@ const AppContent: React.FC = () => {
                                             <span className="text-sm">{item.label}</span>
                                         </button>
                                     ))}
-                                    
                                     <div className="my-1 border-t dark:border-slate-700/50"></div>
-                                    
                                     <button 
                                         onClick={() => { setIsNavCustomizerOpen(true); setIsMoreMenuOpen(false); }} 
                                         className="w-full flex items-center gap-3 p-2.5 text-left rounded-xl transition-all hover:bg-gray-50 dark:hover:bg-slate-700/50 text-indigo-600 dark:text-indigo-400 font-medium"
@@ -780,7 +715,7 @@ const AppContent: React.FC = () => {
                         )}
                     </div>
 
-                    {/* Quick Add - Inline Style */}
+                    {/* Quick Add */}
                     <div className="relative flex flex-col items-center justify-center w-full" ref={mobileQuickAddRef}>
                         <button 
                             onClick={() => { setIsMobileQuickAddOpen(!isMobileQuickAddOpen); setIsMoreMenuOpen(false); }}
