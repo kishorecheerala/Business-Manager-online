@@ -1,14 +1,14 @@
 {
   "id": "business-manager-pro-v1",
-  "name": "Business Manager Pro",
-  "short_name": "Business Mgr",
-  "description": "Comprehensive offline-first business management with AI insights, advanced diagnostics, and robust data protection.",
-  "display": "standalone",
-  "scope": "/",
+  "name": "Saree Business Manager",
+  "short_name": "Saree Biz",
+  "description": "Comprehensive offline-first saree sales and inventory management.",
   "start_url": "/",
-  "theme_color": "#8b5cf6",
-  "background_color": "#f8fafc",
+  "scope": "/",
+  "display": "standalone",
   "orientation": "portrait",
+  "theme_color": "#db2777",
+  "background_color": "#f8fafc",
   "categories": ["business", "finance", "productivity"],
   "icons": [
     {
