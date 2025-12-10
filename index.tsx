@@ -13,7 +13,7 @@ if ('serviceWorker' in navigator && !isAIStudioEnvironment()) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js', { scope: '/' })
       .then(reg => console.log('✅ SW registered'))
-      .catch(err => console.error('❌ SW failed:', err))
+      .catch(err => console.warn('⚠️ SW registration failed (expected in dev):', err))
   })
 } else {
     console.log('Skipping service worker registration in this environment.');
