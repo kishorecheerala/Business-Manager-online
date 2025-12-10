@@ -1,4 +1,5 @@
-import React, { useState, useRef, ReactNode, useMemo } from 'react';
+import React, { useState, useRef, ReactNode, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, Search } from 'lucide-react';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
 
@@ -33,14 +34,12 @@ const Dropdown: React.FC<DropdownProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null); // Ref for the dropdown menu itself
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
+  const [positionClass, setPositionClass] = useState('origin-top');
 
-  // Close dropdown if a click is detected outside of the component
-  useOnClickOutside(dropdownRef, () => {
-      if (isOpen) {
-          setIsOpen(false);
-      }
-  });
+  useOnClickOutside(dropdownRef, () => setIsOpen(false), triggerRef);
 
   const selectedOption = useMemo(() => options.find(opt => opt.value === value), [options, value]);
 
@@ -58,7 +57,32 @@ const Dropdown: React.FC<DropdownProps> = ({
 
   const handleTriggerClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
-    if (!disabled) setIsOpen(prev => !prev);
+    if (!disabled) {
+        if (!isOpen && triggerRef.current) {
+            const rect = triggerRef.current.getBoundingClientRect();
+            const spaceBelow = window.innerHeight - rect.bottom;
+            const spaceAbove = rect.top;
+            const popupHeight = 250; // Approximated
+
+            let top;
+            // If there's not enough space below AND there's more space above, open upwards.
+            if (spaceBelow < popupHeight && spaceAbove > spaceBelow) {
+                const calculatedTop = rect.top - Math.min(popupHeight, spaceAbove - 10) - 4;
+                top = Math.max(10, calculatedTop); // Ensure it doesn't go off-screen top
+                setPositionClass('origin-bottom');
+            } else {
+                top = rect.bottom + 4; // Position below
+                setPositionClass('origin-top');
+            }
+            
+            setCoords({ 
+                top: top,
+                left: rect.left, 
+                width: rect.width 
+            });
+        }
+        setIsOpen(prev => !prev);
+    }
   };
   
   const handleOptionClick = (selectedValue: string) => {
@@ -68,9 +92,54 @@ const Dropdown: React.FC<DropdownProps> = ({
 
   const TriggerIcon = icon === 'search' ? Search : ChevronDown;
 
+  const DropdownMenu = () => (
+    <div 
+        ref={dropdownRef}
+        className={`fixed bg-white dark:bg-slate-800 rounded-lg shadow-2xl border dark:border-slate-700 z-[999] animate-scale-in flex flex-col overflow-hidden ring-1 ring-black/5 ${positionClass}`}
+        style={{ 
+            top: `${coords.top}px`, 
+            left: `${coords.left}px`, 
+            width: `${coords.width}px`,
+            maxHeight: '250px' 
+        }}
+    >
+      {searchable && (
+        <div className="p-2 border-b dark:border-slate-700 sticky top-0 bg-white dark:bg-slate-800">
+            <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                <input
+                    type="text"
+                    placeholder={searchPlaceholder}
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    className="w-full p-2 pl-8 text-sm border rounded-md dark:bg-slate-700 dark:border-slate-600 dark:text-white outline-none focus:ring-1 focus:ring-primary"
+                    autoFocus
+                />
+            </div>
+        </div>
+      )}
+      <ul className="overflow-y-auto custom-scrollbar" role="listbox">
+        {filteredOptions.length > 0 ? filteredOptions.map(option => (
+          <li
+            key={option.value}
+            onClick={() => handleOptionClick(option.value)}
+            className={`px-3 py-2 text-sm hover:bg-primary/5 dark:hover:bg-slate-700 cursor-pointer ${value === option.value ? 'bg-primary/10 font-semibold text-primary dark:bg-primary/20' : 'text-gray-700 dark:text-gray-200'}`}
+            role="option"
+            aria-selected={value === option.value}
+          >
+            {option.label}
+          </li>
+        )) : (
+          <li className="px-4 py-3 text-sm text-gray-500 text-center">No options found.</li>
+        )}
+      </ul>
+    </div>
+  );
+
   return (
-    <div ref={dropdownRef} className={`relative ${className}`}>
+    <div className={`relative ${className}`}>
       <button
+        ref={triggerRef}
         type="button"
         onClick={handleTriggerClick}
         disabled={disabled}
@@ -86,43 +155,7 @@ const Dropdown: React.FC<DropdownProps> = ({
         />
       </button>
       
-      {isOpen && (
-        <div 
-          className="absolute top-full left-0 w-full mt-1 bg-white dark:bg-slate-800 rounded-lg shadow-xl border dark:border-slate-700 z-40 animate-scale-in flex flex-col overflow-hidden ring-1 ring-black/5"
-          style={{ maxHeight: '250px' }}
-        >
-          {searchable && (
-            <div className="p-2 border-b dark:border-slate-700 sticky top-0 bg-white dark:bg-slate-800">
-              <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
-                  <input
-                      type="text"
-                      placeholder={searchPlaceholder}
-                      value={searchTerm}
-                      onChange={e => setSearchTerm(e.target.value)}
-                      className="w-full p-2 pl-8 text-sm border rounded-md dark:bg-slate-700 dark:border-slate-600 dark:text-white outline-none focus:ring-1 focus:ring-primary"
-                      autoFocus
-                  />
-              </div>
-            </div>
-          )}
-          <ul className="overflow-y-auto custom-scrollbar" role="listbox">
-            {filteredOptions.length > 0 ? filteredOptions.map(option => (
-              <li
-                key={option.value}
-                onClick={() => handleOptionClick(option.value)}
-                className={`px-3 py-2 text-sm hover:bg-primary/5 dark:hover:bg-slate-700 cursor-pointer ${value === option.value ? 'bg-primary/10 font-semibold text-primary dark:bg-primary/20' : 'text-gray-700 dark:text-gray-200'}`}
-                role="option"
-                aria-selected={value === option.value}
-              >
-                {option.label}
-              </li>
-            )) : (
-              <li className="px-4 py-3 text-sm text-gray-500 text-center">No options found.</li>
-            )}
-          </ul>
-        </div>
-      )}
+      {isOpen && createPortal(<DropdownMenu />, document.body)}
     </div>
   );
 };
