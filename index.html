@@ -17,252 +17,46 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Playfair+Display:wght@400;700&family=Poppins:wght@400;600&family=Roboto:wght@400;500&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 
-    <style>
-      /* CRITICAL CSS FOR PRE-LOADER & ALL CUSTOM STYLES */
-      :root {
-        --primary-color: 219 39 119; /* Default Pink */
-        --header-bg: linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%);
-        --app-font: 'Inter';
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio,line-clamp"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              primary: 'rgb(var(--primary-color) / <alpha-value>)',
+              secondary: '#64748b',
+              background: '#f8fafc',
+              text: '#1e293b',
+            },
+            fontFamily: {
+              sans: ['var(--app-font)', 'sans-serif'],
+            },
+            animation: {
+              'fade-in-fast': 'fadeIn 0.2s ease-out forwards',
+              'fade-in-up': 'fadeInUp 0.5s ease-out forwards',
+              'scale-in': 'scaleIn 0.2s ease-out forwards',
+              'slide-up-fade': 'slideUpFade 0.4s ease-out forwards',
+              'slide-down-fade': 'slideDownFade 0.3s ease-out forwards',
+              'shake': 'shake 0.5s ease-in-out',
+            },
+            keyframes: {
+              fadeInUp: { '0%': { opacity: '0', transform: 'translateY(10px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+              fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+              scaleIn: { '0%': { opacity: '0', transform: 'scale(0.95)' }, '100%': { opacity: '1', transform: 'scale(1)' } },
+              slideUpFade: { '0%': { opacity: '0', transform: 'translateY(10px)' }, '100%': { opacity: '1', transform: 'none' } },
+              slideDownFade: { '0%': { opacity: '0', transform: 'translateY(-10px)' }, '100%': { opacity: '1', transform: 'none' } },
+              shake: {
+                '0%, 100%': { transform: 'translateX(0)' },
+                '20%, 60%': { transform: 'translateX(-5px)' },
+                '40%, 80%': { transform: 'translateX(5px)' },
+              },
+            },
+          },
+        },
       }
-      html {
-        -webkit-text-size-adjust: 100%;
-      }
-      body {
-        margin: 0;
-        min-width: 320px;
-        min-height: 100vh;
-        background-color: #f8fafc;
-      }
-      .dark body {
-        background-color: #0f172a;
-      }
-      
-      /* --- PRELOADER STYLES --- */
-      .pre-loader-container {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          align-items: center;
-          background-color: inherit;
-          z-index: 9999;
-      }
-      .pre-loader-om {
-          font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
-          font-size: 200px !important;
-          line-height: 1;
-          font-weight: 700;
-          color: rgb(var(--primary-color));
-          animation: pulse-om 4s ease-in-out infinite;
-          margin-bottom: 32px;
-          user-select: none;
-          display: block;
-          will-change: transform, opacity, text-shadow;
-      }
-      .pre-loader-info {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 16px;
-          width: 256px;
-      }
-      .pre-loader-text {
-          font-size: 1.125rem; /* 18px */
-          font-weight: 700;
-          color: rgb(var(--primary-color));
-          opacity: 0.8;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-          font-family: sans-serif;
-          display: flex;
-          align-items: flex-end;
-      }
-      .pre-loader-dot {
-          animation: dot-flash 1.4s infinite both;
-          margin-left: 2px;
-      }
-      .pre-loader-dot:nth-child(1) { animation-delay: 0s; }
-      .pre-loader-dot:nth-child(2) { animation-delay: 0.2s; }
-      .pre-loader-dot:nth-child(3) { animation-delay: 0.4s; }
-
-      .pre-loader-bar-bg {
-          width: 100%;
-          height: 6px;
-          background-color: #e5e7eb;
-          border-radius: 9999px;
-          overflow: hidden;
-      }
-      .dark .pre-loader-bar-bg {
-          background-color: #1e293b;
-      }
-      .pre-loader-bar-fill {
-          height: 100%;
-          background: rgb(var(--primary-color)); 
-          background: linear-gradient(to right, rgba(var(--primary-color), 0.4), rgb(var(--primary-color)));
-          width: 100%;
-          transform-origin: left;
-          animation: progress-indeterminate 1.5s infinite ease-in-out;
-      }
-
-      /* --- PRELOADER ANIMATIONS --- */
-      @keyframes pulse-om {
-          0%, 100% { 
-            transform: scale(0.9); 
-            opacity: 0.8; 
-            text-shadow: 0 0 20px rgb(var(--primary-color) / 0.5);
-          }
-          50% { 
-            transform: scale(1.1); 
-            opacity: 1; 
-            text-shadow: 
-                0 0 30px rgb(var(--primary-color) / 0.8),
-                0 0 60px rgb(var(--primary-color) / 0.6),
-                0 0 90px rgb(var(--primary-color) / 0.4);
-          }
-      }
-      @keyframes progress-indeterminate {
-          0% { transform: translateX(-100%); }
-          50% { transform: translateX(0%); }
-          100% { transform: translateX(100%); }
-      }
-      @keyframes dot-flash {
-          0%, 100% { opacity: 0.2; transform: translateY(0); }
-          50% { opacity: 1; transform: translateY(-4px); }
-      }
-
-      /* --- GLOBAL & CUSTOM COMPONENT STYLES (from index.css) --- */
-      .bg-theme {
-        background: var(--header-bg);
-      }
-      .text-theme {
-        color: rgb(var(--primary-color));
-      }
-      .glass {
-        background: rgba(255, 255, 255, 0.75);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-      }
-      .dark .glass {
-        background: rgba(15, 23, 42, 0.75);
-      }
-      .custom-scrollbar::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
-      }
-      .custom-scrollbar::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      .custom-scrollbar::-webkit-scrollbar-thumb {
-        background-color: rgba(156, 163, 175, 0.5);
-        border-radius: 20px;
-      }
-      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-        background-color: rgba(107, 114, 128, 0.8);
-      }
-      .toggle-checkbox {
-        appearance: none;
-        width: 40px;
-        height: 20px;
-        background: #e2e8f0;
-        border-radius: 20px;
-        position: relative;
-        outline: none;
-        cursor: pointer;
-        transition: background 0.3s;
-      }
-      .toggle-checkbox::after {
-        content: '';
-        position: absolute;
-        top: 2px;
-        left: 2px;
-        width: 16px;
-        height: 16px;
-        background: white;
-        border-radius: 50%;
-        transition: transform 0.3s;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.2);
-      }
-      .toggle-checkbox:checked {
-        background: rgb(var(--primary-color));
-      }
-      .toggle-checkbox:checked::after {
-        transform: translateX(20px);
-      }
-      .sk-app {
-          width: 100%;
-          height: 100vh;
-          background: #f8fafc;
-          overflow: hidden;
-          display: flex;
-          flex-direction: column;
-      }
-      .dark .sk-app {
-          background: #0f172a;
-      }
-      .sk-header {
-          height: 64px;
-          background: #e2e8f0;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 0 16px;
-          flex-shrink: 0;
-      }
-      .dark .sk-header {
-          background: #1e293b;
-      }
-      .sk-nav {
-          height: 60px;
-          position: fixed;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          background: #fff;
-          border-top: 1px solid #e2e8f0;
-          z-index: 50;
-      }
-      .dark .sk-nav {
-          background: #1e293b;
-          border-top: 1px solid #334155;
-      }
-      .sk-bone {
-          background-color: #cbd5e1;
-          border-radius: 4px;
-          animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-      }
-      .dark .sk-bone {
-          background-color: #334155;
-      }
-      .sk-card {
-          background: white;
-          border-radius: 12px;
-          padding: 16px;
-          box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
-          border-top: 4px solid #cbd5e1;
-      }
-      .dark .sk-card {
-          background: #1e293b;
-          border-color: #334155;
-      }
-      @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: .5; }
-      }
-      body.font-size-small { font-size: 14px; }
-      body.font-size-normal { font-size: 16px; }
-      body.font-size-large { font-size: 18px; }
-      body.compact .p-4, body.compact .sm\\:p-6 { padding: 0.75rem; }
-      body.compact .p-3, body.compact .sm\\:p-5 { padding: 0.5rem; }
-      body.compact .py-2 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
-      body.compact .text-sm { font-size: 0.8rem; line-height: 1.1rem; }
-      body.compact .text-xs { font-size: 0.7rem; line-height: 1rem; }
-      body.compact .menu-item { padding: 8px 10px; }
-    </style>
-
+    </script>
+    
     <script>
       // Capture PWA install prompt early to prevent missing it before React loads
       window.deferredPrompt = null;
@@ -321,61 +115,6 @@
       })();
     </script>
 
-    <!-- CORRECT ORDER: Config first, then the script that uses it -->
-    <script>
-      tailwind.config = {
-        darkMode: 'class',
-        theme: {
-          extend: {
-            fontFamily: {
-              sans: ['var(--app-font)', 'sans-serif'],
-            },
-            colors: {
-              // Dynamic primary color using CSS variable with alpha channel support
-              primary: 'rgb(var(--primary-color) / <alpha-value>)', 
-              secondary: '#64748b', // Slate 500
-              accent: 'rgb(var(--primary-color) / 0.8)', // Derived from primary
-              success: '#10b981', // Emerald 500
-              warning: '#f59e0b', // Amber 500
-              danger: '#ef4444', // Red 500
-              background: '#f8fafc',
-              text: '#1e293b',
-            },
-            animation: {
-              'fade-in-up': 'fadeInUp 0.5s ease-out forwards',
-              'scale-in': 'scaleIn 0.2s ease-out forwards',
-              'fade-in-fast': 'fadeIn 0.2s ease-out forwards',
-              'slide-up-fade': 'slideUpFade 0.4s ease-out forwards',
-              'slide-down-fade': 'slideDownFade 0.3s ease-out forwards',
-            },
-            keyframes: {
-              fadeInUp: {
-                '0%': { opacity: '0', marginTop: '10px' },
-                '100%': { opacity: '1', marginTop: '0' },
-              },
-              fadeIn: {
-                '0%': { opacity: '0' },
-                '100%': { opacity: '1' },
-              },
-              scaleIn: {
-                '0%': { opacity: '0', transform: 'scale(0.95)' },
-                '100%': { opacity: '1', transform: 'scale(1)' },
-              },
-              slideUpFade: {
-                '0%': { opacity: '0', transform: 'translateY(10px)' },
-                '100%': { opacity: '1', transform: 'none' },
-              },
-              slideDownFade: {
-                '0%': { opacity: '0', transform: 'translateY(-10px)' },
-                '100%': { opacity: '1', transform: 'none' },
-              }
-            }
-          },
-        },
-      }
-    </script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    
     <script type="importmap">
 {
   "imports": {
@@ -397,7 +136,6 @@
   }
 }
 </script>
-    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/alasql@4.0.0/dist/alasql.min.js"></script>
     
     <!-- Drag and Drop Polyfill for Mobile -->
@@ -416,18 +154,12 @@
   </head>
   <body class="bg-background dark:bg-slate-900 text-text dark:text-slate-300 antialiased selection:bg-primary selection:text-white">
     <div id="root">
-      <div class="pre-loader-container">
-        <div class="pre-loader-om">ॐ</div>
-        <div class="pre-loader-info">
-            <div class="pre-loader-text">
-                LOADING
-                <span class="pre-loader-dot">.</span>
-                <span class="pre-loader-dot">.</span>
-                <span class="pre-loader-dot">.</span>
-            </div>
-            <div class="pre-loader-bar-bg">
-                <div class="pre-loader-bar-fill"></div>
-            </div>
+      <div class="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-background/90 backdrop-blur-sm">
+        <div 
+            class="text-[200px] leading-none font-serif font-bold text-primary select-none"
+            style="animation: pulse-om 4s ease-in-out infinite; text-shadow: 0 0 20px rgb(var(--primary-color) / 0.5);"
+        >
+            ॐ
         </div>
       </div>
     </div>
