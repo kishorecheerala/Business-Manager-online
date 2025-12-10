@@ -1,7 +1,7 @@
+
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { App } from './App'
-import './index.css'
 
 // Service Worker Registration
 // Skip registration in preview environments (AI Studio, StackBlitz, etc.) to prevent origin mismatch errors.
