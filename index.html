@@ -1,69 +1,140 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="referrer" content="no-referrer-when-downgrade" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Sales & inventory management PWA">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#8b5cf6" />
     
     <title>Business Manager</title>
 
-    <link rel="manifest" href="/manifest.json" crossorigin="use-credentials" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <link rel="apple-touch-icon" href="/vite.svg">
-    
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Business Mgr">
+    <link rel="icon" type="image/svg+xml" href="./vite.svg" />
+    <link rel="manifest" href="./manifest.json" />
+    <link rel="apple-touch-icon" href="./vite.svg">
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Playfair+Display:wght@400;700&family=Poppins:wght@400;600&family=Roboto:wght@400;500&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;700&family=Poppins:wght@300;400;500;600&family=Roboto:wght@300;400;500&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 
-    <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio,line-clamp"></script>
-    <script>
-      tailwind.config = {
-        darkMode: 'class',
-        theme: {
-          extend: {
-            colors: {
-              primary: 'rgb(var(--primary-color) / <alpha-value>)',
-              secondary: '#64748b',
-              background: '#f8fafc',
-              text: '#1e293b',
-            },
-            fontFamily: {
-              sans: ['var(--app-font)', 'sans-serif'],
-            },
-            animation: {
-              'fade-in-fast': 'fadeIn 0.2s ease-out forwards',
-              'fade-in-up': 'fadeInUp 0.5s ease-out forwards',
-              'scale-in': 'scaleIn 0.2s ease-out forwards',
-              'slide-up-fade': 'slideUpFade 0.4s ease-out forwards',
-              'slide-down-fade': 'slideDownFade 0.3s ease-out forwards',
-              'shake': 'shake 0.5s ease-in-out',
-            },
-            keyframes: {
-              fadeInUp: { '0%': { opacity: '0', transform: 'translateY(10px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
-              fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
-              scaleIn: { '0%': { opacity: '0', transform: 'scale(0.95)' }, '100%': { opacity: '1', transform: 'scale(1)' } },
-              slideUpFade: { '0%': { opacity: '0', transform: 'translateY(10px)' }, '100%': { opacity: '1', transform: 'none' } },
-              slideDownFade: { '0%': { opacity: '0', transform: 'translateY(-10px)' }, '100%': { opacity: '1', transform: 'none' } },
-              shake: {
-                '0%, 100%': { transform: 'translateX(0)' },
-                '20%, 60%': { transform: 'translateX(-5px)' },
-                '40%, 80%': { transform: 'translateX(5px)' },
-              },
-            },
-          },
-        },
+    <style>
+      /* CRITICAL CSS FOR PRE-LOADER */
+      :root {
+        --primary-color: 139 92 246; /* Default Violet */
       }
-    </script>
-    
+      html {
+        -webkit-text-size-adjust: 100%;
+      }
+      body {
+        margin: 0;
+        background-color: #f8fafc;
+      }
+      .dark body {
+        background-color: #0f172a;
+      }
+      .pre-loader-container {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          background-color: inherit;
+          z-index: 9999;
+      }
+      .pre-loader-om {
+          font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+          font-size: 200px !important;
+          line-height: 1;
+          font-weight: 700;
+          color: rgb(var(--primary-color));
+          animation: pulse-om 4s ease-in-out infinite;
+          margin-bottom: 32px;
+          user-select: none;
+          display: block;
+          will-change: transform, opacity, text-shadow;
+      }
+      .pre-loader-info {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 16px;
+          width: 256px;
+      }
+      .pre-loader-text {
+          font-size: 1.125rem; /* 18px */
+          font-weight: 700;
+          color: rgb(var(--primary-color));
+          opacity: 0.8;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          font-family: sans-serif;
+          display: flex;
+          align-items: flex-end;
+      }
+      .pre-loader-dot {
+          animation: dot-flash 1.4s infinite both;
+          margin-left: 2px;
+      }
+      .pre-loader-dot:nth-child(1) { animation-delay: 0s; }
+      .pre-loader-dot:nth-child(2) { animation-delay: 0.2s; }
+      .pre-loader-dot:nth-child(3) { animation-delay: 0.4s; }
+
+      .pre-loader-bar-bg {
+          width: 100%;
+          height: 6px;
+          background-color: #e5e7eb;
+          border-radius: 9999px;
+          overflow: hidden;
+      }
+      .dark .pre-loader-bar-bg {
+          background-color: #1e293b;
+      }
+      .pre-loader-bar-fill {
+          height: 100%;
+          /* Use fallback color for gradients to ensure visibility */
+          background: rgb(var(--primary-color)); 
+          background: linear-gradient(to right, rgba(var(--primary-color), 0.4), rgb(var(--primary-color)));
+          width: 100%;
+          transform-origin: left;
+          animation: progress-indeterminate 1.5s infinite ease-in-out;
+      }
+
+      /* Animation Keyframes */
+      @keyframes pulse-om {
+          0% { 
+            transform: scale(0.9); 
+            opacity: 0.8; 
+            text-shadow: 0 0 20px rgb(var(--primary-color) / 0.5);
+          }
+          50% { 
+            transform: scale(1.1); 
+            opacity: 1; 
+            text-shadow: 
+                0 0 30px rgb(var(--primary-color) / 0.8),
+                0 0 60px rgb(var(--primary-color) / 0.6),
+                0 0 90px rgb(var(--primary-color) / 0.4);
+          }
+          100% { 
+            transform: scale(0.9); 
+            opacity: 0.8; 
+            text-shadow: 0 0 20px rgb(var(--primary-color) / 0.5);
+          }
+      }
+      @keyframes progress-indeterminate {
+          0% { transform: translateX(-100%); }
+          50% { transform: translateX(0%); }
+          100% { transform: translateX(100%); }
+      }
+      @keyframes dot-flash {
+          0%, 100% { opacity: 0.2; transform: translateY(0); }
+          50% { opacity: 1; transform: translateY(-4px); }
+      }
+    </style>
+
     <script>
       // Capture PWA install prompt early to prevent missing it before React loads
       window.deferredPrompt = null;
@@ -94,12 +165,24 @@
           }
           
           // 2. Handle Custom Theme Color
-          var savedColor = localStorage.getItem('themeColor') || '#8b5cf6'; // Saree Pink
+          var savedColor = localStorage.getItem('themeColor') || '#8b5cf6'; // Default Nebula (Violet)
           var r = parseInt(savedColor.slice(1, 3), 16);
           var g = parseInt(savedColor.slice(3, 5), 16);
           var b = parseInt(savedColor.slice(5, 7), 16);
           
           document.documentElement.style.setProperty('--primary-color', r + ' ' + g + ' ' + b);
+          
+          // 3. Dynamic Icon Generation (For Tab Icon Only)
+          var svgIcon = '<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg"><text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" font-size="400" font-family="serif" fill="' + savedColor + '" font-weight="bold">ॐ</text></svg>';
+          var iconDataUrl = 'data:image/svg+xml,' + encodeURIComponent(svgIcon);
+          
+          var link = document.querySelector("link[rel~='icon']");
+          if (!link) {
+            link = document.createElement('link');
+            link.rel = 'icon';
+            document.head.appendChild(link);
+          }
+          link.href = iconDataUrl;
 
           var metaTheme = document.querySelector("meta[name='theme-color']");
           if (metaTheme) metaTheme.content = savedColor;
@@ -109,54 +192,60 @@
         }
       })();
     </script>
-    
-    <style>
-      /* Inline styles for immediate loader to prevent FOUC */
-      #root > .initial-loader {
-        position: fixed;
-        top: 0; right: 0; bottom: 0; left: 0;
-        z-index: 9999;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        background-color: rgba(248, 250, 252, 0.9); /* from tailwind config: bg-background */
-        backdrop-filter: blur(4px);
-        -webkit-backdrop-filter: blur(4px);
-      }
-      .dark #root > .initial-loader {
-        background-color: rgba(15, 23, 42, 0.9); /* from tailwind config: dark bg-slate-900 */
-      }
-      #root > .initial-loader > div {
-        font-size: 200px;
-        line-height: 1;
-        font-family: serif;
-        font-weight: bold;
-        color: rgb(var(--primary-color));
-        user-select: none;
-        animation: pulse-om 4s ease-in-out infinite;
-        text-shadow: 0 0 20px rgb(var(--primary-color) / 0.5);
-      }
 
-      @keyframes pulse-om {
-          0%, 100% { 
-              transform: scale(0.9); 
-              opacity: 0.8; 
-          }
-          50% { 
-              transform: scale(1.1); 
-              opacity: 1; 
-          }
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['var(--app-font)', 'sans-serif'],
+            },
+            colors: {
+              // Dynamic primary color using CSS variable with alpha channel support
+              primary: 'rgb(var(--primary-color) / <alpha-value>)', 
+              secondary: '#64748b', // Slate 500
+              accent: 'rgb(var(--primary-color) / 0.8)', // Derived from primary
+              success: '#10b981', // Emerald 500
+              warning: '#f59e0b', // Amber 500
+              danger: '#ef4444', // Red 500
+              background: '#f8fafc',
+              text: '#1e293b',
+            },
+            animation: {
+              'fade-in-up': 'fadeInUp 0.5s ease-out forwards',
+              'scale-in': 'scaleIn 0.2s ease-out forwards',
+              'fade-in-fast': 'fadeIn 0.2s ease-out forwards',
+              'slide-up-fade': 'slideUpFade 0.4s ease-out forwards',
+              'slide-down-fade': 'slideDownFade 0.3s ease-out forwards',
+            },
+            keyframes: {
+              fadeInUp: {
+                '0%': { opacity: '0', marginTop: '10px' },
+                '100%': { opacity: '1', marginTop: '0' },
+              },
+              fadeIn: {
+                '0%': { opacity: '0' },
+                '100%': { opacity: '1' },
+              },
+              scaleIn: {
+                '0%': { opacity: '0', transform: 'scale(0.95)' },
+                '100%': { opacity: '1', transform: 'scale(1)' },
+              },
+              slideUpFade: {
+                '0%': { opacity: '0', transform: 'translateY(10px)' },
+                '100%': { opacity: '1', transform: 'none' },
+              },
+              slideDownFade: {
+                '0%': { opacity: '0', transform: 'translateY(-10px)' },
+                '100%': { opacity: '1', transform: 'none' },
+              }
+            }
+          },
+        },
       }
-      noscript > div {
-        position: fixed; inset: 0; z-index: 10000;
-        display: flex; align-items: center; justify-content: center;
-        background: #fff; color: #000;
-        text-align: center;
-        font-family: sans-serif;
-      }
-    </style>
-
+    </script>
     <script type="importmap">
 {
   "imports": {
@@ -178,6 +267,7 @@
   }
 }
 </script>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/alasql@4.0.0/dist/alasql.min.js"></script>
     
     <!-- Drag and Drop Polyfill for Mobile -->
@@ -196,17 +286,21 @@
   </head>
   <body class="bg-background dark:bg-slate-900 text-text dark:text-slate-300 antialiased selection:bg-primary selection:text-white">
     <div id="root">
-      <div class="initial-loader">
-        <div>
-            ॐ
+      <div class="pre-loader-container">
+        <div class="pre-loader-om">ॐ</div>
+        <div class="pre-loader-info">
+            <div class="pre-loader-text">
+                LOADING
+                <span class="pre-loader-dot">.</span>
+                <span class="pre-loader-dot">.</span>
+                <span class="pre-loader-dot">.</span>
+            </div>
+            <div class="pre-loader-bar-bg">
+                <div class="pre-loader-bar-fill"></div>
+            </div>
         </div>
       </div>
     </div>
-    <noscript>
-      <div>
-        <h1>JavaScript is required to run this application.</h1>
-      </div>
-    </noscript>
-    <script type="module" src="/index.tsx"></script>
+    <script type="module" src="./index.tsx"></script>
   </body>
 </html>
