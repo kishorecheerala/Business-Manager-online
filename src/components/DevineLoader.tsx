@@ -3,7 +3,7 @@ import React from 'react';
 
 const DevineLoader: React.FC = () => {
   return (
-    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-background/90 backdrop-blur-md animate-fade-in cursor-wait">
+    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white/60 backdrop-blur-md animate-fade-in cursor-wait">
       <div className="relative flex items-center justify-center">
         {/* The Symbol */}
         <div 

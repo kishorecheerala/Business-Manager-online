@@ -3,7 +3,7 @@ import React from 'react';
 
 const DevineLoader: React.FC = () => {
   return (
-    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-background/95 backdrop-blur-xl animate-fade-in cursor-wait">
+    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white/60 backdrop-blur-xl animate-fade-in cursor-wait">
       <div className="relative flex items-center justify-center mb-8">
         {/* Subtle background ambiance */}
         <div className="absolute inset-0 bg-primary/5 blur-[100px] rounded-full animate-pulse"></div>
@@ -31,7 +31,7 @@ const DevineLoader: React.FC = () => {
         </div>
         
         {/* Progress Bar */}
-        <div className="w-full h-1.5 bg-gray-200 dark:bg-slate-800 rounded-full overflow-hidden">
+        <div className="w-full h-1.5 bg-gray-200/50 rounded-full overflow-hidden">
             <div className="h-full bg-gradient-to-r from-primary/40 to-primary w-full origin-left animate-progress-indeterminate"></div>
         </div>
       </div>
