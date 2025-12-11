@@ -68,8 +68,7 @@
           
           document.documentElement.style.setProperty('--primary-color', r + ' ' + g + ' ' + b);
           
-          // 3. Dynamic Icon Generation (BACKGROUND = Transparent, TEXT = Theme Color)
-          // Removed rect background as requested
+          // 3. Dynamic Icon Generation
           var svgIcon = '<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg"><text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" font-size="400" font-family="serif" fill="' + savedColor + '" font-weight="bold" dy="20">ॐ</text></svg>';
           var iconDataUrl = 'data:image/svg+xml,' + encodeURIComponent(svgIcon);
           
@@ -160,7 +159,7 @@
     "idb": "https://aistudiocdn.com/idb@^8.0.3",
     "jsbarcode": "https://aistudiocdn.com/jsbarcode@^3.12.1",
     "react-dom": "https://aistudiocdn.com/react-dom@^19.2.1",
-    "react-native": "https://aistudiocdn.com/react-native@^0.82.1"
+    "react-native": "https://esm.sh/react-native@^0.83.0"
   }
 }
 </script>
