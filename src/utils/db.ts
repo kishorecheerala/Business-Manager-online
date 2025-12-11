@@ -166,8 +166,9 @@ export async function mergeData(cloudData: any): Promise<void> {
                 // we should allow the cloud profile to overwrite it.
                 let shouldOverwrite = false;
                 if (storeName === 'profile' && localItem) {
-                    // Check for default profile markers
-                    if (localItem.name === 'My Business' && localItem.ownerName === 'Owner') {
+                    const name = localItem.name || '';
+                    // Broad check for any "default" looking name
+                    if (name === 'My Business' || name === 'My Saree Business' || (name === 'My Business' && localItem.ownerName === 'Owner')) {
                         shouldOverwrite = true;
                     }
                 }

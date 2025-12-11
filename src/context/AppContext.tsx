@@ -77,6 +77,7 @@ type Action =
   | { type: 'UPDATE_SALE'; payload: { oldSale: Sale; updatedSale: Sale } }
   | { type: 'DELETE_SALE'; payload: string }
   | { type: 'ADD_PAYMENT_TO_SALE'; payload: { saleId: string; payment: any } }
+  | { type: 'UPDATE_PAYMENT_IN_SALE'; payload: { saleId: string; payment: any } }
   | { type: 'ADD_PURCHASE'; payload: Purchase }
   | { type: 'UPDATE_PURCHASE'; payload: { oldPurchase: Purchase; updatedPurchase: Purchase } }
   | { type: 'DELETE_PURCHASE'; payload: string }
@@ -149,10 +150,10 @@ const DEFAULT_QUICK_ACTIONS = [
 const DEFAULT_UI_PREFS: AppMetadataUIPreferences = {
     id: 'uiPreferences',
     buttonStyle: 'rounded',
-    cardStyle: 'solid',
+    cardStyle: 'glass',
     toastPosition: 'top-center',
     density: 'comfortable',
-    navStyle: 'docked',
+    navStyle: 'floating',
     fontSize: 'normal'
 };
 
@@ -452,6 +453,19 @@ const appReducer = (state: AppState, action: Action): AppState => {
         );
         db.saveCollection('sales', salesWithPayment);
         return { ...state, sales: salesWithPayment, ...touch };
+
+    case 'UPDATE_PAYMENT_IN_SALE': {
+        const { saleId, payment } = action.payload;
+        const salesWithUpdatedPayment = state.sales.map(s => {
+            if (s.id === saleId) {
+                const updatedPayments = s.payments.map(p => p.id === payment.id ? payment : p);
+                return { ...s, payments: updatedPayments };
+            }
+            return s;
+        });
+        db.saveCollection('sales', salesWithUpdatedPayment);
+        return { ...state, sales: salesWithUpdatedPayment, ...touch };
+    }
 
     case 'ADD_PURCHASE':
         const newPurchase = action.payload;
@@ -1034,14 +1048,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             showToast("Signed in successfully!", 'success');
 
             const currentProfile = stateRef.current.profile;
-            // Detect default profile set by "Skip" in Onboarding
-            const isDefaultProfile = currentProfile?.name === 'My Business' && currentProfile?.ownerName === 'Owner';
+            // Enhanced default profile detection
+            const currentName = currentProfile?.name || '';
+            const isDefaultProfile = !currentProfile || currentName === 'My Business' || currentName === 'My Saree Business' || (currentName === 'My Business' && currentProfile?.ownerName === 'Owner');
             
             // Treat as "New User / Restore Candidate" if:
             // 1. No profile exists (shouldn't happen if app loaded, but safety check)
             // 2. Profile is the default one (Skipped onboarding)
             // This allows overwriting the local dummy data with the cloud backup
-            const profileExists = currentProfile && currentProfile.name && !isDefaultProfile;
+            const profileExists = !isDefaultProfile;
             
             if (!profileExists) {
                 showToast("Checking for cloud backup...", 'info');
@@ -1095,7 +1110,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     const syncData = async () => {
-        if (!state.googleUser || !state.googleUser.accessToken) {
+        if (!stateRef.current.googleUser || !stateRef.current.googleUser.accessToken) {
             showToast("Please sign in to sync.", 'error');
             return;
         }
@@ -1103,7 +1118,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         dispatch({ type: 'SET_SYNC_STATUS', payload: 'syncing' });
         try {
             // 1. Read Cloud Data
-            const cloudData = await DriveService.read(state.googleUser.accessToken);
+            const cloudData = await DriveService.read(stateRef.current.googleUser.accessToken);
             
             // 2. Merge Strategies
             if (cloudData) {
@@ -1115,7 +1130,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             const freshData = await db.exportData();
             
             // 4. Write to Cloud
-            await DriveService.write(state.googleUser.accessToken, freshData);
+            await DriveService.write(stateRef.current.googleUser.accessToken, freshData);
             
             // 5. Update State UI
             const time = Date.now();
@@ -1152,9 +1167,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // ... restore function implementation ...
     const restoreFromFileId = async (fileId: string) => {
-        if (!state.googleUser?.accessToken) return;
+        if (!stateRef.current.googleUser?.accessToken) return;
         try {
-            const data = await downloadFile(state.googleUser.accessToken, fileId);
+            const data = await downloadFile(stateRef.current.googleUser.accessToken, fileId);
             if (data) {
                 await db.importData(data);
                 window.location.reload();
