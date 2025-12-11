@@ -18,7 +18,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;700&family=Poppins:wght@300;400;500;600&family=Roboto:wght@300;400;500&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 
     <style>
-      /* CRITICAL CSS FOR PRE-LOADER */
       :root {
         --primary-color: 139 92 246; /* Default Violet */
       }
@@ -31,102 +30,6 @@
       }
       .dark body {
         background-color: #0f172a;
-      }
-      .pre-loader-container {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          align-items: center;
-          background-color: inherit;
-          z-index: 9999;
-      }
-      .pre-loader-om {
-          font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
-          font-size: 200px !important;
-          line-height: 1;
-          font-weight: 700;
-          color: rgb(var(--primary-color));
-          animation: pulse-om 3s ease-in-out infinite;
-          margin-bottom: 32px;
-          user-select: none;
-          display: block;
-          will-change: transform, opacity, text-shadow;
-      }
-      .pre-loader-info {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 16px;
-          width: 200px;
-      }
-      .pre-loader-text {
-          font-size: 0.875rem; 
-          font-weight: 700;
-          color: rgb(var(--primary-color));
-          opacity: 0.9;
-          letter-spacing: 0.2em;
-          text-transform: uppercase;
-          font-family: system-ui, -apple-system, sans-serif;
-          display: flex;
-          align-items: flex-end;
-      }
-      .pre-loader-dot {
-          animation: dot-flash 1.4s infinite both;
-          margin-left: 2px;
-      }
-      .pre-loader-dot:nth-child(1) { animation-delay: 0s; }
-      .pre-loader-dot:nth-child(2) { animation-delay: 0.2s; }
-      .pre-loader-dot:nth-child(3) { animation-delay: 0.4s; }
-
-      .pre-loader-bar-bg {
-          width: 100%;
-          height: 4px;
-          background-color: rgba(0,0,0,0.05);
-          border-radius: 9999px;
-          overflow: hidden;
-      }
-      .dark .pre-loader-bar-bg {
-          background-color: rgba(255,255,255,0.1);
-      }
-      .pre-loader-bar-fill {
-          height: 100%;
-          background: rgb(var(--primary-color)); 
-          width: 100%;
-          transform-origin: left;
-          animation: progress-indeterminate 1.5s infinite ease-in-out;
-      }
-
-      /* Animation Keyframes */
-      @keyframes pulse-om {
-          0% { 
-            transform: scale(0.95); 
-            opacity: 0.8; 
-            text-shadow: 0 0 20px rgb(var(--primary-color) / 0.2);
-          }
-          50% { 
-            transform: scale(1.05); 
-            opacity: 1; 
-            text-shadow: 0 0 50px rgb(var(--primary-color) / 0.5);
-          }
-          100% { 
-            transform: scale(0.95); 
-            opacity: 0.8; 
-            text-shadow: 0 0 20px rgb(var(--primary-color) / 0.2);
-          }
-      }
-      @keyframes progress-indeterminate {
-          0% { transform: translateX(-100%); }
-          50% { transform: translateX(0%); }
-          100% { transform: translateX(100%); }
-      }
-      @keyframes dot-flash {
-          0%, 100% { opacity: 0.2; transform: translateY(0); }
-          50% { opacity: 1; transform: translateY(-4px); }
       }
     </style>
 
@@ -278,24 +181,7 @@
     </script>
   </head>
   <body class="bg-background dark:bg-slate-900 text-text dark:text-slate-300 antialiased selection:bg-primary selection:text-white">
-    <div id="root">
-      <div class="pre-loader-container">
-        <!-- Logo without Box - just the pulsing symbol -->
-        <div class="pre-loader-om">ॐ</div>
-        
-        <div class="pre-loader-info">
-            <div class="pre-loader-text">
-                LOADING
-                <span class="pre-loader-dot">.</span>
-                <span class="pre-loader-dot">.</span>
-                <span class="pre-loader-dot">.</span>
-            </div>
-            <div class="pre-loader-bar-bg">
-                <div class="pre-loader-bar-fill"></div>
-            </div>
-        </div>
-      </div>
-    </div>
+    <div id="root"></div>
     <script type="module" src="./index.tsx"></script>
   </body>
 </html>

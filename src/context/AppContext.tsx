@@ -1033,8 +1033,36 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             dispatch({ type: 'SET_GOOGLE_USER', payload: user });
             showToast("Signed in successfully!", 'success');
 
-            // Optionally auto-sync after login
-            setTimeout(() => syncData(), 1000);
+            const currentProfile = stateRef.current.profile;
+            // Detect default profile set by "Skip" in Onboarding
+            const isDefaultProfile = currentProfile?.name === 'My Business' && currentProfile?.ownerName === 'Owner';
+            
+            // Treat as "New User / Restore Candidate" if:
+            // 1. No profile exists (shouldn't happen if app loaded, but safety check)
+            // 2. Profile is the default one (Skipped onboarding)
+            // This allows overwriting the local dummy data with the cloud backup
+            const profileExists = currentProfile && currentProfile.name && !isDefaultProfile;
+            
+            if (!profileExists) {
+                showToast("Checking for cloud backup...", 'info');
+                try {
+                    const cloudData = await DriveService.read(user.accessToken);
+                    if (cloudData && cloudData.profile && cloudData.profile.length > 0) {
+                        showToast("Backup found! Restoring data...", 'success');
+                        await db.importData(cloudData); // Wipes local and imports
+                        // Robustly reload to ensure all state is correctly initialized
+                        setTimeout(() => window.location.reload(), 1500);
+                    } else {
+                        showToast("No cloud backup found. Please complete the setup.", 'info');
+                    }
+                } catch (e) {
+                    console.error("Restore on sign-in failed", e);
+                    showToast("Failed to check for backup. Please complete setup.", 'error');
+                }
+            } else {
+                // Regular sync for existing users
+                setTimeout(() => syncData(), 1000);
+            }
         }
     };
 
@@ -1094,28 +1122,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             dispatch({ type: 'SET_LAST_SYNC_TIME', payload: time });
             dispatch({ type: 'SET_SYNC_STATUS', payload: 'success' });
             
-            // If we merged data, we should reload the app state from DB to show new items
             if (cloudData) {
-                const customers = await db.getAll('customers');
-                const products = await db.getAll('products');
-                const sales = await db.getAll('sales');
-                const purchases = await db.getAll('purchases');
-                const returns = await db.getAll('returns');
-                const expenses = await db.getAll('expenses');
-                const quotes = await db.getAll('quotes');
-                const trash = await db.getAll('trash');
-                
-                dispatch({ 
-                    type: 'SET_STATE', 
-                    payload: { customers, products, sales, purchases, returns, expenses, quotes, trash } 
-                });
+                showToast("Sync complete! Applying changes...", 'success');
+                // Reloading the app is the most robust way to ensure all state is updated from the newly merged DB.
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500); // Give user a moment to see the toast.
+            } else {
+                // If no cloud data, we just wrote local data to cloud, no need to reload.
+                showToast("Sync complete!", 'success');
             }
-            
-            showToast("Sync complete!", 'success');
 
         } catch (error: any) {
             console.error("Sync failed", error);
-            
+
             // Handle Auth Errors (401/403)
             const errMsg = error?.message || '';
             if (errMsg.includes('401') || errMsg.includes('403') || errMsg.includes('Token')) {
