@@ -7,7 +7,8 @@ import Card from '../components/Card';
 import Button from '../components/Button';
 import BarcodeModal from '../components/BarcodeModal';
 import BatchBarcodeModal from '../components/BatchBarcodeModal';
-import { compressImage } from '../utils/imageUtils'; 
+import Input from '../components/Input';
+import { compressImage } from '../utils/imageUtils';
 import { Html5Qrcode } from 'html5-qrcode';
 import EmptyState from '../components/EmptyState';
 import { useDialog } from '../context/DialogContext';
@@ -17,7 +18,7 @@ import StockAdjustmentModal from '../components/StockAdjustmentModal';
 import ProductHistoryModal from '../components/ProductHistoryModal';
 
 interface ProductsPageProps {
-  setIsDirty: (isDirty: boolean) => void;
+    setIsDirty: (isDirty: boolean) => void;
 }
 
 // Helper to convert base64 to File object for sharing
@@ -63,7 +64,7 @@ const QRScannerModal: React.FC<{
                 setScanStatus(`Camera Permission Error. Please allow camera access.`);
                 console.error("Camera start failed.", err);
             });
-            
+
         return () => {
             if (html5QrCodeRef.current?.isScanning) {
                 html5QrCodeRef.current.stop().catch(err => console.error("Cleanup stop scan failed.", err));
@@ -74,9 +75,9 @@ const QRScannerModal: React.FC<{
     return (
         <div className="fixed inset-0 bg-black bg-opacity-75 backdrop-blur-sm flex flex-col items-center justify-center z-[200] p-4 animate-fade-in-fast">
             <Card title="Scan Product QR Code" className="w-full max-w-md relative animate-scale-in">
-                 <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
-                    <X size={20}/>
-                 </button>
+                <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
+                    <X size={20} />
+                </button>
                 <div id="qr-reader-products" className="w-full mt-4 rounded-lg overflow-hidden border"></div>
                 <p className="text-center text-sm my-2 text-gray-600 dark:text-gray-400">{scanStatus}</p>
             </Card>
@@ -88,7 +89,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     const { state, dispatch, showToast } = useAppContext();
     const { showConfirm } = useDialog();
     const [searchTerm, setSearchTerm] = useState('');
-    
+
     // View Modes
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
     const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -98,7 +99,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [isEditing, setIsEditing] = useState(false);
     const [editedProduct, setEditedProduct] = useState<Product | null>(null);
-    
+
     // History Modal
     const [historyProduct, setHistoryProduct] = useState<Product | null>(null);
     const [isGlobalHistoryOpen, setIsGlobalHistoryOpen] = useState(false);
@@ -107,17 +108,17 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     const [detailSplitRatio, setDetailSplitRatio] = useState(0.75); // 75% for image default
     const [isResizing, setIsResizing] = useState(false);
     const detailContainerRef = useRef<HTMLDivElement>(null);
-    
+
     // Share Selection Mode
     const [isShareSelectMode, setIsShareSelectMode] = useState(false);
     const [selectedShareImages, setSelectedShareImages] = useState<Set<string>>(new Set());
-    
+
     // Modals
     const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
     const [isBatchBarcodeModalOpen, setIsBatchBarcodeModalOpen] = useState(false);
     const [isScannerOpen, setIsScannerOpen] = useState(false);
     const [isStockAdjustOpen, setIsStockAdjustOpen] = useState(false);
-    
+
     const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
     const [isSuggestingPrice, setIsSuggestingPrice] = useState(false);
 
@@ -160,10 +161,10 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
 
     const doDetailResize = useCallback((e: MouseEvent | TouchEvent) => {
         if (!isResizing || !detailContainerRef.current) return;
-        
+
         const containerRect = detailContainerRef.current.getBoundingClientRect();
         const isDesktop = window.matchMedia('(min-width: 768px)').matches;
-        
+
         let newRatio;
         if (isDesktop) {
             const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
@@ -172,10 +173,10 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
             const clientY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY;
             newRatio = (clientY - containerRect.top) / containerRect.height;
         }
-        
+
         // Clamp to keep both sides visible (min 20%, max 85%)
         newRatio = Math.max(0.2, Math.min(0.85, newRatio));
-        
+
         setDetailSplitRatio(newRatio);
     }, [isResizing]);
 
@@ -196,8 +197,11 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
 
     const filteredProducts = useMemo(() => {
         const lowerTerm = searchTerm.toLowerCase();
-        return state.products.filter(p => 
-            p.name.toLowerCase().includes(lowerTerm) || 
+        if (lowerTerm === 'low_stock') {
+            return state.products.filter(p => p.quantity < 5);
+        }
+        return state.products.filter(p =>
+            p.name.toLowerCase().includes(lowerTerm) ||
             p.id.toLowerCase().includes(lowerTerm) ||
             p.category?.toLowerCase().includes(lowerTerm)
         );
@@ -230,7 +234,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
         if (await showConfirm(`Delete ${selectedIds.size} selected products? This cannot be undone.`)) {
             const newProducts = state.products.filter(p => !selectedIds.has(p.id));
             dispatch({ type: 'REPLACE_COLLECTION', payload: { storeName: 'products', data: newProducts } });
-            
+
             showToast(`${selectedIds.size} products deleted.`);
             setSelectedIds(new Set());
             setIsSelectionMode(false);
@@ -244,9 +248,9 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     };
 
     const handleExportCSV = () => {
-        const headers = ['ID', 'Name', 'Category', 'Quantity', 'Purchase Price', 'Sale Price', 'GST %', 'Description'];
-        const rows = state.products.map(p => 
-            `"${p.id}","${p.name}","${p.category || ''}",${p.quantity},${p.purchasePrice},${p.salePrice},${p.gstPercent},"${p.description || ''}"`
+        const headers = ['ID', 'Name', 'Category', 'Quantity', 'Purchase Price', 'Wholesale Price', 'Sale Price', 'GST %', 'Description'];
+        const rows = state.products.map(p =>
+            `"${p.id}","${p.name}","${p.category || ''}",${p.quantity},${p.purchasePrice},${p.wholesalePrice || ''},${p.salePrice},${p.gstPercent},"${p.description || ''}"`
         );
         const csvContent = [headers.join(','), ...rows].join('\n');
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -280,9 +284,9 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
             try {
                 // Check if we can share files
                 if (files.length > 0 && navigator.canShare({ files })) {
-                     await navigator.share({
+                    await navigator.share({
                         files: files,
-                        text: text, 
+                        text: text,
                         title: 'Catalog'
                     });
                     return; // Success
@@ -329,7 +333,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
         if (e.target.files && e.target.files.length > 0 && editedProduct) {
             const newImages: string[] = [];
             const files = e.target.files;
-            
+
             for (let i = 0; i < files.length; i++) {
                 try {
                     const file = files[i];
@@ -341,10 +345,10 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                     console.error("Image upload failed", err);
                 }
             }
-            
+
             // If primary image is empty, use first new image
             let updatedProduct = { ...editedProduct };
-            
+
             if (!updatedProduct.image && newImages.length > 0) {
                 updatedProduct.image = newImages[0];
                 // Add rest to additional
@@ -356,7 +360,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                 const currentAdditional: string[] = updatedProduct.additionalImages || [];
                 updatedProduct.additionalImages = [...currentAdditional, ...newImages];
             }
-            
+
             setEditedProduct(updatedProduct);
         }
     };
@@ -365,9 +369,9 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
         if (!editedProduct) return;
         const currentMain = editedProduct.image;
         const otherImages = editedProduct.additionalImages?.filter(i => i !== img) || [];
-        
+
         if (currentMain && currentMain !== img) otherImages.push(currentMain);
-        
+
         setEditedProduct({
             ...editedProduct,
             image: img,
@@ -402,9 +406,9 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
 
     const handleMultiShare = async () => {
         if (!editedProduct) return;
-        
-        const imagesToShare = selectedShareImages.size > 0 
-            ? Array.from(selectedShareImages) 
+
+        const imagesToShare = selectedShareImages.size > 0
+            ? Array.from(selectedShareImages)
             : [editedProduct.image].filter(Boolean) as string[];
 
         if (imagesToShare.length === 0) {
@@ -419,14 +423,14 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
 
         if (navigator.canShare && navigator.share) {
             try {
-                const files = imagesToShare.map((img, idx) => 
+                const files = imagesToShare.map((img, idx) =>
                     dataURLtoFile(img as string, `prod_${editedProduct.id}_${idx}.jpg`)
                 );
-                
+
                 if (navigator.canShare({ files })) {
                     shareData.files = files;
                 }
-                
+
                 await navigator.share(shareData);
                 // Exit select mode on success
                 setIsShareSelectMode(false);
@@ -445,29 +449,29 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
         const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
         window.open(url, '_blank');
     };
-    
+
     // AI Description Generation
     const handleAIGenerateDescription = async () => {
         if (!editedProduct || !editedProduct.name) {
             showToast("Product Name is required to generate description.", 'error');
             return;
         }
-        
+
         setIsGeneratingDesc(true);
         try {
             // Fix: Cast process.env to any to avoid type errors
             const apiKey = (process.env as any).API_KEY || localStorage.getItem('gemini_api_key') || '';
-            
+
             if (!apiKey) throw new Error("API Key not available");
-            
+
             const ai = new GoogleGenAI({ apiKey });
             const prompt = `Write a professional and catchy 2-sentence sales description for a product named "${editedProduct.name}" in category "${editedProduct.category || 'General'}". The description should highlight quality and value. Keep it under 50 words.`;
-            
+
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: prompt
             });
-            
+
             const text = response.text;
             if (text) {
                 setEditedProduct(prev => prev ? ({ ...prev, description: text }) : null);
@@ -492,7 +496,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
         try {
             // Fix: Cast process.env to any to avoid type errors
             const apiKey = (process.env as any).API_KEY || localStorage.getItem('gemini_api_key') || '';
-            
+
             if (!apiKey) throw new Error("API Key not available");
 
             const ai = new GoogleGenAI({ apiKey });
@@ -535,21 +539,21 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     // Render Logic for Detail View
     if (selectedProduct && editedProduct) {
         return (
-            <div 
+            <div
                 ref={detailContainerRef}
                 className="fixed inset-0 w-full h-full z-[5000] bg-white dark:bg-slate-900 flex flex-col md:flex-row overflow-hidden animate-fade-in-fast"
             >
                 {isBarcodeModalOpen && (
-                    <BarcodeModal 
-                        isOpen={isBarcodeModalOpen} 
-                        onClose={() => setIsBarcodeModalOpen(false)} 
-                        product={selectedProduct} 
-                        businessName={state.profile?.name || ''} 
+                    <BarcodeModal
+                        isOpen={isBarcodeModalOpen}
+                        onClose={() => setIsBarcodeModalOpen(false)}
+                        product={selectedProduct}
+                        businessName={state.profile?.name || ''}
                     />
                 )}
                 {/* Close Button */}
-                <button 
-                    onClick={() => { setSelectedProduct(null); setIsEditing(false); setIsShareSelectMode(false); }} 
+                <button
+                    onClick={() => { setSelectedProduct(null); setIsEditing(false); setIsShareSelectMode(false); }}
                     className="absolute top-4 left-4 z-[5010] p-2 bg-black/30 hover:bg-black/50 backdrop-blur-md text-white rounded-full transition-all shadow-lg"
                 >
                     <ArrowLeft size={24} />
@@ -562,8 +566,8 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                             <Save size={18} className="mr-2" /> Save
                         </Button>
                     ) : (
-                        <button 
-                            onClick={() => setIsEditing(true)} 
+                        <button
+                            onClick={() => setIsEditing(true)}
                             className="p-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-full shadow-lg hover:scale-105 transition-transform"
                         >
                             <Edit size={20} />
@@ -572,15 +576,15 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                 </div>
 
                 {/* Left Side (Image Gallery) - Resizable */}
-                <div 
+                <div
                     className={`relative flex flex-col shrink-0 shadow-xl z-10 bg-gray-100 dark:bg-slate-950 ${isResizing ? '' : 'transition-[flex-basis] duration-200 ease-out'}`}
                     style={{ flexBasis: `${detailSplitRatio * 100}%` }}
                 >
                     <div className="flex-1 relative w-full h-full flex items-center justify-center p-4 overflow-hidden">
                         {editedProduct.image ? (
-                            <img 
-                                src={editedProduct.image} 
-                                alt={editedProduct.name} 
+                            <img
+                                src={editedProduct.image}
+                                alt={editedProduct.name}
                                 className="max-w-full max-h-full object-contain drop-shadow-xl"
                             />
                         ) : (
@@ -589,12 +593,12 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                 <span className="mt-2 text-sm">No Image</span>
                             </div>
                         )}
-                        
+
                         {/* Share Overlay */}
                         {!isEditing && (
                             <div className="absolute bottom-4 right-4 flex gap-2 z-20">
                                 {isShareSelectMode ? (
-                                    <button 
+                                    <button
                                         onClick={handleMultiShare}
                                         disabled={selectedShareImages.size === 0}
                                         className="flex items-center gap-2 px-4 py-2 bg-blue-600 disabled:bg-gray-400 text-white rounded-full shadow-lg hover:scale-105 transition-all font-bold text-sm"
@@ -616,10 +620,10 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                 )}
                             </div>
                         )}
-                        
+
                         {/* Cancel Selection Mode */}
                         {isShareSelectMode && (
-                            <button 
+                            <button
                                 onClick={() => { setIsShareSelectMode(false); setSelectedShareImages(new Set()); }}
                                 className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/50 text-white px-3 py-1 rounded-full text-xs backdrop-blur-md hover:bg-black/70 transition-colors z-20"
                             >
@@ -631,7 +635,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                     {/* Thumbnails */}
                     <div className="h-20 sm:h-24 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-2 flex gap-2 overflow-x-auto border-t dark:border-slate-800 shrink-0 custom-scrollbar z-20">
                         {isEditing && (
-                            <div 
+                            <div
                                 onClick={() => fileInputRef.current?.click()}
                                 className="w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-lg flex flex-col items-center justify-center text-gray-500 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800"
                             >
@@ -645,18 +649,17 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                             const isMain = editedProduct.image === img;
                             return (
                                 <div key={idx} className="relative group w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 cursor-pointer transition-transform active:scale-95">
-                                    <img 
-                                        src={img} 
-                                        className={`w-full h-full object-cover rounded-lg border-2 ${
-                                            isShareSelectMode 
-                                                ? (isSelected ? 'border-blue-500 opacity-100' : 'border-transparent opacity-60 hover:opacity-100')
-                                                : (isMain ? 'border-primary' : 'border-transparent')
-                                        }`} 
+                                    <img
+                                        src={img}
+                                        className={`w-full h-full object-cover rounded-lg border-2 ${isShareSelectMode
+                                            ? (isSelected ? 'border-blue-500 opacity-100' : 'border-transparent opacity-60 hover:opacity-100')
+                                            : (isMain ? 'border-primary' : 'border-transparent')
+                                            }`}
                                         onClick={() => isShareSelectMode ? toggleShareSelection(img!) : setMainImage(img!)}
                                     />
-                                    
+
                                     {isShareSelectMode && (
-                                        <div 
+                                        <div
                                             className={`absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center border shadow-sm ${isSelected ? 'bg-blue-500 border-blue-500' : 'bg-white/50 border-gray-400'}`}
                                             onClick={(e) => { e.stopPropagation(); toggleShareSelection(img!); }}
                                         >
@@ -665,7 +668,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                     )}
 
                                     {isEditing && (
-                                        <button 
+                                        <button
                                             onClick={(e) => { e.stopPropagation(); removeImage(img!); }}
                                             className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
                                         >
@@ -685,10 +688,10 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                     onMouseDown={startDetailResize}
                     onTouchStart={startDetailResize}
                 >
-                     <div className="w-12 h-1 md:w-1 md:h-12 bg-slate-300 dark:bg-slate-600 rounded-full" />
-                     <div className="absolute flex items-center justify-center pointer-events-none text-slate-400 opacity-50">
+                    <div className="w-12 h-1 md:w-1 md:h-12 bg-slate-300 dark:bg-slate-600 rounded-full" />
+                    <div className="absolute flex items-center justify-center pointer-events-none text-slate-400 opacity-50">
                         {window.innerWidth >= 768 ? <GripVertical size={16} /> : <GripHorizontal size={16} />}
-                     </div>
+                    </div>
                 </div>
 
                 {/* Right Side (Details) - Flex-1 */}
@@ -698,10 +701,10 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                             <div className="space-y-4">
                                 <div>
                                     <label className="text-xs font-bold text-gray-500 uppercase">Product Name</label>
-                                    <input 
-                                        type="text" 
-                                        value={editedProduct.name} 
-                                        onChange={e => setEditedProduct({...editedProduct, name: e.target.value})}
+                                    <input
+                                        type="text"
+                                        value={editedProduct.name}
+                                        onChange={e => setEditedProduct({ ...editedProduct, name: e.target.value })}
                                         className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white"
                                     />
                                 </div>
@@ -709,7 +712,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                     <div>
                                         <div className="flex justify-between items-center mb-1">
                                             <label className="text-xs font-bold text-gray-500 uppercase">Sale Price</label>
-                                            <button 
+                                            <button
                                                 onClick={handleAIGeneratePrice}
                                                 disabled={isSuggestingPrice || !editedProduct.purchasePrice}
                                                 className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1 hover:underline disabled:opacity-50"
@@ -719,31 +722,43 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                                 Magic Price
                                             </button>
                                         </div>
-                                        <input 
-                                            type="number" 
-                                            value={editedProduct.salePrice} 
-                                            onChange={e => setEditedProduct({...editedProduct, salePrice: parseFloat(e.target.value) || 0})}
-                                            className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white"
+                                        <Input
+                                            type="number"
+                                            value={editedProduct.salePrice}
+                                            onChange={e => setEditedProduct({ ...editedProduct, salePrice: parseFloat(e.target.value) })}
+                                            className="pl-8 font-bold text-lg" // Larger text
                                         />
-                                        {/* Margin Display */}
-                                        <div className={`text-xs mt-1 font-bold ${marginColor}`}>
+                                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full mt-1 inline-block ${marginColor === 'text-red-500' ? 'bg-red-50' : marginColor === 'text-green-600' ? 'bg-green-50' : 'bg-amber-50'} ${marginColor}`}>
                                             Margin: {marginPercent.toFixed(1)}%
-                                        </div>
+                                        </span>
                                     </div>
                                     <div>
                                         <label className="text-xs font-bold text-gray-500 uppercase">Stock Qty</label>
-                                        <input 
-                                            type="number" 
-                                            value={editedProduct.quantity} 
-                                            onChange={e => setEditedProduct({...editedProduct, quantity: parseFloat(e.target.value) || 0})}
+                                        <input
+                                            type="number"
+                                            value={editedProduct.quantity}
+                                            onChange={e => setEditedProduct({ ...editedProduct, quantity: parseFloat(e.target.value) || 0 })}
                                             className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white font-bold"
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Wholesale Price</label>
+                                    <div className="relative">
+                                        <IndianRupee size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                        <Input
+                                            type="number"
+                                            placeholder="Optional"
+                                            value={editedProduct.wholesalePrice || ''}
+                                            onChange={e => setEditedProduct({ ...editedProduct, wholesalePrice: parseFloat(e.target.value) })}
+                                            className="pl-8 border-indigo-200 dark:border-indigo-800 focus:ring-indigo-500"
                                         />
                                     </div>
                                 </div>
                                 <div>
                                     <div className="flex justify-between items-center mb-1">
                                         <label className="text-xs font-bold text-gray-500 uppercase">Description</label>
-                                        <button 
+                                        <button
                                             onClick={handleAIGenerateDescription}
                                             disabled={isGeneratingDesc}
                                             className="text-xs text-indigo-600 dark:text-indigo-400 flex items-center gap-1 hover:underline disabled:opacity-50"
@@ -752,10 +767,10 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                             {isGeneratingDesc ? 'Writing...' : 'Magic Write'}
                                         </button>
                                     </div>
-                                    <textarea 
+                                    <textarea
                                         rows={4}
-                                        value={editedProduct.description || ''} 
-                                        onChange={e => setEditedProduct({...editedProduct, description: e.target.value})}
+                                        value={editedProduct.description || ''}
+                                        onChange={e => setEditedProduct({ ...editedProduct, description: e.target.value })}
                                         placeholder="Add product details, material, size..."
                                         className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white resize-none"
                                     />
@@ -763,19 +778,19 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="text-xs font-bold text-gray-500 uppercase">Category</label>
-                                        <input 
-                                            type="text" 
-                                            value={editedProduct.category || ''} 
-                                            onChange={e => setEditedProduct({...editedProduct, category: e.target.value})}
+                                        <input
+                                            type="text"
+                                            value={editedProduct.category || ''}
+                                            onChange={e => setEditedProduct({ ...editedProduct, category: e.target.value })}
                                             className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white"
                                         />
                                     </div>
                                     <div>
                                         <label className="text-xs font-bold text-gray-500 uppercase">Purchase Price</label>
-                                        <input 
-                                            type="number" 
-                                            value={editedProduct.purchasePrice} 
-                                            onChange={e => setEditedProduct({...editedProduct, purchasePrice: parseFloat(e.target.value) || 0})}
+                                        <input
+                                            type="number"
+                                            value={editedProduct.purchasePrice}
+                                            onChange={e => setEditedProduct({ ...editedProduct, purchasePrice: parseFloat(e.target.value) || 0 })}
                                             className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white"
                                         />
                                     </div>
@@ -783,10 +798,10 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="text-xs font-bold text-gray-500 uppercase">GST %</label>
-                                        <input 
-                                            type="number" 
-                                            value={editedProduct.gstPercent} 
-                                            onChange={e => setEditedProduct({...editedProduct, gstPercent: parseFloat(e.target.value) || 0})}
+                                        <input
+                                            type="number"
+                                            value={editedProduct.gstPercent}
+                                            onChange={e => setEditedProduct({ ...editedProduct, gstPercent: parseFloat(e.target.value) || 0 })}
                                             className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white"
                                         />
                                     </div>
@@ -829,8 +844,8 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                         <button onClick={handleDuplicateProduct} className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-800 border dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors text-sm font-medium text-primary">
                                             <Copy size={16} /> Duplicate
                                         </button>
-                                        <button 
-                                            onClick={() => setHistoryProduct(editedProduct)} 
+                                        <button
+                                            onClick={() => setHistoryProduct(editedProduct)}
                                             className="flex items-center gap-2 px-3 py-2 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors text-sm font-medium text-indigo-700 dark:text-indigo-300"
                                         >
                                             <History size={16} /> View Flow
@@ -850,23 +865,23 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
             {isStockAdjustOpen && (
                 <StockAdjustmentModal isOpen={isStockAdjustOpen} onClose={() => setIsStockAdjustOpen(false)} />
             )}
-            
+
             {/* Product History Modal - Handles both single and global */}
-            <ProductHistoryModal 
-                isOpen={!!historyProduct || isGlobalHistoryOpen} 
-                onClose={() => { setHistoryProduct(null); setIsGlobalHistoryOpen(false); }} 
-                product={historyProduct || undefined} 
+            <ProductHistoryModal
+                isOpen={!!historyProduct || isGlobalHistoryOpen}
+                onClose={() => { setHistoryProduct(null); setIsGlobalHistoryOpen(false); }}
+                product={historyProduct || undefined}
             />
-            
+
             {isBarcodeModalOpen && selectedProduct && (
-                <BarcodeModal 
-                    isOpen={isBarcodeModalOpen} 
-                    onClose={() => setIsBarcodeModalOpen(false)} 
-                    product={selectedProduct} 
-                    businessName={state.profile?.name || ''} 
+                <BarcodeModal
+                    isOpen={isBarcodeModalOpen}
+                    onClose={() => setIsBarcodeModalOpen(false)}
+                    product={selectedProduct}
+                    businessName={state.profile?.name || ''}
                 />
             )}
-            
+
             {isBatchBarcodeModalOpen && (
                 <BatchBarcodeModal
                     isOpen={isBatchBarcodeModalOpen}
@@ -885,8 +900,8 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
             )}
 
             {isScannerOpen && (
-                <QRScannerModal 
-                    onClose={() => setIsScannerOpen(false)} 
+                <QRScannerModal
+                    onClose={() => setIsScannerOpen(false)}
                     onScanned={(code) => {
                         setIsScannerOpen(false);
                         const prod = state.products.find(p => p.id === code);
@@ -896,7 +911,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                         } else {
                             showToast("Product not found.", "error");
                         }
-                    }} 
+                    }}
                 />
             )}
 
@@ -921,17 +936,17 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                 <div className="flex items-center gap-3">
                     <h1 className="text-2xl font-bold text-primary">Products</h1>
                 </div>
-                
+
                 <div className="flex gap-2 w-full sm:w-auto overflow-x-auto">
                     {/* View Toggle */}
                     <div className="flex bg-gray-100 dark:bg-slate-800 rounded-lg p-1">
-                        <button 
+                        <button
                             onClick={() => setViewMode('list')}
                             className={`p-2 rounded-md transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-600 shadow text-primary' : 'text-gray-500'}`}
                         >
                             <List size={18} />
                         </button>
-                        <button 
+                        <button
                             onClick={() => setViewMode('grid')}
                             className={`p-2 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-slate-600 shadow text-primary' : 'text-gray-500'}`}
                         >
@@ -1004,9 +1019,9 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                 <Button onClick={() => setIsScannerOpen(true)} variant="secondary" className="px-3">
                     <QrCode size={20} />
                 </Button>
-                <Button 
-                    onClick={() => setIsSelectionMode(!isSelectionMode)} 
-                    variant="secondary" 
+                <Button
+                    onClick={() => setIsSelectionMode(!isSelectionMode)}
+                    variant="secondary"
                     className={`px-3 ${isSelectionMode ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' : ''}`}
                 >
                     <CheckSquare size={20} />
@@ -1017,7 +1032,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
             {viewMode === 'list' && (
                 <div className="space-y-3 pb-20">
                     {filteredProducts.map((product, index) => (
-                        <div 
+                        <div
                             key={product.id}
                             onClick={() => {
                                 if (isSelectionMode) toggleSelection(product.id);
@@ -1026,11 +1041,10 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                     setEditedProduct(product);
                                 }
                             }}
-                            className={`flex items-center gap-4 p-3 bg-white dark:bg-slate-800 rounded-xl border transition-all cursor-pointer group ${
-                                selectedIds.has(product.id) 
-                                    ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' 
-                                    : 'border-transparent hover:border-gray-300 dark:hover:border-slate-600 shadow-sm hover:shadow-md'
-                            }`}
+                            className={`flex items-center gap-4 p-3 bg-white dark:bg-slate-800 rounded-xl border transition-all cursor-pointer group ${selectedIds.has(product.id)
+                                ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20'
+                                : 'border-transparent hover:border-gray-300 dark:hover:border-slate-600 shadow-sm hover:shadow-md'
+                                }`}
                         >
                             {/* Checkbox (Visible in Selection Mode) */}
                             {isSelectionMode && (
@@ -1062,7 +1076,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                 <p className={`text-xs font-medium ${product.quantity < 5 ? 'text-red-500' : 'text-gray-500'}`}>
                                     {product.quantity} in stock
                                 </p>
-                                <button 
+                                <button
                                     onClick={(e) => { e.stopPropagation(); setHistoryProduct(product); }}
                                     className="mt-1 text-indigo-600 dark:text-indigo-400 text-xs hover:underline"
                                 >
@@ -1078,7 +1092,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
             {viewMode === 'grid' && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 pb-20">
                     {filteredProducts.map((product) => (
-                        <div 
+                        <div
                             key={product.id}
                             onClick={() => {
                                 if (isSelectionMode) toggleSelection(product.id);
@@ -1087,11 +1101,10 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                     setEditedProduct(product);
                                 }
                             }}
-                            className={`bg-white dark:bg-slate-800 rounded-xl overflow-hidden shadow-sm border transition-all cursor-pointer relative group ${
-                                selectedIds.has(product.id) 
-                                    ? 'ring-2 ring-indigo-500' 
-                                    : 'hover:shadow-md hover:-translate-y-1'
-                            }`}
+                            className={`bg-white dark:bg-slate-800 rounded-xl overflow-hidden shadow-sm border transition-all cursor-pointer relative group ${selectedIds.has(product.id)
+                                ? 'ring-2 ring-indigo-500'
+                                : 'hover:shadow-md hover:-translate-y-1'
+                                }`}
                         >
                             {/* Selection Overlay */}
                             {isSelectionMode && (
@@ -1104,7 +1117,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
 
                             {/* History Button Overlay */}
                             {!isSelectionMode && (
-                                <button 
+                                <button
                                     onClick={(e) => { e.stopPropagation(); setHistoryProduct(product); }}
                                     className="absolute top-2 right-2 z-10 p-1.5 bg-white/80 dark:bg-black/50 backdrop-blur-sm rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white hover:text-indigo-600 dark:hover:text-indigo-400 text-gray-600"
                                     title="View History"
@@ -1143,9 +1156,9 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
             )}
 
             {filteredProducts.length === 0 && (
-                <EmptyState 
-                    icon={Package} 
-                    title="No Products Found" 
+                <EmptyState
+                    icon={Package}
+                    title="No Products Found"
                     description={searchTerm ? "Try adjusting your search terms." : "Start by adding your first product."}
                     action={!searchTerm && (
                         <Button onClick={() => {

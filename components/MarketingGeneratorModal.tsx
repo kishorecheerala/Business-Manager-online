@@ -34,7 +34,7 @@ const MarketingGeneratorModal: React.FC<MarketingGeneratorModalProps> = ({ isOpe
         }
         return !!process.env.API_KEY || !!localStorage.getItem('gemini_api_key');
     };
-    
+
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             try {
@@ -51,25 +51,25 @@ const MarketingGeneratorModal: React.FC<MarketingGeneratorModalProps> = ({ isOpe
             showToast("Offline. Cannot generate.", 'error');
             return;
         }
-        
+
         if (mode === 'REMIX' && !uploadedImage) {
-             showToast("Please upload a product photo first.", 'info');
-             return;
+            showToast("Please upload a product photo first.", 'info');
+            return;
         }
 
         setIsGenerating(true);
         setResultUrl(null);
-        
+
         try {
             const hasKey = await checkApiKey();
             if (!hasKey && !(window as any).aistudio) {
-                 showToast("API Key required. Please configure in Settings.", 'error');
-                 setIsGenerating(false);
-                 return;
+                showToast("API Key required. Please configure in Settings.", 'error');
+                setIsGenerating(false);
+                return;
             }
 
             const apiKey = process.env.API_KEY || localStorage.getItem('gemini_api_key');
-            const ai = new GoogleGenAI({ apiKey: apiKey || 'dummy' }); 
+            const ai = new GoogleGenAI({ apiKey: apiKey || 'dummy' });
 
             if (mode === 'IMAGE') {
                 // Use Imagen for pure generation
@@ -82,7 +82,7 @@ const MarketingGeneratorModal: React.FC<MarketingGeneratorModalProps> = ({ isOpe
                         outputMimeType: 'image/jpeg'
                     }
                 });
-                
+
                 if (response.generatedImages?.[0]?.image?.imageBytes) {
                     const base64 = response.generatedImages[0].image.imageBytes;
                     setResultUrl(`data:image/jpeg;base64,${base64}`);
@@ -92,10 +92,10 @@ const MarketingGeneratorModal: React.FC<MarketingGeneratorModalProps> = ({ isOpe
                 // We send the image and the prompt instruction
                 const parts = [
                     {
-                         inlineData: {
-                             mimeType: 'image/jpeg',
-                             data: uploadedImage!.split(',')[1]
-                         }
+                        inlineData: {
+                            mimeType: 'image/jpeg',
+                            data: uploadedImage!.split(',')[1]
+                        }
                     },
                     {
                         text: `Edit this image: ${prompt}. Keep the main product intact but change the background/lighting as described. Return the edited image.`
@@ -106,7 +106,7 @@ const MarketingGeneratorModal: React.FC<MarketingGeneratorModalProps> = ({ isOpe
                     model: 'gemini-2.5-flash-image',
                     contents: { parts }
                 });
-                
+
                 // Find image part in response
                 let foundImage = false;
                 if (response.candidates?.[0]?.content?.parts) {
@@ -133,12 +133,12 @@ const MarketingGeneratorModal: React.FC<MarketingGeneratorModalProps> = ({ isOpe
                         aspectRatio: '16:9'
                     }
                 });
-                
+
                 while (!operation.done) {
                     await new Promise(resolve => setTimeout(resolve, 5000));
-                    operation = await ai.operations.getVideosOperation({operation: operation});
+                    operation = await ai.operations.getVideosOperation({ operation: operation });
                 }
-                
+
                 const videoUri = operation.response?.generatedVideos?.[0]?.video?.uri;
                 if (videoUri) {
                     try {
@@ -166,14 +166,14 @@ const MarketingGeneratorModal: React.FC<MarketingGeneratorModalProps> = ({ isOpe
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[99999] p-4 animate-fade-in-fast backdrop-blur-sm">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[80] p-4 animate-fade-in-fast backdrop-blur-sm">
             <Card className="w-full max-w-lg p-0 overflow-hidden animate-scale-in border-none shadow-2xl bg-white dark:bg-slate-900">
                 <div className="p-4 border-b dark:border-slate-800 flex justify-between items-center bg-gradient-to-r from-pink-600 to-purple-600 text-white">
                     <div className="flex items-center gap-2">
                         <Wand2 size={20} />
                         <h2 className="font-bold text-lg">Marketing Studio</h2>
                     </div>
-                    <button onClick={onClose} className="p-1 hover:bg-white/20 rounded-full transition-colors"><X size={20}/></button>
+                    <button onClick={onClose} className="p-1 hover:bg-white/20 rounded-full transition-colors"><X size={20} /></button>
                 </div>
 
                 <div className="p-5 space-y-5">
@@ -181,19 +181,19 @@ const MarketingGeneratorModal: React.FC<MarketingGeneratorModalProps> = ({ isOpe
                         <>
                             {/* Mode Selector */}
                             <div className="flex bg-gray-100 dark:bg-slate-800 p-1 rounded-lg">
-                                <button 
+                                <button
                                     onClick={() => { setMode('IMAGE'); setResultUrl(null); }}
                                     className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-xs sm:text-sm font-semibold transition-all ${mode === 'IMAGE' ? 'bg-white dark:bg-slate-700 shadow text-pink-600 dark:text-pink-400' : 'text-gray-500'}`}
                                 >
                                     <ImageIcon size={14} /> Create
                                 </button>
-                                <button 
+                                <button
                                     onClick={() => { setMode('REMIX'); setResultUrl(null); }}
                                     className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-xs sm:text-sm font-semibold transition-all ${mode === 'REMIX' ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400' : 'text-gray-500'}`}
                                 >
                                     <RefreshCw size={14} /> Remix
                                 </button>
-                                <button 
+                                <button
                                     onClick={() => { setMode('VIDEO'); setResultUrl(null); }}
                                     className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-xs sm:text-sm font-semibold transition-all ${mode === 'VIDEO' ? 'bg-white dark:bg-slate-700 shadow text-purple-600 dark:text-purple-400' : 'text-gray-500'}`}
                                 >
@@ -243,7 +243,7 @@ const MarketingGeneratorModal: React.FC<MarketingGeneratorModalProps> = ({ isOpe
                                     <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">
                                         {mode === 'REMIX' ? 'Edit Instructions' : 'Creative Prompt'}
                                     </label>
-                                    <textarea 
+                                    <textarea
                                         value={prompt}
                                         onChange={(e) => setPrompt(e.target.value)}
                                         placeholder={mode === 'REMIX' ? "Place on a wooden table, cinematic lighting..." : "Describe the image..."}
@@ -251,19 +251,19 @@ const MarketingGeneratorModal: React.FC<MarketingGeneratorModalProps> = ({ isOpe
                                         rows={3}
                                     />
                                 </div>
-                                
+
                                 <div className="flex gap-3">
-                                    <Button 
-                                        onClick={handleGenerate} 
+                                    <Button
+                                        onClick={handleGenerate}
                                         disabled={isGenerating}
                                         className={`flex-1 py-3 text-white shadow-lg ${mode === 'IMAGE' ? 'bg-pink-600 hover:bg-pink-700' : mode === 'REMIX' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-purple-600 hover:bg-purple-700'}`}
                                     >
                                         {isGenerating ? 'Working Magic...' : 'Generate'}
                                     </Button>
-                                    
+
                                     {resultUrl && (
-                                        <a 
-                                            href={resultUrl} 
+                                        <a
+                                            href={resultUrl}
                                             download={`marketing-${mode.toLowerCase()}-${Date.now()}.${mode === 'VIDEO' ? 'mp4' : 'jpg'}`}
                                             className="px-4 flex items-center justify-center bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 rounded-lg text-gray-700 dark:text-gray-200 transition-colors"
                                         >

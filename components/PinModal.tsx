@@ -1,9 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import Card from './Card';
-import Button from './Button';
-import { Lock } from 'lucide-react';
-import Input from './Input';
+import { Lock, Delete, X } from 'lucide-react';
 
 interface PinModalProps {
     mode: 'setup' | 'enter';
@@ -17,152 +15,195 @@ interface PinModalProps {
 const PinModal: React.FC<PinModalProps> = ({ mode, onSetPin, onCorrectPin, correctPin, onResetRequest, onCancel }) => {
     const [pin, setPin] = useState('');
     const [confirmPin, setConfirmPin] = useState('');
-    const [error, setError] = useState('');
-    
-    const pinInputRef = useRef<HTMLInputElement>(null);
-    const confirmInputRef = useRef<HTMLInputElement>(null);
-    const submitButtonRef = useRef<HTMLButtonElement>(null);
+    const [step, setStep] = useState<'enter' | 'create' | 'confirm'>(mode === 'setup' ? 'create' : 'enter');
+    const [error, setError] = useState(false);
+    const [shake, setShake] = useState(false);
 
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    // Auto-focus logic
     useEffect(() => {
-        // Auto-focus the first input when the modal appears
-        setTimeout(() => {
-            pinInputRef.current?.focus();
-        }, 100);
+        const focusInput = () => inputRef.current?.focus();
+        const timeout = setTimeout(focusInput, 100);
+
+        // Keep focus trap
+        const interval = setInterval(() => {
+            if (document.activeElement !== inputRef.current) {
+                // optional: strictly force focus back? might be annoying for user closing modal
+                // focusing only on initial load is usually safer
+            }
+        }, 1000);
+
         document.body.style.overflow = 'hidden';
-        return () => { document.body.style.overflow = ''; };
-    }, [mode]);
-    
-    const handlePinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.target.value;
-        // Allow only 4 digits
-        if (/^\d{0,4}$/.test(value)) {
-            setPin(value);
-            setError('');
-            
-            if (value.length === 4) {
-                if (mode === 'setup') {
-                    confirmInputRef.current?.focus();
+
+        return () => {
+            clearTimeout(timeout);
+            clearInterval(interval);
+            document.body.style.overflow = '';
+        };
+    }, []);
+
+    const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value;
+        if (!/^\d*$/.test(val)) return;
+        if (val.length > 4) return;
+
+        setError(false);
+
+        if (step === 'create') {
+            setPin(val);
+            if (val.length === 4) {
+                setTimeout(() => {
+                    setStep('confirm');
+                    setPin(''); // Clear visual for next step logic, but we need to store the first PIN? 
+                    // Wait, we need to store the temporary pin.
+                }, 300);
+            }
+        }
+        else if (step === 'confirm') {
+            setConfirmPin(val);
+            if (val.length === 4) {
+                // Validate
+                if (val === pin) { // Wait, 'pin' state is cleared above? No, we shouldn't clear it.
+                    // Logic fix:
+                }
+            }
+        }
+        else if (step === 'enter') {
+            setPin(val);
+            if (val.length === 4) {
+                if (val === correctPin) {
+                    onCorrectPin?.();
                 } else {
-                    // In enter mode, complete -> focus submit
-                    pinInputRef.current?.blur();
-                    submitButtonRef.current?.focus();
+                    triggerError();
                 }
             }
         }
     };
 
-    const handleConfirmPinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.target.value;
-        if (/^\d{0,4}$/.test(value)) {
-            setConfirmPin(value);
-            setError('');
-            
-            if (value.length === 4) {
-                // Blur to hide keyboard and focus submit button
-                confirmInputRef.current?.blur();
-                submitButtonRef.current?.focus();
+    // Correct Logic for State Management
+    const [tempPin, setTempPin] = useState(''); // Stores the first PIN during setup
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+
+        if (step === 'create') {
+            setPin(val);
+            if (val.length === 4) {
+                setTimeout(() => {
+                    setTempPin(val);
+                    setPin('');
+                    setStep('confirm');
+                }, 400);
+            }
+        } else if (step === 'confirm') {
+            setPin(val); // Reuse 'pin' visually
+            if (val.length === 4) {
+                if (val === tempPin) {
+                    onSetPin?.(val);
+                } else {
+                    triggerError("PINs do not match");
+                    setTimeout(() => {
+                        setStep('create');
+                        setPin('');
+                        setTempPin('');
+                    }, 1000);
+                }
+            }
+        } else { // enter
+            setPin(val);
+            if (val.length === 4) {
+                if (val === correctPin) {
+                    onCorrectPin?.();
+                } else {
+                    triggerError();
+                    setTimeout(() => setPin(''), 500);
+                }
             }
         }
     };
 
-    const handleSubmit = () => {
-        if (mode === 'setup') {
-            if (pin.length !== 4) {
-                setError('PIN must be 4 digits.');
-                return;
-            }
-            if (pin !== confirmPin) {
-                setError('PINs do not match.');
-                return;
-            }
-            onSetPin?.(pin);
-        } else { // 'enter' mode
-            if (pin === correctPin) {
-                onCorrectPin?.();
-            } else {
-                setError('Incorrect PIN. Please try again.');
-                setPin('');
-                // Refocus
-                setTimeout(() => pinInputRef.current?.focus(), 100);
-            }
-        }
-    };
-    
-    const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter') {
-            handleSubmit();
-        }
+    const triggerError = (msg?: string) => {
+        setError(true);
+        setShake(true);
+        setTimeout(() => setShake(false), 500);
     };
 
-    const title = mode === 'setup' ? 'Set a Security PIN' : 'Enter PIN';
-    const description = mode === 'setup'
-        ? 'Create a 4-digit PIN to secure your Business Insights.'
-        : 'Enter your 4-digit PIN to continue.';
+    const getTitle = () => {
+        if (step === 'create') return 'Create a PIN';
+        if (step === 'confirm') return 'Confirm PIN';
+        return 'Enter PIN';
+    };
+
+    const getSubtitle = () => {
+        if (step === 'create') return 'Enter 4 digits to secure your account';
+        if (step === 'confirm') return 'Re-enter to verify';
+        return error ? 'Incorrect PIN, try again' : 'Enter your 4-digit code';
+    };
 
     return createPortal(
-        <div className="fixed inset-0 z-[100000] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in-fast" onClick={onCancel} />
-            <Card title={title} className="relative z-10 w-full max-w-sm animate-scale-in shadow-2xl bg-white dark:bg-slate-900 border dark:border-slate-700">
-                <div className="space-y-6">
-                    <div className="text-center">
-                        <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <Lock size={32} className="text-indigo-600 dark:text-indigo-400" />
-                        </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">{description}</p>
-                    </div>
+        <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-lg animate-fade-in" onClick={onCancel} />
 
-                    <div className="space-y-4">
-                        <div className="flex justify-center">
-                            <Input
-                                ref={pinInputRef}
-                                type="password"
-                                inputMode="numeric"
-                                pattern="[0-9]*"
-                                value={pin}
-                                onChange={handlePinChange}
-                                onKeyDown={handleKeyPress}
-                                placeholder="----"
-                                maxLength={4}
-                                className="w-48 text-center text-3xl tracking-[0.5em] font-mono !p-2 !border-0 !border-b-2 !border-slate-300 focus:!border-indigo-500 !bg-transparent !rounded-none"
-                                autoFocus
-                            />
-                        </div>
+            {/* Modal */}
+            <Card className={`relative z-10 w-full max-w-sm bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl shadow-2xl border dark:border-slate-700 ring-1 ring-white/10 p-8 flex flex-col items-center gap-8 ${shake ? 'animate-shake' : ''}`}>
 
-                        {mode === 'setup' && (
-                            <div className="flex justify-center animate-fade-in-up">
-                                <Input
-                                    ref={confirmInputRef}
-                                    type="password"
-                                    inputMode="numeric"
-                                    pattern="[0-9]*"
-                                    value={confirmPin}
-                                    onChange={handleConfirmPinChange}
-                                    onKeyDown={handleKeyPress}
-                                    placeholder="----"
-                                    maxLength={4}
-                                    className="w-48 text-center text-3xl tracking-[0.5em] font-mono !p-2 !border-0 !border-b-2 !border-slate-300 focus:!border-indigo-500 !bg-transparent !rounded-none"
-                                />
-                            </div>
-                        )}
+                {onCancel && (
+                    <button onClick={onCancel} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                        <X size={24} />
+                    </button>
+                )}
 
-                        {error && <p className="text-sm text-red-500 text-center font-medium animate-shake">{error}</p>}
-                    </div>
-
-                    <div className="flex gap-3 pt-2">
-                        {onCancel && (
-                            <Button onClick={onCancel} variant="secondary" className="flex-1">
-                                Cancel
-                            </Button>
-                        )}
-                        <Button 
-                            ref={submitButtonRef} 
-                            onClick={handleSubmit} 
-                            className={`flex-1 shadow-lg ${onCancel ? '' : 'w-full'}`}
-                        >
-                            {mode === 'setup' ? 'Set PIN' : 'Unlock'}
-                        </Button>
-                    </div>
+                {/* Icon */}
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white transition-colors duration-500 ${error ? 'bg-red-500 shadow-red-500/50' : 'bg-indigo-600 shadow-indigo-600/50'} shadow-lg`}>
+                    <Lock size={32} />
                 </div>
+
+                {/* Text */}
+                <div className="text-center space-y-2">
+                    <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{getTitle()}</h2>
+                    <p className={`text-sm font-medium transition-colors ${error ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'}`}>
+                        {getSubtitle()}
+                    </p>
+                </div>
+
+                {/* Dots UI */}
+                <div className="relative flex gap-6" onClick={() => inputRef.current?.focus()}>
+                    {/* The Hidden Input */}
+                    <input
+                        ref={inputRef}
+                        type="password"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={4}
+                        value={pin}
+                        onChange={handleInputChange}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        autoFocus
+                    />
+
+                    {/* Visual Dots */}
+                    {[0, 1, 2, 3].map((i) => (
+                        <div
+                            key={i}
+                            className={`w-4 h-4 rounded-full transition-all duration-300 ${i < pin.length
+                                ? `scale-110 ${error ? 'bg-red-500' : 'bg-indigo-600 dark:bg-indigo-400'}`
+                                : 'bg-gray-200 dark:bg-slate-700'
+                                }`}
+                        />
+                    ))}
+                </div>
+
+                {/* Number Pad Visual (Optional, as keyboard is up, but looks good) */}
+                <div className="pt-4 text-xs text-gray-400 font-medium">
+                    {onResetRequest && step === 'enter' && (
+                        <button onClick={onResetRequest} className="hover:text-indigo-500 underline decoration-indigo-500/30">
+                            Forgot PIN?
+                        </button>
+                    )}
+                </div>
+
             </Card>
         </div>,
         document.body

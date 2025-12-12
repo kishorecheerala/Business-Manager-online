@@ -10,21 +10,21 @@ export type StoreName = 'customers' | 'suppliers' | 'products' | 'sales' | 'purc
 const STORE_NAMES: StoreName[] = ['customers', 'suppliers', 'products', 'sales', 'purchases', 'returns', 'app_metadata', 'notifications', 'profile', 'audit_logs', 'expenses', 'quotes', 'custom_fonts', 'snapshots', 'trash'];
 
 interface BusinessManagerDB extends DBSchema {
-  customers: { key: string; value: Customer; };
-  suppliers: { key: string; value: Supplier; };
-  products: { key: string; value: Product; };
-  sales: { key: string; value: Sale; };
-  purchases: { key: string; value: Purchase; };
-  returns: { key: string; value: Return; };
-  app_metadata: { key: string; value: AppMetadata; };
-  notifications: { key: string; value: Notification; };
-  profile: { key: string; value: ProfileData; };
-  audit_logs: { key: string; value: AuditLogEntry; };
-  expenses: { key: string; value: Expense; };
-  quotes: { key: string; value: Quote; };
-  custom_fonts: { key: string; value: CustomFont; };
-  snapshots: { key: string; value: Snapshot; };
-  trash: { key: string; value: TrashItem; };
+    customers: { key: string; value: Customer; };
+    suppliers: { key: string; value: Supplier; };
+    products: { key: string; value: Product; };
+    sales: { key: string; value: Sale; };
+    purchases: { key: string; value: Purchase; };
+    returns: { key: string; value: Return; };
+    app_metadata: { key: string; value: AppMetadata; };
+    notifications: { key: string; value: Notification; };
+    profile: { key: string; value: ProfileData; };
+    audit_logs: { key: string; value: AuditLogEntry; };
+    expenses: { key: string; value: Expense; };
+    quotes: { key: string; value: Quote; };
+    custom_fonts: { key: string; value: CustomFont; };
+    snapshots: { key: string; value: Snapshot; };
+    trash: { key: string; value: TrashItem; };
 }
 
 let dbPromise: Promise<IDBPDatabase<BusinessManagerDB>>;
@@ -45,20 +45,20 @@ function getDb(): Promise<IDBPDatabase<BusinessManagerDB>> {
 }
 
 export async function getAll<T extends StoreName>(storeName: T): Promise<BusinessManagerDB[T]['value'][]> {
-  const db = await getDb();
-  return db.getAll(storeName);
+    const db = await getDb();
+    return db.getAll(storeName);
 }
 
 export async function saveCollection<T extends StoreName>(storeName: T, data: BusinessManagerDB[T]['value'][]) {
-  try {
-    const db = await getDb();
-    const tx = db.transaction(storeName, 'readwrite');
-    await tx.objectStore(storeName).clear();
-    await Promise.all(data.map(item => tx.objectStore(storeName).put(item)));
-    await tx.done;
-  } catch (error) {
-    console.error(`Failed to save collection ${storeName}:`, error);
-  }
+    try {
+        const db = await getDb();
+        const tx = db.transaction(storeName, 'readwrite');
+        await tx.objectStore(storeName).clear();
+        await Promise.all(data.map(item => tx.objectStore(storeName).put(item)));
+        await tx.done;
+    } catch (error) {
+        console.error(`Failed to save collection ${storeName}:`, error);
+    }
 }
 
 export async function deleteFromStore<T extends StoreName>(storeName: T, id: string) {
@@ -83,7 +83,7 @@ export async function getLastBackupDate(): Promise<string | null> {
     const db = await getDb();
     const result = await db.get('app_metadata', 'lastBackup');
     if (result && result.id === 'lastBackup') {
-        return result.date;
+        return (result as any).date;
     }
     return null;
 }
@@ -108,44 +108,44 @@ export async function exportData(): Promise<Omit<AppState, 'toast' | 'selection'
 export async function mergeData(cloudData: any): Promise<void> {
     const db = await getDb();
     const tx = db.transaction(STORE_NAMES, 'readwrite');
-    
+
     // 1. Process Trash First
     // We need to know what has been deleted to ensure we don't re-add it from cloud
     // and to remove it locally if it was deleted on another device.
     const cloudTrash = cloudData['trash'] || [];
     const trashStore = tx.objectStore('trash');
-    
+
     for (const item of cloudTrash) {
         // Add to local trash
         await trashStore.put(item);
-        
+
         // If item exists in its original store locally, DELETE it.
         // This syncs the deletion from other devices.
         if (item.originalStore && item.id) {
-             try {
-                 const originalStore = tx.objectStore(item.originalStore as StoreName);
-                 const exists = await originalStore.get(item.id);
-                 if (exists) {
-                     await originalStore.delete(item.id);
-                 }
-             } catch(e) {
-                 // Store might not exist or be valid, ignore
-             }
+            try {
+                const originalStore = tx.objectStore(item.originalStore as StoreName);
+                const exists = await originalStore.get(item.id);
+                if (exists) {
+                    await originalStore.delete(item.id);
+                }
+            } catch (e) {
+                // Store might not exist or be valid, ignore
+            }
         }
     }
-    
+
     // Get all trash IDs to verify against other collections
     const allTrashKeys = await trashStore.getAllKeys();
     const trashIdSet = new Set(allTrashKeys.map(k => String(k)));
 
     for (const storeName of STORE_NAMES) {
         if (storeName === 'notifications' || storeName === 'snapshots' || storeName === 'trash') continue;
-        
+
         const remoteItems = cloudData[storeName];
         if (!remoteItems || !Array.isArray(remoteItems)) continue;
-        
+
         const store = tx.objectStore(storeName);
-        
+
         for (const item of remoteItems) {
             if (item && item.id) {
                 // CRITICAL: If this item ID is in the trash, DO NOT ADD IT.
@@ -174,22 +174,22 @@ export async function mergeData(cloudData: any): Promise<void> {
 export async function importData(data: any, merge: boolean = false): Promise<void> {
     const db = await getDb();
     const tx = db.transaction(STORE_NAMES, 'readwrite');
-    
+
     for (const storeName of STORE_NAMES) {
         if (storeName === 'notifications' || storeName === 'snapshots') continue;
-        
+
         const store = tx.objectStore(storeName);
-        
+
         if (!merge) {
             await store.clear();
         }
-        
+
         let items = (data as any)[storeName] || [];
 
         if (!Array.isArray(items) && items && typeof items === 'object') {
             items = [items];
         }
-        
+
         if (Array.isArray(items) && items.length > 0) {
             await Promise.all(items.map(item => {
                 if (item && typeof item === 'object' && 'id' in item) {
@@ -199,15 +199,15 @@ export async function importData(data: any, merge: boolean = false): Promise<voi
             }));
         }
     }
-    
+
     await tx.done;
 }
 
 export async function clearDatabase(): Promise<void> {
-  const db = await getDb();
-  const tx = db.transaction(STORE_NAMES, 'readwrite');
-  await Promise.all(STORE_NAMES.map(storeName => tx.objectStore(storeName).clear()));
-  await tx.done;
+    const db = await getDb();
+    const tx = db.transaction(STORE_NAMES, 'readwrite');
+    await Promise.all(STORE_NAMES.map(storeName => tx.objectStore(storeName).clear()));
+    await tx.done;
 }
 
 // --- Snapshot Functions ---
@@ -236,7 +236,7 @@ export async function restoreSnapshot(id: string): Promise<void> {
     const db = await getDb();
     const snap = await db.get('snapshots', id);
     if (snap) {
-        await importData(snap.data, false); 
+        await importData(snap.data, false);
     } else {
         throw new Error("Snapshot not found");
     }

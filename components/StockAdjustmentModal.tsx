@@ -41,7 +41,7 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({ isOpen, onC
             showToast("Select a product first.", 'error');
             return;
         }
-        
+
         const newQty = parseInt(actualStock);
         if (isNaN(newQty) || newQty < 0) {
             showToast("Enter a valid stock quantity.", 'error');
@@ -54,9 +54,9 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({ isOpen, onC
         }
 
         // 1. Update Product Stock directly
-        dispatch({ 
-            type: 'UPDATE_PRODUCT_STOCK', 
-            payload: { productId: product.id, change: difference } 
+        dispatch({
+            type: 'UPDATE_PRODUCT_STOCK',
+            payload: { productId: product.id, change: difference }
         });
 
         showToast(`Stock updated. Diff: ${difference > 0 ? '+' : ''}${difference}`);
@@ -74,8 +74,8 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({ isOpen, onC
     if (!isOpen) return null;
 
     return createPortal(
-        <div 
-            className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+        <div
+            className="fixed inset-0 z-[80] flex items-center justify-center p-4"
         >
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in-fast" onClick={onClose} />
             <Card className="relative z-10 w-full max-w-md animate-scale-in border-none shadow-2xl">
@@ -91,13 +91,13 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({ isOpen, onC
                 <div className="space-y-5">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Select Product</label>
-                        <Dropdown 
+                        <Dropdown
                             options={state.products.map(p => ({ value: p.id, label: p.name, searchText: p.name }))}
                             value={selectedProductId}
                             onChange={(val) => {
                                 setSelectedProductId(val);
                                 const p = state.products.find(prod => prod.id === val);
-                                if(p) setActualStock(p.quantity.toString());
+                                if (p) setActualStock(p.quantity.toString());
                             }}
                             searchable={true}
                             placeholder="Search product..."
@@ -113,9 +113,9 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({ isOpen, onC
                                 </div>
                                 <div>
                                     <span className="text-xs text-gray-500 uppercase font-bold">Actual Qty</span>
-                                    <input 
-                                        type="number" 
-                                        value={actualStock} 
+                                    <input
+                                        type="number"
+                                        value={actualStock}
                                         onChange={e => setActualStock(e.target.value)}
                                         className="w-full text-center text-xl font-bold bg-white dark:bg-slate-900 border-b-2 border-indigo-500 focus:outline-none py-1"
                                     />
@@ -131,8 +131,8 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({ isOpen, onC
                             <div className="space-y-3">
                                 <div>
                                     <label className="block text-xs font-medium text-gray-500 mb-1">Reason for Discrepancy</label>
-                                    <select 
-                                        value={reason} 
+                                    <select
+                                        value={reason}
                                         onChange={e => setReason(e.target.value)}
                                         className="w-full p-2 text-sm border rounded bg-white dark:bg-slate-900 dark:border-slate-600 dark:text-white"
                                     >
@@ -141,10 +141,10 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({ isOpen, onC
                                 </div>
                                 <div>
                                     <label className="block text-xs font-medium text-gray-500 mb-1">Notes (Optional)</label>
-                                    <input 
-                                        type="text" 
-                                        value={notes} 
-                                        onChange={e => setNotes(e.target.value)} 
+                                    <input
+                                        type="text"
+                                        value={notes}
+                                        onChange={e => setNotes(e.target.value)}
                                         placeholder="e.g., Found box behind shelf"
                                         className="w-full p-2 text-sm border rounded bg-white dark:bg-slate-900 dark:border-slate-600 dark:text-white"
                                     />
@@ -157,8 +157,8 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({ isOpen, onC
                         <div className="flex items-center gap-3 p-3 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200 text-sm rounded-lg border border-amber-100 dark:border-amber-800">
                             <AlertTriangle size={18} className="shrink-0" />
                             <p>
-                                Stock will be <strong>{difference > 0 ? 'increased' : 'decreased'}</strong> by {Math.abs(difference)}. 
-                                <br/><span className="text-xs opacity-75">This action is irreversible.</span>
+                                Stock will be <strong>{difference > 0 ? 'increased' : 'decreased'}</strong> by {Math.abs(difference)}.
+                                <br /><span className="text-xs opacity-75">This action is irreversible.</span>
                             </p>
                         </div>
                     )}

@@ -1,0 +1,11 @@
+{
+    "dashboard": "Dashboard",
+    "sales": "Sales",
+    "customers": "Customers",
+    "purchases": "Purchases",
+    "products": "Products",
+    "reports": "Reports",
+    "expenses": "Expenses",
+    "settings": "Settings",
+    "welcome": "Welcome back, {{name}}"
+}

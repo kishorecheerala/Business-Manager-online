@@ -64,7 +64,7 @@ export interface Product {
   id: string; // QR code or manual entry
   name: string;
   description?: string; // New field for sharing/details
-  category?: string; 
+  category?: string;
   quantity: number;
   purchasePrice: number;
   salePrice: number;
@@ -73,7 +73,7 @@ export interface Product {
   unit?: string; // New: Unit of Measurement (Pcs, Kg, Mtr, etc.)
   image?: string; // Base64 encoded image (Main)
   additionalImages?: string[]; // New: Multiple images
-  batches?: ProductBatch[]; 
+  batches?: ProductBatch[];
 }
 
 export interface SaleItem {
@@ -84,7 +84,7 @@ export interface SaleItem {
 }
 
 export interface Sale {
-  id:string;
+  id: string;
   customerId: string;
   items: SaleItem[];
   discount: number;
@@ -98,22 +98,22 @@ export interface Sale {
 
 // --- New Types for Sales Management ---
 export interface SaleDraft {
-    customerId: string;
-    items: SaleItem[];
-    discount: string; 
+  customerId: string;
+  items: SaleItem[];
+  discount: string;
+  date: string;
+  paymentDetails: {
+    amount: string;
+    method: 'CASH' | 'UPI' | 'CHEQUE';
     date: string;
-    paymentDetails: {
-        amount: string;
-        method: 'CASH' | 'UPI' | 'CHEQUE';
-        date: string;
-        reference: string;
-    };
-    editId?: string; // If editing an existing sale
+    reference: string;
+  };
+  editId?: string; // If editing an existing sale
 }
 
 export interface ParkedSale extends SaleDraft {
-    id: string; // Draft ID
-    parkedAt: number;
+  id: string; // Draft ID
+  parkedAt: number;
 }
 
 export interface QuoteItem {
@@ -223,19 +223,35 @@ export interface ProfileData {
 export type DocumentType = 'INVOICE' | 'ESTIMATE' | 'DEBIT_NOTE' | 'RECEIPT' | 'REPORT';
 
 export interface InvoiceLabels {
-    billedTo: string;
-    date: string;
-    invoiceNo: string; // or Estimate No, etc.
-    item: string;
-    qty: string;
-    rate: string;
-    amount: string;
-    subtotal: string;
-    discount: string;
-    gst: string;
-    grandTotal: string;
-    paid: string;
-    balance: string;
+  billedTo: string;
+  date: string;
+  invoiceNo: string; // or Estimate No, etc.
+  item: string;
+  qty: string;
+  rate: string;
+  amount: string;
+  subtotal: string;
+  discount: string;
+  gst: string;
+  grandTotal: string;
+  paid: string;
+  balance: string;
+}
+
+export interface CustomSection {
+  id: string;
+  type: 'text-block' | 'image-block' | 'divider';
+  content?: string; // Text content or Image Base64
+  styles?: {
+    fontSize?: number;
+    fontWeight?: 'normal' | 'bold';
+    align?: 'left' | 'center' | 'right';
+    color?: string; // hex code
+    height?: number; // for divider/image (mm)
+    width?: number; // for image (mm) or percentage
+    marginTop?: number; // mm
+    marginBottom?: number; // mm
+  };
 }
 
 export interface InvoiceTemplateConfig {
@@ -285,20 +301,21 @@ export interface InvoiceTemplateConfig {
     boldBorders?: boolean;
     spacing?: number; // Vertical spacing scale (default 1.0)
     elementSpacing?: { // New: Individual element spacing overrides
-        logoBottom?: number;
-        titleBottom?: number;
-        addressBottom?: number;
-        headerBottom?: number;
+      logoBottom?: number;
+      titleBottom?: number;
+      addressBottom?: number;
+      headerBottom?: number;
     };
     tableOptions: {
-        hideQty: boolean;
-        hideRate: boolean;
-        stripedRows: boolean;
-        bordered?: boolean; // New: Table Border
-        compact?: boolean; // New: Compact Padding
+      hideQty: boolean;
+      hideRate: boolean;
+      stripedRows: boolean;
+      bordered?: boolean; // New: Table Border
+      compact?: boolean; // New: Compact Padding
     };
     tableHeaderAlign?: 'left' | 'center' | 'right';
     sectionOrdering?: string[];
+    customSections?: CustomSection[]; // New: List of custom added sections
     backgroundImage?: string; // Base64 encoded background/stationery
     paperSize?: 'a4' | 'letter';
   };
@@ -318,7 +335,7 @@ export interface InvoiceTemplateConfig {
     showTaxBreakdown?: boolean; // New: Show Tax Breakdown Table
     showGst?: boolean; // New: Show GST Line in totals (Default: true)
     labels?: InvoiceLabels; // Custom labels for tables and fields
-    
+
     // New Fields
     qrType?: 'INVOICE_ID' | 'UPI_PAYMENT';
     upiId?: string;

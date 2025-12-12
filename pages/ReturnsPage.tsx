@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Undo2, Users, Package, Plus, Trash2, Share2, Edit, Download } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import { useDialog } from '../context/DialogContext';
 import { Return, ReturnItem, Sale, Purchase, Customer, Supplier } from '../types';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -14,11 +15,12 @@ import { getLocalDateString } from '../utils/dateUtils';
 type ReturnType = 'CUSTOMER' | 'SUPPLIER';
 
 interface ReturnsPageProps {
-  setIsDirty: (isDirty: boolean) => void;
+    setIsDirty: (isDirty: boolean) => void;
 }
 
 const ReturnsPage: React.FC<ReturnsPageProps> = ({ setIsDirty }) => {
     const { state, dispatch, showToast } = useAppContext();
+    const { showConfirm } = useDialog();
     const [returnType, setReturnType] = useState<ReturnType>('CUSTOMER');
     const [partyId, setPartyId] = useState('');
     const [referenceId, setReferenceId] = useState('');
@@ -68,7 +70,7 @@ const ReturnsPage: React.FC<ReturnsPageProps> = ({ setIsDirty }) => {
     useEffect(() => {
         return () => setIsDirty(false);
     }, [setIsDirty]);
-    
+
     const resetForm = () => {
         setPartyId('');
         setReferenceId('');
@@ -119,7 +121,7 @@ const ReturnsPage: React.FC<ReturnsPageProps> = ({ setIsDirty }) => {
         if (isNaN(quantity)) quantity = 0;
         if (quantity > maxQuantity) quantity = maxQuantity;
         if (quantity < 0) quantity = 0;
-        
+
         setReturnedItems(prev => {
             const newItems = { ...prev };
             if (quantity > 0) {
@@ -130,7 +132,7 @@ const ReturnsPage: React.FC<ReturnsPageProps> = ({ setIsDirty }) => {
             return newItems;
         });
     };
-    
+
     const calculatedReturnValue = useMemo(() => {
         if (!selectedInvoice) return 0;
         return Object.keys(returnedItems).reduce((total, productId) => {
@@ -149,7 +151,7 @@ const ReturnsPage: React.FC<ReturnsPageProps> = ({ setIsDirty }) => {
             showToast('Please fill all required fields: select party, invoice, items, and enter a valid return amount.', 'error');
             return;
         }
-        
+
         const itemsToReturn: ReturnItem[] = Object.keys(returnedItems).map((productId) => {
             const quantity = returnedItems[productId];
             const originalItem = selectedInvoice!.items.find(i => i.productId === productId)!;
@@ -160,7 +162,7 @@ const ReturnsPage: React.FC<ReturnsPageProps> = ({ setIsDirty }) => {
                 price: Number(originalItem.price),
             };
         });
-        
+
         const now = new Date();
         const returnId = mode === 'add'
             ? `RET-${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}-${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}${now.getSeconds().toString().padStart(2, '0')}`
@@ -177,8 +179,8 @@ const ReturnsPage: React.FC<ReturnsPageProps> = ({ setIsDirty }) => {
         } else {
             const oldReturn = state.returns.find(r => r.id === returnToEditId);
             if (oldReturn) {
-                 dispatch({ type: 'UPDATE_RETURN', payload: { oldReturn, updatedReturn: returnData } });
-                 showToast('Return updated successfully!', 'success');
+                dispatch({ type: 'UPDATE_RETURN', payload: { oldReturn, updatedReturn: returnData } });
+                showToast('Return updated successfully!', 'success');
             }
         }
 
@@ -201,12 +203,12 @@ const ReturnsPage: React.FC<ReturnsPageProps> = ({ setIsDirty }) => {
 
     return (
         <div className="space-y-6">
-             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div className="flex items-center gap-3">
                     <div className="p-2 bg-primary/10 rounded-lg text-primary">
                         <Undo2 className="w-6 h-6" />
                     </div>
-                     <h1 className="text-2xl font-bold text-primary flex items-center gap-2">
+                    <h1 className="text-2xl font-bold text-primary flex items-center gap-2">
                         Returns Management
                     </h1>
                 </div>
@@ -223,11 +225,11 @@ const ReturnsPage: React.FC<ReturnsPageProps> = ({ setIsDirty }) => {
                         </button>
                     </nav>
                 </div>
-                
+
                 <div className="space-y-4">
                     <div>
                         <label className="block text-sm font-medium dark:text-gray-300">{returnType === 'CUSTOMER' ? 'Customer' : 'Supplier'}</label>
-                        <Dropdown 
+                        <Dropdown
                             options={partyOptions}
                             value={partyId}
                             onChange={(val) => { setPartyId(val); setReferenceId(''); setReturnedItems({}); }}
@@ -240,9 +242,9 @@ const ReturnsPage: React.FC<ReturnsPageProps> = ({ setIsDirty }) => {
 
                     {partyId && (
                         <div>
-                             <label className="block text-sm font-medium dark:text-gray-300">Original Invoice</label>
-                             <Dropdown 
-                                options={invoiceList.map(inv => ({ value: inv.id, label: `${inv.id} - ${new Date(inv.date).toLocaleDateString()}`}))}
+                            <label className="block text-sm font-medium dark:text-gray-300">Original Invoice</label>
+                            <Dropdown
+                                options={invoiceList.map(inv => ({ value: inv.id, label: `${inv.id} - ${new Date(inv.date).toLocaleDateString()}` }))}
                                 value={referenceId}
                                 onChange={(val) => { setReferenceId(val); setReturnedItems({}); }}
                                 placeholder="Select invoice"
@@ -252,38 +254,38 @@ const ReturnsPage: React.FC<ReturnsPageProps> = ({ setIsDirty }) => {
                             />
                         </div>
                     )}
-                    
+
                     {selectedInvoice && (
                         <>
-                           <div className="p-3 bg-primary/5 dark:bg-primary/20 rounded-lg border border-primary/20 dark:border-primary/30 text-sm space-y-1">
+                            <div className="p-3 bg-primary/5 dark:bg-primary/20 rounded-lg border border-primary/20 dark:border-primary/30 text-sm space-y-1">
                                 <div className="flex justify-between dark:text-gray-300"><span>Invoice Total:</span> <span className="font-semibold dark:text-white">₹{invoiceTotal.toLocaleString('en-IN')}</span></div>
                                 <div className="flex justify-between dark:text-gray-300"><span>Amount Paid:</span> <span className="font-semibold text-green-600 dark:text-green-400">₹{amountPaid.toLocaleString('en-IN')}</span></div>
                                 <div className="flex justify-between dark:text-gray-300"><span>Current Due:</span> <span className="font-semibold text-red-600 dark:text-red-400">₹{currentDue.toLocaleString('en-IN')}</span></div>
-                           </div>
-                           
-                           <div>
+                            </div>
+
+                            <div>
                                 <h3 className="text-md font-semibold text-gray-800 dark:text-gray-200 mb-2">Select Items to Return</h3>
                                 <div className="space-y-2">
-                                {selectedInvoice.items.map(item => (
-                                    <div key={item.productId} className="grid grid-cols-3 gap-2 items-center">
-                                        <div className="col-span-2">
-                                            <p className="font-semibold text-sm dark:text-slate-200">{item.productName}</p>
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">Purchased: {item.quantity} @ ₹{item.price}</p>
+                                    {selectedInvoice.items.map(item => (
+                                        <div key={item.productId} className="grid grid-cols-3 gap-2 items-center">
+                                            <div className="col-span-2">
+                                                <p className="font-semibold text-sm dark:text-slate-200">{item.productName}</p>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">Purchased: {item.quantity} @ ₹{item.price}</p>
+                                            </div>
+                                            <input
+                                                type="number"
+                                                placeholder="Qty"
+                                                value={returnedItems[item.productId] || ''}
+                                                onChange={e => handleItemQuantityChange(item.productId, e.target.value)}
+                                                className="w-full p-2 border rounded text-center dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
+                                                max={item.quantity}
+                                            />
                                         </div>
-                                        <input
-                                            type="number"
-                                            placeholder="Qty"
-                                            value={returnedItems[item.productId] || ''}
-                                            onChange={e => handleItemQuantityChange(item.productId, e.target.value)}
-                                            className="w-full p-2 border rounded text-center dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
-                                            max={item.quantity}
-                                        />
-                                    </div>
-                                ))}
+                                    ))}
                                 </div>
-                           </div>
-                           
-                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium dark:text-gray-300">{returnType === 'CUSTOMER' ? 'Amount Refunded' : 'Credit Note Value'}</label>
                                     <input type="number" value={returnAmount} onChange={e => setReturnAmount(e.target.value)} className="w-full p-2 border rounded mt-1 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" placeholder={`${calculatedReturnValue.toFixed(2)}`} />
@@ -295,11 +297,11 @@ const ReturnsPage: React.FC<ReturnsPageProps> = ({ setIsDirty }) => {
                                     isOpen={isCalendarOpen}
                                     onToggle={setIsCalendarOpen}
                                 />
-                           </div>
-                           <input type="text" placeholder="Reason (Optional)" value={reason} onChange={e => setReason(e.target.value)} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
-                           {returnType === 'SUPPLIER' &&
-                             <input type="text" placeholder="Return Notes for PDF (Debit Note)..." value={notes} onChange={e => setNotes(e.target.value)} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
-                           }
+                            </div>
+                            <input type="text" placeholder="Reason (Optional)" value={reason} onChange={e => setReason(e.target.value)} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
+                            {returnType === 'SUPPLIER' &&
+                                <input type="text" placeholder="Return Notes for PDF (Debit Note)..." value={notes} onChange={e => setNotes(e.target.value)} className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" />
+                            }
                         </>
                     )}
 
@@ -307,7 +309,7 @@ const ReturnsPage: React.FC<ReturnsPageProps> = ({ setIsDirty }) => {
                         <Button onClick={handleProcessReturn} className="w-full">
                             {mode === 'add' ? 'Process Return' : 'Update Return'}
                         </Button>
-                         <Button onClick={resetForm} variant="secondary" className="w-full">
+                        <Button onClick={resetForm} variant="secondary" className="w-full">
                             Cancel
                         </Button>
                     </div>
@@ -320,7 +322,7 @@ const ReturnsPage: React.FC<ReturnsPageProps> = ({ setIsDirty }) => {
                         {customerReturns.length > 0 ? (
                             customerReturns.slice().reverse().map(ret => {
                                 const party = state.customers.find(c => c.id === ret.partyId);
-                                
+
                                 return (
                                     <div key={ret.id} className="p-3 bg-gray-50 dark:bg-slate-700/30 rounded-lg border dark:border-slate-700">
                                         <div className="flex justify-between items-start">
@@ -339,8 +341,11 @@ const ReturnsPage: React.FC<ReturnsPageProps> = ({ setIsDirty }) => {
                                                     <li key={idx}>{item.productName} (x{item.quantity})</li>
                                                 ))}
                                             </ul>
-                                            <Button onClick={() => {
-                                                if (isDirtyRef.current && !window.confirm("You have unsaved changes. Are you sure you want to discard them and edit this return?")) return;
+                                            <Button onClick={async () => {
+                                                if (isDirtyRef.current) {
+                                                    const confirm = await showConfirm("You have unsaved changes. Are you sure you want to discard them and edit this return?", { variant: 'danger' });
+                                                    if (!confirm) return;
+                                                }
                                                 resetForm();
                                                 // Trigger edit mode by setting state
                                                 setMode('edit');
@@ -378,7 +383,7 @@ const ReturnsPage: React.FC<ReturnsPageProps> = ({ setIsDirty }) => {
                         {supplierReturns.length > 0 ? (
                             supplierReturns.slice().reverse().map(ret => {
                                 const party = state.suppliers.find(s => s.id === ret.partyId);
-                                
+
                                 return (
                                     <div key={ret.id} className="p-3 bg-gray-50 dark:bg-slate-700/30 rounded-lg border dark:border-slate-700">
                                         <div className="flex justify-between items-start">
@@ -397,8 +402,11 @@ const ReturnsPage: React.FC<ReturnsPageProps> = ({ setIsDirty }) => {
                                                     <li key={idx}>{item.productName} (x{item.quantity})</li>
                                                 ))}
                                             </ul>
-                                            <Button onClick={() => {
-                                                if (isDirtyRef.current && !window.confirm("You have unsaved changes. Are you sure you want to discard them and edit this return?")) return;
+                                            <Button onClick={async () => {
+                                                if (isDirtyRef.current) {
+                                                    const confirm = await showConfirm("You have unsaved changes. Are you sure you want to discard them and edit this return?", { variant: 'danger' });
+                                                    if (!confirm) return;
+                                                }
                                                 resetForm();
                                                 // Trigger edit mode by setting state
                                                 setMode('edit');

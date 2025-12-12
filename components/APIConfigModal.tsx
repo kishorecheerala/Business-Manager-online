@@ -4,6 +4,7 @@ import { X, Save, Key, Globe, Info, RefreshCw, Settings } from 'lucide-react';
 import Card from './Card';
 import Button from './Button';
 import { useAppContext } from '../context/AppContext';
+import { useDialog } from '../context/DialogContext';
 import { getClientId } from '../utils/googleDrive';
 import Input from './Input';
 
@@ -14,6 +15,7 @@ interface APIConfigModalProps {
 
 const APIConfigModal: React.FC<APIConfigModalProps> = ({ isOpen, onClose }) => {
   const { showToast } = useAppContext();
+  const { showConfirm } = useDialog();
   const [clientId, setClientId] = useState('');
   const [apiKey, setApiKey] = useState('');
 
@@ -41,15 +43,15 @@ const APIConfigModal: React.FC<APIConfigModalProps> = ({ isOpen, onClose }) => {
     }
 
     showToast("Settings saved. Reloading app to apply changes...", 'success');
-    
+
     // Slight delay to allow toast to be seen
     setTimeout(() => {
       window.location.reload();
     }, 1500);
   };
 
-  const handleReset = () => {
-    if (window.confirm("Reset all API settings to default?")) {
+  const handleReset = async () => {
+    if (await showConfirm("Reset all API settings to default?", { variant: 'warning' })) {
       localStorage.removeItem('google_client_id');
       localStorage.removeItem('gemini_api_key');
       window.location.reload();
@@ -66,11 +68,11 @@ const APIConfigModal: React.FC<APIConfigModalProps> = ({ isOpen, onClose }) => {
             <SettingsIcon className="text-blue-400" />
             <h2 className="font-bold text-lg">API Configuration</h2>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-white/20 rounded-full transition-colors"><X size={20}/></button>
+          <button onClick={onClose} className="p-1 hover:bg-white/20 rounded-full transition-colors"><X size={20} /></button>
         </div>
 
         <div className="flex-grow overflow-y-auto p-5 space-y-6 bg-slate-50 dark:bg-slate-900">
-          
+
           {/* Info Banner */}
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-sm text-blue-800 dark:text-blue-200">
             <div className="flex items-start gap-3">
@@ -92,15 +94,15 @@ const APIConfigModal: React.FC<APIConfigModalProps> = ({ isOpen, onClose }) => {
             <p className="text-xs text-gray-500 dark:text-gray-400">
               Required for Drive Sync, Sheets Export, and Calendar.
             </p>
-            <Input 
-              type="text" 
+            <Input
+              type="text"
               value={clientId}
               onChange={(e) => setClientId(e.target.value)}
               placeholder="e.g., 7320...apps.googleusercontent.com"
               className="text-sm font-mono"
             />
             <div className="text-[10px] text-gray-400 bg-gray-100 dark:bg-slate-800 p-2 rounded border dark:border-slate-700">
-              <strong>Setup:</strong> Google Cloud Console &gt; Credentials &gt; OAuth 2.0 Client ID (Web Application).<br/>
+              <strong>Setup:</strong> Google Cloud Console &gt; Credentials &gt; OAuth 2.0 Client ID (Web Application).<br />
               <strong>Authorized Origin:</strong> {window.location.origin}
             </div>
           </div>
@@ -116,8 +118,8 @@ const APIConfigModal: React.FC<APIConfigModalProps> = ({ isOpen, onClose }) => {
             <p className="text-xs text-gray-500 dark:text-gray-400">
               Required for Business Insights and Smart Analyst.
             </p>
-            <Input 
-              type="password" 
+            <Input
+              type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               placeholder="AIza..."
@@ -131,15 +133,16 @@ const APIConfigModal: React.FC<APIConfigModalProps> = ({ isOpen, onClose }) => {
         </div>
 
         <div className="p-4 bg-white dark:bg-slate-800 border-t dark:border-slate-700 flex gap-3 shrink-0">
-            <Button onClick={handleReset} variant="secondary" className="flex-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 border-red-200">
-                <RefreshCw size={16} className="mr-2" /> Reset Default
-            </Button>
-            <Button onClick={handleSave} className="flex-[2]">
-                <Save size={16} className="mr-2" /> Save & Reload
-            </Button>
+          <Button onClick={handleReset} variant="secondary" className="flex-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 border-red-200">
+            <RefreshCw size={16} className="mr-2" /> Reset Default
+          </Button>
+          <Button onClick={handleSave} className="flex-[2]">
+            <Save size={16} className="mr-2" /> Save & Reload
+          </Button>
         </div>
       </Card>
-    </div>
+    </div>,
+    document.body
   );
 };
 

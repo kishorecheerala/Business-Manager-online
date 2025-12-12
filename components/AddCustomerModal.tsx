@@ -37,13 +37,13 @@ const AddCustomerModal: React.FC<AddCustomerModalProps> = ({ isOpen, onClose, on
 
         const finalId = `CUST-${trimmedId}`;
         const isIdTaken = existingCustomers.some(c => c.id.toLowerCase() === finalId.toLowerCase());
-        
+
         if (isIdTaken) {
             showToast(`Customer ID "${finalId}" is already taken. Please choose another one.`, 'error');
             return;
         }
 
-        const customerWithId: Customer = { 
+        const customerWithId: Customer = {
             name: newCustomer.name,
             phone: newCustomer.phone,
             address: newCustomer.address,
@@ -52,7 +52,7 @@ const AddCustomerModal: React.FC<AddCustomerModalProps> = ({ isOpen, onClose, on
             reference: newCustomer.reference || '',
             priceTier: newCustomer.priceTier
         };
-        
+
         onAdd(customerWithId);
         setNewCustomer({ id: '', name: '', phone: '', address: '', area: '', reference: '', priceTier: 'RETAIL' });
         onClose();
@@ -65,34 +65,34 @@ const AddCustomerModal: React.FC<AddCustomerModalProps> = ({ isOpen, onClose, on
     if (!isOpen) return null;
 
     return createPortal(
-        <div 
-            className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+        <div
+            className="fixed inset-0 z-[80] flex items-center justify-center p-4"
         >
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in-fast" onClick={onClose} />
             <div className="relative z-10 w-full sm:max-w-lg bg-white dark:bg-slate-800 rounded-xl shadow-2xl flex flex-col max-h-[90vh] animate-scale-in overflow-hidden border border-gray-200 dark:border-slate-700">
-                
+
                 {/* Header */}
                 <div className="p-4 border-b dark:border-slate-700 flex justify-between items-center shrink-0 bg-gray-50 dark:bg-slate-900/50">
                     <h2 className="text-lg font-bold text-gray-800 dark:text-white">Add New Customer</h2>
                     <button onClick={onClose} className="p-2 rounded-full text-gray-500 hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors">
-                        <X size={20}/>
+                        <X size={20} />
                     </button>
                 </div>
 
                 {/* Scrollable Content */}
                 <div className="p-6 overflow-y-auto custom-scrollbar flex-grow space-y-6">
-                    
+
                     {/* ID Section */}
                     <div>
                         <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 ml-1">Customer ID</label>
                         <div className="flex items-center">
                             <span className="bg-gray-100 dark:bg-slate-700/50 border border-r-0 border-gray-200 dark:border-slate-600 px-3 py-3 rounded-l-lg text-sm text-gray-500 font-mono">CUST-</span>
-                            <Input 
-                                type="text" 
+                            <Input
+                                type="text"
                                 name="id"
-                                placeholder="unique-id" 
-                                value={newCustomer.id} 
-                                onChange={handleInputChange} 
+                                placeholder="unique-id"
+                                value={newCustomer.id}
+                                onChange={handleInputChange}
                                 className="rounded-l-none font-mono"
                                 autoFocus
                             />
@@ -102,33 +102,33 @@ const AddCustomerModal: React.FC<AddCustomerModalProps> = ({ isOpen, onClose, on
                     {/* Basic Info */}
                     <div className="space-y-4">
                         <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2 border-b dark:border-slate-700 pb-2">
-                            <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-md text-blue-600 dark:text-blue-400"><User size={16}/></div>
+                            <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-md text-blue-600 dark:text-blue-400"><User size={16} /></div>
                             Basic Information
                         </h3>
-                        
+
                         <div>
-                            <Input 
+                            <Input
                                 label="Full Name *"
-                                type="text" 
+                                type="text"
                                 name="name"
-                                placeholder="Enter Customer Name" 
-                                value={newCustomer.name} 
-                                onChange={handleInputChange} 
+                                placeholder="Enter Customer Name"
+                                value={newCustomer.name}
+                                onChange={handleInputChange}
                             />
                         </div>
-                        
+
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone Number *</label>
                             <div className="relative">
-                                <Input 
-                                    type="tel" 
+                                <Input
+                                    type="tel"
                                     name="phone"
-                                    placeholder="Enter Phone Number" 
-                                    value={newCustomer.phone} 
-                                    onChange={handleInputChange} 
+                                    placeholder="Enter Phone Number"
+                                    value={newCustomer.phone}
+                                    onChange={handleInputChange}
                                     className="pl-10"
                                 />
-                                <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"/>
+                                <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                             </div>
                         </div>
                     </div>
@@ -136,35 +136,35 @@ const AddCustomerModal: React.FC<AddCustomerModalProps> = ({ isOpen, onClose, on
                     {/* Address & Details */}
                     <div className="space-y-4">
                         <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2 border-b dark:border-slate-700 pb-2">
-                            <div className="p-1.5 bg-green-100 dark:bg-green-900/30 rounded-md text-green-600 dark:text-green-400"><MapPin size={16}/></div>
+                            <div className="p-1.5 bg-green-100 dark:bg-green-900/30 rounded-md text-green-600 dark:text-green-400"><MapPin size={16} /></div>
                             Address & Details
                         </h3>
-                        
+
                         <div>
-                            <Input 
+                            <Input
                                 label="Address *"
-                                type="text" 
+                                type="text"
                                 name="address"
-                                placeholder="House No, Street, Landmark" 
-                                value={newCustomer.address} 
-                                onChange={handleInputChange} 
+                                placeholder="House No, Street, Landmark"
+                                value={newCustomer.address}
+                                onChange={handleInputChange}
                             />
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <Input 
+                                <Input
                                     label="Area / City *"
-                                    type="text" 
+                                    type="text"
                                     name="area"
-                                    placeholder="e.g. Ameerpet" 
-                                    value={newCustomer.area} 
-                                    onChange={handleInputChange} 
+                                    placeholder="e.g. Ameerpet"
+                                    value={newCustomer.area}
+                                    onChange={handleInputChange}
                                 />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pricing Tier</label>
-                                <Dropdown 
+                                <Dropdown
                                     options={[
                                         { value: 'RETAIL', label: 'Retail' },
                                         { value: 'WHOLESALE', label: 'Wholesale' }
@@ -182,8 +182,8 @@ const AddCustomerModal: React.FC<AddCustomerModalProps> = ({ isOpen, onClose, on
                     <Button onClick={handleSave} className="flex-[2] py-3.5 rounded-xl shadow-lg shadow-indigo-200 dark:shadow-none font-bold">
                         Save Customer
                     </Button>
-                    <button 
-                        onClick={onClose} 
+                    <button
+                        onClick={onClose}
                         className="flex-1 py-3.5 rounded-xl font-semibold bg-white text-gray-700 hover:bg-gray-100 border border-gray-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:border-slate-600 transition-all"
                     >
                         Cancel

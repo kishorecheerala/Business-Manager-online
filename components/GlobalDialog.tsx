@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import Card from './Card';
 import Button from './Button';
 import Input from './Input';
@@ -28,38 +29,38 @@ const GlobalDialog: React.FC<GlobalDialogProps> = ({ isOpen, type, message, opti
   if (!isOpen) return null;
 
   const handleConfirm = () => {
-      if (type === 'prompt') {
-          onClose(promptValue);
-      } else {
-          onClose(true);
-      }
+    if (type === 'prompt') {
+      onClose(promptValue);
+    } else {
+      onClose(true);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter') handleConfirm();
+    if (e.key === 'Enter') handleConfirm();
   };
 
-  return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100000] p-4 animate-fade-in-fast">
+  return createPortal(
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[150] p-4 animate-fade-in-fast">
       <Card title={options.title} className="w-full max-w-sm animate-scale-in shadow-2xl">
         <div className="space-y-4">
           <p className="text-gray-700 dark:text-gray-300 text-base leading-relaxed">{message}</p>
-          
+
           {type === 'prompt' && (
-              <Input 
-                value={promptValue} 
-                onChange={(e) => setPromptValue(e.target.value)}
-                onKeyDown={handleKeyPress}
-                placeholder={options.placeholder}
-                autoFocus
-              />
+            <Input
+              value={promptValue}
+              onChange={(e) => setPromptValue(e.target.value)}
+              onKeyDown={handleKeyPress}
+              placeholder={options.placeholder}
+              autoFocus
+            />
           )}
 
           <div className="flex justify-end gap-3 pt-2">
             {(type === 'confirm' || type === 'prompt') && (
-                <Button onClick={() => onClose(null)} variant="secondary">
-                  {options.cancelText || 'Cancel'}
-                </Button>
+              <Button onClick={() => onClose(null)} variant="secondary">
+                {options.cancelText || 'Cancel'}
+              </Button>
             )}
             <Button onClick={handleConfirm} variant={options.variant || 'primary'}>
               {options.confirmText || 'OK'}
@@ -67,7 +68,8 @@ const GlobalDialog: React.FC<GlobalDialogProps> = ({ isOpen, type, message, opti
           </div>
         </div>
       </Card>
-    </div>
+    </div>,
+    document.body
   );
 };
 

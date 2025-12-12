@@ -48,7 +48,7 @@ const Dropdown: React.FC<DropdownProps> = ({
       return options;
     }
     const lowercasedTerm = searchTerm.toLowerCase();
-    return options.filter(option => 
+    return options.filter(option =>
       (option.searchText || (typeof option.label === 'string' ? option.label : ''))
         .toLowerCase()
         .includes(lowercasedTerm)
@@ -58,33 +58,33 @@ const Dropdown: React.FC<DropdownProps> = ({
   const handleTriggerClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     if (!disabled) {
-        if (!isOpen && triggerRef.current) {
-            const rect = triggerRef.current.getBoundingClientRect();
-            const spaceBelow = window.innerHeight - rect.bottom;
-            const spaceAbove = rect.top;
-            const popupHeight = 250; // Approximated
+      if (!isOpen && triggerRef.current) {
+        const rect = triggerRef.current.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceAbove = rect.top;
+        const popupHeight = 250; // Approximated
 
-            let top;
-            // If there's not enough space below AND there's more space above, open upwards.
-            if (spaceBelow < popupHeight && spaceAbove > spaceBelow) {
-                const calculatedTop = rect.top - Math.min(popupHeight, spaceAbove - 10) - 4;
-                top = Math.max(10, calculatedTop); // Ensure it doesn't go off-screen top
-                setPositionClass('origin-bottom');
-            } else {
-                top = rect.bottom + 4; // Position below
-                setPositionClass('origin-top');
-            }
-            
-            setCoords({ 
-                top: top,
-                left: rect.left, 
-                width: rect.width 
-            });
+        let top;
+        // If there's not enough space below AND there's more space above, open upwards.
+        if (spaceBelow < popupHeight && spaceAbove > spaceBelow) {
+          const calculatedTop = rect.top - Math.min(popupHeight, spaceAbove - 10) - 4;
+          top = Math.max(10, calculatedTop); // Ensure it doesn't go off-screen top
+          setPositionClass('origin-bottom');
+        } else {
+          top = rect.bottom + 4; // Position below
+          setPositionClass('origin-top');
         }
-        setIsOpen(prev => !prev);
+
+        setCoords({
+          top: top,
+          left: rect.left,
+          width: rect.width
+        });
+      }
+      setIsOpen(prev => !prev);
     }
   };
-  
+
   const handleOptionClick = (selectedValue: string) => {
     onChange(selectedValue);
     setIsOpen(false);
@@ -93,29 +93,29 @@ const Dropdown: React.FC<DropdownProps> = ({
   const TriggerIcon = icon === 'search' ? Search : ChevronDown;
 
   const DropdownMenu = () => (
-    <div 
-        ref={dropdownRef}
-        className={`fixed bg-white dark:bg-slate-800 rounded-lg shadow-2xl border dark:border-slate-700 z-[100001] animate-scale-in flex flex-col overflow-hidden ring-1 ring-black/5 ${positionClass}`}
-        style={{ 
-            top: `${coords.top}px`, 
-            left: `${coords.left}px`, 
-            width: `${coords.width}px`,
-            maxHeight: '250px' 
-        }}
+    <div
+      ref={dropdownRef}
+      className={`fixed bg-white dark:bg-slate-800 rounded-lg shadow-2xl border dark:border-slate-700 z-[100] animate-scale-in flex flex-col overflow-hidden ring-1 ring-black/5 ${positionClass}`}
+      style={{
+        top: `${coords.top}px`,
+        left: `${coords.left}px`,
+        width: `${coords.width}px`,
+        maxHeight: '250px'
+      }}
     >
       {searchable && (
         <div className="p-2 border-b dark:border-slate-700 sticky top-0 bg-white dark:bg-slate-800">
-            <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
-                <input
-                    type="text"
-                    placeholder={searchPlaceholder}
-                    value={searchTerm}
-                    onChange={e => setSearchTerm(e.target.value)}
-                    className="w-full p-2 pl-8 text-sm border rounded-md dark:bg-slate-700 dark:border-slate-600 dark:text-white outline-none focus:ring-1 focus:ring-primary"
-                    autoFocus
-                />
-            </div>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+            <input
+              type="text"
+              placeholder={searchPlaceholder}
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className="w-full p-2 pl-8 text-sm border rounded-md dark:bg-slate-700 dark:border-slate-600 dark:text-white outline-none focus:ring-1 focus:ring-primary"
+              autoFocus
+            />
+          </div>
         </div>
       )}
       <ul className="overflow-y-auto custom-scrollbar" role="listbox">
@@ -148,13 +148,13 @@ const Dropdown: React.FC<DropdownProps> = ({
         aria-expanded={isOpen}
       >
         <span className={`truncate text-sm ${!selectedOption ? 'text-gray-500 dark:text-gray-400' : ''}`}>
-            {selectedOption ? selectedOption.label : placeholder}
+          {selectedOption ? selectedOption.label : placeholder}
         </span>
-        <TriggerIcon 
-            className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${icon === 'chevron' && isOpen ? 'rotate-180' : ''}`} 
+        <TriggerIcon
+          className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${icon === 'chevron' && isOpen ? 'rotate-180' : ''}`}
         />
       </button>
-      
+
       {isOpen && createPortal(<DropdownMenu />, document.body)}
     </div>
   );

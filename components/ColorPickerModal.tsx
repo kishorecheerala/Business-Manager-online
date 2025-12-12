@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Check, Copy } from 'lucide-react';
 import Card from './Card';
 import Button from './Button';
@@ -13,59 +14,59 @@ interface ColorPickerModalProps {
 // --- Color Utility Functions ---
 
 const hexToRgb = (hex: string) => {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return result ? {
-    r: parseInt(result[1], 16),
-    g: parseInt(result[2], 16),
-    b: parseInt(result[3], 16)
-  } : { r: 0, g: 0, b: 0 };
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+    } : { r: 0, g: 0, b: 0 };
 };
 
 const rgbToHsv = (r: number, g: number, b: number) => {
-  r /= 255; g /= 255; b /= 255;
-  const max = Math.max(r, g, b), min = Math.min(r, g, b);
-  let h = 0, s, v = max;
-  const d = max - min;
-  s = max === 0 ? 0 : d / max;
-  if (max === min) h = 0;
-  else {
-    switch (max) {
-      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-      case g: h = (b - r) / d + 2; break;
-      case b: h = (r - g) / d + 4; break;
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h = 0, s, v = max;
+    const d = max - min;
+    s = max === 0 ? 0 : d / max;
+    if (max === min) h = 0;
+    else {
+        switch (max) {
+            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+            case g: h = (b - r) / d + 2; break;
+            case b: h = (r - g) / d + 4; break;
+        }
+        h /= 6;
     }
-    h /= 6;
-  }
-  return { h: h * 360, s: s * 100, v: v * 100 };
+    return { h: h * 360, s: s * 100, v: v * 100 };
 };
 
 const hsvToRgb = (h: number, s: number, v: number) => {
-  s = s / 100;
-  v = v / 100;
-  let r = 0, g = 0, b = 0;
-  const i = Math.floor(h / 60);
-  const f = h / 60 - i;
-  const p = v * (1 - s);
-  const q = v * (1 - f * s);
-  const t = v * (1 - (1 - f) * s);
-  switch (i % 6) {
-    case 0: r = v; g = t; b = p; break;
-    case 1: r = q; g = v; b = p; break;
-    case 2: r = p; g = v; b = t; break;
-    case 3: r = p; g = q; b = v; break;
-    case 4: r = t; g = p; b = v; break;
-    case 5: r = v; g = p; b = q; break;
-  }
-  return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) };
+    s = s / 100;
+    v = v / 100;
+    let r = 0, g = 0, b = 0;
+    const i = Math.floor(h / 60);
+    const f = h / 60 - i;
+    const p = v * (1 - s);
+    const q = v * (1 - f * s);
+    const t = v * (1 - (1 - f) * s);
+    switch (i % 6) {
+        case 0: r = v; g = t; b = p; break;
+        case 1: r = q; g = v; b = p; break;
+        case 2: r = p; g = v; b = t; break;
+        case 3: r = p; g = q; b = v; break;
+        case 4: r = t; g = p; b = v; break;
+        case 5: r = v; g = p; b = q; break;
+    }
+    return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) };
 };
 
 const componentToHex = (c: number) => {
-  const hex = c.toString(16);
-  return hex.length === 1 ? "0" + hex : hex;
+    const hex = c.toString(16);
+    return hex.length === 1 ? "0" + hex : hex;
 };
 
 const rgbToHex = (r: number, g: number, b: number) => {
-  return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
+    return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
 };
 
 const ColorPickerModal: React.FC<ColorPickerModalProps> = ({ isOpen, onClose, initialColor, onChange }) => {
@@ -73,7 +74,7 @@ const ColorPickerModal: React.FC<ColorPickerModalProps> = ({ isOpen, onClose, in
     const [saturation, setSaturation] = useState(0);
     const [value, setValue] = useState(100);
     const [hexInput, setHexInput] = useState(initialColor);
-    
+
     const paletteRef = useRef<HTMLDivElement>(null);
     const isDragging = useRef(false);
 
@@ -147,14 +148,14 @@ const ColorPickerModal: React.FC<ColorPickerModalProps> = ({ isOpen, onClose, in
     // Calculate current color for preview
     const { r, g, b } = hsvToRgb(hue, saturation, value);
     const currentColor = `rgb(${r}, ${g}, ${b})`;
-    
+
     // Base hue color for the palette background
     const { r: hr, g: hg, b: hb } = hsvToRgb(hue, 100, 100);
     const hueColor = `rgb(${hr}, ${hg}, ${hb})`;
 
-    return (
-        <div 
-            className="fixed inset-0 bg-black/60 flex items-center justify-center z-[99999] p-4 animate-fade-in-fast backdrop-blur-sm"
+    return createPortal(
+        <div
+            className="fixed inset-0 bg-black/60 flex items-center justify-center z-[150] p-4 animate-fade-in-fast backdrop-blur-sm"
             onMouseUp={handleMouseUp}
             onTouchEnd={handleMouseUp}
         >
@@ -169,7 +170,7 @@ const ColorPickerModal: React.FC<ColorPickerModalProps> = ({ isOpen, onClose, in
 
                 <div className="p-5 space-y-5">
                     {/* Saturation/Value Pad */}
-                    <div 
+                    <div
                         ref={paletteRef}
                         className="w-full h-48 rounded-xl relative cursor-crosshair touch-none shadow-inner ring-1 ring-black/5 overflow-hidden"
                         style={{ backgroundColor: hueColor }}
@@ -180,8 +181,8 @@ const ColorPickerModal: React.FC<ColorPickerModalProps> = ({ isOpen, onClose, in
                     >
                         <div className="absolute inset-0 bg-gradient-to-r from-white to-transparent" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent" />
-                        
-                        <div 
+
+                        <div
                             className="absolute w-4 h-4 rounded-full border-2 border-white shadow-md transform -translate-x-1/2 -translate-y-1/2 pointer-events-none"
                             style={{ left: `${saturation}%`, top: `${100 - value}%`, backgroundColor: currentColor }}
                         />
@@ -189,10 +190,10 @@ const ColorPickerModal: React.FC<ColorPickerModalProps> = ({ isOpen, onClose, in
 
                     {/* Hue Slider */}
                     <div>
-                        <input 
-                            type="range" 
-                            min="0" 
-                            max="360" 
+                        <input
+                            type="range"
+                            min="0"
+                            max="360"
                             value={hue}
                             onChange={(e) => {
                                 const h = parseInt(e.target.value);
@@ -208,15 +209,15 @@ const ColorPickerModal: React.FC<ColorPickerModalProps> = ({ isOpen, onClose, in
 
                     {/* Controls */}
                     <div className="flex items-center gap-3">
-                        <div 
+                        <div
                             className="w-12 h-12 rounded-xl shadow-sm border border-gray-200 dark:border-slate-600 flex-shrink-0"
                             style={{ backgroundColor: currentColor }}
                         />
                         <div className="flex-grow relative">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">#</span>
-                            <input 
-                                type="text" 
-                                value={hexInput.replace('#', '')} 
+                            <input
+                                type="text"
+                                value={hexInput.replace('#', '')}
                                 onChange={handleHexChange}
                                 className="w-full pl-7 pr-3 py-2.5 bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg font-mono text-sm uppercase focus:ring-2 focus:ring-primary/50 outline-none transition-all"
                                 maxLength={6}
@@ -235,7 +236,8 @@ const ColorPickerModal: React.FC<ColorPickerModalProps> = ({ isOpen, onClose, in
                     </div>
                 </div>
             </Card>
-        </div>
+        </div>,
+        document.body
     );
 };
 

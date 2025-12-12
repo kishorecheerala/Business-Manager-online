@@ -9,11 +9,11 @@ import { PurchaseItem } from '../types';
 import { useAppContext } from '../context/AppContext';
 
 interface BatchBarcodeModalProps {
-  isOpen: boolean;
-  purchaseItems: PurchaseItem[];
-  onClose: () => void;
-  businessName: string;
-  title?: string;
+    isOpen: boolean;
+    purchaseItems: PurchaseItem[];
+    onClose: () => void;
+    businessName: string;
+    title?: string;
 }
 
 const generateLabelCanvas = (product: { id: string, name: string, salePrice: number }, businessName: string): HTMLCanvasElement => {
@@ -35,13 +35,13 @@ const generateLabelCanvas = (product: { id: string, name: string, salePrice: num
 
     const barcodeCanvas = document.createElement('canvas');
     JsBarcode(barcodeCanvas, product.id, {
-      format: 'CODE128',
-      width: 2 * dpiScale,
-      height: 50 * dpiScale,
-      displayValue: false,
-      margin: 0,
+        format: 'CODE128',
+        width: 2 * dpiScale,
+        height: 50 * dpiScale,
+        displayValue: false,
+        margin: 0,
     });
-    
+
     const barcodeX = (labelCanvas.width - barcodeCanvas.width) / 2;
     const barcodeY = 30 * dpiScale;
     ctx.drawImage(barcodeCanvas, barcodeX, barcodeY);
@@ -130,7 +130,7 @@ const BatchBarcodeModal: React.FC<BatchBarcodeModalProps> = ({ isOpen, purchaseI
                 const productInfo = { id: item.productId, name: item.productName, salePrice: item.saleValue };
                 const labelCanvas = generateLabelCanvas(productInfo, businessName);
                 const imageData = labelCanvas.toDataURL('image/png');
-                
+
                 const imgWidth = doc.internal.pageSize.getWidth() - 2 * margin;
                 const imgHeight = (imgWidth * labelCanvas.height) / labelCanvas.width;
                 const yPosition = (doc.internal.pageSize.getHeight() - imgHeight) / 2;
@@ -168,7 +168,7 @@ const BatchBarcodeModal: React.FC<BatchBarcodeModalProps> = ({ isOpen, purchaseI
                     labelsHtml += `<div class="label"><img src="${imageDataUrl}" style="width: 100%; height: 100%;" /></div>`;
                 }
             }
-            
+
             const printStyles = `
                 @page { size: 2in 1in; margin: 0; }
                 @media print {
@@ -176,7 +176,7 @@ const BatchBarcodeModal: React.FC<BatchBarcodeModalProps> = ({ isOpen, purchaseI
                     .label { width: 2in; height: 1in; page-break-after: always; box-sizing: border-box; display: block; }
                 }
             `;
-            
+
             // Cleanup previous iframe if it exists
             if (printIframeRef.current && document.body.contains(printIframeRef.current)) {
                 document.body.removeChild(printIframeRef.current);
@@ -203,11 +203,11 @@ const BatchBarcodeModal: React.FC<BatchBarcodeModalProps> = ({ isOpen, purchaseI
                     // NOTE: The iframe is NOT removed here. It will be cleaned up by the useEffect hook when the modal closes.
                 };
             } else {
-                 // Fallback
-                 if (printIframeRef.current && document.body.contains(printIframeRef.current)) {
+                // Fallback
+                if (printIframeRef.current && document.body.contains(printIframeRef.current)) {
                     document.body.removeChild(printIframeRef.current);
                     printIframeRef.current = null;
-                 }
+                }
             }
         } catch (error) {
             console.error('Printing failed:', error);
@@ -218,8 +218,8 @@ const BatchBarcodeModal: React.FC<BatchBarcodeModalProps> = ({ isOpen, purchaseI
     if (!isOpen) return null;
 
     return createPortal(
-        <div 
-            className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+        <div
+            className="fixed inset-0 z-[80] flex items-center justify-center p-4"
         >
             <div className="absolute inset-0 bg-black/50 animate-fade-in-fast" onClick={onClose} />
             <Card className="relative z-10 w-full max-w-lg animate-scale-in">
@@ -244,13 +244,13 @@ const BatchBarcodeModal: React.FC<BatchBarcodeModalProps> = ({ isOpen, purchaseI
                         </div>
                     ))}
                 </div>
-                
+
                 <div className="mt-4 pt-4 border-t dark:border-slate-700">
                     <p className="text-center font-bold mb-4">Total Labels to Print: {totalLabels}</p>
                     <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-3 rounded mb-4">
                         <p className="text-xs font-semibold text-yellow-800 dark:text-yellow-200 mb-1">Print Settings</p>
                         <p className="text-xs text-yellow-700 dark:text-yellow-300">
-                        Ensure printer settings use <strong>Actual Size</strong> and <strong>Paper Size: 2x1 inch</strong> (50.8x25.4mm).
+                            Ensure printer settings use <strong>Actual Size</strong> and <strong>Paper Size: 2x1 inch</strong> (50.8x25.4mm).
                         </p>
                     </div>
                     <div className="grid grid-cols-2 gap-2">

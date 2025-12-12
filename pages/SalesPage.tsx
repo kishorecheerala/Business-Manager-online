@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Plus, Trash2, Share2, Search, X, IndianRupee, QrCode, Save, Edit, PauseCircle, PlayCircle, Clock, History, ArrowRight, FileText } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import { useDialog } from '../context/DialogContext';
 import { Sale, SaleItem, Customer, Product, Payment, ParkedSale } from '../types';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -17,13 +18,14 @@ import Input from '../components/Input';
 import Dropdown from '../components/Dropdown';
 
 interface SalesPageProps {
-  setIsDirty: (isDirty: boolean) => void;
+    setIsDirty: (isDirty: boolean) => void;
 }
 
 const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
     const { state, dispatch, showToast } = useAppContext();
+    const { showConfirm } = useDialog();
     const { currentSale, parkedSales } = state;
-    
+
     const [mode, setMode] = useState<'add' | 'edit'>(currentSale.editId ? 'edit' : 'add');
     const [saleToEdit, setSaleToEdit] = useState<Sale | null>(null);
     const [activeTab, setActiveTab] = useState<'form' | 'history'>('form');
@@ -32,7 +34,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
     const [items, setItems] = useState<SaleItem[]>(currentSale.items || []);
     const [discount, setDiscount] = useState(currentSale.discount || '0');
     const [saleDate, setSaleDate] = useState(currentSale.date || getLocalDateString());
-    
+
     const [paymentDetails, setPaymentDetails] = useState(currentSale.paymentDetails || {
         amount: '',
         method: 'CASH' as 'CASH' | 'UPI' | 'CHEQUE',
@@ -42,23 +44,13 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
 
     const [isSelectingProduct, setIsSelectingProduct] = useState(false);
     const [isScanning, setIsScanning] = useState(false);
-    
+
     const [isAddingCustomer, setIsAddingCustomer] = useState(false);
     const isDirtyRef = useRef(false);
 
-    const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
-    const [customerSearchTerm, setCustomerSearchTerm] = useState('');
-    const customerDropdownRef = useRef<HTMLDivElement>(null);
-    
     const [isDraftsOpen, setIsDraftsOpen] = useState(false);
-    
-    const [historySearch, setHistorySearch] = useState('');
 
-    useOnClickOutside(customerDropdownRef, () => {
-        if (isCustomerDropdownOpen) {
-            setIsCustomerDropdownOpen(false);
-        }
-    });
+    const [historySearch, setHistorySearch] = useState('');
 
     // Sync local form state to global currentSale for navigation guard
     useEffect(() => {
@@ -82,11 +74,11 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         setSaleToEdit(sale);
         setMode('edit');
         setCustomerId(sale.customerId);
-        setItems(sale.items.map(item => ({...item}))); // Deep copy
+        setItems(sale.items.map(item => ({ ...item }))); // Deep copy
         setDiscount(sale.discount.toString());
         setSaleDate(getLocalDateString(new Date(sale.date)));
         setPaymentDetails({ amount: '', method: 'CASH', date: getLocalDateString(), reference: '' });
-        
+
         setActiveTab('form');
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
@@ -147,7 +139,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         setSaleToEdit(null);
         dispatch({ type: 'CLEAR_CURRENT_SALE' }); // Clear global state
     };
-    
+
     const handleParkSale = () => {
         if (items.length === 0 && !customerId) {
             showToast("Cannot park an empty sale.", 'error');
@@ -155,7 +147,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         }
         dispatch({ type: 'PARK_CURRENT_SALE' });
         showToast("Sale parked successfully.", 'success');
-        
+
         // Immediately reset local state after dispatching
         setCustomerId('');
         setItems([]);
@@ -180,9 +172,9 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                 setSaleToEdit(sale);
                 setMode('edit');
             } else {
-                 showToast(`Original sale ${draft.editId} not found. Resuming as new draft.`, 'info');
-                 setMode('add');
-                 setSaleToEdit(null);
+                showToast(`Original sale ${draft.editId} not found. Resuming as new draft.`, 'info');
+                setMode('add');
+                setSaleToEdit(null);
             }
         } else {
             setMode('add');
@@ -191,7 +183,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
 
         // Dispatch to remove from parked list and update currentSale
         dispatch({ type: 'RESUME_PARKED_SALE', payload: draft });
-        
+
         setIsDraftsOpen(false);
         setActiveTab('form');
         showToast("Draft resumed.", 'success');
@@ -202,35 +194,46 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
     };
 
     const handleSelectProduct = (product: Product) => {
+        let price = Number(product.salePrice);
+
+        // Wholesale Pricing Logic
+        if (customerId) {
+            const customer = state.customers.find(c => c.id === customerId);
+            if (customer?.priceTier === 'WHOLESALE' && product.wholesalePrice && product.wholesalePrice > 0) {
+                price = Number(product.wholesalePrice);
+                showToast(`Wholesale price applied for ${product.name}`, 'info');
+            }
+        }
+
         const newItem = {
             productId: product.id,
             productName: product.name,
-            price: Number(product.salePrice),
+            price: price,
             quantity: 1,
         };
 
         const existingItem = items.find(i => i.productId === newItem.productId);
-        
+
         const originalQtyInSale = mode === 'edit' ? saleToEdit?.items.find(i => i.productId === product.id)?.quantity || 0 : 0;
         const availableStock = Number(product.quantity) + originalQtyInSale;
 
         if (existingItem) {
             if (existingItem.quantity + 1 > availableStock) {
-                 showToast(`Not enough stock for ${product.name}. Only ${availableStock} available for this sale.`, 'error');
-                 return;
+                showToast(`Not enough stock for ${product.name}. Only ${availableStock} available for this sale.`, 'error');
+                return;
             }
             setItems(items.map(i => i.productId === newItem.productId ? { ...i, quantity: i.quantity + 1 } : i));
         } else {
-             if (1 > availableStock) {
-                 showToast(`Not enough stock for ${product.name}. Only ${availableStock} available for this sale.`, 'error');
-                 return;
+            if (1 > availableStock) {
+                showToast(`Not enough stock for ${product.name}. Only ${availableStock} available for this sale.`, 'error');
+                return;
             }
             setItems([...items, newItem]);
         }
-        
+
         setIsSelectingProduct(false);
     };
-    
+
     const handleProductScanned = (decodedText: string) => {
         setIsScanning(false);
         const product = state.products.find(p => p.id.toLowerCase() === decodedText.toLowerCase());
@@ -278,31 +281,25 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         if (!customerId) return null;
         const customerSales = state.sales.filter(s => s.customerId === customerId);
         if (customerSales.length === 0) return null;
-        
+
         // Sort by date desc
         const lastSale = customerSales.reduce((latest, current) => {
             return new Date(current.date) > new Date(latest.date) ? current : latest;
         });
-        
+
         return {
             date: new Date(lastSale.date).toLocaleDateString(),
             amount: lastSale.totalAmount
         };
     }, [customerId, state.sales]);
 
-    const filteredCustomers = useMemo(() => 
-        state.customers.filter(c => 
-            c.name.toLowerCase().includes(customerSearchTerm.toLowerCase()) || 
-            c.area.toLowerCase().includes(customerSearchTerm.toLowerCase())
-        ).sort((a,b) => a.name.localeCompare(b.name)),
-    [state.customers, customerSearchTerm]);
 
     const customerTotalDue = useMemo(() => {
         if (!customerId) return null;
 
         const customerSales = state.sales.filter(s => s.customerId === customerId);
         if (customerSales.length === 0) return 0;
-        
+
         const totalBilled = customerSales.reduce((sum, sale) => sum + Number(sale.totalAmount), 0);
         const totalPaid = customerSales.reduce((sum, sale) => {
             return sum + (sale.payments || []).reduce((paySum, payment) => paySum + Number(payment.amount), 0);
@@ -322,9 +319,9 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                 (customer && customer.phone.includes(term))
             );
         }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-          .slice(0, 50); // Limit to last 50 for performance
+            .slice(0, 50); // Limit to last 50 for performance
     }, [state.sales, state.customers, historySearch]);
-    
+
     // Recent Sales for Bottom Bar
     const recentSales = useMemo(() => {
         return [...state.sales]
@@ -340,42 +337,42 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
     };
 
     const generateAndSharePDF = async (sale: Sale, customer: Customer, paidAmountOnSale: number) => {
-      try {
-        const doc = await generateA4InvoicePdf(sale, customer, state.profile, state.invoiceTemplate, state.customFonts);
-        const pdfBlob = doc.output('blob');
-        const pdfFile = new File([pdfBlob], `Invoice-${sale.id}.pdf`, { type: 'application/pdf' });
-        const businessName = state.profile?.name || 'Your Business';
-        
-        const subTotal = calculations.subTotal;
-        const dueAmountOnSale = Number(sale.totalAmount) - paidAmountOnSale;
+        try {
+            const doc = await generateA4InvoicePdf(sale, customer, state.profile, state.invoiceTemplate, state.customFonts);
+            const pdfBlob = doc.output('blob');
+            const pdfFile = new File([pdfBlob], `Invoice-${sale.id}.pdf`, { type: 'application/pdf' });
+            const businessName = state.profile?.name || 'Your Business';
 
-        const whatsAppText = `Thank you for your purchase from ${businessName}!\n\n*Invoice Summary:*\nInvoice ID: ${sale.id}\nDate: ${new Date(sale.date).toLocaleString()}\n\n*Items:*\n${sale.items.map(i => `- ${i.productName} (x${i.quantity}) - Rs. ${(Number(i.price) * Number(i.quantity)).toLocaleString('en-IN')}`).join('\n')}\n\nSubtotal: Rs. ${subTotal.toLocaleString('en-IN')}\nGST: Rs. ${Number(sale.gstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}\nDiscount: Rs. ${Number(sale.discount).toLocaleString('en-IN')}\n*Total: Rs. ${Number(sale.totalAmount).toLocaleString('en-IN')}*\nPaid: Rs. ${paidAmountOnSale.toLocaleString('en-IN')}\nDue: Rs. ${dueAmountOnSale.toLocaleString('en-IN', { minimumFractionDigits: 2 })}\n\nHave a blessed day!`;
-        
-        if (navigator.share && navigator.canShare({ files: [pdfFile] })) {
-          try {
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-              await navigator.clipboard.writeText(whatsAppText);
-              showToast('Invoice text copied to clipboard!');
+            const subTotal = calculations.subTotal;
+            const dueAmountOnSale = Number(sale.totalAmount) - paidAmountOnSale;
+
+            const whatsAppText = `Thank you for your purchase from ${businessName}!\n\n*Invoice Summary:*\nInvoice ID: ${sale.id}\nDate: ${new Date(sale.date).toLocaleString()}\n\n*Items:*\n${sale.items.map(i => `- ${i.productName} (x${i.quantity}) - Rs. ${(Number(i.price) * Number(i.quantity)).toLocaleString('en-IN')}`).join('\n')}\n\nSubtotal: Rs. ${subTotal.toLocaleString('en-IN')}\nGST: Rs. ${Number(sale.gstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}\nDiscount: Rs. ${Number(sale.discount).toLocaleString('en-IN')}\n*Total: Rs. ${Number(sale.totalAmount).toLocaleString('en-IN')}*\nPaid: Rs. ${paidAmountOnSale.toLocaleString('en-IN')}\nDue: Rs. ${dueAmountOnSale.toLocaleString('en-IN', { minimumFractionDigits: 2 })}\n\nHave a blessed day!`;
+
+            if (navigator.share && navigator.canShare({ files: [pdfFile] })) {
+                try {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        await navigator.clipboard.writeText(whatsAppText);
+                        showToast('Invoice text copied to clipboard!');
+                    }
+                } catch (err) {
+                    console.warn('Could not copy text to clipboard:', err);
+                }
+                await navigator.share({
+                    title: `${businessName} Invoice ${sale.id}`,
+                    text: whatsAppText,
+                    files: [pdfFile],
+                });
+            } else {
+                doc.save(`Invoice-${sale.id}.pdf`);
             }
-          } catch (err) {
-            console.warn('Could not copy text to clipboard:', err);
-          }
-          await navigator.share({
-            title: `${businessName} Invoice ${sale.id}`,
-            text: whatsAppText,
-            files: [pdfFile],
-          });
-        } else {
-          doc.save(`Invoice-${sale.id}.pdf`);
+        } catch (error: any) {
+            if (error.name === 'AbortError' || (error.message && error.message.includes('Share canceled'))) {
+                console.debug('Share canceled by user');
+                return;
+            }
+            console.error("PDF generation or sharing failed:", error);
+            showToast(`Sale created, but PDF failed: ${error.message}`, 'error');
         }
-      } catch (error: any) {
-        if (error.name === 'AbortError' || (error.message && error.message.includes('Share canceled'))) {
-             console.debug('Share canceled by user');
-             return;
-        }
-        console.error("PDF generation or sharing failed:", error);
-        showToast(`Sale created, but PDF failed: ${error.message}`, 'error');
-      }
     };
 
     const handleSubmitSale = async () => {
@@ -385,11 +382,11 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         }
 
         const customer = state.customers.find(c => c.id === customerId);
-        if(!customer) {
+        if (!customer) {
             showToast("Could not find the selected customer.", 'error');
             return;
         }
-        
+
         const { totalAmount, gstAmount, discountAmount } = calculations;
 
         if (mode === 'add') {
@@ -405,11 +402,11 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                     date: new Date(paymentDetails.date).toISOString(), reference: paymentDetails.reference.trim() || undefined,
                 });
             }
-            
+
             const saleCreationDate = new Date();
             const saleDateWithTime = new Date(`${saleDate}T${saleCreationDate.toTimeString().split(' ')[0]}`);
             const saleId = `SALE-${saleCreationDate.getFullYear()}${(saleCreationDate.getMonth() + 1).toString().padStart(2, '0')}${saleCreationDate.getDate().toString().padStart(2, '0')}-${saleCreationDate.getHours().toString().padStart(2, '0')}${saleCreationDate.getMinutes().toString().padStart(2, '0')}${saleCreationDate.getSeconds().toString().padStart(2, '0')}`;
-            
+
             const newSale: Sale = {
                 id: saleId, customerId, items, discount: discountAmount, gstAmount, totalAmount,
                 date: saleDateWithTime.toISOString(), payments
@@ -440,7 +437,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         resetForm();
     };
 
-     const handleRecordStandalonePayment = () => {
+    const handleRecordStandalonePayment = () => {
         if (!customerId) {
             showToast('Please select a customer to record a payment for.', 'info');
             return;
@@ -463,14 +460,14 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             showToast('This customer has no outstanding dues.', 'info');
             return;
         }
-        
+
         let remainingPayment = paidAmount;
         for (const sale of outstandingSales) {
             if (remainingPayment <= 0) break;
 
             const paid = (sale.payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
             const dueAmount = Number(sale.totalAmount) - paid;
-            
+
             const amountToApply = Math.min(remainingPayment, dueAmount);
 
             const newPayment: Payment = {
@@ -482,23 +479,27 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             };
 
             dispatch({ type: 'ADD_PAYMENT_TO_SALE', payload: { saleId: sale.id, payment: newPayment } });
-            
+
             remainingPayment -= amountToApply;
         }
-        
+
         showToast(`Payment of ₹${paidAmount.toLocaleString('en-IN')} recorded successfully.`);
         resetForm();
     };
 
-    const handleEditFromHistory = (sale: Sale) => {
+    const handleEditFromHistory = async (sale: Sale) => {
         if (isDirtyRef.current) {
-            if (!window.confirm("You have unsaved changes. Discard and edit this sale?")) {
-                return;
-            }
+            const confirmed = await showConfirm("You have unsaved changes. Discard and edit this sale?", {
+                title: "Unsaved Changes",
+                confirmText: "Discard & Edit",
+                cancelText: "Stay",
+                variant: 'danger'
+            });
+            if (!confirmed) return;
         }
         loadSaleForEditing(sale);
     };
-    
+
     const canCreateSale = customerId && items.length > 0 && mode === 'add';
     const canUpdateSale = customerId && items.length > 0 && mode === 'edit';
     const canRecordPayment = customerId && items.length === 0 && parseFloat(paymentDetails.amount || '0') > 0 && customerTotalDue != null && customerTotalDue > 0.01 && mode === 'add';
@@ -506,28 +507,28 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
 
     return (
         <div className="space-y-4 animate-fade-in-fast relative pb-10">
-            {isAddingCustomer && 
-                <AddCustomerModal 
+            {isAddingCustomer &&
+                <AddCustomerModal
                     isOpen={isAddingCustomer}
                     onClose={() => setIsAddingCustomer(false)}
                     onAdd={handleAddCustomer}
                     existingCustomers={state.customers}
                 />
             }
-            {isSelectingProduct && 
-                <ProductSearchModal 
+            {isSelectingProduct &&
+                <ProductSearchModal
                     products={state.products}
                     onClose={() => setIsSelectingProduct(false)}
                     onSelect={handleSelectProduct}
                 />
             }
-            {isScanning && 
-                <QRScannerModal 
+            {isScanning &&
+                <QRScannerModal
                     onClose={() => setIsScanning(false)}
                     onScanned={handleProductScanned}
                 />
             }
-            
+
             {/* Drafts Modal */}
             {isDraftsOpen && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[150] p-4 animate-fade-in-fast backdrop-blur-sm">
@@ -550,7 +551,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                                             </div>
                                             <div className="flex gap-2">
                                                 <Button onClick={() => handleResumeDraft(draft)} className="h-8 text-xs px-2 bg-emerald-600 hover:bg-emerald-700">
-                                                    <PlayCircle size={14} className="mr-1"/> Resume
+                                                    <PlayCircle size={14} className="mr-1" /> Resume
                                                 </Button>
                                                 <DeleteButton variant="delete" onClick={() => handleDeleteDraft(draft.id)} />
                                             </div>
@@ -569,7 +570,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             <div className="flex flex-col gap-4">
                 <div className="flex justify-between items-center">
                     <h1 className="text-2xl font-bold text-primary">{pageTitle}</h1>
-                    
+
                     {/* Drafts Controls */}
                     <div className="flex gap-2">
                         {mode === 'add' && (items.length > 0 || customerId) && (
@@ -578,7 +579,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                             </Button>
                         )}
                         <Button onClick={() => setIsDraftsOpen(true)} variant="secondary" className="relative">
-                            <Clock size={16} className="mr-1 sm:mr-2" /> 
+                            <Clock size={16} className="mr-1 sm:mr-2" />
                             <span className="hidden sm:inline">Drafts</span>
                             {parkedSales.length > 0 && (
                                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full">
@@ -591,25 +592,25 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
 
                 {/* TABS */}
                 <div className="flex p-1 bg-gray-100 dark:bg-slate-800 rounded-lg">
-                    <button 
-                        onClick={() => setActiveTab('form')} 
+                    <button
+                        onClick={() => setActiveTab('form')}
                         className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${activeTab === 'form' ? 'bg-white dark:bg-slate-700 shadow text-primary' : 'text-gray-500 dark:text-gray-400'}`}
                     >
                         <div className="flex items-center justify-center gap-2">
                             <Edit size={16} /> {mode === 'edit' ? 'Edit Mode' : 'Transaction Form'}
                         </div>
                     </button>
-                    <button 
-                        onClick={() => setActiveTab('history')} 
+                    <button
+                        onClick={() => setActiveTab('history')}
                         className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${activeTab === 'history' ? 'bg-white dark:bg-slate-700 shadow text-primary' : 'text-gray-500 dark:text-gray-400'}`}
                     >
-                         <div className="flex items-center justify-center gap-2">
+                        <div className="flex items-center justify-center gap-2">
                             <History size={16} /> Sales History
                         </div>
                     </button>
                 </div>
             </div>
-            
+
             {activeTab === 'form' ? (
                 <>
                     <Card>
@@ -617,74 +618,35 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Customer</label>
                                 <div className="flex gap-2 items-center">
-                                    <div className="relative w-full" ref={customerDropdownRef}>
-                                        <button
-                                            type="button"
-                                            onClick={() => setIsCustomerDropdownOpen(prev => !prev)}
-                                            className="w-full p-2 border rounded bg-white text-left custom-select dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
+                                    <div className="w-full">
+                                        <Dropdown
+                                            options={state.customers.map(c => ({
+                                                value: c.id,
+                                                label: `${c.name} - ${c.area}`,
+                                                searchText: `${c.name} ${c.area} ${c.phone}`
+                                            }))}
+                                            value={customerId}
+                                            onChange={(val) => {
+                                                setCustomerId(val);
+                                                // Clear search term not needed as Dropdown handles it internally
+                                            }}
+                                            searchable={true}
+                                            searchPlaceholder="Search by name, area or phone..."
+                                            placeholder="Select a Customer"
                                             disabled={mode === 'edit' || (mode === 'add' && items.length > 0)}
-                                            aria-haspopup="listbox"
-                                            aria-expanded={isCustomerDropdownOpen}
-                                        >
-                                            {selectedCustomer ? `${selectedCustomer.name} - ${selectedCustomer.area}` : 'Select a Customer'}
-                                        </button>
-
-                                        {isCustomerDropdownOpen && (
-                                            <div className="absolute top-full left-0 w-full mt-1 bg-white dark:bg-slate-900 rounded-md shadow-lg border dark:border-slate-700 z-40 animate-fade-in-fast">
-                                                <div className="p-2 border-b dark:border-slate-700">
-                                                    <Input
-                                                        type="text"
-                                                        placeholder="Search by name or area..."
-                                                        value={customerSearchTerm}
-                                                        onChange={e => setCustomerSearchTerm(e.target.value)}
-                                                        autoFocus
-                                                    />
-                                                </div>
-                                                <ul className="max-h-60 overflow-y-auto" role="listbox">
-                                                    <li
-                                                        key="select-customer-placeholder"
-                                                        onClick={() => {
-                                                            setCustomerId('');
-                                                            setIsCustomerDropdownOpen(false);
-                                                            setCustomerSearchTerm('');
-                                                        }}
-                                                        className="px-4 py-2 hover:bg-teal-50 dark:hover:bg-slate-800 cursor-pointer text-gray-500"
-                                                        role="option"
-                                                    >
-                                                        Select a Customer
-                                                    </li>
-                                                    {filteredCustomers.map(c => (
-                                                        <li
-                                                            key={c.id}
-                                                            onClick={() => {
-                                                                setCustomerId(c.id);
-                                                                setIsCustomerDropdownOpen(false);
-                                                                setCustomerSearchTerm('');
-                                                            }}
-                                                            className="px-4 py-2 hover:bg-teal-50 dark:hover:bg-slate-800 cursor-pointer border-t dark:border-slate-800"
-                                                            role="option"
-                                                        >
-                                                            {c.name} - {c.area}
-                                                        </li>
-                                                    ))}
-                                                    {filteredCustomers.length === 0 && (
-                                                        <li className="px-4 py-2 text-gray-400">No customers found.</li>
-                                                    )}
-                                                </ul>
-                                            </div>
-                                        )}
+                                        />
                                     </div>
                                     {mode === 'add' && (
                                         <Button onClick={() => setIsAddingCustomer(true)} variant="secondary" className="flex-shrink-0">
-                                            <Plus size={16}/> New Customer
+                                            <Plus size={16} /> New Customer
                                         </Button>
                                     )}
                                 </div>
                             </div>
-                            
-                            <ModernDateInput 
+
+                            <ModernDateInput
                                 label="Sale Date"
-                                value={saleDate} 
+                                value={saleDate}
                                 onChange={e => setSaleDate(e.target.value)}
                                 disabled={mode === 'edit'}
                             />
@@ -710,13 +672,22 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                         </div>
                     </Card>
 
-                    <Card title="Sale Items">
+                    <Card title={
+                        <div className="flex items-center justify-between">
+                            <span>Sale Items</span>
+                            {selectedCustomer?.priceTier === 'WHOLESALE' && (
+                                <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded border border-purple-200 font-bold ml-2">
+                                    WHOLESALE ACTIVE
+                                </span>
+                            )}
+                        </div>
+                    }>
                         <div className="flex flex-col sm:flex-row gap-2">
                             <Button onClick={() => setIsSelectingProduct(true)} className="w-full sm:w-auto flex-grow" disabled={!customerId}>
-                                <Search size={16} className="mr-2"/> Select Product
+                                <Search size={16} className="mr-2" /> Select Product
                             </Button>
                             <Button onClick={() => setIsScanning(true)} variant="secondary" className="w-full sm:w-auto flex-grow" disabled={!customerId}>
-                                <QrCode size={16} className="mr-2"/> Scan Product
+                                <QrCode size={16} className="mr-2" /> Scan Product
                             </Button>
                         </div>
                         <div className="mt-4 space-y-2">
@@ -727,9 +698,9 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                                         <DeleteButton variant="remove" onClick={() => handleRemoveItem(item.productId)} />
                                     </div>
                                     <div className="flex items-center gap-2 text-sm mt-1">
-                                        <Input type="number" value={item.quantity} onChange={e => handleItemChange(item.productId, 'quantity', e.target.value)} className="w-20 !p-1 text-center" placeholder="Qty"/>
+                                        <Input type="number" value={item.quantity} onChange={e => handleItemChange(item.productId, 'quantity', e.target.value)} className="w-20 !p-1 text-center" placeholder="Qty" />
                                         <span>x</span>
-                                        <Input type="number" value={item.price} onChange={e => handleItemChange(item.productId, 'price', e.target.value)} className="w-24 !p-1 text-center" placeholder="Price"/>
+                                        <Input type="number" value={item.price} onChange={e => handleItemChange(item.productId, 'price', e.target.value)} className="w-24 !p-1 text-center" placeholder="Price" />
                                         <span>= ₹{(Number(item.quantity) * Number(item.price)).toLocaleString('en-IN')}</span>
                                     </div>
                                 </div>
@@ -801,7 +772,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                             )}
                         </div>
                     </Card>
-                    
+
                     {mode === 'add' && items.length === 0 && customerId && customerTotalDue != null && customerTotalDue > 0.01 && (
                         <Card title="Record Payment for Dues">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -832,21 +803,21 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                     <div className="space-y-2">
                         {canCreateSale ? (
                             <Button onClick={handleSubmitSale} variant="secondary" className="w-full">
-                                <Share2 className="w-4 h-4 mr-2"/>
+                                <Share2 className="w-4 h-4 mr-2" />
                                 Create Sale & Share Invoice
                             </Button>
                         ) : canUpdateSale ? (
                             <Button onClick={handleSubmitSale} className="w-full">
-                                <Save className="w-4 h-4 mr-2"/>
+                                <Save className="w-4 h-4 mr-2" />
                                 Save Changes to Sale
                             </Button>
                         ) : canRecordPayment ? (
-                             <Button onClick={handleRecordStandalonePayment} className="w-full">
+                            <Button onClick={handleRecordStandalonePayment} className="w-full">
                                 <IndianRupee className="w-4 h-4 mr-2" />
                                 Record Standalone Payment
                             </Button>
                         ) : (
-                             <Button className="w-full" disabled>
+                            <Button className="w-full" disabled>
                                 {customerId ? (items.length === 0 ? 'Enter payment or add items' : 'Complete billing details') : 'Select a customer'}
                             </Button>
                         )}
@@ -869,9 +840,9 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                                 {recentSales.map(sale => {
                                     const customer = state.customers.find(c => c.id === sale.customerId);
                                     const itemSummary = sale.items.map(i => `${i.productName} (x${i.quantity})`).join(', ');
-                                    
+
                                     return (
-                                        <div 
+                                        <div
                                             key={sale.id}
                                             onClick={() => handleEditFromHistory(sale)}
                                             className="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col gap-2 cursor-pointer hover:border-primary hover:shadow-md transition-all group"
@@ -885,10 +856,10 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                                                 </div>
                                                 <div className="text-right">
                                                     <p className="font-bold text-sm text-primary">₹{sale.totalAmount.toLocaleString('en-IN')}</p>
-                                                    <p className="text-[10px] text-gray-400">{new Date(sale.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                                                    <p className="text-[10px] text-gray-400">{new Date(sale.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                                                 </div>
                                             </div>
-                                            
+
                                             <div className="flex justify-between items-center pt-2 border-t dark:border-slate-700/50 border-dashed">
                                                 <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1 flex-1 pr-2">
                                                     {itemSummary}
@@ -917,14 +888,14 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                             className="pl-10"
                         />
                     </div>
-                    
+
                     <div className="space-y-3">
                         {filteredHistory.length > 0 ? (
                             filteredHistory.map((sale) => {
                                 const saleCustomer = state.customers.find((c) => c.id === sale.customerId);
                                 const totalPaid = (sale.payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
                                 const dueAmount = Number(sale.totalAmount) - totalPaid;
-                                
+
                                 return (
                                     <div
                                         key={sale.id}
@@ -950,7 +921,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                                                 </p>
                                             </div>
                                         </div>
-                                        
+
                                         <div className="mt-2 pt-2 border-t border-slate-300 dark:border-slate-500/30">
                                             <div className="flex justify-between items-center text-xs">
                                                 <span className="text-slate-600 dark:text-slate-400">
@@ -962,7 +933,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                                                 </span>
                                             </div>
                                         </div>
-                                        
+
                                         <p className="text-xs text-blue-600 dark:text-blue-400 mt-2 font-semibold flex items-center gap-1">
                                             Edit this sale <ArrowRight size={10} />
                                         </p>

@@ -124,7 +124,7 @@ const ProductHistoryModal: React.FC<ProductHistoryModalProps> = ({ isOpen, onClo
             if (entry.type === 'SALE') {
                 const entryDate = new Date(entry.date);
                 const qty = Math.abs(entry.quantity);
-                
+
                 totalSold += qty;
 
                 if (entryDate.getMonth() === currentMonth && entryDate.getFullYear() === currentYear) {
@@ -142,8 +142,8 @@ const ProductHistoryModal: React.FC<ProductHistoryModalProps> = ({ isOpen, onClo
     if (!isOpen) return null;
 
     return createPortal(
-        <div 
-            className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+        <div
+            className="fixed inset-0 z-[80] flex items-center justify-center p-4"
         >
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in-fast" onClick={onClose} />
             <Card className="relative z-10 w-full max-w-2xl h-[85vh] flex flex-col p-0 overflow-hidden animate-scale-in border-none shadow-2xl bg-white dark:bg-slate-900">
@@ -202,17 +202,16 @@ const ProductHistoryModal: React.FC<ProductHistoryModalProps> = ({ isOpen, onClo
                                 const isIncoming = entry.quantity > 0;
                                 return (
                                     <div key={`${entry.id}-${idx}`} className="bg-white dark:bg-slate-800 p-3 rounded-xl border dark:border-slate-700 flex items-center gap-3 shadow-sm">
-                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
-                                            entry.type === 'SALE' ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' :
-                                            entry.type === 'PURCHASE' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' :
-                                            entry.type === 'RETURN_IN' ? 'bg-orange-100 text-orange-600' :
-                                            'bg-red-100 text-red-600'
-                                        }`}>
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${entry.type === 'SALE' ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' :
+                                                entry.type === 'PURCHASE' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                                                    entry.type === 'RETURN_IN' ? 'bg-orange-100 text-orange-600' :
+                                                        'bg-red-100 text-red-600'
+                                            }`}>
                                             {entry.type === 'SALE' && <ArrowUpRight size={18} />}
                                             {entry.type === 'PURCHASE' && <ArrowDownLeft size={18} />}
                                             {entry.type.includes('RETURN') && <AlertCircle size={18} />}
                                         </div>
-                                        
+
                                         <div className="flex-grow min-w-0">
                                             <div className="flex justify-between items-start">
                                                 <div className="min-w-0 pr-2">
@@ -232,7 +231,7 @@ const ProductHistoryModal: React.FC<ProductHistoryModalProps> = ({ isOpen, onClo
                                             <div className="flex justify-between items-end mt-0.5">
                                                 <div>
                                                     <p className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1">
-                                                        {entry.type === 'PURCHASE' ? <Package size={12}/> : <User size={12}/>} 
+                                                        {entry.type === 'PURCHASE' ? <Package size={12} /> : <User size={12} />}
                                                         {entry.partyName}
                                                     </p>
                                                     <p className="text-[10px] text-slate-400 mt-0.5 font-mono">
@@ -240,7 +239,7 @@ const ProductHistoryModal: React.FC<ProductHistoryModalProps> = ({ isOpen, onClo
                                                     </p>
                                                 </div>
                                                 <p className="text-[10px] text-slate-400">
-                                                    {new Date(entry.date).toLocaleDateString()} {new Date(entry.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                                    {new Date(entry.date).toLocaleDateString()} {new Date(entry.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 </p>
                                             </div>
                                         </div>

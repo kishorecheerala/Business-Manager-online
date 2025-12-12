@@ -29,7 +29,7 @@ const registerCustomFonts = (doc: jsPDF, fonts: CustomFont[]) => {
             doc.addFileToVFS(`${font.name}.ttf`, fontData);
             doc.addFont(`${font.name}.ttf`, font.name, 'normal');
             doc.addFont(`${font.name}.ttf`, font.name, 'bold');
-        } catch(e) {
+        } catch (e) {
             console.warn(`Failed to register font ${font.name}`, e);
         }
     });
@@ -49,7 +49,7 @@ const formatDate = (dateStr: string, format: string = 'DD/MM/YYYY'): string => {
     const year = d.getFullYear();
     const hours = String(d.getHours()).padStart(2, '0');
     const minutes = String(d.getMinutes()).padStart(2, '0');
-    
+
     if (format === 'MM/DD/YYYY') return `${month}/${day}/${year}`;
     if (format === 'YYYY-MM-DD') return `${year}-${month}-${day}`;
     return `${day}/${month}/${year}, ${hours}:${minutes}`;
@@ -83,14 +83,14 @@ const getQrCodeBase64 = async (data: string): Promise<string> => {
 const numberToWords = (n: number): string => {
     const num = Math.round(n);
     if (num === 0) return "Zero";
-    
-    const a = ['','One ','Two ','Three ','Four ','Five ','Six ','Seven ','Eight ','Nine ','Ten ','Eleven ','Twelve ','Thirteen ','Fourteen ','Fifteen ','Sixteen ','Seventeen ','Eighteen ','Nineteen '];
-    const b = ['', '', 'Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+
+    const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
+    const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
 
     const inWords = (num: number): string => {
         if ((num = num.toString() as any).length > 9) return 'overflow';
         const n: any = ('000000000' + num).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/);
-        if (!n) return ""; 
+        if (!n) return "";
         let str = '';
         str += (n[1] != 0) ? (a[Number(n[1])] || b[n[1][0]] + ' ' + a[n[1][1]]) + 'Crore ' : '';
         str += (n[2] != 0) ? (a[Number(n[2])] || b[n[2][0]] + ' ' + a[n[2][1]]) + 'Lakh ' : '';
@@ -107,27 +107,27 @@ export const generateThermalInvoicePDF = async (sale: Sale, customer: Customer, 
     const currency = templateConfig?.currencySymbol || 'Rs.';
     const labels = { ...defaultLabels, ...templateConfig?.content.labels };
     const spacing = templateConfig?.layout.elementSpacing || { logoBottom: 5, titleBottom: 2, addressBottom: 1, headerBottom: 5 };
-    
-    const widthFull = 80; 
-    const margin = templateConfig?.layout.margin ?? 3; 
+
+    const widthFull = 80;
+    const margin = templateConfig?.layout.margin ?? 3;
     const pageWidth = widthFull - (margin * 2);
     const centerX = widthFull / 2;
 
     let qrCodeBase64: string | null = null;
     const showQr = templateConfig?.content.showQr ?? true;
     const showWords = templateConfig?.content.showAmountInWords ?? true;
-    
+
     // Theme configs
     const primaryColor = templateConfig?.colors.primary || '#0d9488';
     const textColor = templateConfig?.colors.text || '#000000';
     const titleFont = templateConfig?.fonts.titleFont || 'helvetica';
     const bodyFont = templateConfig?.fonts.bodyFont || 'helvetica';
-    
+
     // Layout Options
     const hideQty = templateConfig?.layout.tableOptions?.hideQty || false;
     const hideRate = templateConfig?.layout.tableOptions?.hideRate || false;
     const headerAlign = templateConfig?.layout.headerAlignment || 'center';
-    
+
     // Logo Positioning
     const logoPos = templateConfig?.layout.logoPosition || 'center';
     const isAbsoluteLogo = templateConfig?.layout.logoPosX !== undefined && templateConfig?.layout.logoPosY !== undefined;
@@ -142,7 +142,7 @@ export const generateThermalInvoicePDF = async (sale: Sale, customer: Customer, 
     const qrPosition = templateConfig?.layout.qrPosition || 'header-right';
 
     if (showQr) {
-         qrCodeBase64 = await getQrCodeBase64(sale.id);
+        qrCodeBase64 = await getQrCodeBase64(sale.id);
     }
 
     const renderContent = (doc: jsPDF) => {
@@ -163,28 +163,28 @@ export const generateThermalInvoicePDF = async (sale: Sale, customer: Customer, 
                     if (logoPos === 'left') x = margin;
                     if (logoPos === 'right') x = widthFull - margin - logoSize;
                 }
-                
+
                 const imgProps = doc.getImageProperties(profile.logo);
                 const ratio = imgProps.width / imgProps.height;
                 const h = logoSize / ratio;
 
                 doc.addImage(profile.logo, getImageType(profile.logo), x, ly, logoSize, h);
-                
+
                 if (!isAbsoluteLogo) {
                     y += h + (spacing.logoBottom ?? 4);
                 }
-            } catch(e) { }
+            } catch (e) { }
         }
 
         // 2. Header
         doc.setFont(titleFont, 'bold');
         doc.setFontSize(14);
         doc.setTextColor(primaryColor);
-        
+
         let alignX = centerX;
         if (headerAlign === 'left') alignX = margin;
         if (headerAlign === 'right') alignX = widthFull - margin;
-        
+
         doc.text(profile?.name || 'Business Name', alignX, y, { align: headerAlign });
         y += (6 + (spacing.titleBottom ?? 0));
 
@@ -194,7 +194,7 @@ export const generateThermalInvoicePDF = async (sale: Sale, customer: Customer, 
 
         // 3. Meta & QR (Relative Top)
         const startMetaY = y;
-        
+
         doc.text(`${labels.invoiceNo}: ${sale.id}`, margin, y);
         y += 4;
         doc.text(`${labels.date}: ${formatDate(sale.date, templateConfig?.dateFormat)}`, margin, y);
@@ -204,7 +204,7 @@ export const generateThermalInvoicePDF = async (sale: Sale, customer: Customer, 
         if (qrCodeBase64 && !isAbsoluteQr && (qrPosition === 'header-right' || qrPosition === 'details-right')) {
             try {
                 doc.addImage(qrCodeBase64, 'PNG', widthFull - margin - qrSize, startMetaY - 2, qrSize, qrSize);
-            } catch(e) {}
+            } catch (e) { }
             // Adjust y to avoid overlap
             y = Math.max(y, startMetaY + qrSize - 2) + 4;
         } else {
@@ -218,7 +218,7 @@ export const generateThermalInvoicePDF = async (sale: Sale, customer: Customer, 
         doc.setFont(bodyFont, 'normal');
         doc.text(customer.name, margin, y);
         y += 4;
-        
+
         const addressLines = doc.splitTextToSize(customer.address, pageWidth);
         doc.text(addressLines, margin, y);
         y += (addressLines.length * 4) + 2;
@@ -239,22 +239,22 @@ export const generateThermalInvoicePDF = async (sale: Sale, customer: Customer, 
         doc.setFont(bodyFont, 'normal');
         sale.items.forEach(item => {
             const itemTotal = Number(item.price) * Number(item.quantity);
-            
+
             doc.setFontSize(9);
             doc.setTextColor(textColor);
             doc.setFont(bodyFont, 'bold');
-            
+
             const totalStr = formatCurrency(itemTotal, currency, bodyFont);
             const totalWidth = doc.getTextWidth(totalStr) + 2;
             const nameWidth = pageWidth - totalWidth - 2;
-            
+
             const nameLines = doc.splitTextToSize(item.productName, nameWidth);
             doc.text(nameLines, margin, y);
-            
+
             doc.text(totalStr, widthFull - margin, y, { align: 'right' });
-            
+
             y += (nameLines.length * 4);
-            
+
             // Sub-details line (Qty/Rate) if not hidden
             let detailsText = '';
             if (!hideQty && !hideRate) {
@@ -269,13 +269,13 @@ export const generateThermalInvoicePDF = async (sale: Sale, customer: Customer, 
                 doc.setFontSize(8);
                 doc.setTextColor('#555555');
                 doc.setFont(bodyFont, 'normal');
-                doc.text(detailsText, margin + 2, y); 
+                doc.text(detailsText, margin + 2, y);
                 y += 5;
             } else {
-                y += 2; 
+                y += 2;
             }
         });
-        
+
         doc.setTextColor(textColor);
         doc.setLineWidth(0.2);
         doc.line(margin, y, widthFull - margin, y);
@@ -289,7 +289,7 @@ export const generateThermalInvoicePDF = async (sale: Sale, customer: Customer, 
         const addTotalRow = (label: string, value: string, bold: boolean = false, fontSize: number = 9) => {
             doc.setFont(bodyFont, bold ? 'bold' : 'normal');
             doc.setFontSize(fontSize);
-            doc.text(label, widthFull - margin - 25, y, { align: 'right' }); 
+            doc.text(label, widthFull - margin - 25, y, { align: 'right' });
             doc.text(value, widthFull - margin, y, { align: 'right' });
             y += 5;
         };
@@ -302,7 +302,7 @@ export const generateThermalInvoicePDF = async (sale: Sale, customer: Customer, 
             if (sale.discount > 0) addTotalRow(labels.discount, `-${formatCurrency(Number(sale.discount), currency, bodyFont)}`);
             y += 1;
         }
-        
+
         addTotalRow(labels.grandTotal, formatCurrency(Number(sale.totalAmount), currency, bodyFont), true, 11);
         if (paid > 0) addTotalRow(labels.paid, formatCurrency(paid, currency, bodyFont));
         if (due > 0.01) {
@@ -335,22 +335,22 @@ export const generateThermalInvoicePDF = async (sale: Sale, customer: Customer, 
 
         // UPDATED: Render QR Relative (Footer position)
         if (qrCodeBase64 && !isAbsoluteQr && (qrPosition === 'footer-left' || qrPosition === 'footer-right')) {
-             let fQrX = margin;
-             if (qrPosition === 'footer-right') fQrX = widthFull - margin - qrSize;
-             
-             try {
+            let fQrX = margin;
+            if (qrPosition === 'footer-right') fQrX = widthFull - margin - qrSize;
+
+            try {
                 doc.addImage(qrCodeBase64, 'PNG', fQrX, y, qrSize, qrSize);
-             } catch(e) {}
-             y += qrSize + 5;
+            } catch (e) { }
+            y += qrSize + 5;
         }
 
         // UPDATED: Absolute QR Render
         if (qrCodeBase64 && isAbsoluteQr) {
             try {
                 doc.addImage(qrCodeBase64, 'PNG', qrPosX, qrPosY, qrSize, qrSize);
-            } catch(e) {}
+            } catch (e) { }
         }
-        
+
         return y + 5;
     };
 
@@ -359,7 +359,7 @@ export const generateThermalInvoicePDF = async (sale: Sale, customer: Customer, 
 
     const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: [widthFull, height] });
     renderContent(doc);
-    
+
     return doc;
 };
 
@@ -377,6 +377,95 @@ export interface GenericDocumentData {
     taxBreakdown?: { rate: number, taxable: number, tax: number }[];
 }
 
+// --- Layout Engine ---
+class PDFLayoutEngine {
+    doc: jsPDF;
+    cursorY: number;
+    margin: number;
+    pageWidth: number;
+    pageHeight: number;
+    config: InvoiceTemplateConfig;
+    spacingScale: number;
+
+    constructor(doc: jsPDF, config: InvoiceTemplateConfig) {
+        this.doc = doc;
+        this.config = config;
+        this.margin = config.layout.margin || 10;
+        this.pageWidth = doc.internal.pageSize.getWidth();
+        this.pageHeight = doc.internal.pageSize.getHeight();
+        this.cursorY = this.margin;
+        this.spacingScale = config.layout.spacing ?? 1.0;
+
+        // Apply background if exists
+        this.applyBackground();
+    }
+
+    applyBackground() {
+        if (this.config.layout.backgroundImage) {
+            try {
+                this.doc.addImage(
+                    this.config.layout.backgroundImage,
+                    getImageType(this.config.layout.backgroundImage),
+                    0, 0, this.pageWidth, this.pageHeight
+                );
+            } catch (e) { }
+        }
+    }
+
+    checkPageBreak(neededHeight: number) {
+        if (this.cursorY + neededHeight > this.pageHeight - this.margin) {
+            this.doc.addPage();
+            this.applyBackground();
+            this.cursorY = this.margin;
+            return true;
+        }
+        return false;
+    }
+
+    addY(amount: number) {
+        this.cursorY += amount * this.spacingScale;
+    }
+
+    // Advanced Text Rendering with Page Break Check
+    addText(text: string | string[], x: number, options: {
+        align?: 'left' | 'center' | 'right',
+        fontSize?: number,
+        font?: string,
+        fontStyle?: 'normal' | 'bold' | 'italic',
+        color?: string
+    } = {}) {
+        const { align = 'left', fontSize, font, fontStyle, color } = options;
+
+        if (fontSize) this.doc.setFontSize(fontSize);
+        if (font) this.doc.setFont(font, fontStyle || 'normal');
+        if (color) this.doc.setTextColor(color);
+        else this.doc.setTextColor(this.config.colors.text);
+
+        // Calculate height
+        const lineHeight = (this.doc.getLineHeight() / this.doc.internal.scaleFactor);
+        const textArray = Array.isArray(text) ? text : [text];
+        const totalHeight = textArray.length * lineHeight;
+
+        this.checkPageBreak(totalHeight);
+
+        this.doc.text(text, x, this.cursorY + lineHeight - 2, { align }); // Adjust baseline
+        this.addY((totalHeight + 1)); // Small padding
+    }
+
+    // Split text to fit width
+    splitText(text: string, maxWidth: number) {
+        return this.doc.splitTextToSize(text, maxWidth);
+    }
+
+    currentY() {
+        return this.cursorY;
+    }
+
+    setY(y: number) {
+        this.cursorY = y;
+    }
+}
+
 const _generateConfigurablePDF = async (
     data: GenericDocumentData,
     profile: ProfileData | null,
@@ -391,59 +480,40 @@ const _generateConfigurablePDF = async (
         const paperSize = templateConfig.layout.paperSize || 'a4';
         doc = new jsPDF({ format: paperSize });
     }
-    
+
     if (customFonts) registerCustomFonts(doc, customFonts);
 
+    const engine = new PDFLayoutEngine(doc, templateConfig);
     const { colors, fonts, layout, content, currencySymbol } = templateConfig;
-    const labels = { ...defaultLabels, ...content.labels };
-    
-    const pageWidth = doc.internal.pageSize.getWidth(); 
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = layout.margin || 10;
-    const spacingScale = layout.spacing !== undefined ? layout.spacing : 1.0;
-    
-    let currentY = margin;
 
-    const addY = (amount: number) => {
-        currentY += amount * spacingScale;
-    };
-
-    if (layout.backgroundImage) {
-        try {
-            doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight);
-        } catch(e) {}
-    }
+    // --- Render Functions ---
 
     const renderHeader = async () => {
-        if (content.showBusinessDetails === false) { addY(5); return; }
+        if (content.showBusinessDetails === false) { engine.addY(5); return; }
 
         const isBanner = layout.headerStyle === 'banner';
         if (isBanner) {
             doc.setFillColor(colors.bannerBg || colors.primary);
-            doc.roundedRect(0, 0, pageWidth, 40 + (layout.logoSize/2), layout.borderRadius || 0, layout.borderRadius || 0, 'F');
-            addY(5);
+            doc.roundedRect(0, 0, engine.pageWidth, 40 + (layout.logoSize / 2), layout.borderRadius || 0, layout.borderRadius || 0, 'F');
+            engine.addY(5);
         }
 
         const logoUrl = profile?.logo || logoBase64;
         const isAbsoluteLogo = layout.logoPosX !== undefined && layout.logoPosY !== undefined;
         const hasLogo = !!logoUrl && layout.logoSize > 5;
-        
-        let textY = currentY;
+
+        let textY = engine.currentY();
         let textAlign: 'left' | 'center' | 'right' = 'left';
         let renderedLogoHeight = 0;
-        let textX = margin;
-        let logoX = margin;
-        let logoY = currentY + (layout.logoOffsetY || 0);
+        let textX = engine.margin;
+        let logoX = engine.margin;
+        let logoY = engine.currentY() + (layout.logoOffsetY || 0);
 
+        // Logo Logic
         if (isAbsoluteLogo) {
-             logoX = layout.logoPosX!;
-             logoY = layout.logoPosY!;
+            logoX = layout.logoPosX!;
+            logoY = layout.logoPosY!;
         }
-
-        const logoBottomSpace = layout.elementSpacing?.logoBottom ?? 5;
-        const titleBottomSpace = layout.elementSpacing?.titleBottom ?? 2;
-        const addressBottomSpace = layout.elementSpacing?.addressBottom ?? 1;
-        const headerBottomSpace = layout.elementSpacing?.headerBottom ?? 5;
 
         if (hasLogo) {
             try {
@@ -455,120 +525,165 @@ const _generateConfigurablePDF = async (
 
         if (!isAbsoluteLogo) {
             if (layout.logoPosition === 'center') {
-                logoX = (pageWidth - layout.logoSize) / 2;
-                if (hasLogo) textY = logoY + renderedLogoHeight + (logoBottomSpace * spacingScale);
+                logoX = (engine.pageWidth - layout.logoSize) / 2;
+                if (hasLogo) textY = logoY + renderedLogoHeight + (layout.elementSpacing?.logoBottom ?? 5);
                 textAlign = 'center';
-                textX = pageWidth / 2;
+                textX = engine.pageWidth / 2;
             } else if (layout.logoPosition === 'right') {
-                logoX = pageWidth - margin - layout.logoSize;
+                logoX = engine.pageWidth - engine.margin - layout.logoSize;
                 textAlign = 'left';
-                textX = margin;
-                textY += 5 * spacingScale;
-            } else { 
-                logoX = margin;
+                textX = engine.margin;
+                textY += 5;
+            } else {
+                logoX = engine.margin;
                 textAlign = 'right';
-                textX = pageWidth - margin;
-                textY += 5 * spacingScale;
+                textX = engine.pageWidth - engine.margin;
+                textY += 5;
             }
         } else {
-            if (layout.headerAlignment === 'center') { textAlign = 'center'; textX = pageWidth / 2; } 
-            else if (layout.headerAlignment === 'right') { textAlign = 'right'; textX = pageWidth - margin; } 
-            else { textAlign = 'left'; textX = margin; }
+            // If logo is absolute, text alignment depends on headerAlignment
+            if (layout.headerAlignment === 'center') { textAlign = 'center'; textX = engine.pageWidth / 2; }
+            else if (layout.headerAlignment === 'right') { textAlign = 'right'; textX = engine.pageWidth - engine.margin; }
+            else { textAlign = 'left'; textX = engine.margin; }
         }
 
+        // Render Logo
         if (hasLogo) {
-            try { doc.addImage(logoUrl, getImageType(logoUrl), logoX, logoY, layout.logoSize, renderedLogoHeight); } catch(e) {}
+            try { doc.addImage(logoUrl, getImageType(logoUrl), logoX, logoY, layout.logoSize, renderedLogoHeight); } catch (e) { }
         }
 
+        // Render Business Text
+        engine.setY(textY); // Sync engine cursor for text
         if (profile) {
-            doc.setFont(fonts.titleFont, 'bold');
-            doc.setFontSize(fonts.headerSize);
-            doc.setTextColor(isBanner ? (colors.bannerText || '#fff') : colors.primary);
-            doc.text(profile.name, textX, textY, { align: textAlign });
-            textY += (fonts.headerSize * 0.4 + titleBottomSpace) * spacingScale;
-            
-            doc.setFont(fonts.bodyFont, 'normal');
-            doc.setFontSize(fonts.bodySize);
-            doc.setTextColor(isBanner ? (colors.bannerText || '#fff') : colors.secondary);
-            const addr = doc.splitTextToSize(profile.address, 90);
-            doc.text(addr, textX, textY, { align: textAlign });
-            textY += ((addr.length * 4) + addressBottomSpace) * spacingScale;
-            const contact = [profile.phone && `Ph: ${profile.phone}`, profile.gstNumber && `GST: ${profile.gstNumber}`].filter(Boolean).join(' | ');
-            doc.text(contact, textX, textY, { align: textAlign });
-            const contentEnd = textY + 5;
-            const logoEnd = (hasLogo && !isAbsoluteLogo) ? logoY + renderedLogoHeight + 5 : 0;
-            currentY = Math.max(contentEnd, logoEnd);
-        } else { if (!isAbsoluteLogo) addY(20); }
+            // Organization Name
+            engine.addText(profile.name, textX, {
+                align: textAlign,
+                font: fonts.titleFont,
+                fontStyle: 'bold',
+                fontSize: fonts.headerSize,
+                color: isBanner ? (colors.bannerText || '#fff') : colors.primary
+            });
+            engine.addY(layout.elementSpacing?.titleBottom ?? 2);
 
+            // Address
+            const addr = engine.splitText(profile.address, 90);
+            engine.addText(addr, textX, {
+                align: textAlign,
+                font: fonts.bodyFont,
+                fontSize: fonts.bodySize,
+                color: isBanner ? (colors.bannerText || '#fff') : colors.secondary
+            });
+            engine.addY(layout.elementSpacing?.addressBottom ?? 1);
+
+            // Contact
+            const contact = [profile.phone && `Ph: ${profile.phone}`, profile.gstNumber && `GST: ${profile.gstNumber}`].filter(Boolean).join(' | ');
+            engine.addText(contact, textX, {
+                align: textAlign,
+                font: fonts.bodyFont,
+                fontSize: fonts.bodySize,
+                color: isBanner ? (colors.bannerText || '#fff') : colors.secondary
+            });
+        }
+
+        // Finalize Header Height
+        const contentEnd = engine.currentY() + 5;
+        const logoEnd = (hasLogo && !isAbsoluteLogo) ? logoY + renderedLogoHeight + 5 : 0;
+        engine.setY(Math.max(contentEnd, logoEnd)); // Ensure we start below everything
+
+        // Line Seperator
         if (!isBanner && layout.headerStyle !== 'minimal') {
             doc.setDrawColor(colors.borderColor || '#ccc');
-            doc.line(margin, currentY, pageWidth - margin, currentY);
-            addY(headerBottomSpace);
+            doc.line(engine.margin, engine.currentY(), engine.pageWidth - engine.margin, engine.currentY());
+            engine.addY(layout.elementSpacing?.headerBottom ?? 5);
         }
-        
+
+        // Header Width QR
         if (content.showQr && layout.qrPosition === 'header-right' && layout.qrPosX === undefined) {
             const qrImg = await getQrCodeBase64(data.qrString || data.id);
             if (qrImg) {
                 try {
                     const size = layout.qrOverlaySize || 20;
-                    doc.addImage(qrImg, 'PNG', pageWidth - margin - size, margin + 5, size, size);
-                } catch(e) {}
+                    doc.addImage(qrImg, 'PNG', engine.pageWidth - engine.margin - size, engine.margin + 5, size, size);
+                } catch (e) { }
             }
         }
     };
 
     const renderTitle = () => {
-        doc.setFont(fonts.titleFont, 'bold');
-        doc.setFontSize(16);
-        doc.setTextColor(colors.text);
-        doc.text(content.titleText, pageWidth / 2, currentY + (5 * spacingScale), { align: 'center' });
-        addY(15);
+        engine.addText(content.titleText, engine.pageWidth / 2, {
+            align: 'center',
+            font: fonts.titleFont,
+            fontStyle: 'bold',
+            fontSize: 16,
+            color: colors.text
+        });
+        engine.addY(5);
     };
 
     const renderDetails = async () => {
         if (content.showCustomerDetails === false) return;
-        const lineHeight = 5 * spacingScale;
-        const colWidth = (pageWidth - (margin * 3)) / 2;
-        const rightColX = pageWidth - margin;
 
-        doc.setFont(fonts.bodyFont, 'bold');
-        doc.setFontSize(11);
-        doc.setTextColor(colors.primary);
-        doc.text(data.recipient.label, margin, currentY);
-        doc.text(data.sender.label, rightColX, currentY, { align: 'right' });
+        const colWidth = (engine.pageWidth - (engine.margin * 3)) / 2;
+        const rightColX = engine.pageWidth - engine.margin;
+        const startY = engine.currentY();
 
-        doc.setFont(fonts.bodyFont, 'normal');
-        doc.setFontSize(fonts.bodySize);
-        doc.setTextColor(colors.text);
+        // 1. Recipient Details (Left)
+        engine.addText(data.recipient.label, engine.margin, {
+            font: fonts.bodyFont, fontStyle: 'bold', fontSize: 11, color: colors.primary
+        });
 
-        doc.text(data.recipient.name, margin, currentY + lineHeight + 1);
-        const recipientAddr = doc.splitTextToSize(data.recipient.address, colWidth);
-        doc.text(recipientAddr, margin, currentY + (lineHeight * 2) + 1);
+        engine.addText(data.recipient.name, engine.margin, {
+            font: fonts.bodyFont, fontSize: fonts.bodySize, color: colors.text
+        });
 
-        let infoY = currentY + lineHeight + 1;
-        doc.text(`${data.sender.idLabel} ${data.id}`, rightColX, infoY, { align: 'right' });
-        infoY += lineHeight;
-        doc.text(`${labels.date}: ${formatDate(data.date, templateConfig.dateFormat)}`, rightColX, infoY, { align: 'right' });
+        const recipientAddr = engine.splitText(data.recipient.address, colWidth);
+        engine.addText(recipientAddr, engine.margin, {
+            font: fonts.bodyFont, fontSize: fonts.bodySize, color: colors.text
+        });
 
+        // Track Y after left column
+        const leftY = engine.currentY();
+
+        // 2. Sender Details (Right) - Reset Y to startY
+        engine.setY(startY);
+
+        engine.addText(data.sender.label, rightColX, {
+            align: 'right', font: fonts.bodyFont, fontStyle: 'bold', fontSize: 11, color: colors.primary
+        });
+
+        engine.addText(`${data.sender.idLabel} ${data.id}`, rightColX, {
+            align: 'right', font: fonts.bodyFont, fontSize: fonts.bodySize, color: colors.text
+        });
+
+        engine.addText(`${defaultLabels.date}: ${formatDate(data.date, templateConfig.dateFormat)}`, rightColX, {
+            align: 'right', font: fonts.bodyFont, fontSize: fonts.bodySize, color: colors.text
+        });
+
+        // Right QR
         if (content.showQr && (!layout.qrPosition || layout.qrPosition === 'details-right') && layout.qrPosX === undefined) {
             const qrImg = await getQrCodeBase64(data.qrString || data.id);
             if (qrImg) {
                 try {
                     const size = layout.qrOverlaySize || 22;
-                    doc.addImage(qrImg, 'PNG', rightColX - size, infoY + 2, size, size);
-                } catch(e) {}
+                    doc.addImage(qrImg, 'PNG', rightColX - size, engine.currentY() + 2, size, size);
+                    engine.addY(size / 3); // minimal impact on flow
+                } catch (e) { }
             }
         }
-        currentY = Math.max(currentY + (lineHeight * 2) + (recipientAddr.length * lineHeight), currentY + (lineHeight * 4)) + (5 * spacingScale);
+
+        const rightY = engine.currentY();
+
+        // Sync to lowest point
+        engine.setY(Math.max(leftY, rightY) + 5);
     };
 
     const renderTable = () => {
-        const tableHead = ['#', labels.item];
+        const tableHead = ['#', defaultLabels.item];
         const hideQty = layout.tableOptions?.hideQty;
         const hideRate = layout.tableOptions?.hideRate;
-        if (!hideQty) tableHead.push(labels.qty);
-        if (!hideRate) tableHead.push(labels.rate);
-        tableHead.push(labels.amount);
+        if (!hideQty) tableHead.push(defaultLabels.qty);
+        if (!hideRate) tableHead.push(defaultLabels.rate);
+        tableHead.push(defaultLabels.amount);
 
         const tableBody = data.items.map((item, i) => {
             const row = [(i + 1).toString(), item.name];
@@ -579,141 +694,178 @@ const _generateConfigurablePDF = async (
         });
 
         const cw = layout.columnWidths || {};
-        const tableStyles: any = { font: fonts.bodyFont, fontSize: fonts.bodySize, cellPadding: layout.tableOptions?.compact ? 2 : 3, textColor: colors.text };
-        if (layout.tableOptions?.bordered) { tableStyles.lineWidth = 0.1; tableStyles.lineColor = colors.borderColor || '#ccc'; }
+
+        // Ensure table doesn't break if near bottom
+        engine.checkPageBreak(30);
 
         autoTable(doc, {
-            startY: currentY,
+            startY: engine.currentY(),
             head: [tableHead],
             body: tableBody,
             theme: layout.tableOptions?.stripedRows ? 'striped' : 'plain',
-            styles: tableStyles,
+            styles: { font: fonts.bodyFont, fontSize: fonts.bodySize, cellPadding: layout.tableOptions?.compact ? 2 : 3, textColor: colors.text },
             headStyles: { fillColor: colors.tableHeaderBg, textColor: colors.tableHeaderText, fontStyle: 'bold', halign: (layout.tableHeaderAlign || 'left'), ...(layout.borderRadius ? { minCellHeight: 8 } : {}) },
             columnStyles: {
                 0: { cellWidth: 10, halign: 'center' },
-                [tableHead.length - 1]: { halign: 'right', cellWidth: (cw.amount || 35) }, 
-                [tableHead.length - 2]: { halign: 'right', cellWidth: hideRate ? (cw.qty || 15) : (cw.rate || 20) }, 
-                [tableHead.length - 3]: { halign: 'right', cellWidth: cw.qty || 15 }, 
+                [tableHead.length - 1]: { halign: 'right', cellWidth: (cw.amount || 35) },
+                [tableHead.length - 2]: { halign: 'right', cellWidth: hideRate ? (cw.qty || 15) : (cw.rate || 20) },
             },
-            margin: { left: margin, right: margin }
+            margin: { left: engine.margin, right: engine.margin }
         });
-        currentY = (doc as any).lastAutoTable.finalY + (5 * spacingScale);
+
+        // Update engine cursor
+        const endY = (doc as any).lastAutoTable.finalY + 5;
+        engine.setY(endY);
     };
 
     const renderTotals = () => {
-        const totalsX = pageWidth - margin;
-        if (pageHeight - currentY < 60) { doc.addPage(); currentY = margin; if (layout.backgroundImage) try { doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight); } catch(e) {} }
-        
+        const totalsX = engine.pageWidth - engine.margin;
+
+        // Check space
+        const requiredHeight = data.totals.length * 8;
+        engine.checkPageBreak(requiredHeight);
+
         data.totals.forEach((t) => {
-            doc.setFont(fonts.bodyFont, t.isBold ? 'bold' : 'normal');
-            doc.setFontSize(t.size || fonts.bodySize);
-            doc.setTextColor(t.color || colors.text);
-            doc.text(t.label, totalsX - 40, currentY, { align: 'right' });
-            doc.text(t.value, totalsX, currentY, { align: 'right' });
-            addY((t.size ? t.size * 0.5 : 6));
+            engine.addText(
+                t.label,
+                totalsX - 40,
+                { align: 'right', font: fonts.bodyFont, fontStyle: t.isBold ? 'bold' : 'normal', fontSize: t.size || fonts.bodySize, color: t.color || colors.text }
+            );
+            // We manually drew the label, reset Y to draw value on same line
+            engine.addY(-(engine.doc.getLineHeight() / engine.doc.internal.scaleFactor) - 1); // backtrack
+
+            engine.addText(
+                t.value,
+                totalsX,
+                { align: 'right', font: fonts.bodyFont, fontStyle: t.isBold ? 'bold' : 'normal', fontSize: t.size || fonts.bodySize, color: t.color || colors.text }
+            );
+            engine.addY(1); // bit of spacing
         });
-        addY(5);
+        engine.addY(5);
     };
 
     const renderWords = () => {
-        const shouldShow = content.showAmountInWords !== false;
-        if (shouldShow && data.grandTotalNumeric !== undefined) {
-            if (pageHeight - currentY < 20) { doc.addPage(); currentY = margin; if (layout.backgroundImage) try { doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight); } catch(e) {} }
-            doc.setFont(fonts.bodyFont, 'italic');
-            doc.setFontSize(fonts.bodySize - 1);
-            doc.setTextColor(colors.secondary);
-            doc.text("Amount in words:", margin, currentY);
-            addY(5);
-            doc.setFont(fonts.bodyFont, 'bold');
-            doc.setTextColor(colors.text);
+        if (content.showAmountInWords !== false && data.grandTotalNumeric !== undefined) {
+            engine.checkPageBreak(25);
+
+            engine.addText("Amount in words:", engine.margin, {
+                font: fonts.bodyFont, fontStyle: 'italic', fontSize: fonts.bodySize - 1, color: colors.secondary
+            });
+
             const words = numberToWords(data.grandTotalNumeric);
-            const splitWords = doc.splitTextToSize(words, pageWidth - (margin * 2));
-            doc.text(splitWords, margin, currentY);
-            addY((splitWords.length * 5) + 5);
+            const splitWords = engine.splitText(words, engine.pageWidth - (engine.margin * 2));
+
+            engine.addText(splitWords, engine.margin, {
+                font: fonts.bodyFont, fontStyle: 'bold', fontSize: fonts.bodySize, color: colors.text
+            });
+            engine.addY(5);
         }
     };
 
     const renderBank = () => {
         if (content.bankDetails) {
-            if (pageHeight - currentY < 30) { doc.addPage(); currentY = margin; if (layout.backgroundImage) try { doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight); } catch(e) {} }
-            doc.setFont(fonts.bodyFont, 'bold');
-            doc.setFontSize(fonts.bodySize);
-            doc.setTextColor(colors.primary);
-            doc.text("Bank Details:", margin, currentY);
-            addY(5);
-            doc.setFont(fonts.bodyFont, 'normal');
-            doc.setTextColor(colors.text);
-            const bankLines = doc.splitTextToSize(content.bankDetails, 100);
-            doc.text(bankLines, margin, currentY);
-            addY((bankLines.length * 5) + 5);
+            engine.checkPageBreak(30);
+
+            engine.addText("Bank Details:", engine.margin, {
+                font: fonts.bodyFont, fontStyle: 'bold', fontSize: fonts.bodySize, color: colors.primary
+            });
+
+            const bankLines = engine.splitText(content.bankDetails, 100);
+            engine.addText(bankLines, engine.margin, {
+                font: fonts.bodyFont, fontSize: fonts.bodySize, color: colors.text
+            });
+            engine.addY(5);
         }
     };
 
     const renderTerms = () => {
         if (content.showTerms && content.termsText) {
-            if (pageHeight - currentY < 30) { doc.addPage(); currentY = margin; if (layout.backgroundImage) try { doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight); } catch(e) {} }
-            doc.setFont(fonts.bodyFont, 'bold');
-            doc.setFontSize(fonts.bodySize - 2);
-            doc.setTextColor(colors.secondary);
-            doc.text("Terms & Conditions:", margin, currentY);
-            addY(4);
-            doc.setFont(fonts.bodyFont, 'normal');
-            const terms = doc.splitTextToSize(content.termsText, pageWidth - (margin * 2));
-            doc.text(terms, margin, currentY);
-            addY((terms.length * 3.5) + 5);
+            engine.checkPageBreak(40);
+
+            engine.addText("Terms & Conditions:", engine.margin, {
+                font: fonts.bodyFont, fontStyle: 'bold', fontSize: fonts.bodySize - 2, color: colors.secondary
+            });
+
+            const terms = engine.splitText(content.termsText, engine.pageWidth - (engine.margin * 2));
+            engine.addText(terms, engine.margin, {
+                font: fonts.bodyFont, fontSize: fonts.bodySize, color: colors.text
+            });
+            engine.addY(5);
         }
     };
 
     const renderSignature = () => {
         if (content.showSignature) {
-            const sigY = Math.max(currentY + 10, pageHeight - 40);
-            if (pageHeight - sigY < 30) { doc.addPage(); if (layout.backgroundImage) try { doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight); } catch(e) {} }
-            doc.setFont(fonts.bodyFont, 'normal');
-            doc.setFontSize(10);
-            doc.setTextColor(colors.text);
-            doc.text(content.signatureText || "Authorized Signatory", pageWidth - margin, sigY + 10, { align: 'right' });
+            // Check huge space to prevent signature being cut
+            engine.checkPageBreak(50);
+
+            const sigX = engine.pageWidth - engine.margin;
+            // Push to bottom if plenty of space, else flow naturally
+            if (engine.pageHeight - engine.currentY() > 60) {
+                engine.setY(Math.max(engine.currentY(), engine.pageHeight - 50));
+            }
+
             if (content.signatureImage) {
                 try {
                     const sigProps = doc.getImageProperties(content.signatureImage);
                     const sigRatio = sigProps.width / sigProps.height;
-                    doc.addImage(content.signatureImage, getImageType(content.signatureImage), pageWidth - margin - 40, sigY - 10, 40, 40 / sigRatio);
-                } catch(e) {}
+                    const w = 40;
+                    const h = w / sigRatio;
+                    doc.addImage(content.signatureImage, getImageType(content.signatureImage), sigX - w, engine.currentY(), w, h);
+                    engine.addY(h);
+                } catch (e) { }
             } else {
-                doc.text("___________________", pageWidth - margin, sigY, { align: 'right' });
+                engine.addY(20);
+                doc.text("___________________", sigX, engine.currentY(), { align: 'right' });
             }
+            engine.addY(5);
+            engine.addText(content.signatureText || "Authorized Signatory", sigX, { align: 'right', fontSize: 10 });
         }
     };
 
     const renderFooter = async () => {
-        const footerHeight = 15;
-        const footerY = pageHeight - footerHeight;
-        if (currentY > footerY) { doc.addPage(); if (layout.backgroundImage) try { doc.addImage(layout.backgroundImage, getImageType(layout.backgroundImage), 0, 0, pageWidth, pageHeight); } catch(e) {} }
+        // Footer is fixed at bottom of EVERY page? Or just last? 
+        // Typically just last for invoices unless specified. 
+        // We often re-render footers on all pages in advanced engines, but here let's stick to simple Flow.
+        // We will just draw it at the bottom of the CURRENT page (last page)
 
+        const footerHeight = 15;
+        const footerY = engine.pageHeight - footerHeight;
+
+        // Ensure we aren't overlapping
+        if (engine.currentY() > footerY) {
+            doc.addPage();
+            engine.applyBackground();
+        }
+
+        // Draw Background
+        if (layout.footerStyle === 'banner') {
+            doc.setFillColor(colors.footerBg || '#f3f4f6');
+            doc.rect(0, footerY, engine.pageWidth, footerHeight, 'F');
+        }
+
+        // QR Footer
         if (content.showQr && (layout.qrPosition === 'footer-left' || layout.qrPosition === 'footer-right') && layout.qrPosX === undefined) {
             const qrImg = await getQrCodeBase64(data.qrString || data.id);
             if (qrImg) {
                 const qrSize = layout.qrOverlaySize || 18;
                 const qrY = footerY - qrSize - 2;
-                const qrX = layout.qrPosition === 'footer-left' ? margin : pageWidth - margin - qrSize;
-                try { doc.addImage(qrImg, 'PNG', qrX, qrY, qrSize, qrSize); } catch(e) {}
+                const qrX = layout.qrPosition === 'footer-left' ? engine.margin : engine.pageWidth - engine.margin - qrSize;
+                try { doc.addImage(qrImg, 'PNG', qrX, qrY, qrSize, qrSize); } catch (e) { }
             }
         }
 
-        if (layout.footerStyle === 'banner') {
-            doc.setFillColor(colors.footerBg || '#f3f4f6');
-            doc.rect(0, footerY, pageWidth, footerHeight, 'F');
-            doc.setTextColor(colors.footerText || colors.secondary);
-        } else {
-            doc.setTextColor(colors.secondary);
-        }
+        // Footer Text
         if (content.footerText) {
+            doc.setTextColor(layout.footerStyle === 'banner' ? (colors.footerText || colors.secondary) : colors.secondary);
             doc.setFontSize(9);
-            doc.text(content.footerText, pageWidth / 2, pageHeight - 6, { align: 'center' });
+            doc.text(content.footerText, engine.pageWidth / 2, engine.pageHeight - 6, { align: 'center' });
         }
     };
 
-    const order = layout.sectionOrdering && layout.sectionOrdering.length > 0 
-        ? layout.sectionOrdering 
+    // --- Execution ---
+    const order = layout.sectionOrdering && layout.sectionOrdering.length > 0
+        ? layout.sectionOrdering
         : ['header', 'title', 'details', 'table', 'totals', 'words', 'bankDetails', 'terms', 'signature', 'footer'];
 
     for (const section of order) {
@@ -726,22 +878,72 @@ const _generateConfigurablePDF = async (
             case 'words': renderWords(); break;
             case 'bankDetails': renderBank(); break;
             case 'terms': renderTerms(); break;
-            case 'signature': renderSignature(); break;
+            case 'signature': await renderSignature(); break;
             case 'footer': await renderFooter(); break;
+            default:
+                if (section.startsWith('custom-')) {
+                    const customSection = (layout.customSections || []).find(s => s.id === section);
+                    if (customSection) {
+                        engine.checkPageBreak(20);
+                        if (customSection.type === 'text-block' && customSection.content) {
+                            const fontSize = customSection.styles?.fontSize || 10;
+                            const align = customSection.styles?.align || 'left';
+                            const marginTop = customSection.styles?.marginTop ?? 2;
+                            const marginBottom = customSection.styles?.marginBottom ?? 2;
+
+                            engine.addY(marginTop);
+                            let x = engine.margin;
+                            if (align === 'center') x = engine.pageWidth / 2;
+                            if (align === 'right') x = engine.pageWidth - engine.margin;
+
+                            engine.addText(customSection.content, x, {
+                                align,
+                                fontSize,
+                                color: customSection.styles?.color || colors.text
+                            });
+                            engine.addY(marginBottom);
+                        } else if (customSection.type === 'image-block' && customSection.content) {
+                            const height = customSection.styles?.height || 30;
+                            const align = customSection.styles?.align || 'center';
+
+                            try {
+                                const imgProps = doc.getImageProperties(customSection.content);
+                                const ratio = imgProps.width / imgProps.height;
+                                const width = height * ratio;
+
+                                let x = engine.margin;
+                                if (align === 'center') x = (engine.pageWidth - width) / 2;
+                                if (align === 'right') x = engine.pageWidth - engine.margin - width;
+
+                                doc.addImage(customSection.content, getImageType(customSection.content), x, engine.currentY(), width, height);
+                                engine.addY(height + 2);
+                            } catch (e) { console.error("Error adding custom image", e); }
+                        } else if (customSection.type === 'divider') {
+                            const height = customSection.styles?.height || 5;
+                            engine.addY(height / 2);
+                            doc.setDrawColor(colors.borderColor || '#e2e8f0');
+                            doc.line(engine.margin, engine.currentY(), engine.pageWidth - engine.margin, engine.currentY());
+                            engine.addY(height / 2);
+                        }
+                    }
+                }
+                break;
         }
     }
 
+    // Absolute QR (Overlay)
     if (content.showQr && layout.qrPosX !== undefined && layout.qrPosY !== undefined) {
         const qrImg = await getQrCodeBase64(data.qrString || data.id);
         if (qrImg) {
             try {
-                doc.setPage(1); 
-                const size = layout.qrOverlaySize || 20; 
+                doc.setPage(1);
+                const size = layout.qrOverlaySize || 20;
                 doc.addImage(qrImg, 'PNG', layout.qrPosX, layout.qrPosY, size, size);
-            } catch(e) {}
+            } catch (e) { }
         }
     }
 
+    // Status Stamp
     if (content.showStatusStamp && data.balanceDue !== undefined) {
         const stampText = data.balanceDue <= 0.01 ? "PAID" : "DUE";
         const color = data.balanceDue <= 0.01 ? "#10b981" : "#ef4444";
@@ -750,7 +952,7 @@ const _generateConfigurablePDF = async (
         doc.setFont('helvetica', 'bold');
         doc.saveGraphicsState();
         doc.setGState(new (doc as any).GState({ opacity: 0.3 }));
-        doc.text(stampText, pageWidth / 2, pageHeight / 2, { align: 'center', angle: 45 });
+        doc.text(stampText, engine.pageWidth / 2, engine.pageHeight / 2, { align: 'center', angle: 45 });
         doc.restoreGraphicsState();
     }
 
@@ -768,20 +970,20 @@ export const generateA4InvoicePdf = async (sale: Sale, customer: Customer, profi
     const config = templateConfig || defaultConfig;
     const labels = { ...defaultLabels, ...config.content.labels };
     const currency = config.currencySymbol || 'Rs.';
-    
+
     const subTotal = sale.items.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
     const paidAmount = (sale.payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
     const dueAmount = Number(sale.totalAmount) - paidAmount;
-    
+
     let qrString = sale.id;
     if (config.content.qrType === 'UPI_PAYMENT' && config.content.upiId) {
-       const pa = config.content.upiId;
-       const pn = config.content.payeeName || 'Merchant';
-       const am = sale.totalAmount.toFixed(2);
-       const tr = sale.id; 
-       qrString = `upi://pay?pa=${pa}&pn=${encodeURIComponent(pn)}&am=${am}&tr=${tr}&tn=Invoice%20${sale.id}&cu=INR`;
+        const pa = config.content.upiId;
+        const pn = config.content.payeeName || 'Merchant';
+        const am = sale.totalAmount.toFixed(2);
+        const tr = sale.id;
+        qrString = `upi://pay?pa=${pa}&pn=${encodeURIComponent(pn)}&am=${am}&tr=${tr}&tn=Invoice%20${sale.id}&cu=INR`;
     }
-    
+
     const totals: GenericDocumentData['totals'] = [
         { label: labels.subtotal, value: formatCurrency(subTotal, currency, config.fonts.bodyFont) },
         { label: labels.discount, value: `- ${formatCurrency(Number(sale.discount), currency, config.fonts.bodyFont)}` },
@@ -897,12 +1099,12 @@ export const generateImagesToPDF = (images: string[], fileName: string) => {
 
     images.forEach((imgData, index) => {
         if (index > 0) doc.addPage();
-        
+
         try {
             const imgProps = doc.getImageProperties(imgData);
             const imgRatio = imgProps.width / imgProps.height;
             const pageRatio = (pageWidth - margin * 2) / (pageHeight - margin * 2);
-            
+
             let finalWidth, finalHeight;
 
             // Fit image within page margins while maintaining aspect ratio
@@ -925,6 +1127,6 @@ export const generateImagesToPDF = (images: string[], fileName: string) => {
             doc.text(`Error loading image #${index + 1}`, 10, 10);
         }
     });
-    
+
     return doc;
 };

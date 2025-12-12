@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { IndianRupee, User, AlertTriangle, Download, Upload, ShoppingCart, Package, ShieldCheck, ShieldX, Archive, PackageCheck, TestTube2, Sparkles, TrendingUp, TrendingDown, CalendarClock, Volume2, StopCircle, X, RotateCw, BrainCircuit, Loader2, MessageCircle, Share, Award, Wallet, ArrowRight, Phone, UserX, Zap, Activity, Receipt, CalendarRange, CreditCard, Banknote } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -15,6 +14,8 @@ import { GoogleGenAI, Modality } from "@google/genai";
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import ModernDateInput from '../components/ModernDateInput';
 import { getLocalDateString } from '../utils/dateUtils';
+import SalesTrendChart from '../components/charts/SalesTrendChart';
+import AIInsightsView from '../components/AIInsightsView';
 
 interface DashboardProps {
     setCurrentPage: (page: Page) => void;
@@ -53,37 +54,37 @@ const MetricCard: React.FC<{
 
 // --- Helper for TTS decoding ---
 async function decodeAudioData(data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> {
-  const dataInt16 = new Int16Array(data.buffer);
-  const frameCount = dataInt16.length / numChannels;
-  const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
+    const dataInt16 = new Int16Array(data.buffer);
+    const frameCount = dataInt16.length / numChannels;
+    const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
 
-  for (let channel = 0; channel < numChannels; channel++) {
-    const channelData = buffer.getChannelData(channel);
-    for (let i = 0; i < frameCount; i++) {
-      channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
+    for (let channel = 0; channel < numChannels; channel++) {
+        const channelData = buffer.getChannelData(channel);
+        for (let i = 0; i < frameCount; i++) {
+            channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
+        }
     }
-  }
-  return buffer;
+    return buffer;
 }
 
 function decodeBase64(base64: string) {
-  const binaryString = atob(base64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes;
+    const binaryString = atob(base64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes;
 }
 
-const SmartAnalystCard: React.FC<{ 
-    sales: Sale[], 
-    products: Product[], 
-    customers: Customer[], 
-    purchases: Purchase[], 
-    returns: Return[], 
-    expenses: Expense[], 
-    ownerName: string, 
+const SmartAnalystCard: React.FC<{
+    sales: Sale[],
+    products: Product[],
+    customers: Customer[],
+    purchases: Purchase[],
+    returns: Return[],
+    expenses: Expense[],
+    ownerName: string,
     onNavigate: (page: Page, id: string) => void;
 }> = ({ sales, products, customers, purchases, returns, expenses, ownerName, onNavigate }) => {
     const { showToast } = useAppContext();
@@ -119,7 +120,7 @@ const SmartAnalystCard: React.FC<{
                 s.items.forEach(i => activeProductIds.add(i.productId));
             }
         });
-        
+
         const deadStockList = products
             .filter(p => !activeProductIds.has(p.id) && p.quantity > 0)
             .sort((a, b) => (b.quantity * b.purchasePrice) - (a.quantity * a.purchasePrice));
@@ -131,14 +132,14 @@ const SmartAnalystCard: React.FC<{
                 recentCustomerIds.add(s.customerId);
             }
         });
-        
+
         const customersWithHistory = new Set(sales.map(s => s.customerId));
         const churnList = customers
             .filter(c => customersWithHistory.has(c.id) && !recentCustomerIds.has(c.id))
             .map(c => {
-                 const cSales = sales.filter(s => s.customerId === c.id);
-                 const lastSale = cSales.reduce((latest, s) => new Date(s.date) > new Date(latest.date) ? s : latest, cSales[0]);
-                 return { ...c, lastSeen: lastSale ? new Date(lastSale.date) : null };
+                const cSales = sales.filter(s => s.customerId === c.id);
+                const lastSale = cSales.reduce((latest, s) => new Date(s.date) > new Date(latest.date) ? s : latest, cSales[0]);
+                return { ...c, lastSeen: lastSale ? new Date(lastSale.date) : null };
             })
             .sort((a, b) => (b.lastSeen?.getTime() || 0) - (a.lastSeen?.getTime() || 0));
 
@@ -156,7 +157,7 @@ const SmartAnalystCard: React.FC<{
             if (!apiKey) throw new Error("API Key not found");
 
             const ai = new GoogleGenAI({ apiKey });
-            
+
             const totalDue = customers.reduce((acc, c) => {
                 const cSales = sales.filter(s => s.customerId === c.id);
                 const paid = cSales.reduce((sum, s) => sum + s.payments.reduce((p, pay) => p + Number(pay.amount), 0), 0);
@@ -203,15 +204,15 @@ const SmartAnalystCard: React.FC<{
             const apiKey = process.env.API_KEY || localStorage.getItem('gemini_api_key');
             if (!apiKey) {
                 // Fallback to browser speech synthesis if no API key
-                 const utterance = new SpeechSynthesisUtterance(aiBriefing || analysis.briefing);
-                 utterance.onend = () => setIsPlaying(false);
-                 window.speechSynthesis.speak(utterance);
-                 return;
+                const utterance = new SpeechSynthesisUtterance(aiBriefing || analysis.briefing);
+                utterance.onend = () => setIsPlaying(false);
+                window.speechSynthesis.speak(utterance);
+                return;
             }
 
             const ai = new GoogleGenAI({ apiKey });
             const briefingText = aiBriefing || analysis.briefing;
-            
+
             const prompt = `Say in a professional, encouraging news-anchor voice: "${briefingText.replace(/[*#]/g, '')}"`;
 
             const response = await ai.models.generateContent({
@@ -231,9 +232,9 @@ const SmartAnalystCard: React.FC<{
             if (!base64Audio) throw new Error("No audio returned");
 
             if (!audioContextRef.current) {
-                audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({sampleRate: 24000});
+                audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
             }
-            
+
             const audioBuffer = await decodeAudioData(
                 decodeBase64(base64Audio),
                 audioContextRef.current,
@@ -270,14 +271,14 @@ const SmartAnalystCard: React.FC<{
                         </div>
                     </div>
                     <div className="flex gap-2">
-                            <button 
+                        <button
                             onClick={handlePlayBriefing}
                             className={`p-1.5 rounded-full transition-all border ${isPlaying ? 'bg-red-50 text-red-600 border-red-200 animate-pulse' : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:bg-slate-50'}`}
                         >
                             {isPlaying ? <StopCircle size={16} /> : <Volume2 size={16} />}
                         </button>
-                            <button 
-                            onClick={handleGenerateBriefing} 
+                        <button
+                            onClick={handleGenerateBriefing}
                             disabled={isGenerating}
                             className="p-1.5 rounded-full bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:bg-slate-50 transition-colors"
                             title="Refresh AI Insights"
@@ -286,10 +287,10 @@ const SmartAnalystCard: React.FC<{
                         </button>
                     </div>
                 </div>
-                
+
                 {/* Metrics Grid */}
                 <div className="grid grid-cols-2 gap-3">
-                    <button 
+                    <button
                         onClick={() => setDetailType('deadStock')}
                         className="p-3 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/20 transition-all text-left group relative"
                     >
@@ -298,7 +299,7 @@ const SmartAnalystCard: React.FC<{
                         </div>
                         <div className="flex items-center gap-2 mb-1">
                             <div className="p-1 bg-amber-100 dark:bg-amber-900/30 rounded text-amber-600 dark:text-amber-400">
-                                <Archive size={14}/>
+                                <Archive size={14} />
                             </div>
                             <p className="text-[10px] font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wide">Dead Stock</p>
                         </div>
@@ -306,7 +307,7 @@ const SmartAnalystCard: React.FC<{
                         <p className="text-[10px] text-slate-500 dark:text-slate-400">Items &gt; 60 days</p>
                     </button>
 
-                    <button 
+                    <button
                         onClick={() => setDetailType('churn')}
                         className="p-3 rounded-lg border border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/20 transition-all text-left group relative"
                     >
@@ -314,8 +315,8 @@ const SmartAnalystCard: React.FC<{
                             <ArrowRight size={14} className="text-red-600 dark:text-red-400" />
                         </div>
                         <div className="flex items-center gap-2 mb-1">
-                             <div className="p-1 bg-red-100 dark:bg-red-900/30 rounded text-red-600 dark:text-red-400">
-                                <UserX size={14}/>
+                            <div className="p-1 bg-red-100 dark:bg-red-900/30 rounded text-red-600 dark:text-red-400">
+                                <UserX size={14} />
                             </div>
                             <p className="text-[10px] font-bold text-red-700 dark:text-red-300 uppercase tracking-wide">Churn Risk</p>
                         </div>
@@ -323,7 +324,7 @@ const SmartAnalystCard: React.FC<{
                         <p className="text-[10px] text-slate-500 dark:text-slate-400">Inactive users</p>
                     </button>
                 </div>
-                
+
                 <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
                     <div className="flex items-start gap-2">
                         <Sparkles size={14} className="text-indigo-500 mt-0.5 shrink-0" />
@@ -336,12 +337,12 @@ const SmartAnalystCard: React.FC<{
 
             {/* Details Modal */}
             {detailType && (
-                <div 
-                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4 animate-fade-in-fast" 
+                <div
+                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4 animate-fade-in-fast"
                     onClick={() => setDetailType(null)}
                 >
-                    <div 
-                        className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden animate-scale-in border dark:border-slate-700" 
+                    <div
+                        className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden animate-scale-in border dark:border-slate-700"
                         onClick={e => e.stopPropagation()}
                     >
                         <div className="p-4 border-b dark:border-slate-700 flex justify-between items-center bg-gray-50 dark:bg-slate-800">
@@ -353,7 +354,7 @@ const SmartAnalystCard: React.FC<{
                                 <X size={20} />
                             </button>
                         </div>
-                        
+
                         <div className="overflow-y-auto p-4 space-y-3 bg-white dark:bg-slate-900 custom-scrollbar">
                             {detailType === 'deadStock' ? (
                                 analysis.deadStockList.length > 0 ? (
@@ -405,7 +406,7 @@ const SmartAnalystCard: React.FC<{
 const BackupStatusAlert: React.FC<{ lastBackupDate: string | null, lastSyncTime: number | null }> = ({ lastBackupDate, lastSyncTime }) => {
     const now = new Date();
     const todayStr = now.toISOString().slice(0, 10);
-    
+
     let status: 'no-backup' | 'overdue' | 'safe' = 'no-backup';
     let diffDays = 0;
     let backupDate: Date | null = null;
@@ -435,10 +436,10 @@ const BackupStatusAlert: React.FC<{ lastBackupDate: string | null, lastSyncTime:
             backupDate = latestDate;
         }
     } else if (status !== 'safe' && lastSyncTime) {
-         const syncD = new Date(lastSyncTime);
-         diffDays = Math.floor((now.getTime() - syncD.getTime()) / (1000 * 60 * 60 * 24));
-         status = 'overdue';
-         backupDate = syncD;
+        const syncD = new Date(lastSyncTime);
+        diffDays = Math.floor((now.getTime() - syncD.getTime()) / (1000 * 60 * 60 * 24));
+        status = 'overdue';
+        backupDate = syncD;
     }
 
     const config = {
@@ -461,7 +462,7 @@ const BackupStatusAlert: React.FC<{ lastBackupDate: string | null, lastSyncTime:
             classes: 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-200 dark:border-emerald-800',
             iconColor: 'text-emerald-600 dark:text-emerald-400',
             title: `Data is Safe ${isCloud ? '(Cloud Sync)' : '(Manual Backup)'}`,
-            message: `Backed up today at ${backupDate?.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}.`
+            message: `Backed up today at ${backupDate?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`
         }
     };
 
@@ -580,14 +581,14 @@ const OverdueDuesCard: React.FC<{ sales: Sale[]; customers: Customer[]; onNaviga
 const TopProductsCard: React.FC<{ sales: Sale[] }> = ({ sales }) => {
     const topProducts = useMemo(() => {
         const productMap: Record<string, { name: string, quantity: number, revenue: number }> = {};
-        
+
         sales.forEach(sale => {
             sale.items.forEach(item => {
                 if (!productMap[item.productId]) {
-                    productMap[item.productId] = { 
-                        name: item.productName, 
+                    productMap[item.productId] = {
+                        name: item.productName,
                         quantity: 0,
-                        revenue: 0 
+                        revenue: 0
                     };
                 }
                 productMap[item.productId].quantity += item.quantity;
@@ -626,10 +627,10 @@ const TopProductsCard: React.FC<{ sales: Sale[] }> = ({ sales }) => {
     );
 };
 
-const UpcomingPurchaseDuesCard: React.FC<{ 
-    purchases: Purchase[]; 
-    suppliers: Supplier[]; 
-    onNavigate: (supplierId: string) => void; 
+const UpcomingPurchaseDuesCard: React.FC<{
+    purchases: Purchase[];
+    suppliers: Supplier[];
+    onNavigate: (supplierId: string) => void;
 }> = ({ purchases, suppliers, onNavigate }) => {
     const upcomingDues = useMemo(() => {
         const dues: any[] = [];
@@ -749,7 +750,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
     const { showConfirm, showAlert } = useDialog();
     const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
     const [bannerDismissed, setBannerDismissed] = useState(false);
-    
+
     useEffect(() => {
         const dismissed = sessionStorage.getItem('pwa_banner_dismissed');
         if (dismissed === 'true') {
@@ -761,7 +762,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
         setBannerDismissed(true);
         sessionStorage.setItem('pwa_banner_dismissed', 'true');
     };
-    
+
     // --- Filters State ---
     const [duration, setDuration] = useState('this_month');
     const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
@@ -781,7 +782,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
     const [isCheckpointsModalOpen, setIsCheckpointsModalOpen] = useState(false);
 
     const lastBackupDate = (app_metadata.find(m => m.id === 'lastBackup') as AppMetadataBackup | undefined)?.date || null;
-    
+
     const getYears = useMemo(() => {
         const years = new Set<string>();
         sales.forEach(s => years.add(new Date(s.date).getFullYear().toString()));
@@ -807,22 +808,22 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
         let end = new Date();
 
         // Default to end of today
-        end.setHours(23,59,59,999);
-        start.setHours(0,0,0,0);
+        end.setHours(23, 59, 59, 999);
+        start.setHours(0, 0, 0, 0);
 
-        switch(duration) {
+        switch (duration) {
             case 'today':
                 // start/end are already set to today 00:00 and 23:59
                 break;
             case 'yesterday':
                 start.setDate(now.getDate() - 1);
                 end.setDate(now.getDate() - 1);
-                end.setHours(23,59,59,999);
-                start.setHours(0,0,0,0);
+                end.setHours(23, 59, 59, 999);
+                start.setHours(0, 0, 0, 0);
                 break;
             case 'this_week':
                 // Assuming week starts on Monday
-                const day = now.getDay() || 7; 
+                const day = now.getDay() || 7;
                 start.setDate(now.getDate() - day + 1);
                 break;
             case 'last_7':
@@ -833,21 +834,21 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                 end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
                 break;
             case 'last_month':
-                 start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-                 end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
-                 break;
+                start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+                break;
             case 'this_year':
-                 start = new Date(now.getFullYear(), 0, 1);
-                 end = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
-                 break;
+                start = new Date(now.getFullYear(), 0, 1);
+                end = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+                break;
             case 'custom':
-                 // Parse custom dates
-                 const [sy, sm, sd] = customStart.split('-').map(Number);
-                 start = new Date(sy, sm - 1, sd, 0, 0, 0, 0);
-                 
-                 const [ey, em, ed] = customEnd.split('-').map(Number);
-                 end = new Date(ey, em - 1, ed, 23, 59, 59, 999);
-                 break;
+                // Parse custom dates
+                const [sy, sm, sd] = customStart.split('-').map(Number);
+                start = new Date(sy, sm - 1, sd, 0, 0, 0, 0);
+
+                const [ey, em, ed] = customEnd.split('-').map(Number);
+                end = new Date(ey, em - 1, ed, 23, 59, 59, 999);
+                break;
         }
         return { start, end };
     }, [duration, customStart, customEnd]);
@@ -858,12 +859,12 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
             const d = new Date(s.date);
             return d >= dateRange.start && d <= dateRange.end;
         });
-        
+
         const filteredPurchases = purchases.filter(p => {
-             const d = new Date(p.date);
-             return d >= dateRange.start && d <= dateRange.end;
+            const d = new Date(p.date);
+            return d >= dateRange.start && d <= dateRange.end;
         });
-        
+
         const filteredExpenses = expenses.filter(e => {
             const d = new Date(e.date);
             return d >= dateRange.start && d <= dateRange.end;
@@ -882,7 +883,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
         const periodSalesTotal = filteredSales.reduce((sum, s) => sum + Number(s.totalAmount), 0);
         const periodPurchasesTotal = filteredPurchases.reduce((sum, p) => sum + Number(p.totalAmount), 0);
         const periodExpensesTotal = filteredExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
-        
+
         // Customer Dues (All time snapshot)
         const totalCustomerDues = sales.reduce((sum, s) => {
             const paid = (s.payments || []).reduce((pSum, p) => pSum + Number(p.amount), 0);
@@ -895,14 +896,14 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
             return sum + (Number(p.totalAmount) - paid);
         }, 0);
 
-        return { 
+        return {
             periodSalesTotal,
             periodPurchasesTotal,
             periodExpensesTotal,
             periodCollection,
-            totalCustomerDues, 
-            totalSupplierDues, 
-            salesCount: filteredSales.length 
+            totalCustomerDues,
+            totalSupplierDues,
+            salesCount: filteredSales.length
         };
     }, [sales, purchases, expenses, dateRange]);
 
@@ -917,7 +918,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                 if (pDate >= dateRange.start && pDate <= dateRange.end) {
                     const method = p.method || 'CASH';
                     paymentMap[method] = (paymentMap[method] || 0) + Number(p.amount);
-                    
+
                     const customer = customers.find(c => c.id === sale.customerId);
                     paymentsList.push({
                         date: p.date,
@@ -929,9 +930,9 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
             });
         });
 
-        return { 
-            byMethod: Object.entries(paymentMap).map(([method, amount]) => ({ method, amount })), 
-            list: paymentsList.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()) 
+        return {
+            byMethod: Object.entries(paymentMap).map(([method, amount]) => ({ method, amount })),
+            list: paymentsList.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         };
     }, [sales, customers, dateRange]);
 
@@ -966,7 +967,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-            
+
             await db.setLastBackupDate();
             dispatch({ type: 'SET_LAST_BACKUP_DATE', payload: new Date().toISOString() });
             showToast("Backup downloaded successfully!", 'success');
@@ -995,18 +996,18 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
         dispatch({ type: 'SET_SELECTION', payload: { page, id } });
         setCurrentPage(page);
     };
-    
+
     const handleFileRestore = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
-        
+
         const processRestore = async () => {
             const confirmed = await showConfirm("Restoring will OVERWRITE all current data. Are you sure you want to restore from this backup?", {
                 title: "Restore Backup",
                 confirmText: "Yes, Restore",
                 variant: "danger"
             });
-            
+
             if (confirmed) {
                 try {
                     const text = await file.text();
@@ -1020,32 +1021,32 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
         };
 
         runSecureAction(processRestore);
-        e.target.value = ''; 
+        e.target.value = '';
     };
 
     const handleLoadTestData = async () => {
         const confirmed = await showConfirm("This will OVERWRITE your current data with sample test data. Proceed?", {
-          title: "Load Test Data",
-          confirmText: "Overwrite",
-          variant: "danger"
+            title: "Load Test Data",
+            confirmText: "Overwrite",
+            variant: "danger"
         });
-    
+
         if (confirmed) {
-          try {
-            await db.importData(testData as any);
-            await db.saveCollection('profile', [testProfile]);
-            window.location.reload();
-          } catch (error) {
-            console.error("Failed to load test data:", error);
-            showToast("Failed to load test data.", 'info');
-          }
+            try {
+                await db.importData(testData as any);
+                await db.saveCollection('profile', [testProfile]);
+                window.location.reload();
+            } catch (error) {
+                console.error("Failed to load test data:", error);
+                showToast("Failed to load test data.", 'info');
+            }
         }
     };
 
     return (
         <div className="space-y-6 animate-fade-in-fast">
             <CheckpointsModal isOpen={isCheckpointsModalOpen} onClose={() => setIsCheckpointsModalOpen(false)} />
-            
+
             {isPinModalOpen && (
                 <PinModal
                     mode="enter"
@@ -1057,7 +1058,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                     }}
                 />
             )}
-            
+
             {/* Header Section */}
             <div className="mb-6 text-center">
                 <h1 className="text-3xl font-bold text-primary">Dashboard</h1>
@@ -1066,7 +1067,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
             {/* Install Prompt Banner */}
             {(isInstallable || (isIOS && !isInstalled)) && !bannerDismissed && (
                 <div className="bg-gradient-to-r from-indigo-500 to-blue-600 text-white rounded-xl p-4 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-3 animate-slide-down-fade mb-4 relative">
-                    <button 
+                    <button
                         onClick={handleDismissBanner}
                         className="absolute top-2 right-2 p-1 hover:bg-white/20 rounded-full transition-colors"
                         aria-label="Dismiss install banner"
@@ -1084,7 +1085,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                     </div>
                     {isIOS ? (
                         <div className="flex items-center gap-2 bg-white/20 px-3 py-1.5 rounded-lg backdrop-blur-sm">
-                            <p className="text-xs font-bold text-white">Tap <Share size={12} className="inline mx-1"/> then "Add to Home Screen"</p>
+                            <p className="text-xs font-bold text-white">Tap <Share size={12} className="inline mx-1" /> then "Add to Home Screen"</p>
                         </div>
                     ) : (
                         <button onClick={install} className="bg-white text-indigo-600 px-4 py-2 rounded-lg font-bold text-sm shadow hover:bg-gray-100 transition-colors whitespace-nowrap w-full sm:w-auto">
@@ -1093,12 +1094,12 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                     )}
                 </div>
             )}
-            
+
             {/* Toolbar for Period Selectors */}
             <div className="flex flex-wrap justify-end items-center mb-1 gap-2">
-                 <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-1 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 relative z-20">
+                <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-1 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 relative z-20">
                     <div className="flex items-center gap-1.5 px-2">
-                        <CalendarRange size={16} className="text-gray-400"/>
+                        <CalendarRange size={16} className="text-gray-400" />
                         <Dropdown
                             options={durationOptions}
                             value={duration}
@@ -1106,12 +1107,12 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                             className="w-36"
                         />
                     </div>
-                    
+
                     {duration === 'custom' && (
                         <>
                             <div className="h-4 w-px bg-gray-300 dark:bg-slate-600"></div>
                             <div className="flex items-center gap-2 px-2">
-                                <ModernDateInput 
+                                <ModernDateInput
                                     value={customStart}
                                     onChange={(e) => setCustomStart(e.target.value)}
                                     isOpen={isStartCalendarOpen}
@@ -1119,7 +1120,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                                     containerClassName="w-32"
                                 />
                                 <span className="text-gray-400">-</span>
-                                <ModernDateInput 
+                                <ModernDateInput
                                     value={customEnd}
                                     onChange={(e) => setCustomEnd(e.target.value)}
                                     isOpen={isEndCalendarOpen}
@@ -1133,121 +1134,118 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
-                <MetricCard 
-                    icon={Wallet} 
-                    title={duration === 'today' ? "Today's Coll." : "Collection"} 
-                    value={stats.periodCollection} 
-                    subValue={duration === 'custom' ? 'Selected Range' : duration.replace('_', ' ')} 
-                    color="bg-emerald-50 dark:bg-emerald-900/20" 
-                    iconBgColor="bg-emerald-100 dark:bg-emerald-800" 
-                    textColor="text-emerald-700 dark:text-emerald-100" 
-                    onClick={() => setCollectionDetailModalOpen(true)} 
-                    delay={0} 
+                <MetricCard
+                    icon={Wallet}
+                    title={duration === 'today' ? "Today's Coll." : "Collection"}
+                    value={stats.periodCollection}
+                    subValue={duration === 'custom' ? 'Selected Range' : duration.replace('_', ' ')}
+                    color="bg-emerald-50 dark:bg-emerald-900/20"
+                    iconBgColor="bg-emerald-100 dark:bg-emerald-800"
+                    textColor="text-emerald-700 dark:text-emerald-100"
+                    onClick={() => setCollectionDetailModalOpen(true)}
+                    delay={0}
                 />
-                <MetricCard 
-                    icon={Receipt} 
-                    title="Expenses" 
-                    value={stats.periodExpensesTotal} 
-                    subValue={duration === 'custom' ? 'Selected Range' : duration.replace('_', ' ')} 
-                    color="bg-rose-50 dark:bg-rose-900/20" 
-                    iconBgColor="bg-rose-100 dark:bg-rose-800" 
-                    textColor="text-rose-700 dark:text-rose-100" 
-                    onClick={() => setCurrentPage('EXPENSES')} 
-                    delay={50} 
+                <MetricCard
+                    icon={Receipt}
+                    title="Expenses"
+                    value={stats.periodExpensesTotal}
+                    subValue={duration === 'custom' ? 'Selected Range' : duration.replace('_', ' ')}
+                    color="bg-rose-50 dark:bg-rose-900/20"
+                    iconBgColor="bg-rose-100 dark:bg-rose-800"
+                    textColor="text-rose-700 dark:text-rose-100"
+                    onClick={() => setCurrentPage('EXPENSES')}
+                    delay={50}
                 />
-                <MetricCard 
-                    icon={IndianRupee} 
-                    title="Sales" 
-                    value={stats.periodSalesTotal} 
-                    subValue={`${stats.salesCount} orders`} 
-                    color="bg-primary/5 dark:bg-primary/10" 
-                    iconBgColor="bg-primary/20" 
-                    textColor="text-primary" 
-                    onClick={() => setCurrentPage('SALES')} 
-                    delay={100} 
+                <MetricCard
+                    icon={IndianRupee}
+                    title="Sales"
+                    value={stats.periodSalesTotal}
+                    subValue={`${stats.salesCount} orders`}
+                    color="bg-primary/5 dark:bg-primary/10"
+                    iconBgColor="bg-primary/20"
+                    textColor="text-primary"
+                    onClick={() => setCurrentPage('SALES')}
+                    delay={100}
                 />
-                <MetricCard 
-                    icon={Package} 
-                    title="Purchases" 
-                    value={stats.periodPurchasesTotal} 
-                    subValue="Inventory cost" 
-                    color="bg-blue-50 dark:bg-blue-900/20" 
-                    iconBgColor="bg-blue-100 dark:bg-blue-800" 
-                    textColor="text-blue-700 dark:text-blue-100" 
-                    onClick={() => setCurrentPage('PURCHASES')} 
-                    delay={200} 
+                <MetricCard
+                    icon={Package}
+                    title="Purchases"
+                    value={stats.periodPurchasesTotal}
+                    subValue="Inventory cost"
+                    color="bg-blue-50 dark:bg-blue-900/20"
+                    iconBgColor="bg-blue-100 dark:bg-blue-800"
+                    textColor="text-blue-700 dark:text-blue-100"
+                    onClick={() => setCurrentPage('PURCHASES')}
+                    delay={200}
                 />
-                <MetricCard 
-                    icon={User} 
-                    title="Cust. Dues" 
-                    value={stats.totalCustomerDues} 
-                    subValue="Total Receivable" 
-                    color="bg-purple-50 dark:bg-purple-900/20" 
-                    iconBgColor="bg-purple-100 dark:bg-purple-800" 
-                    textColor="text-purple-700 dark:text-purple-100" 
-                    onClick={() => setCurrentPage('CUSTOMERS')} 
-                    delay={300} 
+                <MetricCard
+                    icon={User}
+                    title="Cust. Dues"
+                    value={stats.totalCustomerDues}
+                    subValue="Total Receivable"
+                    color="bg-purple-50 dark:bg-purple-900/20"
+                    iconBgColor="bg-purple-100 dark:bg-purple-800"
+                    textColor="text-purple-700 dark:text-purple-100"
+                    onClick={() => setCurrentPage('CUSTOMERS')}
+                    delay={300}
                 />
-                <MetricCard 
-                    icon={ShoppingCart} 
-                    title="My Payables" 
-                    value={stats.totalSupplierDues} 
-                    subValue="Total Payable" 
-                    color="bg-amber-50 dark:bg-amber-900/20" 
-                    iconBgColor="bg-amber-100 dark:bg-amber-800" 
-                    textColor="text-amber-700 dark:text-amber-100" 
-                    onClick={() => setCurrentPage('PURCHASES')} 
-                    delay={400} 
+                <MetricCard
+                    icon={ShoppingCart}
+                    title="My Payables"
+                    value={stats.totalSupplierDues}
+                    subValue="Total Payable"
+                    color="bg-amber-50 dark:bg-amber-900/20"
+                    iconBgColor="bg-amber-100 dark:bg-amber-800"
+                    textColor="text-amber-700 dark:text-amber-100"
+                    onClick={() => setCurrentPage('PURCHASES')}
+                    delay={400}
                 />
             </div>
-            
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <OverdueDuesCard sales={sales} customers={customers} onNavigate={(id) => handleNavigate('CUSTOMERS', id)} />
                 <UpcomingPurchaseDuesCard purchases={purchases} suppliers={suppliers} onNavigate={(id) => handleNavigate('PURCHASES', id)} />
             </div>
 
+            <div className="mb-6">
+                <Card title="Sales Trend (Last 30 Days)">
+                    <SalesTrendChart sales={sales} days={30} />
+                </Card>
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                 <div className="flex flex-col gap-6">
+                <div className="flex flex-col gap-6">
                     <TopProductsCard sales={sales} />
                     <LowStockCard products={products} onNavigate={(id) => handleNavigate('PRODUCTS', id)} />
-                 </div>
-                 <div className="space-y-6">
-                    <SmartAnalystCard 
-                        sales={sales} 
-                        products={products} 
-                        customers={customers} 
-                        purchases={purchases} 
-                        returns={returns} 
-                        expenses={expenses}
-                        ownerName={profile?.ownerName || 'Owner'}
-                        onNavigate={handleNavigate}
-                    />
+                </div>
+                <div className="space-y-6">
+                    <AIInsightsView />
                     <Card title="Data Management">
                         <BackupStatusAlert lastBackupDate={lastBackupDate} lastSyncTime={state.lastSyncTime} />
                         <div className="space-y-4 mt-4">
                             <p className="text-sm text-gray-600 dark:text-gray-400">
                                 Your data is stored locally. Please create regular backups.
                             </p>
-                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <Button onClick={handleBackup} className="w-full" disabled={isGeneratingReport}>
                                     <Download className="w-4 h-4 mr-2" /> {isGeneratingReport ? 'Preparing...' : 'Backup Data Now'}
                                 </Button>
                                 <label htmlFor="restore-backup" className="px-4 py-2 rounded-md font-semibold text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 shadow-sm flex items-center justify-center gap-2 bg-secondary hover:bg-teal-500 focus:ring-secondary cursor-pointer w-full text-center dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600">
                                     <Upload className="w-4 h-4 mr-2" /> Restore from Backup
                                 </label>
-                                <input 
-                                    id="restore-backup" 
-                                    type="file" 
-                                    accept="application/json" 
-                                    className="hidden" 
-                                    onChange={handleFileRestore} 
+                                <input
+                                    id="restore-backup"
+                                    type="file"
+                                    accept="application/json"
+                                    className="hidden"
+                                    onChange={handleFileRestore}
                                 />
                                 <Button onClick={() => runSecureAction(handleLoadTestData)} variant="secondary" className="w-full bg-purple-50 text-purple-700 hover:bg-purple-100 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800">
                                     <TestTube2 className="w-4 h-4 mr-2" /> Load Test Data
                                 </Button>
                             </div>
 
-                             <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-md border border-yellow-200 dark:border-yellow-700 mt-4">
+                            <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-md border border-yellow-200 dark:border-yellow-700 mt-4">
                                 <div className="flex gap-2">
                                     <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
                                     <p className="text-xs text-yellow-700 dark:text-yellow-300">
@@ -1257,7 +1255,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                             </div>
                         </div>
                     </Card>
-                 </div>
+                </div>
             </div>
 
             {/* Collection Details Modal */}
@@ -1277,20 +1275,20 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                                 <X size={20} />
                             </button>
                         </div>
-                        
+
                         <div className="overflow-y-auto p-4 space-y-4 bg-white dark:bg-slate-900 custom-scrollbar">
                             <div className="grid grid-cols-2 gap-3 mb-2">
                                 {collectionDetails.byMethod.map((item, idx) => (
                                     <div key={idx} className="bg-slate-50 dark:bg-slate-800 p-3 rounded-lg border dark:border-slate-700 flex flex-col">
                                         <div className="flex items-center gap-2 mb-1">
-                                            {item.method === 'UPI' ? <Zap size={14} className="text-amber-500"/> : item.method === 'CHEQUE' ? <CreditCard size={14} className="text-blue-500"/> : <Banknote size={14} className="text-green-500"/>}
+                                            {item.method === 'UPI' ? <Zap size={14} className="text-amber-500" /> : item.method === 'CHEQUE' ? <CreditCard size={14} className="text-blue-500" /> : <Banknote size={14} className="text-green-500" />}
                                             <span className="text-xs font-bold text-slate-500 uppercase">{item.method}</span>
                                         </div>
                                         <span className="text-lg font-bold text-slate-800 dark:text-white">₹{item.amount.toLocaleString('en-IN')}</span>
                                     </div>
                                 ))}
                             </div>
-                            
+
                             <div>
                                 <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">Recent Transactions</h4>
                                 <div className="space-y-2">
@@ -1299,7 +1297,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                                             <div key={idx} className="flex justify-between items-center p-2.5 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
                                                 <div className="min-w-0">
                                                     <p className="font-semibold text-sm text-slate-700 dark:text-slate-200 truncate">{tx.customer}</p>
-                                                    <p className="text-[10px] text-slate-500">{new Date(tx.date).toLocaleDateString()} • {new Date(tx.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                                                    <p className="text-[10px] text-slate-500">{new Date(tx.date).toLocaleDateString()} • {new Date(tx.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                                                 </div>
                                                 <div className="text-right">
                                                     <p className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">+₹{tx.amount.toLocaleString()}</p>

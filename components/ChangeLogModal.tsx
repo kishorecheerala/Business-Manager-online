@@ -19,8 +19,8 @@ const ChangeLogModal: React.FC<ChangeLogModalProps> = ({ isOpen, onClose }) => {
     if (!isOpen) return null;
 
     return createPortal(
-        <div 
-            className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+        <div
+            className="fixed inset-0 z-[80] flex items-center justify-center p-4" aria-modal="true" role="dialog"
         >
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in-fast" onClick={onClose} />
             <Card className="relative z-10 w-full max-w-md p-0 overflow-hidden animate-scale-in border-none shadow-2xl flex flex-col max-h-full">
@@ -35,8 +35,8 @@ const ChangeLogModal: React.FC<ChangeLogModalProps> = ({ isOpen, onClose }) => {
                         <h2 className="text-2xl font-bold mb-1">What's New</h2>
                         <p className="text-indigo-100 text-sm">Latest updates and improvements.</p>
                     </div>
-                    <button 
-                        onClick={onClose} 
+                    <button
+                        onClick={onClose}
                         className="absolute top-4 right-4 p-2 bg-black/20 hover:bg-black/30 rounded-full text-white/80 hover:text-white transition-colors backdrop-blur-sm"
                     >
                         <X size={20} />
