@@ -1133,10 +1133,12 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                 <MetricCard
-                    icon={Wallet}
-                    title={duration === 'today' ? "Today's Coll." : "Collection"}
+                    icon={IndianRupee}
+                    title="Total Revenue"
                     value={stats.periodCollection}
                     subValue={duration === 'custom' ? 'Selected Range' : duration.replace('_', ' ')}
                     color="bg-emerald-50 dark:bg-emerald-900/20"
@@ -1207,10 +1209,8 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                 <UpcomingPurchaseDuesCard purchases={purchases} suppliers={suppliers} onNavigate={(id) => handleNavigate('PURCHASES', id)} />
             </div>
 
-            <div className="mb-6">
-                <Card title="Sales Trend (Last 30 Days)">
-                    <SalesTrendChart sales={sales} days={30} />
-                </Card>
+            <div className="mb-6 w-full">
+                <SalesTrendChart sales={sales} className="h-[350px] w-full" />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

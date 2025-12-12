@@ -166,13 +166,19 @@ const PDFCanvasPreview: React.FC<{
     customFonts: CustomFont[];
     reportScenario?: ReportScenarioKey;
     isDraftMode: boolean;
-}> = ({ config, profile, docType, customFonts, reportScenario = 'SALES_REPORT', isDraftMode }) => {
+    onLayoutUpdate?: (updates: Partial<InvoiceTemplateConfig['layout']>) => void;
+}> = ({ config, profile, docType, customFonts, reportScenario = 'SALES_REPORT', isDraftMode, onLayoutUpdate }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const renderTaskRef = useRef<any>(null);
     const [zoomLevel, setZoomLevel] = useState(1.0);
+    const [scaleFactor, setScaleFactor] = useState(1); // px per mm
+
+    // Drag state
+    const [dragTarget, setDragTarget] = useState<'logo' | 'qr' | null>(null);
+    const dragStartRef = useRef<{ x: number, y: number, initialX: number, initialY: number } | null>(null);
 
     // Debounce configuration changes to prevent rapid re-renders
     const debouncedConfig = useMemo(() => config, [JSON.stringify(config)]);
@@ -252,6 +258,11 @@ const PDFCanvasPreview: React.FC<{
                 renderTaskRef.current = page.render(renderContext);
                 await renderTaskRef.current.promise;
 
+                // Calculate mm to px scale
+                // A4 width is 210mm. If formatted differently, adjust.
+                const paperWidthMM = docType === 'RECEIPT' ? 72 : 210;
+                setScaleFactor(viewport.width / paperWidthMM);
+
                 URL.revokeObjectURL(url);
             } catch (e: any) {
                 if (e.name !== 'RenderingCancelledException') {
@@ -285,8 +296,89 @@ const PDFCanvasPreview: React.FC<{
                 {error ? (
                     <div className="text-red-500 p-4 text-center">{error}</div>
                 ) : (
-                    <div className={`relative shadow-2xl rounded-sm overflow-hidden transition-transform duration-200 ease-out ${loading ? 'opacity-80 blur-[1px]' : 'opacity-100'}`}>
+                    <div className={`relative shadow-2xl rounded-sm overflow-hidden transition-transform duration-200 ease-out ${loading ? 'opacity-80 blur-[1px]' : 'opacity-100'}`}
+                        onMouseMove={(e) => {
+                            if (!dragTarget || !dragStartRef.current || !onLayoutUpdate) return;
+                            const deltaX = (e.clientX - dragStartRef.current.x) / scaleFactor;
+                            const deltaY = (e.clientY - dragStartRef.current.y) / scaleFactor;
+
+                            const updates: any = {};
+                            if (dragTarget === 'logo') {
+                                updates.logoPosX = Math.max(0, dragStartRef.current.initialX + deltaX);
+                                updates.logoPosY = Math.max(0, dragStartRef.current.initialY + deltaY);
+                            } else if (dragTarget === 'qr') {
+                                updates.qrPosX = Math.max(0, dragStartRef.current.initialX + deltaX);
+                                updates.qrPosY = Math.max(0, dragStartRef.current.initialY + deltaY);
+                            }
+                            onLayoutUpdate(updates);
+                        }}
+                        onMouseUp={() => {
+                            setDragTarget(null);
+                            dragStartRef.current = null;
+                        }}
+                        onMouseLeave={() => {
+                            setDragTarget(null);
+                            dragStartRef.current = null;
+                        }}
+                    >
                         <canvas ref={canvasRef} className="bg-white block" />
+
+                        {/* Interactive Overlays */}
+                        {!loading && !isDraftMode && (
+                            <>
+                                {/* Logo Overlay */}
+                                {config.logo && (
+                                    <div
+                                        className="absolute border-2 border-dashed border-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20 cursor-move group flex items-center justify-center transition-colors"
+                                        style={{
+                                            left: (config.layout.logoPosX || 20) * scaleFactor,
+                                            top: (config.layout.logoPosY || 20) * scaleFactor,
+                                            width: (config.layout.logoSize || 25) * scaleFactor,
+                                            height: (config.layout.logoSize || 25) * scaleFactor, // Assuming square for simplicity or aspect ratio
+                                        }}
+                                        onMouseDown={(e) => {
+                                            if (!onLayoutUpdate) return;
+                                            e.preventDefault();
+                                            setDragTarget('logo');
+                                            dragStartRef.current = {
+                                                x: e.clientX,
+                                                y: e.clientY,
+                                                initialX: config.layout.logoPosX || 20,
+                                                initialY: config.layout.logoPosY || 20
+                                            };
+                                        }}
+                                        title="Drag to move Logo"
+                                    >
+                                        <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-indigo-600 text-white text-[10px] px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none">Move Logo</div>
+                                    </div>
+                                )}
+
+                                {/* QR Overlay */}
+                                <div
+                                    className="absolute border-2 border-dashed border-gray-400 bg-gray-500/10 hover:bg-gray-500/20 cursor-move group flex items-center justify-center transition-colors"
+                                    style={{
+                                        left: (config.layout.qrPosX || (docType === 'RECEIPT' ? 20 : 150)) * scaleFactor,
+                                        top: (config.layout.qrPosY || 20) * scaleFactor,
+                                        width: (config.layout.qrOverlaySize || 20) * scaleFactor,
+                                        height: (config.layout.qrOverlaySize || 20) * scaleFactor,
+                                    }}
+                                    onMouseDown={(e) => {
+                                        if (!onLayoutUpdate) return;
+                                        e.preventDefault();
+                                        setDragTarget('qr');
+                                        dragStartRef.current = {
+                                            x: e.clientX,
+                                            y: e.clientY,
+                                            initialX: config.layout.qrPosX || (docType === 'RECEIPT' ? 20 : 150),
+                                            initialY: config.layout.qrPosY || 20
+                                        };
+                                    }}
+                                    title="Drag to move QR Code"
+                                >
+                                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-gray-600 text-white text-[10px] px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none">Move QR</div>
+                                </div>
+                            </>
+                        )}
                     </div>
                 )}
             </div>
@@ -1932,6 +2024,7 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
                     customFonts={state.customFonts}
                     reportScenario={reportScenario}
                     isDraftMode={isDraftMode}
+                    onLayoutUpdate={handleBatchLayoutChange}
                 />
             </main>
         </div>

@@ -13,6 +13,12 @@ import { useAppContext } from '../context/AppContext';
 import { Page } from '../types';
 import Card from '../components/Card';
 import AIInsightsView from '../components/AIInsightsView';
+import SalesTrendChart from '../components/charts/SalesTrendChart';
+import TopProductsChart from '../components/charts/TopProductsChart';
+import TopCustomersChart from '../components/charts/TopCustomersChart';
+import ExpenseTrendChart from '../components/charts/ExpenseTrendChart';
+import GoalTracker from '../components/analytics/GoalTracker';
+import ProfitLossCard from '../components/analytics/ProfitLossCard';
 import { calculateRevenueForecast, calculateCLV, calculateInventoryTurnover } from '../utils/analytics';
 
 interface InsightsPageProps {
@@ -49,39 +55,8 @@ const InsightsPage: React.FC<InsightsPageProps> = ({ setCurrentPage }) => {
     const estimatedProfit = totalRevenue - totalCOGS - totalExpenses;
 
     // Prepare Chart Data (Last 14 days)
-    const chartData = useMemo(() => {
-        const days = 14;
-        const data = [];
-        const today = new Date();
+    // Chart Data Preparation moved to specific chart components or passed as raw data
 
-        for (let i = days - 1; i >= 0; i--) {
-            const d = new Date();
-            d.setDate(today.getDate() - i);
-            const dayStr = d.toISOString().split('T')[0];
-
-            const dailyTotal = sales
-                .filter(s => s.date.startsWith(dayStr))
-                .reduce((sum, s) => sum + s.totalAmount, 0);
-
-            data.push({
-                date: d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
-                sales: dailyTotal
-            });
-        }
-        return data;
-    }, [sales]);
-
-    // Prepare Expense Data
-    const expenseData = useMemo(() => {
-        const breakdown: Record<string, number> = {};
-        expenses.forEach(e => {
-            breakdown[e.category] = (breakdown[e.category] || 0) + e.amount;
-        });
-
-        return Object.entries(breakdown)
-            .map(([name, value]) => ({ name, value }))
-            .sort((a, b) => b.value - a.value);
-    }, [expenses]);
 
     const COLORS = ['#6366f1', '#f43f5e', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899'];
 
@@ -196,114 +171,39 @@ const InsightsPage: React.FC<InsightsPageProps> = ({ setCurrentPage }) => {
                 </motion.div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                 {/* Sales Trend Chart (Large) */}
-                <motion.div variants={itemVariants} className="lg:col-span-2">
-                    <Card className="h-full min-h-[400px] flex flex-col">
-                        <div className="flex justify-between items-center mb-6">
-                            <div>
-                                <h3 className="font-bold text-lg text-gray-800 dark:text-white flex items-center gap-2">
-                                    <TrendingUp size={18} className="text-indigo-500" />
-                                    Revenue Trajectory
-                                </h3>
-                                <p className="text-xs text-gray-500">Last 14 Days Performance</p>
-                            </div>
-                            <span className="text-sm font-bold bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full dark:bg-indigo-900/30 dark:text-indigo-300">
-                                Total: ₹{chartData.reduce((a, b) => a + b.sales, 0).toLocaleString()}
-                            </span>
-                        </div>
-
-                        <div className="flex-grow w-full h-[300px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={chartData}>
-                                    <defs>
-                                        <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                                            <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" opacity={0.5} />
-                                    <XAxis
-                                        dataKey="date"
-                                        axisLine={false}
-                                        tickLine={false}
-                                        tick={{ fontSize: 12, fill: '#94a3b8' }}
-                                        dy={10}
-                                    />
-                                    <YAxis
-                                        axisLine={false}
-                                        tickLine={false}
-                                        tick={{ fontSize: 12, fill: '#94a3b8' }}
-                                        tickFormatter={(value) => `₹${value / 1000}k`}
-                                    />
-                                    <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#6366f1', strokeWidth: 1, strokeDasharray: '5 5' }} />
-                                    <Area
-                                        type="monotone"
-                                        dataKey="sales"
-                                        stroke="#6366f1"
-                                        strokeWidth={3}
-                                        fillOpacity={1}
-                                        fill="url(#colorSales)"
-                                    />
-                                </AreaChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </Card>
+                <motion.div variants={itemVariants} className="col-span-full mb-4">
+                    <GoalTracker sales={sales} />
                 </motion.div>
 
-                {/* Expense Breakdown (Pie) */}
-                <motion.div variants={itemVariants} className="lg:col-span-1">
-                    <Card className="h-full min-h-[400px] flex flex-col">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="font-bold text-lg text-gray-800 dark:text-white flex items-center gap-2">
-                                <PieIcon size={18} className="text-rose-500" />
-                                Expense Distribution
-                            </h3>
-                        </div>
+                {/* Profit/Loss and Expense Trends */}
+                <motion.div variants={itemVariants} className="col-span-full w-full grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <div className="md:col-span-1">
+                        <ProfitLossCard
+                            revenue={totalRevenue}
+                            expenses={totalExpenses}
+                            cogs={totalCOGS}
+                            className="h-full"
+                        />
+                    </div>
+                    <div className="md:col-span-2">
+                        <ExpenseTrendChart sales={sales} expenses={expenses} />
+                    </div>
+                </motion.div>
 
-                        {expenseData.length > 0 ? (
-                            <div className="flex-grow flex flex-col items-center justify-center relative">
-                                <div className="w-full h-[250px]">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <PieChart>
-                                            <Pie
-                                                data={expenseData}
-                                                cx="50%"
-                                                cy="50%"
-                                                innerRadius={60}
-                                                outerRadius={80}
-                                                paddingAngle={5}
-                                                dataKey="value"
-                                            >
-                                                {expenseData.map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                                ))}
-                                            </Pie>
-                                            <Tooltip />
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                                </div>
+                <motion.div variants={itemVariants} className="xl:col-span-2">
+                    <SalesTrendChart sales={sales} />
+                </motion.div>
 
-                                {/* Legend */}
-                                <div className="w-full space-y-2 mt-4 max-h-[150px] overflow-y-auto px-2 custom-scrollbar">
-                                    {expenseData.map((entry, index) => (
-                                        <div key={index} className="flex justify-between items-center text-xs">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                                                <span className="text-gray-600 dark:text-gray-300 truncate max-w-[100px]">{entry.name}</span>
-                                            </div>
-                                            <span className="font-medium">₹{entry.value.toLocaleString()}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="flex-grow flex flex-col items-center justify-center text-gray-400 space-y-2">
-                                <PieIcon size={48} className="opacity-20" />
-                                <span className="text-sm">No expense data available</span>
-                            </div>
-                        )}
-                    </Card>
+                {/* Top Customers (Side Panel) */}
+                <motion.div variants={itemVariants} className="xl:col-span-1">
+                    <TopCustomersChart sales={sales} customers={customers} />
+                </motion.div>
+
+                {/* Top Products (Was Category) */}
+                <motion.div variants={itemVariants} className="xl:col-span-1">
+                    <TopProductsChart sales={sales} />
                 </motion.div>
             </div>
 

@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAppContext } from '../context/AppContext';
 import Card from './Card';
 import Button from './Button';
+import AskAIModal from './AskAIModal';
 import { calculateLinearRegression } from '../utils/analytics';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -40,6 +41,7 @@ const AIInsightsView: React.FC<AIInsightsViewProps> = ({ className, onNavigate }
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'overview' | 'strategy' | 'actions'>('overview');
+    const [isChatOpen, setIsChatOpen] = useState(false);
 
     const regression = useMemo(() => calculateLinearRegression(state.sales, 30), [state.sales]);
 
@@ -164,10 +166,17 @@ const AIInsightsView: React.FC<AIInsightsViewProps> = ({ className, onNavigate }
                         <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Strategic Intelligence</p>
                     </div>
                 </div>
-                <Button variant="ghost" size="sm" onClick={generateInsight} disabled={loading} className="hover:bg-indigo-50 dark:hover:bg-slate-700">
-                    <RefreshCw size={18} className={loading ? "animate-spin text-indigo-500" : "text-slate-400"} />
-                </Button>
+                <div className="flex gap-2">
+                    <Button variant="secondary" size="sm" onClick={() => setIsChatOpen(true)} className="flex items-center gap-2">
+                        <Users size={16} /> <span className="hidden sm:inline">Ask Analyst</span>
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={generateInsight} disabled={loading} className="hover:bg-indigo-50 dark:hover:bg-slate-700">
+                        <RefreshCw size={18} className={loading ? "animate-spin text-indigo-500" : "text-slate-400"} />
+                    </Button>
+                </div>
             </div>
+
+            <AskAIModal isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
 
             {/* Content Area */}
             <div className="min-h-[200px] relative z-10">
@@ -212,8 +221,8 @@ const AIInsightsView: React.FC<AIInsightsViewProps> = ({ className, onNavigate }
                                         key={tab.id}
                                         onClick={() => setActiveTab(tab.id as any)}
                                         className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-xs font-bold transition-all ${activeTab === tab.id
-                                                ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-300'
-                                                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                                            ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-300'
+                                            : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
                                             }`}
                                     >
                                         <tab.icon size={14} />
