@@ -402,58 +402,43 @@ export const DriveService = {
             if (!folderId) return null;
             localStorage.setItem('gdrive_folder_id', folderId);
 
-            // 1. Try Stable Sync File (Prefer Cached ID)
-            let fileId = localStorage.getItem('gdrive_sync_file_id');
-            let stableFile = null;
-
-            if (fileId) {
-                // Verify it still exists
-                try {
-                    const data = await downloadFile(accessToken, fileId);
-                    if (data) {
-                        console.log("Read from Cached File ID:", fileId);
-                        return data; // Fast path!
-                    }
-                } catch (e) {
-                    console.warn("Cached File ID invalid/gone, searching by name...");
-                    localStorage.removeItem('gdrive_sync_file_id');
-                }
-            }
-
-            // Search by name if ID failed
-            if (!stableFile) {
-                stableFile = await findFileByName(accessToken, folderId, STABLE_SYNC_FILENAME);
-            }
+            // 1. Resolve "True" Sync File ID (Prioritize Server Search)
+            // We ALWAYS checking by name first to ensure we aren't stuck on a stale cached ID.
+            // "findFileByName" handles duplicate deletion internally.
+            let stableFile = await findFileByName(accessToken, folderId, STABLE_SYNC_FILENAME);
+            let targetFileId = stableFile ? stableFile.id : localStorage.getItem('gdrive_sync_file_id');
 
             if (stableFile) {
-                console.log("Found Live Sync File:", stableFile.name);
-                localStorage.setItem('gdrive_sync_file_id', stableFile.id); // Cache it
+                console.log("Read: Found Live Sync File (Server Truth):", stableFile.id);
+                localStorage.setItem('gdrive_sync_file_id', stableFile.id);
+                targetFileId = stableFile.id;
+            } else if (targetFileId) {
+                console.warn("Read: File not found by name, attempting Cached ID:", targetFileId);
+            }
 
-                const coreData = await downloadFile(accessToken, stableFile.id);
-
-                if (coreData) {
-                    // Try to find assets
-                    const assetsFile = await findFileByName(accessToken, folderId, STABLE_ASSETS_FILENAME);
-                    if (assetsFile) {
-                        const assetsData = await downloadFile(accessToken, assetsFile.id);
-                        if (assetsData) {
-                            return mergeStateData(coreData, assetsData);
+            if (targetFileId) {
+                try {
+                    const coreData = await downloadFile(accessToken, targetFileId);
+                    if (coreData) {
+                        // Asynchronously check for assets to merge
+                        const assetsFile = await findFileByName(accessToken, folderId, STABLE_ASSETS_FILENAME);
+                        if (assetsFile) {
+                            const assetsData = await downloadFile(accessToken, assetsFile.id);
+                            if (assetsData) return mergeStateData(coreData, assetsData);
                         }
+                        return coreData;
                     }
-                    return coreData;
+                } catch (e) {
+                    console.warn("Read failed on target ID, clearing cache.");
+                    localStorage.removeItem('gdrive_sync_file_id');
                 }
             }
 
             // 2. Fallback: Daily Core Files (Migration)
             const coreFile = await findLatestFileByPrefix(accessToken, folderId, 'BusinessManager_Core_');
-
             if (coreFile) {
                 console.log("Found Legacy Daily Backup:", coreFile.name);
-                const coreData = await downloadFile(accessToken, coreFile.id);
-
-                if (coreData) {
-                    return coreData;
-                }
+                return await downloadFile(accessToken, coreFile.id);
             }
 
             // 3. Fallback: Legacy Monolithic
@@ -471,10 +456,6 @@ export const DriveService = {
         }
     },
 
-    /**
-     * Writes data to Drive.
-     * STRICT LOCKING: Always uses 'gdrive_sync_file_id' if available.
-     */
     async write(accessToken: string, data: any): Promise<any> {
         let folderId = localStorage.getItem('gdrive_folder_id');
         if (!folderId) {
@@ -486,63 +467,53 @@ export const DriveService = {
 
         try {
             console.log(`Preparing sync upload...`);
-
-            // Split Data
             const { core, assets, hasAssets } = splitStateData(data);
 
-            // 1. Upload Core to Stable File
-            let coreFileId = localStorage.getItem('gdrive_sync_file_id');
-            let usedCachedId = false;
+            // 1. Resolve Target ID (Prioritize Server Truth)
+            // Always search by name to ensure we write to the one everyone else is reading.
+            let stableFile = await findFileByName(accessToken, folderId, STABLE_SYNC_FILENAME);
+            let targetFileId = stableFile ? stableFile.id : localStorage.getItem('gdrive_sync_file_id');
 
-            if (coreFileId) {
-                console.log("Attempting write to Cached ID:", coreFileId);
+            if (stableFile) {
+                console.log("Write: Updating existing Server File:", stableFile.id);
+                localStorage.setItem('gdrive_sync_file_id', stableFile.id);
+                targetFileId = stableFile.id;
+            } else if (targetFileId) {
+                console.log("Write: File not found by name, trying Cached ID:", targetFileId);
+            }
+
+            let finalId = '';
+
+            if (targetFileId) {
                 try {
-                    const result = await uploadFile(accessToken, folderId, core, STABLE_SYNC_FILENAME, coreFileId);
-                    coreFileId = result.id;
-                    usedCachedId = true;
+                    const result = await uploadFile(accessToken, folderId, core, STABLE_SYNC_FILENAME, targetFileId);
+                    finalId = result.id;
                 } catch (e) {
-                    console.warn("Write to Cached ID failed (might be deleted). Searching...");
-                    coreFileId = null;
-                    localStorage.removeItem('gdrive_sync_file_id');
-                }
-            }
-
-            if (!usedCachedId) {
-                // Search
-                const existingStable = await findFileByName(accessToken, folderId, STABLE_SYNC_FILENAME);
-
-                if (existingStable) {
-                    console.log("Updating Live Sync file (Found by name)...");
-                    const result = await uploadFile(accessToken, folderId, core, STABLE_SYNC_FILENAME, existingStable.id);
-                    coreFileId = result.id;
-                } else {
-                    console.log("Creating NEW Live Sync file...");
+                    console.warn("Write to Target ID failed (deleted?). Creating new...");
                     const result = await uploadFile(accessToken, folderId, core, STABLE_SYNC_FILENAME);
-                    coreFileId = result.id;
+                    finalId = result.id;
                 }
-
-                if (coreFileId) localStorage.setItem('gdrive_sync_file_id', coreFileId);
+            } else {
+                console.log("Write: Creating NEW Sync file...");
+                const result = await uploadFile(accessToken, folderId, core, STABLE_SYNC_FILENAME);
+                finalId = result.id;
             }
 
-            // 2. Upload Assets to Stable File (if present)
+            if (finalId) localStorage.setItem('gdrive_sync_file_id', finalId);
+
+            // 2. Upload Assets
             if (hasAssets) {
                 const existingAssets = await findFileByName(accessToken, folderId, STABLE_ASSETS_FILENAME);
-                if (existingAssets) {
-                    console.log("Updating Assets file...");
-                    await uploadFile(accessToken, folderId, assets, STABLE_ASSETS_FILENAME, existingAssets.id);
-                } else {
-                    console.log("Creating Assets file...");
-                    await uploadFile(accessToken, folderId, assets, STABLE_ASSETS_FILENAME);
-                }
+                const assetId = existingAssets ? existingAssets.id : undefined;
+                await uploadFile(accessToken, folderId, assets, STABLE_ASSETS_FILENAME, assetId);
             }
 
-            console.log("Sync successful. ID locked:", coreFileId);
-            return coreFileId;
+            console.log("Sync successful. ID:", finalId);
+            return finalId;
         } catch (e: any) {
             if (e.message && e.message.includes('404')) {
                 console.warn("Folder 404, retrying...", e);
                 localStorage.removeItem('gdrive_folder_id');
-                // Recursive retry with fresh folder lookup
                 return DriveService.write(accessToken, data);
             }
             throw e;
