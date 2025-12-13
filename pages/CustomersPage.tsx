@@ -698,7 +698,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                                                                     </div>
                                                                     <button
                                                                         onClick={() => handleEditPayment(sale.id, payment)}
-                                                                        className="opacity-0 group-hover:opacity-100 p-1 text-blue-600 hover:bg-blue-50 rounded transition-opacity"
+                                                                        className="p-1 text-blue-600 hover:bg-blue-50 rounded transition-opacity"
                                                                         title="Edit Payment"
                                                                     >
                                                                         <Edit size={12} />

@@ -398,6 +398,7 @@ export interface AppMetadataPin {
     enabled: boolean;
     lastAttempt?: number;
   };
+  updatedAt?: string;
 }
 
 export interface AppMetadataBackup {
@@ -429,16 +430,19 @@ export interface AppMetadataInvoiceSettings {
   terms: string;
   footer: string;
   showQr: boolean;
+  updatedAt?: string;
 }
 
 export interface AppMetadataNavOrder {
   id: 'navOrder';
   order: string[]; // List of Page strings
+  updatedAt?: string;
 }
 
 export interface AppMetadataQuickActions {
   id: 'quickActions';
   actions: string[]; // List of action IDs
+  updatedAt?: string;
 }
 
 export interface AppMetadataUIPreferences {
@@ -449,6 +453,7 @@ export interface AppMetadataUIPreferences {
   density: 'comfortable' | 'compact';
   navStyle?: 'docked' | 'floating';
   fontSize?: 'small' | 'normal' | 'large';
+  updatedAt?: string;
 }
 
 export type AppMetadata = AppMetadataPin | AppMetadataBackup | AppMetadataRevenueGoal | AppMetadataLastModified | AppMetadataTheme | AppMetadataInvoiceSettings | AppMetadataNavOrder | AppMetadataQuickActions | AppMetadataUIPreferences | InvoiceTemplateConfig;

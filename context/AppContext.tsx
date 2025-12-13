@@ -448,7 +448,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
             const { saleId, payment } = action.payload;
             const salesWithUpdatedPayment = state.sales.map(s => {
                 if (s.id === saleId) {
-                    return { ...s, payments: s.payments.map((p: any) => p.date === payment.date ? payment : p), updatedAt: new Date().toISOString() };
+                    return { ...s, payments: s.payments.map((p: any) => p.id === payment.id ? payment : p), updatedAt: new Date().toISOString() };
                 }
                 return s;
             });
