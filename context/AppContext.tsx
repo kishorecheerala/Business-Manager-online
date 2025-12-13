@@ -415,13 +415,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
             // I will insert the provided block exactly as given.
             // Note: The `await` keyword implies this function should be `async`, but it's not.
             // I will keep it as is, assuming the user will handle the `async` context.
-            if (profileData && !profileData.updatedAt) {
-                // Auto-migrate: Add timestamp to legacy profile so it can sync
-                console.log("Migrating profile with timestamp for sync...");
-                profileData = { ...profileData, updatedAt: new Date().toISOString() };
-                // FIXED: createProfile does not exist. Use generic saveCollection.
-                await db.saveCollection('profile', [profileData]);
-            } db.saveCollection('customers', customersAfterDelete);
+            db.saveCollection('customers', customersAfterDelete);
 
             newLog = logAction(state, 'Deleted Sale', `ID: ${action.payload} `);
             db.saveCollection('audit_logs', [newLog, ...state.audit_logs]);
@@ -1041,6 +1035,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             ]);
 
             // Process Metadata
+            let profileData = (profile as any)?.[0] || null;
+            if (profileData && !profileData.updatedAt) {
+                // Auto-migrate: Add timestamp to legacy profile so it can sync
+                console.log("Migrating profile with timestamp for sync...");
+                profileData = { ...profileData, updatedAt: new Date().toISOString() };
+                await db.saveCollection('profile', [profileData]);
+            }
+
             const invoiceTemplate = (app_metadata.find(m => m.id === 'invoiceTemplateConfig') as InvoiceTemplateConfig) || initialState.invoiceTemplate;
             const estimateTemplate = (app_metadata.find(m => m.id === 'estimateTemplateConfig') as InvoiceTemplateConfig) || initialState.estimateTemplate;
             const debitNoteTemplate = (app_metadata.find(m => m.id === 'debitNoteTemplateConfig') as InvoiceTemplateConfig) || initialState.debitNoteTemplate;
@@ -1058,8 +1060,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 type: 'SET_STATE',
                 payload: {
                     customers, suppliers, products, sales, purchases, returns, expenses, quotes,
-                    customFonts, app_metadata, notifications, audit_logs,
-                    profile: (profile as any)?.[0] || null, // Handle profile array vs object check
+                    app_metadata, notifications, audit_logs,
+                    profile: profileData,
                     budgets: budget, financialScenarios: scenarios, trash: trashData,
                     invoiceTemplate, estimateTemplate, debitNoteTemplate, receiptTemplate, reportTemplate,
                     theme: themeSettings?.theme || initialState.theme,
