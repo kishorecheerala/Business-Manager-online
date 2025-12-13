@@ -1125,35 +1125,35 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
 
             {/* Toolbar for Period Selectors */}
             <div className="flex flex-wrap justify-end items-center mb-1 gap-2">
-                <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-1 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 relative z-20">
-                    <div className="flex items-center gap-1.5 px-2">
-                        <CalendarRange size={16} className="text-gray-400" />
+                <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 bg-white dark:bg-slate-800 p-1 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 relative z-20 w-full sm:w-auto">
+                    <div className="flex items-center gap-1.5 px-2 w-full sm:w-auto mb-2 sm:mb-0">
+                        <CalendarRange size={16} className="text-gray-400 shrink-0" />
                         <Dropdown
                             options={durationOptions}
                             value={duration}
                             onChange={setDuration}
-                            className="w-36"
+                            className="w-full sm:w-36"
                         />
                     </div>
 
                     {duration === 'custom' && (
                         <>
-                            <div className="h-4 w-px bg-gray-300 dark:bg-slate-600"></div>
-                            <div className="flex items-center gap-2 px-2">
+                            <div className="hidden sm:block h-4 w-px bg-gray-300 dark:bg-slate-600 mx-1"></div>
+                            <div className="flex items-center gap-2 px-2 w-full sm:w-auto border-t sm:border-t-0 pt-2 sm:pt-0 dark:border-slate-700">
                                 <ModernDateInput
                                     value={customStart}
                                     onChange={(e) => setCustomStart(e.target.value)}
                                     isOpen={isStartCalendarOpen}
                                     onToggle={setIsStartCalendarOpen}
-                                    containerClassName="w-32"
+                                    containerClassName="flex-1 sm:flex-none sm:w-40"
                                 />
-                                <span className="text-gray-400">-</span>
+                                <span className="text-gray-400 shrink-0">-</span>
                                 <ModernDateInput
                                     value={customEnd}
                                     onChange={(e) => setCustomEnd(e.target.value)}
                                     isOpen={isEndCalendarOpen}
                                     onToggle={setIsEndCalendarOpen}
-                                    containerClassName="w-32"
+                                    containerClassName="flex-1 sm:flex-none sm:w-40"
                                 />
                             </div>
                         </>
@@ -1163,7 +1163,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
 
 
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-2 lgs:grid-cols-4 gap-3 mb-6">
                 <MetricCard
                     icon={IndianRupee}
                     title="Total Revenue"

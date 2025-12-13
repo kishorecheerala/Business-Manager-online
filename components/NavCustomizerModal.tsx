@@ -5,7 +5,7 @@ import Card from './Card';
 import Button from './Button';
 import { useAppContext } from '../context/AppContext';
 import { Page } from '../types';
-import { Home, Users, ShoppingCart, Package, Receipt, Undo2, FileText, BarChart2, PenTool, Gauge, UserPlus, PackagePlus } from 'lucide-react';
+import { Home, Users, ShoppingCart, Package, Receipt, Undo2, FileText, BarChart2, PenTool, Gauge, UserPlus, PackagePlus, TrendingUp, HelpCircle } from 'lucide-react';
 
 interface NavCustomizerModalProps {
     isOpen: boolean;
@@ -18,14 +18,17 @@ const PAGE_ICONS: Record<string, React.ElementType> = {
     'SALES': ShoppingCart,
     'PURCHASES': Package,
     'INSIGHTS': BarChart2,
-    'PRODUCTS': Package, 
+    'PRODUCTS': Package,
     'REPORTS': FileText,
     'EXPENSES': Receipt,
     'RETURNS': Undo2,
     'QUOTATIONS': FileText,
     'INVOICE_DESIGNER': PenTool,
     'SYSTEM_OPTIMIZER': Gauge,
+    'FINANCIAL_PLANNING': TrendingUp,
 };
+
+import { QUICK_ACTION_REGISTRY } from '../utils/quickActions';
 
 const PAGE_LABELS: Record<string, string> = {
     'DASHBOARD': 'Home',
@@ -40,18 +43,9 @@ const PAGE_LABELS: Record<string, string> = {
     'QUOTATIONS': 'Estimates',
     'INVOICE_DESIGNER': 'Designer',
     'SYSTEM_OPTIMIZER': 'System',
-};
-
-const QUICK_ACTION_META: Record<string, { icon: React.ElementType, label: string }> = {
-    'add_sale': { icon: ShoppingCart, label: 'Sale' },
-    'add_customer': { icon: UserPlus, label: 'Customer' },
-    'add_expense': { icon: Receipt, label: 'Expense' },
-    'add_purchase': { icon: PackagePlus, label: 'Purchase' },
-    'add_quote': { icon: FileText, label: 'Estimate' },
-    'add_return': { icon: Undo2, label: 'Return' },
-    'view_products': { icon: Package, label: 'Products' },
-    'view_reports': { icon: FileText, label: 'Reports' },
-    'view_insights': { icon: BarChart2, label: 'Insights' },
+    'SQL_ASSISTANT': 'SQL Assistant',
+    'TRASH': 'Trash',
+    'FINANCIAL_PLANNING': 'Planning'
 };
 
 const NavCustomizerModal: React.FC<NavCustomizerModalProps> = ({ isOpen, onClose }) => {
@@ -59,7 +53,7 @@ const NavCustomizerModal: React.FC<NavCustomizerModalProps> = ({ isOpen, onClose
     const [activeTab, setActiveTab] = useState<'nav' | 'quick'>('nav');
     const [currentNavOrder, setCurrentNavOrder] = useState<string[]>([]);
     const [currentQuickActions, setCurrentQuickActions] = useState<string[]>([]);
-    
+
     // For manual drag fallback (touch-based swapping)
     const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
     const [selectedForSwap, setSelectedForSwap] = useState<number | null>(null);
@@ -99,7 +93,7 @@ const NavCustomizerModal: React.FC<NavCustomizerModalProps> = ({ isOpen, onClose
         e.preventDefault();
         const dragIndexStr = e.dataTransfer.getData("text/plain");
         const dragIndex = parseInt(dragIndexStr, 10);
-        
+
         if (dragIndex !== dropIndex) {
             if (listType === 'nav') {
                 const newOrder = [...currentNavOrder];
@@ -151,7 +145,7 @@ const NavCustomizerModal: React.FC<NavCustomizerModalProps> = ({ isOpen, onClose
     if (!isOpen) return null;
 
     return createPortal(
-        <div 
+        <div
             className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
         >
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in-fast" onClick={onClose} />
@@ -164,13 +158,13 @@ const NavCustomizerModal: React.FC<NavCustomizerModalProps> = ({ isOpen, onClose
                 </div>
 
                 <div className="flex bg-white dark:bg-slate-800 border-b dark:border-slate-700">
-                    <button 
+                    <button
                         onClick={() => { setActiveTab('nav'); setSelectedForSwap(null); }}
                         className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'nav' ? 'border-primary text-primary' : 'border-transparent text-gray-500'}`}
                     >
                         Navigation Bar
                     </button>
-                    <button 
+                    <button
                         onClick={() => { setActiveTab('quick'); setSelectedForSwap(null); }}
                         className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'quick' ? 'border-primary text-primary' : 'border-transparent text-gray-500'}`}
                     >
@@ -181,10 +175,10 @@ const NavCustomizerModal: React.FC<NavCustomizerModalProps> = ({ isOpen, onClose
                 <div className="p-4 bg-blue-50 dark:bg-blue-900/20 text-xs text-blue-700 dark:text-blue-300 flex items-start gap-2 shrink-0">
                     <Info size={16} className="mt-0.5 shrink-0" />
                     <p>
-                        {activeTab === 'nav' 
-                            ? "Drag items to reorder. The top 4 appear in the main bar, others in 'More'." 
+                        {activeTab === 'nav'
+                            ? "Drag items to reorder. The top 4 appear in the main bar, others in 'More'."
                             : "Select items to show in the Quick Add (+) menu. Drag to reorder active items."}
-                        <br/><span className="opacity-70 mt-1 block">(Or tap item A then B to swap)</span>
+                        <br /><span className="opacity-70 mt-1 block">(Or tap item A then B to swap)</span>
                     </p>
                 </div>
 
@@ -195,10 +189,10 @@ const NavCustomizerModal: React.FC<NavCustomizerModalProps> = ({ isOpen, onClose
                                 <h3 className="text-xs font-bold uppercase text-gray-500 mb-2 pl-2">Bottom Bar (Visible)</h3>
                                 <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden">
                                     {currentNavOrder.slice(0, 4).map((pageId, idx) => {
-                                        const Icon = PAGE_ICONS[pageId];
+                                        const Icon = PAGE_ICONS[pageId] || HelpCircle;
                                         const isSelected = selectedForSwap === idx;
                                         return (
-                                            <div 
+                                            <div
                                                 key={pageId}
                                                 draggable
                                                 onDragStart={(e) => handleDragStart(e, idx)}
@@ -212,7 +206,7 @@ const NavCustomizerModal: React.FC<NavCustomizerModalProps> = ({ isOpen, onClose
                                                 <div className="p-2 bg-primary/10 rounded-lg text-primary">
                                                     <Icon size={20} />
                                                 </div>
-                                                <span className="font-medium text-gray-700 dark:text-gray-200">{PAGE_LABELS[pageId]}</span>
+                                                <span className="font-medium text-gray-700 dark:text-gray-200">{PAGE_LABELS[pageId] || pageId}</span>
                                             </div>
                                         );
                                     })}
@@ -223,10 +217,10 @@ const NavCustomizerModal: React.FC<NavCustomizerModalProps> = ({ isOpen, onClose
                                 <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden">
                                     {currentNavOrder.slice(4).map((pageId, idx) => {
                                         const actualIdx = idx + 4;
-                                        const Icon = PAGE_ICONS[pageId];
+                                        const Icon = PAGE_ICONS[pageId] || HelpCircle;
                                         const isSelected = selectedForSwap === actualIdx;
                                         return (
-                                            <div 
+                                            <div
                                                 key={pageId}
                                                 draggable
                                                 onDragStart={(e) => handleDragStart(e, actualIdx)}
@@ -253,11 +247,12 @@ const NavCustomizerModal: React.FC<NavCustomizerModalProps> = ({ isOpen, onClose
                                 <h3 className="text-xs font-bold uppercase text-gray-500 mb-2 pl-2">Active Actions (Reorder)</h3>
                                 <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden">
                                     {currentQuickActions.map((actionId, idx) => {
-                                        const meta = QUICK_ACTION_META[actionId];
+                                        const meta = (QUICK_ACTION_REGISTRY as any)[actionId];
+                                        if (!meta) return null;
                                         const Icon = meta.icon;
                                         const isSelected = selectedForSwap === idx;
                                         return (
-                                            <div 
+                                            <div
                                                 key={actionId}
                                                 draggable
                                                 onDragStart={(e) => handleDragStart(e, idx)}
@@ -280,15 +275,15 @@ const NavCustomizerModal: React.FC<NavCustomizerModalProps> = ({ isOpen, onClose
                                     })}
                                 </div>
                             </div>
-                            
+
                             <div>
                                 <h3 className="text-xs font-bold uppercase text-gray-500 mb-2 pl-2">Available Actions</h3>
-                                <div className="grid grid-cols-2 gap-2">
-                                    {Object.keys(QUICK_ACTION_META).filter(id => !currentQuickActions.includes(id)).map(actionId => {
-                                        const meta = QUICK_ACTION_META[actionId];
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {Object.keys(QUICK_ACTION_REGISTRY).filter(id => !currentQuickActions.includes(id)).map(actionId => {
+                                        const meta = (QUICK_ACTION_REGISTRY as any)[actionId];
                                         const Icon = meta.icon;
                                         return (
-                                            <button 
+                                            <button
                                                 key={actionId}
                                                 onClick={() => toggleQuickAction(actionId)}
                                                 className="flex items-center gap-2 p-3 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors text-left"

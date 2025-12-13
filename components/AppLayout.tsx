@@ -1,12 +1,14 @@
 import React, { useState, useRef, Suspense, useMemo } from 'react';
 import {
-    Menu, Search, Sparkles, WifiOff, Sun, Moon, RefreshCw, CloudOff, Cloud, Bell, HelpCircle, CalendarClock
+    Menu, Search, Sparkles, WifiOff, Sun, Moon, RefreshCw, CloudOff, Cloud, Bell, HelpCircle, CalendarClock,
+    Plus, X, Settings, ShoppingCart, UserPlus, PackagePlus, Receipt, Undo2, FileText, Package, BarChart2, Layout
 } from 'lucide-react';
 import { Page, AppMetadata } from '../types';
 import { useAppContext } from '../context/AppContext';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
 import NavItem from './NavItem';
 import { ICON_MAP, LABEL_MAP } from '../utils/iconMap';
+import { QUICK_ACTION_REGISTRY } from '../utils/quickActions';
 
 // Lazy loaded components for the layout
 const MenuPanel = React.lazy(() => import('./MenuPanel'));
@@ -91,10 +93,10 @@ const AppLayout: React.FC<AppLayoutProps> = ({
     };
 
     // Prepare Nav Items
-    const { mainNavItems, pinnedItems, mobileMoreItems } = useMemo(() => {
+    const { mainNavItems, pinnedItems, mobilePinnedItems, mobileMoreItems } = useMemo(() => {
         const order = state.navOrder || [];
 
-        const allDesktopItems = order
+        const mainNavItems = order
             .filter(id => id !== 'SYSTEM_OPTIMIZER')
             .map(id => ({
                 page: id, label: LABEL_MAP[id] || id, icon: ICON_MAP[id]
@@ -103,10 +105,18 @@ const AppLayout: React.FC<AppLayoutProps> = ({
         const pinnedIds = order.slice(0, 4);
         const menuIds = order.slice(4);
 
+        // For Desktop: Show 4 pinned
         const pinnedItems = pinnedIds.map(id => ({ page: id, label: LABEL_MAP[id] || id, icon: ICON_MAP[id] }));
-        const mobileMoreItems = menuIds.map(id => ({ page: id, label: LABEL_MAP[id] || id, icon: ICON_MAP[id] }));
 
-        return { mainNavItems: allDesktopItems, pinnedItems, mobileMoreItems };
+        // For Mobile: Show 4 pinned in bar (Index 0, 1, 2, 3)
+        // The 5th pinned item (Index 4) moves to "More" for mobile
+        const mobilePinnedItems = pinnedIds.slice(0, 4).map(id => ({ page: id, label: LABEL_MAP[id] || id, icon: ICON_MAP[id] }));
+
+        // Mobile More includes the 5th pinned item + rest
+        const mobileRestIds = [pinnedIds.slice(4), ...menuIds].flat().filter(Boolean);
+        const mobileMoreItems = mobileRestIds.map(id => ({ page: id, label: LABEL_MAP[id] || id, icon: ICON_MAP[id] }));
+
+        return { mainNavItems, pinnedItems, mobilePinnedItems, mobileMoreItems };
     }, [state.navOrder]);
 
     const mainClass = currentPage === 'INVOICE_DESIGNER'
@@ -299,30 +309,187 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                     </div>
 
                     {/* Mobile Navigation View */}
-                    <div className="md:hidden flex w-full justify-around items-center p-2 px-4 shadow-lg-up">
-                        {pinnedItems.map(item => (
-                            <div key={item.page} className="flex-1 max-w-[4rem]">
-                                <NavItem
-                                    page={item.page}
-                                    label={item.label}
-                                    icon={item.icon}
-                                    onClick={() => onNavigate(item.page as Page)}
-                                    isActive={currentPage === item.page}
-                                />
+                    {/* Mobile Navigation Bar - Now Themed */}
+                    <nav
+                        className={`md:hidden fixed z-[40] transition-all duration-300 pb-safe ${state.uiPreferences?.navStyle === 'floating' ? 'bottom-4 left-4 right-4 rounded-2xl shadow-xl' : 'bottom-0 left-0 right-0 border-t border-white/20'}`}
+                        style={{
+                            background: state.themeGradient || state.themeColor || (state.theme === 'dark' ? '#0f172a' : '#ffffff'),
+                            backdropFilter: 'blur(12px)',
+                        }}
+                    >
+                        <div className="flex justify-between items-center h-16 px-2">
+                            {/* Slots 1-3: Pinned Items */}
+                            {mobilePinnedItems.map((item) => {
+                                const Icon = item.icon;
+                                const isActive = currentPage === item.page;
+                                const isThemed = !!(state.themeGradient || state.themeColor);
+                                return (
+                                    <div key={item.page} className="flex-1 max-w-[4.5rem]">
+                                        <button
+                                            onClick={() => onNavigate(item.page as Page)}
+                                            className={`flex flex-col items-center justify-center w-full pt-2 pb-1 px-1 rounded-xl transition-all duration-300 group ${isActive ? 'scale-105 font-bold' : 'opacity-80 hover:opacity-100'}`}
+                                            style={{ color: isThemed ? 'white' : undefined }}
+                                        >
+                                            <div className={`p-1 rounded-full mb-0.5 transition-colors ${isActive ? (isThemed ? 'bg-white/20' : 'bg-theme/10') : ''}`}
+                                            >
+                                                <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
+                                            </div>
+                                            <span className={`text-[10px] leading-tight truncate w-full text-center ${isActive ? '' : 'font-medium'}`}>{item.label}</span>
+                                        </button>
+                                    </div>
+                                );
+                            })}
+
+                            {/* Slot 4: More */}
+                            <div className="flex-1 max-w-[4.5rem]">
+                                <button
+                                    onClick={() => setIsMoreMenuOpen(true)}
+                                    className={`flex flex-col items-center justify-center w-full pt-2 pb-1 px-1 rounded-xl transition-all duration-300 group ${isMoreMenuOpen ? 'scale-105 font-bold' : 'opacity-80 hover:opacity-100'}`}
+                                    style={{ color: (state.themeGradient || state.themeColor) ? 'white' : undefined }}
+                                >
+                                    <div className={`p-1 rounded-full mb-0.5 transition-colors ${isMoreMenuOpen ? 'bg-white/20' : ''}`}
+                                    >
+                                        <Menu size={20} strokeWidth={2} />
+                                    </div>
+                                    <span className="text-[10px] leading-tight font-medium">More</span>
+                                </button>
                             </div>
-                        ))}
-                        <div className="flex-1 max-w-[4rem]">
-                            <button
-                                onClick={() => setIsMenuOpen(true)}
-                                className={`flex flex-col items-center justify-center w-full pt-3 pb-2 px-0.5 rounded-2xl transition-all duration-300 group text-white/70 hover:text-white hover:bg-white/10`}
-                            >
-                                <div className={`p-1 rounded-full text-white/70`}>
-                                    <Menu size={24} strokeWidth={2} />
-                                </div>
-                                <span className={`text-[9px] sm:text-[10px] font-semibold mt-1 leading-tight`}>More</span>
-                            </button>
+
+                            {/* Slot 5: Add (New Style - Tab-like) */}
+                            <div className="flex-1 max-w-[4.5rem]">
+                                <button
+                                    onClick={() => setIsMobileQuickAddOpen(true)}
+                                    className={`flex flex-col items-center justify-center w-full pt-2 pb-1 px-1 rounded-xl transition-all duration-300 group ${isMobileQuickAddOpen ? 'scale-105 font-bold' : 'opacity-80 hover:opacity-100'}`}
+                                    style={{ color: (state.themeGradient || state.themeColor) ? 'white' : undefined }}
+                                >
+                                    <div className={`p-1 rounded-full mb-0.5 transition-colors ${isMobileQuickAddOpen ? 'bg-white/20' : ''}`}
+                                    >
+                                        <Plus size={20} strokeWidth={2} />
+                                    </div>
+                                    <span className="text-[10px] leading-tight font-medium">Add</span>
+                                </button>
+                            </div>
                         </div>
-                    </div>
+                    </nav>
+
+                    {/* Mobile Quick Add VIBRANT FAB Menu (Replaces Sheet) */}
+                    {isMobileQuickAddOpen && (
+                        <>
+                            <div className="fixed inset-0 z-[59] bg-black/20 backdrop-blur-[2px] transition-opacity" onClick={() => setIsMobileQuickAddOpen(false)} />
+
+                            <div className={`fixed z-[60] flex flex-col gap-3 items-end pr-2 ${state.uiPreferences?.navStyle === 'floating' ? 'bottom-24 right-4' : 'bottom-20 right-2'}`}>
+
+                                {/* Customize Quick Actions */}
+                                <button
+                                    onClick={() => { setIsMobileQuickAddOpen(false); setIsNavCustomizerOpen(true); }}
+                                    className="flex items-center gap-3 pl-4 pr-2 py-2 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 rounded-full shadow-lg border border-white/20 hover:scale-105 active:scale-95 transition-all animate-slide-up origin-right"
+                                >
+                                    <span className="font-bold text-sm">Customize Actions</span>
+                                    <div className="w-10 h-10 rounded-full bg-gray-50 dark:bg-slate-700 flex items-center justify-center text-gray-400 dark:text-gray-500 shadow-inner">
+                                        <Settings size={18} />
+                                    </div>
+                                </button>
+
+                                {/* Quick Actions Stack */}
+                                {Object.entries(QUICK_ACTION_REGISTRY as any).slice(0, 5).reverse().map(([key, action]: [string, any], index) => {
+                                    const Icon = action.icon;
+                                    const delay = index * 50;
+                                    return (
+                                        <button
+                                            key={key}
+                                            onClick={() => {
+                                                setIsMobileQuickAddOpen(false);
+                                                if (action.action) {
+                                                    dispatch({ type: 'SET_SELECTION', payload: { page: action.page, id: action.action as any } });
+                                                }
+                                                onNavigate(action.page);
+                                            }}
+                                            className="flex items-center gap-3 pl-4 pr-2 py-2 text-white rounded-full shadow-lg hover:scale-105 active:scale-95 transition-all animate-slide-up origin-right"
+                                            style={{
+                                                animationDelay: `${delay}ms`,
+                                                background: state.themeGradient || state.themeColor || 'linear-gradient(to right, #10b981, #0d9488)'
+                                            }}
+                                        >
+                                            <span className="font-bold text-sm">{action.label}</span>
+                                            <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white border border-white/30 shadow-inner">
+                                                <Icon size={20} strokeWidth={2.5} />
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </>
+                    )}
+
+                    {/* Mobile More Menu Sheet */}
+                    {/* Mobile More VIBRANT FAB Menu */}
+                    {isMoreMenuOpen && (
+                        <>
+                            {/* Invisible Overlay for closing */}
+                            <div className="fixed inset-0 z-[59] bg-black/20 backdrop-blur-[2px] transition-opacity" onClick={() => setIsMoreMenuOpen(false)} />
+
+                            <div className={`fixed z-[60] flex flex-col gap-3 items-end pr-2 ${state.uiPreferences?.navStyle === 'floating' ? 'bottom-24 right-4' : 'bottom-20 right-2'}`}>
+
+                                {/* Settings */}
+                                <button
+                                    onClick={() => { setIsMoreMenuOpen(false); setIsMenuOpen(true); }}
+                                    className="flex items-center gap-3 pl-4 pr-2 py-2 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 rounded-full shadow-lg border border-white/20 hover:scale-105 active:scale-95 transition-all animate-slide-up origin-right"
+                                    style={{ animationDelay: '50ms' }}
+                                >
+                                    <span className="font-bold text-sm">Settings</span>
+                                    <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-slate-700 flex items-center justify-center text-gray-600 dark:text-gray-300 shadow-inner">
+                                        <Settings size={20} />
+                                    </div>
+                                </button>
+
+                                {/* Customize Navigation */}
+                                <button
+                                    onClick={() => { setIsMoreMenuOpen(false); setIsNavCustomizerOpen(true); }}
+                                    className="flex items-center gap-3 pl-4 pr-2 py-2 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 rounded-full shadow-lg border border-white/20 hover:scale-105 active:scale-95 transition-all animate-slide-up origin-right"
+                                    style={{ animationDelay: '75ms' }}
+                                >
+                                    <span className="font-bold text-sm">Customize Nav</span>
+                                    <div className="w-10 h-10 rounded-full bg-cyan-50 dark:bg-slate-700 flex items-center justify-center text-cyan-600 dark:text-cyan-400 shadow-inner">
+                                        <Layout size={20} />
+                                    </div>
+                                </button>
+
+                                {/* AI Command Center (Restored & Vibrant) */}
+                                <button
+                                    onClick={() => { setIsMoreMenuOpen(false); setIsAskAIOpen(true); }}
+                                    className="flex items-center gap-3 pl-4 pr-2 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-full shadow-xl shadow-indigo-500/30 hover:scale-105 active:scale-95 transition-all animate-slide-up origin-right"
+                                    style={{ animationDelay: '100ms' }}
+                                >
+                                    <span className="font-bold text-sm">AI Command Center</span>
+                                    <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white border border-white/30 shadow-inner">
+                                        <Sparkles size={20} fill="currentColor" className="animate-pulse" />
+                                    </div>
+                                </button>
+
+                                {/* Dynamic More Items */}
+                                {mobileMoreItems.map((item, index) => {
+                                    const Icon = item.icon;
+                                    const delay = (mobileMoreItems.length - index + 2) * 50; // Stagger from bottom
+                                    return (
+                                        <button
+                                            key={item.page}
+                                            onClick={() => {
+                                                setIsMoreMenuOpen(false);
+                                                onNavigate(item.page as Page);
+                                            }}
+                                            className="flex items-center gap-3 pl-4 pr-2 py-2 bg-white dark:bg-slate-900 text-gray-800 dark:text-gray-100 rounded-full shadow-lg border border-gray-100 dark:border-slate-800 hover:scale-105 active:scale-95 transition-all animate-slide-up origin-right"
+                                            style={{ animationDelay: `${delay}ms` }}
+                                        >
+                                            <span className="font-bold text-sm">{item.label}</span>
+                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center shadow-sm ${currentPage === item.page ? 'bg-theme text-white' : 'bg-gray-50 dark:bg-slate-800 text-theme'}`}>
+                                                <Icon size={20} strokeWidth={2.5} />
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </>
+                    )}
                 </nav>
             )}
         </div >

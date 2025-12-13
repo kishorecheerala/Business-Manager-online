@@ -201,14 +201,47 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
         setEditingPayment({ saleId, payment });
         setPaymentDetails({
             amount: payment.amount.toString(),
-            method: payment.method as any,
+            method: payment.method,
             date: getLocalDateString(new Date(payment.date)),
             reference: payment.reference || ''
         });
         setPaymentModalState({ isOpen: true, saleId });
     };
 
+    const handleUpdatePayment = () => {
+        if (!editingPayment || !paymentDetails.amount) return;
+
+        const updatedPayment: Payment = {
+            ...editingPayment.payment,
+            amount: parseFloat(paymentDetails.amount),
+            method: paymentDetails.method,
+            date: new Date(`${paymentDetails.date}T${new Date().toTimeString().split(' ')[0]}`).toISOString(),
+            reference: paymentDetails.reference.trim() || undefined
+        };
+
+        dispatch({
+            type: 'UPDATE_PAYMENT_IN_SALE',
+            payload: {
+                saleId: editingPayment.saleId,
+                payment: updatedPayment
+            }
+        });
+
+        showToast("Payment updated successfully.");
+        setPaymentModalState({ isOpen: false, saleId: null });
+        setEditingPayment(null);
+        setPaymentDetails({ amount: '', method: 'CASH', date: getLocalDateString(), reference: '' });
+    };
+
     const handlePaymentSubmit = () => {
+        if (editingPayment) {
+            handleUpdatePayment();
+        } else {
+            handleAddPayment();
+        }
+    };
+
+    const handleAddPayment = () => {
         const sale = state.sales.find(s => s.id === paymentModalState.saleId);
 
         if (!paymentDetails.amount || parseFloat(paymentDetails.amount) <= 0) {

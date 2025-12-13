@@ -76,7 +76,9 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         setCustomerId(sale.customerId);
         setItems(sale.items.map(item => ({ ...item }))); // Deep copy
         setDiscount(sale.discount.toString());
-        setSaleDate(getLocalDateString(new Date(sale.date)));
+        setSaleDate(new Date(sale.date).toISOString().split('T')[0]);
+        setStoredPayments(sale.payments || []);
+        setShowAddPayment(false);
         setPaymentDetails({ amount: '', method: 'CASH', date: getLocalDateString(), reference: '' });
 
         setActiveTab('form');
@@ -84,12 +86,20 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
     };
 
     useEffect(() => {
-        if (state.selection?.page === 'SALES' && state.selection.action === 'edit') {
-            const sale = state.sales.find(s => s.id === state.selection.id);
-            if (sale) {
-                loadSaleForEditing(sale);
-                dispatch({ type: 'CLEAR_SELECTION' });
+        if (state.selection?.page === 'SALES') {
+            if (state.selection.action === 'edit' || state.selection.id !== 'new') {
+                const sale = state.sales.find(s => s.id === state.selection.id);
+                if (sale) {
+                    loadSaleForEditing(sale);
+                }
             }
+
+            if (state.selection.id === 'new' || state.selection.action === 'new') {
+                resetForm();
+                setActiveTab('form');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+            dispatch({ type: 'CLEAR_SELECTION' });
         }
     }, [state.selection, state.sales, dispatch]);
 
@@ -105,16 +115,18 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         }
     }, [mode, saleToEdit, currentSale.editId, state.sales]);
 
+    const [storedPayments, setStoredPayments] = useState<Payment[]>([]);
+    const [showAddPayment, setShowAddPayment] = useState(false);
 
     useEffect(() => {
         const dateIsDirty = mode === 'add' && saleDate !== getLocalDateString();
-        const formIsDirty = !!customerId || items.length > 0 || discount !== '0' || !!paymentDetails.amount || dateIsDirty;
-        const currentlyDirty = formIsDirty || isAddingCustomer;
+        const formIsDirty = !!customerId || items.length > 0 || discount !== '0' || !!paymentDetails.amount || dateIsDirty; // storedPayments change also dirty?
+        const currentlyDirty = formIsDirty || isAddingCustomer || storedPayments.length > 0; // simplified dirty check
         if (currentlyDirty !== isDirtyRef.current) {
             isDirtyRef.current = currentlyDirty;
             setIsDirty(currentlyDirty);
         }
-    }, [customerId, items, discount, paymentDetails.amount, isAddingCustomer, setIsDirty, saleDate, mode]);
+    }, [customerId, items, discount, paymentDetails.amount, isAddingCustomer, setIsDirty, saleDate, mode, storedPayments]);
 
 
     useEffect(() => {
@@ -123,21 +135,20 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         };
     }, [setIsDirty]);
 
-    const resetForm = () => {
+    const resetForm = (clearSelection: boolean = true) => {
         setCustomerId('');
         setItems([]);
         setDiscount('0');
         setSaleDate(getLocalDateString());
         setPaymentDetails({
-            amount: '',
-            method: 'CASH',
-            date: getLocalDateString(),
-            reference: '',
+            amount: '', method: 'CASH', reference: '', date: getLocalDateString()
         });
-        setIsSelectingProduct(false);
-        setMode('add');
+        setStoredPayments([]);
+        setShowAddPayment(false);
         setSaleToEdit(null);
-        dispatch({ type: 'CLEAR_CURRENT_SALE' }); // Clear global state
+        if (clearSelection) {
+            dispatch({ type: 'CLEAR_SELECTION' });
+        }
     };
 
     const handleParkSale = () => {
@@ -419,22 +430,39 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             await generateAndSharePDF(newSale, customer, paidAmount);
 
         } else if (mode === 'edit' && saleToEdit) {
-            const existingPayments = saleToEdit.payments || [];
-            const totalPaid = existingPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+            const newPaymentAmount = parseFloat(paymentDetails.amount) || 0;
+            const totalPaid = storedPayments.reduce((sum, p) => sum + Number(p.amount), 0) + newPaymentAmount;
 
             if (totalAmount < totalPaid - 0.01) {
                 showToast(`The new total amount (₹${totalAmount.toLocaleString('en-IN')}) cannot be less than the amount already paid (₹${totalPaid.toLocaleString('en-IN')}).`, 'error');
                 return;
             }
 
+            let updatedPayments = [...storedPayments];
+            if (newPaymentAmount > 0) {
+                updatedPayments.push({
+                    id: `PAY-S-${Date.now()}`,
+                    amount: newPaymentAmount,
+                    method: paymentDetails.method,
+                    date: new Date(paymentDetails.date || new Date().toISOString()).toISOString(),
+                    reference: paymentDetails.reference.trim() || undefined,
+                });
+            }
+
             const updatedSale: Sale = {
-                ...saleToEdit, items, discount: discountAmount, gstAmount, totalAmount,
+                ...saleToEdit, items, discount: discountAmount, gstAmount, totalAmount, payments: updatedPayments
             };
+            dispatch({ type: 'UPDATE_SALE', payload: { oldSale: saleToEdit, updatedSale } });
             dispatch({ type: 'UPDATE_SALE', payload: { oldSale: saleToEdit, updatedSale } });
             showToast('Sale updated successfully!');
         }
 
-        resetForm();
+        const shouldReturnToCustomer = mode === 'edit' && customerId;
+        resetForm(!shouldReturnToCustomer);
+
+        if (shouldReturnToCustomer) {
+            dispatch({ type: 'SET_SELECTION', payload: { page: 'CUSTOMERS', id: customerId } });
+        }
     };
 
     const handleRecordStandalonePayment = () => {
@@ -711,23 +739,27 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                     <Card title="Transaction Details">
                         <div className="space-y-6">
                             {/* Section 1: Calculation Details */}
-                            <div className="space-y-3">
-                                <div className="flex justify-between items-center text-gray-700 dark:text-gray-300">
-                                    <span>Subtotal:</span>
-                                    <span>₹{calculations.subTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                            {/* Section 1: Calculation Details */}
+                            <div className="grid grid-cols-[1fr_auto] gap-3 items-center text-gray-700 dark:text-gray-300">
+                                <span>Subtotal:</span>
+                                <span className="text-right font-medium">₹{calculations.subTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+
+                                <span>Discount:</span>
+                                <div className="flex justify-end">
+                                    <Input
+                                        type="number"
+                                        value={discount}
+                                        onChange={e => setDiscount(e.target.value)}
+                                        className="w-32 h-8 text-right font-medium"
+                                    />
                                 </div>
-                                <div className="flex justify-between items-center text-gray-700 dark:text-gray-300">
-                                    <span>Discount:</span>
-                                    <Input type="number" value={discount} onChange={e => setDiscount(e.target.value)} className="w-28 !p-1 text-right" />
-                                </div>
-                                <div className="flex justify-between items-center text-gray-700 dark:text-gray-300">
-                                    <span>GST Included:</span>
-                                    <span>₹{calculations.gstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                </div>
+
+                                <span>GST Included:</span>
+                                <span className="text-right font-medium">₹{calculations.gstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                             </div>
 
                             {/* Section 2: Grand Total */}
-                            <div className="text-center">
+                            <div className="text-center pt-2 border-t dark:border-slate-700 mt-2">
                                 <p className="text-sm text-gray-500 dark:text-gray-400">Grand Total</p>
                                 <p className="text-4xl font-bold text-primary">
                                     ₹{calculations.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
@@ -735,41 +767,122 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                             </div>
 
                             {/* Section 3: Payment Details */}
-                            {mode === 'add' ? (
-                                <div className="space-y-4">
-                                    <Input
-                                        label="Amount Paid Now"
-                                        type="number"
-                                        value={paymentDetails.amount}
-                                        onChange={e => setPaymentDetails({ ...paymentDetails, amount: e.target.value })}
-                                        placeholder={`Total is ₹${calculations.totalAmount.toLocaleString('en-IN')}`}
-                                        className="border-2 border-red-300 focus:ring-red-500 focus:border-red-500 dark:border-red-400"
-                                    />
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Payment Method</label>
-                                        <Dropdown
-                                            options={[
-                                                { value: 'CASH', label: 'Cash' },
-                                                { value: 'UPI', label: 'UPI' },
-                                                { value: 'CHEQUE', label: 'Cheque' }
-                                            ]}
-                                            value={paymentDetails.method}
-                                            onChange={(val) => setPaymentDetails({ ...paymentDetails, method: val as any })}
+                            <div className="space-y-4 pt-4 border-t dark:border-slate-700">
+                                {mode === 'edit' && storedPayments.length > 0 && (
+                                    <div className="space-y-3 mb-4">
+                                        <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Existing Payments</p>
+                                        {storedPayments.map((payment, index) => (
+                                            <div key={payment.id} className="bg-gray-50 dark:bg-slate-700/50 p-3 rounded-md border border-gray-200 dark:border-slate-600">
+                                                <div className="flex flex-col sm:flex-row gap-3 items-end">
+                                                    <div className="w-full sm:flex-1">
+                                                        <label className="text-[10px] uppercase font-bold text-gray-500 dark:text-gray-400 mb-1 block">Date</label>
+                                                        <Input
+                                                            type="date"
+                                                            value={new Date(payment.date).toISOString().split('T')[0]}
+                                                            onChange={(e) => {
+                                                                const newPayments = [...storedPayments];
+                                                                // preserve time if possible or default to start of day, currently just standardizing to ISO
+                                                                newPayments[index] = { ...payment, date: new Date(e.target.value).toISOString() };
+                                                                setStoredPayments(newPayments);
+                                                            }}
+                                                            className="h-9 text-sm"
+                                                        />
+                                                    </div>
+                                                    <div className="w-full sm:w-28">
+                                                        <label className="text-[10px] uppercase font-bold text-gray-500 dark:text-gray-400 mb-1 block">Amount</label>
+                                                        <Input
+                                                            type="number"
+                                                            value={payment.amount}
+                                                            onChange={(e) => {
+                                                                const newPayments = [...storedPayments];
+                                                                newPayments[index] = { ...payment, amount: parseFloat(e.target.value) || 0 };
+                                                                setStoredPayments(newPayments);
+                                                            }}
+                                                            className="h-9 text-sm font-medium"
+                                                        />
+                                                    </div>
+                                                    <div className="w-full sm:w-32">
+                                                        <label className="text-[10px] uppercase font-bold text-gray-500 dark:text-gray-400 mb-1 block">Method</label>
+                                                        <Dropdown
+                                                            options={[{ value: 'CASH', label: 'Cash' }, { value: 'UPI', label: 'UPI' }, { value: 'CHEQUE', label: 'Cheque' }]}
+                                                            value={payment.method}
+                                                            onChange={(val) => {
+                                                                const newPayments = [...storedPayments];
+                                                                newPayments[index] = { ...payment, method: val as any };
+                                                                setStoredPayments(newPayments);
+                                                            }}
+                                                            className="h-9 text-sm"
+                                                        />
+                                                    </div>
+                                                    <div className="w-full sm:flex-1">
+                                                        <label className="text-[10px] uppercase font-bold text-gray-500 dark:text-gray-400 mb-1 block">Reference</label>
+                                                        <Input
+                                                            type="text"
+                                                            placeholder="Ref / Cheque #"
+                                                            value={payment.reference || ''}
+                                                            onChange={(e) => {
+                                                                const newPayments = [...storedPayments];
+                                                                newPayments[index] = { ...payment, reference: e.target.value };
+                                                                setStoredPayments(newPayments);
+                                                            }}
+                                                            className="h-9 text-sm"
+                                                        />
+                                                    </div>
+                                                    <div className="pb-1">
+                                                        <DeleteButton variant="delete" onClick={() => {
+                                                            const newPayments = storedPayments.filter((_, i) => i !== index);
+                                                            setStoredPayments(newPayments);
+                                                        }} />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {mode === 'edit' && !showAddPayment ? (
+                                    <Button
+                                        variant="secondary"
+                                        onClick={() => setShowAddPayment(true)}
+                                        className="w-full dashed border-2"
+                                    >
+                                        + Add New Payment
+                                    </Button>
+                                ) : (
+                                    <div className={`space-y-4 ${mode === 'edit' ? 'bg-gray-50 dark:bg-slate-800 p-3 rounded-lg border dark:border-slate-700' : ''}`}>
+                                        <div className="flex justify-between items-center">
+                                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                {mode === 'add' ? 'Amount Paid Now' : 'New Payment Amount'}
+                                            </label>
+                                            {mode === 'edit' && (
+                                                <button onClick={() => setShowAddPayment(false)} className="text-xs text-red-500 hover:underline">Cancel</button>
+                                            )}
+                                        </div>
+                                        <Input
+                                            type="number"
+                                            value={paymentDetails.amount}
+                                            onChange={e => setPaymentDetails({ ...paymentDetails, amount: e.target.value })}
+                                            placeholder={mode === 'add' ? `Total is ₹${calculations.totalAmount.toLocaleString('en-IN')}` : 'Enter amount'}
+                                            className="border-2 border-red-300 focus:ring-red-500 focus:border-red-500 dark:border-red-400"
+                                        />
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Payment Method</label>
+                                            <Dropdown
+                                                options={[{ value: 'CASH', label: 'Cash' }, { value: 'UPI', label: 'UPI' }, { value: 'CHEQUE', label: 'Cheque' }]}
+                                                value={paymentDetails.method}
+                                                onChange={(val) => setPaymentDetails({ ...paymentDetails, method: val as any })}
+                                            />
+                                        </div>
+                                        <Input
+                                            label="Reference (Optional)"
+                                            type="text"
+                                            placeholder="e.g. UPI ID"
+                                            value={paymentDetails.reference}
+                                            onChange={e => setPaymentDetails({ ...paymentDetails, reference: e.target.value })}
                                         />
                                     </div>
-                                    <Input
-                                        label="Payment Reference (Optional)"
-                                        type="text"
-                                        placeholder="e.g. UPI ID, Cheque No."
-                                        value={paymentDetails.reference}
-                                        onChange={e => setPaymentDetails({ ...paymentDetails, reference: e.target.value })}
-                                    />
-                                </div>
-                            ) : (
-                                <div className="pt-4 border-t dark:border-slate-700 text-center">
-                                    <p className="text-sm text-gray-600 dark:text-gray-400">Payments for this invoice must be managed from the customer's details page.</p>
-                                </div>
-                            )}
+                                )}
+                            </div>
                         </div>
                     </Card>
 
@@ -824,10 +937,13 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
 
                         <Button
                             onClick={() => {
-                                if (mode === 'edit' && customerId) {
+                                const shouldReturnToCustomer = mode === 'edit' && customerId;
+                                // Reset form but don't clear selection yet if we're navigating
+                                resetForm(!shouldReturnToCustomer);
+
+                                if (shouldReturnToCustomer) {
                                     dispatch({ type: 'SET_SELECTION', payload: { page: 'CUSTOMERS', id: customerId } });
                                 }
-                                resetForm();
                             }}
                             variant="secondary"
                             className="w-full bg-teal-200 hover:bg-teal-300 focus:ring-teal-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"

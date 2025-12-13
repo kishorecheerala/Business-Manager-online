@@ -10,13 +10,12 @@ import { compressImage } from '../utils/imageUtils';
 import * as pdfjsLib from 'pdfjs-dist';
 import { useDialog } from '../context/DialogContext';
 
-// Fix for PDF.js import structure in Vite/ESM environments
-const pdfjs = (pdfjsLib as any).default || pdfjsLib;
-
 // Setup PDF.js worker
-if (pdfjs.GlobalWorkerOptions) {
-    pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.449/build/pdf.worker.mjs`;
+if (pdfjsLib.GlobalWorkerOptions) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.mjs`;
 }
+
+const pdfjs = pdfjsLib;
 
 // --- Dummy Data for Previews ---
 const dummyCustomer = {

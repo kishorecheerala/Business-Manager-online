@@ -11,79 +11,98 @@ export class OfflineIntelligence {
 
     // 1. Insights Generation (Rule-based)
     static generateInsights(state: AppState): AIResponse {
-        const sales = state.sales || [];
-        const products = state.products || [];
-        const customers = state.customers || [];
+        try {
+            const sales = state.sales || [];
+            const products = state.products || [];
 
-        // Calculate basic stats
-        const totalRevenue = sales.reduce((sum, s) => sum + (Number(s.totalAmount) || 0), 0);
-        const lowStockProducts = products.filter(p => p.quantity < 5);
-        const regression = calculateLinearRegression(sales, 30);
+            // Calculate basic stats
+            const totalRevenue = sales.reduce((sum, s) => sum + (Number(s.totalAmount) || 0), 0);
+            const lowStockProducts = products.filter(p => p.quantity < 5);
 
-        // Health Score Logic (0-100)
-        let score = 70; // Base score
-        if (regression.growthRate > 0) score += 10;
-        if (regression.growthRate > 0.1) score += 10;
-        if (lowStockProducts.length > 5) score -= 15;
-        if (totalRevenue === 0) score = 40;
-        score = Math.min(100, Math.max(0, score));
+            // Safe regression
+            let regression;
+            try {
+                regression = calculateLinearRegression(sales, 30);
+            } catch (e) {
+                console.warn("Regression failed:", e);
+                regression = { growthRate: 0, trend: 'stable' };
+            }
 
-        // Generate Analysis Strings
-        const healthReason = score > 80 ? "Strong sales performance & good inventory."
-            : score > 50 ? "Stable, but watch inventory levels."
-                : "Needs attention: Low sales or stock issues.";
+            // Health Score Logic (0-100)
+            let score = 70; // Base score
+            if (regression.growthRate > 0) score += 10;
+            if (regression.growthRate > 0.1) score += 10;
+            if (lowStockProducts.length > 5) score -= 15;
+            if (totalRevenue === 0) score = 40;
+            score = Math.min(100, Math.max(0, score));
 
-        const growthAnalysis = regression.growthRate > 0
-            ? `Revenue is trending up by roughly ${(regression.growthRate * 100).toFixed(1)}% this period. Keep pushing top sellers.`
-            : `Revenue is slightly down. Consider running a promotion to boost traffic.`;
+            // Generate Analysis Strings
+            const healthReason = score > 80 ? "Strong sales performance & good inventory."
+                : score > 50 ? "Stable, but watch inventory levels."
+                    : "Needs attention: Low sales or stock issues.";
 
-        const riskAnalysis = lowStockProducts.length > 0
-            ? `Inventory Alert: ${lowStockProducts.length} items are running low. Restock soon to avoid lost sales.`
-            : `Cash flow is the main risk. Ensure pending dues are collected.`;
+            const growthAnalysis = regression.growthRate > 0
+                ? `Revenue is trending up by roughly ${(regression.growthRate * 100).toFixed(1)}% this period. Keep pushing top sellers.`
+                : `Revenue is slightly down. Consider running a promotion to boost traffic.`;
 
-        const strategy = lowStockProducts.length > 3
-            ? "Prioritize restocking popular items to maintain sales momentum."
-            : "Focus on customer retention and upselling high-margin products.";
+            const riskAnalysis = lowStockProducts.length > 0
+                ? `Inventory Alert: ${lowStockProducts.length} items are running low. Restock soon to avoid lost sales.`
+                : `Cash flow is the main risk. Ensure pending dues are collected.`;
 
-        // Action Items
-        const actions: ActionItem[] = [];
+            const strategy = lowStockProducts.length > 3
+                ? "Prioritize restocking popular items to maintain sales momentum."
+                : "Focus on customer retention and upselling high-margin products.";
 
-        // Restock Action
-        if (lowStockProducts.length > 0) {
-            const topLow = lowStockProducts[0];
-            actions.push({
-                id: 'act_restock_' + topLow.id,
-                title: `Restock ${topLow.name}`,
-                description: `Only ${topLow.quantity} left. Reorder to prevent stockouts.`,
-                type: 'restock',
-                targetId: topLow.id,
-                priority: 'high'
-            });
-        }
+            // Action Items
+            const actions: ActionItem[] = [];
 
-        // Promo Action (if sales low)
-        if (regression.growthRate <= 0 && products.length > 0) {
-            const highStock = products.sort((a, b) => b.quantity - a.quantity)[0];
-            if (highStock) {
+            // Restock Action
+            if (lowStockProducts.length > 0) {
+                const topLow = lowStockProducts[0];
                 actions.push({
-                    id: 'act_promo_' + highStock.id,
-                    title: `Promote ${highStock.name}`,
-                    description: `High stock (${highStock.quantity}). Run a discount to clear inventory.`,
-                    type: 'promo',
-                    targetId: highStock.id,
-                    priority: 'medium'
+                    id: 'act_restock_' + topLow.id,
+                    title: `Restock ${topLow.name}`,
+                    description: `Only ${topLow.quantity} left. Reorder to prevent stockouts.`,
+                    type: 'restock',
+                    targetId: topLow.id,
+                    priority: 'high'
                 });
             }
-        }
 
-        return {
-            businessHealthScore: score,
-            healthReason,
-            growthAnalysis,
-            riskAnalysis,
-            strategy,
-            actions
-        };
+            // Promo Action (if sales low)
+            if (regression.growthRate <= 0 && products.length > 0) {
+                const highStock = products.sort((a, b) => b.quantity - a.quantity)[0];
+                if (highStock) {
+                    actions.push({
+                        id: 'act_promo_' + highStock.id,
+                        title: `Promote ${highStock.name}`,
+                        description: `High stock (${highStock.quantity}). Run a discount to clear inventory.`,
+                        type: 'promo',
+                        targetId: highStock.id,
+                        priority: 'medium'
+                    });
+                }
+            }
+
+            return {
+                businessHealthScore: score,
+                healthReason,
+                growthAnalysis,
+                riskAnalysis,
+                strategy,
+                actions
+            };
+        } catch (err) {
+            console.error("Critical OfflineIntelligence Error:", err);
+            return {
+                businessHealthScore: 50,
+                healthReason: "Unable to calculate detailed score.",
+                growthAnalysis: "Data insufficient for analysis.",
+                riskAnalysis: "Review your inventory manually.",
+                strategy: "Focus on maintaining operations.",
+                actions: []
+            };
+        }
     }
 
     // 2. Marketing Copy (Template-based)
