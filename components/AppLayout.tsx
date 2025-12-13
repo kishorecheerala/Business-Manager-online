@@ -201,8 +201,15 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                                                         state.syncStatus === 'error' ? 'Status:' :
                                                             'Last Synced:'}
                                                 </span>
-                                                <span className="text-xs font-bold text-white drop-shadow-md">
-                                                    {state.syncStatus === 'syncing' ? 'Syncing...' :
+                                                <span className="text-xs font-bold text-white drop-shadow-md flex items-center">
+                                                    {state.syncStatus === 'syncing' ? (
+                                                        <>
+                                                            Syncing
+                                                            <span className="animate-bounce-dot mx-[1px]" style={{ animationDelay: '0s' }}>.</span>
+                                                            <span className="animate-bounce-dot mx-[1px]" style={{ animationDelay: '0.2s' }}>.</span>
+                                                            <span className="animate-bounce-dot mx-[1px]" style={{ animationDelay: '0.4s' }}>.</span>
+                                                        </>
+                                                    ) :
                                                         state.syncStatus === 'error' ? 'Failed' :
                                                             state.lastSyncTime ? new Date(state.lastSyncTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) :
                                                                 'Not synced'}
