@@ -351,7 +351,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
                 return p;
             });
 
-            const updatedSalesList = state.sales.map(s => s.id === updatedSale.id ? updatedSale : s);
+            const updatedSalesList = state.sales.map(s => s.id === updatedSale.id ? { ...updatedSale, updatedAt: new Date().toISOString() } : s);
 
             db.saveCollection('sales', updatedSalesList);
             db.saveCollection('products', adjustedProducts);
@@ -448,8 +448,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
             const { saleId, payment } = action.payload;
             const salesWithUpdatedPayment = state.sales.map(s => {
                 if (s.id === saleId) {
-                    const updatedPayments = s.payments.map(p => p.id === payment.id ? payment : p);
-                    return { ...s, payments: updatedPayments, updatedAt: new Date().toISOString() };
+                    return { ...s, payments: s.payments.map((p: any) => p.date === payment.date ? payment : p), updatedAt: new Date().toISOString() };
                 }
                 return s;
             });
@@ -781,14 +780,15 @@ const appReducer = (state: AppState, action: Action): AppState => {
         case 'UPDATE_UI_PREFERENCES':
             const newPrefs = { ...state.uiPreferences, ...action.payload };
             const metaWithoutPrefs = state.app_metadata.filter(m => m.id !== 'uiPreferences');
-            const prefsMeta = { ...newPrefs, id: 'uiPreferences' } as AppMetadataUIPreferences;
+            const prefsMeta = { ...newPrefs, id: 'uiPreferences', updatedAt: new Date().toISOString() } as AppMetadataUIPreferences;
             db.saveCollection('app_metadata', [...metaWithoutPrefs, prefsMeta]);
             return { ...state, uiPreferences: newPrefs, app_metadata: [...metaWithoutPrefs, prefsMeta], ...touch };
 
         case 'SET_PIN':
             const pinMeta: AppMetadataPin = {
                 id: 'securityPin',
-                security: { enabled: true, pin: action.payload }
+                security: { enabled: true, pin: action.payload },
+                updatedAt: new Date().toISOString()
             };
             db.saveCollection('app_metadata', [...state.app_metadata.filter(m => m.id !== 'securityPin'), pinMeta]);
             return { ...state, pin: action.payload };
@@ -846,19 +846,19 @@ const appReducer = (state: AppState, action: Action): AppState => {
             return { ...state, [tmplKey]: config, app_metadata: [...otherMeta, templateMeta] };
 
         case 'UPDATE_INVOICE_SETTINGS':
-            const invSettings: AppMetadataInvoiceSettings = { id: 'invoiceSettings', ...action.payload };
+            const invSettings: AppMetadataInvoiceSettings = { id: 'invoiceSettings', ...action.payload, updatedAt: new Date().toISOString() };
             const metaWithoutSettings = state.app_metadata.filter(m => m.id !== 'invoiceSettings');
             db.saveCollection('app_metadata', [...metaWithoutSettings, invSettings]);
             return { ...state, invoiceSettings: invSettings, app_metadata: [...metaWithoutSettings, invSettings] };
 
         case 'UPDATE_NAV_ORDER':
-            const navOrderMeta: AppMetadataNavOrder = { id: 'navOrder', order: action.payload };
+            const navOrderMeta: AppMetadataNavOrder = { id: 'navOrder', order: action.payload, updatedAt: new Date().toISOString() };
             const metaWithoutNav = state.app_metadata.filter(m => m.id !== 'navOrder');
             db.saveCollection('app_metadata', [...metaWithoutNav, navOrderMeta]);
             return { ...state, navOrder: action.payload, app_metadata: [...metaWithoutNav, navOrderMeta], ...touch };
 
         case 'UPDATE_QUICK_ACTIONS':
-            const qaMeta: AppMetadataQuickActions = { id: 'quickActions', actions: action.payload };
+            const qaMeta: AppMetadataQuickActions = { id: 'quickActions', actions: action.payload, updatedAt: new Date().toISOString() };
             const metaWithoutQA = state.app_metadata.filter(m => m.id !== 'quickActions');
             db.saveCollection('app_metadata', [...metaWithoutQA, qaMeta]);
             return { ...state, quickActions: action.payload, app_metadata: [...metaWithoutQA, qaMeta], ...touch };
