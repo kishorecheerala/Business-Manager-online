@@ -3,7 +3,7 @@ import { Database, Play, Terminal, Table as TableIcon, Wand2, AlertCircle, Loade
 import { useAppContext } from '../context/AppContext';
 import Card from '../components/Card';
 import Button from '../components/Button';
-import { GoogleGenAI } from "@google/genai";
+import { AIController } from '../utils/ai/AIController';
 import { Page } from '../types';
 
 interface SQLAssistantPageProps {
@@ -53,12 +53,12 @@ const SQLAssistantPage: React.FC<SQLAssistantPageProps> = ({ setCurrentPage }) =
                 alasql('CREATE TABLE expenses');
                 alasql('CREATE TABLE suppliers');
 
-                if(state.customers.length) alasql.tables.customers.data = state.customers.map(c => ({...c}));
-                if(state.products.length) alasql.tables.products.data = state.products.map(p => ({...p}));
-                if(state.sales.length) alasql.tables.sales.data = state.sales.map(s => ({...s}));
-                if(state.purchases.length) alasql.tables.purchases.data = state.purchases.map(p => ({...p}));
-                if(state.expenses.length) alasql.tables.expenses.data = state.expenses.map(e => ({...e}));
-                if(state.suppliers.length) alasql.tables.suppliers.data = state.suppliers.map(s => ({...s}));
+                if (state.customers.length) alasql.tables.customers.data = state.customers.map(c => ({ ...c }));
+                if (state.products.length) alasql.tables.products.data = state.products.map(p => ({ ...p }));
+                if (state.sales.length) alasql.tables.sales.data = state.sales.map(s => ({ ...s }));
+                if (state.purchases.length) alasql.tables.purchases.data = state.purchases.map(p => ({ ...p }));
+                if (state.expenses.length) alasql.tables.expenses.data = state.expenses.map(e => ({ ...e }));
+                if (state.suppliers.length) alasql.tables.suppliers.data = state.suppliers.map(s => ({ ...s }));
 
                 console.log("SQL Database initialized with app data.");
             } catch (e) {
@@ -100,7 +100,7 @@ const SQLAssistantPage: React.FC<SQLAssistantPageProps> = ({ setCurrentPage }) =
             keys.join(','),
             ...results.map(row => keys.map(k => `"${String(row[k] || '').replace(/"/g, '""')}"`).join(','))
         ].join('\n');
-        
+
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -113,58 +113,39 @@ const SQLAssistantPage: React.FC<SQLAssistantPageProps> = ({ setCurrentPage }) =
 
     const handleAskAI = async () => {
         if (!naturalInput.trim()) return;
-        if (!state.isOnline) {
-            showToast("You are offline.", 'error');
-            return;
-        }
+        if (isGenerating) return;
 
         setIsGenerating(true);
-        setError(null);
-
         try {
-            const apiKey = process.env.API_KEY || localStorage.getItem('gemini_api_key');
-            if (!apiKey) throw new Error("API Key missing. Configure in Settings.");
+            // Use AI Controller to generate SQL
+            // We pass a simplified schema map
+            const schemaMap: any = {
+                customers: Object.keys(state.customers[0] || {}),
+                products: Object.keys(state.products[0] || {}),
+                sales: Object.keys(state.sales[0] || {}),
+                expenses: Object.keys(state.expenses[0] || {})
+            };
 
-            const ai = new GoogleGenAI({ apiKey });
-            
-            const schemaContext = Object.entries(schema).map(([table, cols]) => 
-                `- ${table}(${(cols as string[]).join(', ')})`
-            ).join('\n');
+            // Use AIController
+            const sql = await AIController.generateSQL(naturalInput, schemaMap, state);
 
-            const prompt = `
-                You are a SQL generator for a local business database (SQLite syntax compatible).
-                
-                Schema:
-                ${schemaContext}
-                
-                User Request: "${naturalInput}"
-                
-                Write a SQL query to answer this. 
-                - Use JOINs if needed (e.g. sales.customerId = customers.id). 
-                - Return ONLY the raw SQL string. No markdown, no explanation.
-                - Do not use functions that are not standard SQL-92.
-                - Format dates as ISO strings 'YYYY-MM-DD'.
-            `;
+            setQuery(sql);
+            // Auto run isn't ideal if AI hallucinates destructive queries (though unlikely with SQLite in memory)
+            // But let's act like handleAskAI just sets the query.
+            // If we want to auto-run:
+            // handleRunSQL(); // Needs to be called AFTER query state updates, which might be tricky with closures. 
+            // Better to just setQuery and let user click run, OR call alasql directly here.
 
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: prompt,
-            });
+            // To be safe and better UX, we just set the query and let user confirm, 
+            // OR we execute IT directly if we trust it. 
+            // The previous code called `handleRunQuery(sql)` which I assumed existed.
+            // But `handleRunSQL` uses the `query` STATE.
+            // So I should update state AND perhaps run it if I want instant results.
+            // But for now, just setting the query is safer and standard for this UI.
 
-            let sql = response.text?.trim();
-            // Cleanup markdown if present
-            if (sql?.startsWith('```sql')) sql = sql.replace('```sql', '').replace('```', '');
-            if (sql?.startsWith('```')) sql = sql.replace('```', '').replace('```', '');
-            
-            if (sql) {
-                setQuery(sql.trim());
-            } else {
-                throw new Error("AI returned empty response.");
-            }
-
-        } catch (e: any) {
-            console.error("AI Error", e);
-            setError(e.message || "Failed to generate SQL.");
+        } catch (error: any) {
+            console.error(error);
+            showToast("Failed to generate SQL", 'error');
         } finally {
             setIsGenerating(false);
         }
@@ -183,7 +164,7 @@ const SQLAssistantPage: React.FC<SQLAssistantPageProps> = ({ setCurrentPage }) =
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full">
-                
+
                 {/* Left Sidebar: Navigation & Schema */}
                 <div className="lg:col-span-3 space-y-4">
                     <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border dark:border-slate-700 overflow-hidden">
@@ -195,19 +176,19 @@ const SQLAssistantPage: React.FC<SQLAssistantPageProps> = ({ setCurrentPage }) =
                                 <Cloud size={16} /> Backup
                             </button>
                         </div>
-                        
+
                         {activeTab === 'query' && (
                             <div className="p-3 space-y-4">
                                 <div>
                                     <h3 className="text-xs font-bold text-gray-500 uppercase mb-2 px-1">Database Tables</h3>
                                     <div className="space-y-1">
                                         {Object.keys(schema).map(table => (
-                                            <button 
+                                            <button
                                                 key={table}
                                                 onClick={() => setQuery(`SELECT * FROM ${table} LIMIT 10`)}
                                                 className="w-full flex items-center gap-2 p-2 text-xs hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg text-left transition-colors"
                                             >
-                                                <TableIcon size={14} className="text-gray-400" /> 
+                                                <TableIcon size={14} className="text-gray-400" />
                                                 <span className="font-mono text-gray-700 dark:text-gray-300">{table}</span>
                                                 <span className="ml-auto text-[10px] text-gray-400 bg-gray-100 dark:bg-slate-900 px-1.5 rounded">
                                                     {(state as any)[table]?.length || 0}
@@ -222,12 +203,12 @@ const SQLAssistantPage: React.FC<SQLAssistantPageProps> = ({ setCurrentPage }) =
                                         <h3 className="text-xs font-bold text-gray-500 uppercase mb-2 px-1 mt-2">History</h3>
                                         <div className="space-y-1">
                                             {history.map((h, i) => (
-                                                <button 
+                                                <button
                                                     key={i}
                                                     onClick={() => setQuery(h)}
                                                     className="w-full flex items-center gap-2 p-2 text-xs hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg text-left truncate"
                                                 >
-                                                    <History size={14} className="text-gray-400 shrink-0" /> 
+                                                    <History size={14} className="text-gray-400 shrink-0" />
                                                     <span className="truncate font-mono text-gray-600 dark:text-gray-400">{h}</span>
                                                 </button>
                                             ))}
@@ -257,7 +238,7 @@ const SQLAssistantPage: React.FC<SQLAssistantPageProps> = ({ setCurrentPage }) =
                                         </div>
                                         <p className="text-xs text-blue-700 dark:text-blue-300">
                                             Connected to Google Drive.
-                                            <br/>
+                                            <br />
                                             Last Sync: {state.lastSyncTime ? new Date(state.lastSyncTime).toLocaleTimeString() : 'Never'}
                                         </p>
                                     </div>
@@ -273,7 +254,7 @@ const SQLAssistantPage: React.FC<SQLAssistantPageProps> = ({ setCurrentPage }) =
 
                 {/* Main Content */}
                 <div className="lg:col-span-9 space-y-6">
-                    
+
                     {activeTab === 'backup' ? (
                         <Card title="Data Architecture & Backup Strategy">
                             <div className="space-y-6">
@@ -336,7 +317,7 @@ const SQLAssistantPage: React.FC<SQLAssistantPageProps> = ({ setCurrentPage }) =
                                         <h3 className="font-bold">Ask your data</h3>
                                     </div>
                                     <div className="flex gap-2">
-                                        <input 
+                                        <input
                                             type="text"
                                             value={naturalInput}
                                             onChange={(e) => setNaturalInput(e.target.value)}
@@ -344,9 +325,9 @@ const SQLAssistantPage: React.FC<SQLAssistantPageProps> = ({ setCurrentPage }) =
                                             placeholder="e.g., Show top 5 customers by sales amount..."
                                             className="flex-grow p-2.5 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:ring-2 focus:ring-white/50 outline-none text-sm"
                                         />
-                                        <Button 
-                                            onClick={handleAskAI} 
-                                            disabled={isGenerating} 
+                                        <Button
+                                            onClick={handleAskAI}
+                                            disabled={isGenerating}
                                             className="bg-white text-indigo-700 hover:bg-white/90 border-none font-bold px-4"
                                         >
                                             {isGenerating ? <Loader2 size={16} className="animate-spin" /> : 'Generate'}
@@ -368,7 +349,7 @@ const SQLAssistantPage: React.FC<SQLAssistantPageProps> = ({ setCurrentPage }) =
                                         </Button>
                                     </div>
                                 </div>
-                                <textarea 
+                                <textarea
                                     value={query}
                                     onChange={(e) => setQuery(e.target.value)}
                                     className="w-full h-32 p-3 font-mono text-xs bg-slate-900 text-green-400 focus:outline-none resize-y"

@@ -1,13 +1,12 @@
 
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
-import { Customer, Supplier, Product, Sale, Purchase, Return, Notification, ProfileData, AppMetadata, AuditLogEntry, Expense, Quote, CustomFont, Snapshot, TrashItem } from '../types';
-import { AppState } from '../context/AppContext';
+import { Customer, Supplier, Product, Sale, Purchase, Return, Notification, ProfileData, AppMetadata, AuditLogEntry, Expense, Quote, CustomFont, Snapshot, TrashItem, Budget, FinancialScenario, AppState } from '../types';
 
 const DB_NAME = 'business-manager-db';
-const DB_VERSION = 11; // Bumped for Trash
+const DB_VERSION = 12; // Bumped for Financial Planning
 
-export type StoreName = 'customers' | 'suppliers' | 'products' | 'sales' | 'purchases' | 'returns' | 'app_metadata' | 'notifications' | 'profile' | 'audit_logs' | 'expenses' | 'quotes' | 'custom_fonts' | 'snapshots' | 'trash';
-const STORE_NAMES: StoreName[] = ['customers', 'suppliers', 'products', 'sales', 'purchases', 'returns', 'app_metadata', 'notifications', 'profile', 'audit_logs', 'expenses', 'quotes', 'custom_fonts', 'snapshots', 'trash'];
+export type StoreName = 'customers' | 'suppliers' | 'products' | 'sales' | 'purchases' | 'returns' | 'app_metadata' | 'notifications' | 'profile' | 'audit_logs' | 'expenses' | 'quotes' | 'custom_fonts' | 'snapshots' | 'trash' | 'budgets' | 'financial_scenarios';
+const STORE_NAMES: StoreName[] = ['customers', 'suppliers', 'products', 'sales', 'purchases', 'returns', 'app_metadata', 'notifications', 'profile', 'audit_logs', 'expenses', 'quotes', 'custom_fonts', 'snapshots', 'trash', 'budgets', 'financial_scenarios'];
 
 interface BusinessManagerDB extends DBSchema {
     customers: { key: string; value: Customer; };
@@ -25,6 +24,8 @@ interface BusinessManagerDB extends DBSchema {
     custom_fonts: { key: string; value: CustomFont; };
     snapshots: { key: string; value: Snapshot; };
     trash: { key: string; value: TrashItem; };
+    budgets: { key: string; value: Budget; };
+    financial_scenarios: { key: string; value: FinancialScenario; };
 }
 
 let dbPromise: Promise<IDBPDatabase<BusinessManagerDB>>;
@@ -53,8 +54,15 @@ export async function saveCollection<T extends StoreName>(storeName: T, data: Bu
     try {
         const db = await getDb();
         const tx = db.transaction(storeName, 'readwrite');
-        await tx.objectStore(storeName).clear();
-        await Promise.all(data.map(item => tx.objectStore(storeName).put(item)));
+        const store = tx.objectStore(storeName);
+        await store.clear();
+
+        const CHUNK_SIZE = 500;
+        for (let i = 0; i < data.length; i += CHUNK_SIZE) {
+            const chunk = data.slice(i, i + CHUNK_SIZE);
+            await Promise.all(chunk.map(item => store.put(item)));
+        }
+
         await tx.done;
     } catch (error) {
         console.error(`Failed to save collection ${storeName}:`, error);
@@ -191,12 +199,16 @@ export async function importData(data: any, merge: boolean = false): Promise<voi
         }
 
         if (Array.isArray(items) && items.length > 0) {
-            await Promise.all(items.map(item => {
-                if (item && typeof item === 'object' && 'id' in item) {
-                    return store.put(item);
-                }
-                return Promise.resolve();
-            }));
+            const CHUNK_SIZE = 500;
+            for (let i = 0; i < items.length; i += CHUNK_SIZE) {
+                const chunk = items.slice(i, i + CHUNK_SIZE);
+                await Promise.all(chunk.map(item => {
+                    if (item && typeof item === 'object' && 'id' in item) {
+                        return store.put(item);
+                    }
+                    return Promise.resolve();
+                }));
+            }
         }
     }
 

@@ -6,7 +6,7 @@ import Input from './Input';
 import Dropdown from './Dropdown';
 import { Customer } from '../types';
 import { useAppContext } from '../context/AppContext';
-import { X, User, Phone, MapPin } from 'lucide-react';
+import { X, User, Phone, MapPin, LocateFixed } from 'lucide-react';
 
 interface AddCustomerModalProps {
     isOpen: boolean;
@@ -56,6 +56,43 @@ const AddCustomerModal: React.FC<AddCustomerModalProps> = ({ isOpen, onClose, on
         onAdd(customerWithId);
         setNewCustomer({ id: '', name: '', phone: '', address: '', area: '', reference: '', priceTier: 'RETAIL' });
         onClose();
+    };
+
+    const handleUseLocation = () => {
+        if (!navigator.geolocation) {
+            showToast("Geolocation is not supported by your browser", "error");
+            return;
+        }
+
+        const toastId = `geo-${Date.now()}`;
+        showToast("Fetching location...", "info");
+
+        navigator.geolocation.getCurrentPosition(async (pos) => {
+            const { latitude, longitude } = pos.coords;
+            try {
+                // Attempt Reverse Geocoding using OpenStreetMap (Nominatim) - Free & No Key
+                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+                const data = await response.json();
+
+                if (data && data.display_name) {
+                    setNewCustomer(prev => ({
+                        ...prev,
+                        address: data.display_name,
+                        area: data.address?.city || data.address?.town || data.address?.village || data.address?.suburb || prev.area
+                    }));
+                    showToast("Location found!", "success");
+                } else {
+                    throw new Error("No address found");
+                }
+            } catch (e) {
+                // Fallback to coordinates
+                setNewCustomer(prev => ({ ...prev, address: `Lat: ${latitude.toFixed(6)}, Long: ${longitude.toFixed(6)}` }));
+                showToast("Location coordinates captured.", "info");
+            }
+        }, (err) => {
+            console.error("Geo Error", err);
+            showToast("Unable to retrieve location. Please enable permissions.", "error");
+        });
     };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -141,8 +178,17 @@ const AddCustomerModal: React.FC<AddCustomerModalProps> = ({ isOpen, onClose, on
                         </h3>
 
                         <div>
+                            <div className="flex justify-between items-center mb-1">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Address *</label>
+                                <button
+                                    onClick={handleUseLocation}
+                                    className="text-xs flex items-center gap-1 text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                                    title="Use Current Location"
+                                >
+                                    <LocateFixed size={12} /> Use Current Location
+                                </button>
+                            </div>
                             <Input
-                                label="Address *"
                                 type="text"
                                 name="address"
                                 placeholder="House No, Street, Landmark"

@@ -20,10 +20,19 @@ A comprehensive, offline-first Progressive Web App (PWA) designed to streamline 
     - **Database Maintenance:** Cleans up old logs and notifications.
 - **👥 Customer Management:** Maintain a detailed directory of customers, view their complete sales history, risk status (High/Medium/Safe), and manage their due payments.
 - **🛒 Sales Management:** Create new sales invoices, add products by searching or scanning QR codes, apply discounts, and record payments.
+- **📱 Mobile Optimized (PWA):** Enhanced mobile experience with native-like features:
+    - **Geolocation:** 1-tap address autofill using GPS.
+    - **UPI Integration:** Deep linking for instant payments via GPay/PhonePe.
+    - **Offline AI:** Core analytics and insights work even without internet.
+- **📈 Enterprise Reporting Suite:** A powerful business intelligence tool featuring:
+    - **Drag-and-Drop Builder:** Create custom reports in seconds.
+    - **50+ Templates:** Pre-built reports for Sales, Inventory, and Finance.
+    - **Advanced Charts:** Funnel, Treemap, and Forecast visualizations.
+    - **Export:** Download reports as PDF or CSV.
 - **📦 Purchase & Supplier Management:** Track purchases from suppliers, manage supplier information, and record payments made to them.
 - **👔 Product & Inventory Control:** Manage a complete product catalog of sarees. Stock is automatically updated with every sale, purchase, and return. Includes bulk barcode printing.
 - **🔄 Returns Processing:** Handle both customer returns (crediting their account and adding stock back) and returns to suppliers (reducing stock and creating a credit).
-- **📈 Comprehensive Reports:** Generate and export reports for Dues, Sales, and Low Stock. Export options include PDF, CSV, and **Google Sheets**.
+- **📉 Standard Reports:** Quick access to existing CSV/PDF reports for Dues and Low Stock.
 - **🔒 Data Backup & Restore:** Since all data is stored locally on the device, a robust backup (download JSON) and restore (upload JSON) system ensures data safety. Also supports **Google Drive Sync** for cloud backups.
 - **⚙️ Customization:** Fully customizable UI themes (Colors, Gradients), Button Styles, and Navigation Menu ordering.
 - **🌐 Offline First (PWA):** Built as a Progressive Web App, it can be "installed" on a device's home screen and works seamlessly offline.

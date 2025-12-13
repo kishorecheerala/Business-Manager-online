@@ -11,7 +11,7 @@ const getDaysArray = (start: Date, end: Date) => {
 };
 
 // --- Forecasting: Linear Regression ---
-export const calculateRevenueForecast = (sales: Sale[], daysToForecast = 7) => {
+export const calculateRevenueForecast = (sales: Sale[], daysToForecast = 7): any[] => {
     const dailyRevenue: Record<string, number> = {};
     const today = new Date();
     const thirtyDaysAgo = new Date();
@@ -26,40 +26,55 @@ export const calculateRevenueForecast = (sales: Sale[], daysToForecast = 7) => {
         }
     });
 
-    // 2. Prepare Data Points (x = day index, y = revenue)
-    const points: { x: number, y: number }[] = [];
+    // 2. Prepare Data Points for Regression
+    const points: { x: number, y: number, date: Date }[] = [];
     const dateRange = getDaysArray(thirtyDaysAgo, today);
 
     dateRange.forEach((d, index) => {
         const key = d.toISOString().split('T')[0];
-        points.push({ x: index, y: dailyRevenue[key] || 0 });
+        points.push({ x: index, y: dailyRevenue[key] || 0, date: d });
     });
 
-    // 3. Linear Regression (Least Squares)
+    // 3. Linear Regression
     const n = points.length;
     const sumX = points.reduce((acc, p) => acc + p.x, 0);
     const sumY = points.reduce((acc, p) => acc + p.y, 0);
     const sumXY = points.reduce((acc, p) => acc + (p.x * p.y), 0);
     const sumXX = points.reduce((acc, p) => acc + (p.x * p.x), 0);
 
-    const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
-    const intercept = (sumY - slope * sumX) / n;
+    const denominator = n * sumXX - sumX * sumX;
+    const slope = denominator === 0 ? 0 : (n * sumXY - sumX * sumY) / denominator;
+    const intercept = denominator === 0 ? (sumY / n) : (sumY - slope * sumX) / n;
 
-    // 4. Generate Forecast
-    const forecast: { date: string, value: number }[] = [];
+    // 4. Generate Combined Data (History + Forecast)
+    const combinedData = [];
+
+    // Add History
+    points.forEach(p => {
+        combinedData.push({
+            date: p.date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
+            actual: p.y,
+            predicted: Math.max(0, slope * p.x + intercept), // Trend line for history
+            isForecast: false
+        });
+    });
+
+    // Add Forecast
     for (let i = 1; i <= daysToForecast; i++) {
         const futureX = n - 1 + i;
         const predictedY = Math.max(0, slope * futureX + intercept);
-
         const futureDate = new Date();
         futureDate.setDate(today.getDate() + i);
-        forecast.push({
-            date: futureDate.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric' }),
-            value: predictedY
+
+        combinedData.push({
+            date: futureDate.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
+            actual: null,
+            predicted: predictedY,
+            isForecast: true
         });
     }
 
-    return { slope, forecast };
+    return combinedData;
 };
 
 // --- Customer Lifetime Value (CLV) ---

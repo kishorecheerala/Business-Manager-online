@@ -56,6 +56,8 @@ const helpContent = {
             </ol>
             <h4 className="font-semibold mt-2">Recording Payment for Dues:</h4>
             <p>Select a customer without adding items to the cart, enter the amount, and click "Record Standalone Payment".</p>
+            <h4 className="font-semibold mt-2">Editing Payments:</h4>
+            <p>To edit a payment date or amount, go to the Customer page, expand the Sale history, and click the <strong>Edit (Pencil)</strong> icon next to the payment.</p>
           </div>
         )
       },

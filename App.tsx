@@ -38,6 +38,7 @@ const InvoiceDesigner = React.lazy(() => import('./pages/InvoiceDesigner'));
 const SystemOptimizerPage = React.lazy(() => import('./pages/SystemOptimizerPage'));
 const SQLAssistantPage = React.lazy(() => import('./pages/SQLAssistantPage'));
 const TrashPage = React.lazy(() => import('./pages/TrashPage'));
+const FinancialPlanningPage = React.lazy(() => import('./pages/FinancialPlanningPage'));
 
 
 const QUICK_ACTION_REGISTRY: Record<string, { icon: React.ElementType, label: string, page: Page, action?: string }> = {
@@ -343,6 +344,7 @@ const AppContent: React.FC = () => {
                     {currentPage === 'RETURNS' && <ReturnsPage setIsDirty={setIsDirty} />}
                     {currentPage === 'INSIGHTS' && <InsightsPage setCurrentPage={handleNavigation} />}
                     {currentPage === 'EXPENSES' && <ExpensesPage setIsDirty={setIsDirty} />}
+                    {currentPage === 'FINANCIAL_PLANNING' && <FinancialPlanningPage />}
                     {currentPage === 'QUOTATIONS' && <QuotationsPage />}
                     {currentPage === 'INVOICE_DESIGNER' && <InvoiceDesigner setIsDirty={setIsDirty} setCurrentPage={handleNavigation} />}
                     {currentPage === 'SYSTEM_OPTIMIZER' && <SystemOptimizerPage />}

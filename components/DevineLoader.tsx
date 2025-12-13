@@ -2,7 +2,7 @@ import React from 'react';
 
 const DevineLoader: React.FC = () => {
     return (
-        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white/60 dark:bg-slate-950/60 backdrop-blur-xl animate-fade-in cursor-wait">
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center animate-fade-in cursor-wait bg-background dark:bg-slate-950">
             <div className="relative flex items-center justify-center mb-8">
                 {/* Subtle background ambiance */}
                 <div className="absolute inset-0 bg-primary/5 blur-[100px] rounded-full animate-pulse"></div>

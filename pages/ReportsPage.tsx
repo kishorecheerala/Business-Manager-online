@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState } from 'react';
-import { Download, XCircle, Users, Package, AlertTriangle, FileSpreadsheet, Loader2, BarChart3 } from 'lucide-react';
+import { Download, XCircle, Users, Package, AlertTriangle, FileSpreadsheet, Loader2, BarChart3, Sparkles } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -8,11 +8,12 @@ import { Customer, Sale, Supplier, Page, Product } from '../types';
 import Dropdown from '../components/Dropdown';
 import { generateGenericReportPDF } from '../utils/pdfGenerator';
 import { exportReportToSheet } from '../utils/googleSheets';
+import ReportsPageV2 from './ReportsPageV2';
 
 interface CustomerWithDue extends Customer {
-  dueAmount: number;
-  lastPaidDate: string | null;
-  salesWithDue: Sale[];
+    dueAmount: number;
+    lastPaidDate: string | null;
+    salesWithDue: Sale[];
 }
 
 interface ReportsPageProps {
@@ -43,7 +44,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
             showToast("Please sign in with Google (Menu > Sign In) to use Sheets export.", "info");
             return;
         }
-        
+
         setIsExporting(true);
         try {
             const url = await exportReportToSheet(
@@ -52,7 +53,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                 headers,
                 rows
             );
-            
+
             showToast("Export successful! Opening Google Sheet...", "success");
             window.open(url, '_blank');
         } catch (error: any) {
@@ -82,7 +83,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                     totalDue += due;
                     salesWithDue.push(sale);
                 }
-                
+
                 (sale.payments || []).forEach(p => {
                     const paymentDate = new Date(p.date);
                     if (!lastPaidDate || paymentDate > lastPaidDate) {
@@ -105,7 +106,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
             .filter(c => {
                 if (duesAgeFilter === 'all') return true;
                 const days = duesAgeFilter === 'custom' ? parseInt(customDuesAge) || 0 : parseInt(duesAgeFilter);
-                if (days <= 0) return true; 
+                if (days <= 0) return true;
                 const thresholdDate = new Date();
                 thresholdDate.setDate(thresholdDate.getDate() - days);
                 return c.salesWithDue.some(sale => new Date(sale.date) < thresholdDate);
@@ -117,19 +118,19 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
 
     const generateDuesPDF = async () => {
         if (customerDues.length === 0) { showToast("No data to export.", 'error'); return; }
-        
+
         try {
             const doc = await generateGenericReportPDF(
                 "Customer Dues Report",
                 `Filter: Area=${areaFilter}, Age=${duesAgeFilter === 'custom' ? customDuesAge + ' days' : duesAgeFilter}`,
                 ['Customer Name', 'Area', 'Last Paid Date', 'Due Amount'],
-                customerDues.map(c => [ c.name, c.area, c.lastPaidDate || 'N/A', `Rs. ${c.dueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` ]),
+                customerDues.map(c => [c.name, c.area, c.lastPaidDate || 'N/A', `Rs. ${c.dueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`]),
                 [{ label: 'Total Outstanding Due', value: `Rs. ${totalDuesFiltered.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, color: '#dc2626' }],
                 state.profile,
                 state.reportTemplate,
                 state.customFonts
             );
-            
+
             const dateStr = new Date().toLocaleDateString('en-IN').replace(/\//g, '-');
             doc.save(`Report_CustomerDues_${dateStr}.pdf`);
         } catch (e) {
@@ -155,7 +156,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
         const rows = customerDues.map(c => [c.name, c.area, c.lastPaidDate || 'N/A', c.dueAmount.toString()]);
         handleSheetExport("Customer Dues Report", headers, rows);
     };
-    
+
     // --- Customer Account Summary Logic ---
     const customerAccountSummary = useMemo(() => {
         return state.customers.map(customer => {
@@ -163,7 +164,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
             const totalPurchased = customerSales.reduce((sum, s) => sum + Number(s.totalAmount), 0);
             const totalPaid = customerSales.reduce((sum, s) => sum + (s.payments || []).reduce((pSum, p) => pSum + Number(p.amount), 0), 0);
             const outstandingDue = totalPurchased - totalPaid;
-            
+
             let lastPurchaseDate: string | null = null;
             if (customerSales.length > 0) {
                 const lastSale = customerSales.reduce((latest, sale) => {
@@ -178,7 +179,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
 
     const generateCustomerSummaryPDF = async () => {
         if (customerAccountSummary.length === 0) { showToast("No data to export.", 'error'); return; }
-        
+
         try {
             const doc = await generateGenericReportPDF(
                 "Customer Account Summary",
@@ -196,7 +197,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                 state.reportTemplate,
                 state.customFonts
             );
-            
+
             const dateStr = new Date().toLocaleDateString('en-IN').replace(/\//g, '-');
             doc.save(`Report_CustomerSummary_${dateStr}.pdf`);
         } catch (e) {
@@ -228,7 +229,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
         ]);
         handleSheetExport("Customer Account Summary", headers, rows);
     };
-    
+
     // --- Supplier Reports Logic ---
     const uniqueSuppliers = useMemo(() => state.suppliers, [state.suppliers]);
 
@@ -264,7 +265,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                 return { ...purchase, supplierName: supplier?.name || 'Unknown', nextDueDate };
             });
     }, [state.purchases, state.suppliers, supplierFilter]);
-    
+
     const supplierAccountSummary = useMemo(() => {
         return state.suppliers.map(supplier => {
             const supplierPurchases = state.purchases.filter(p => p.supplierId === supplier.id);
@@ -277,12 +278,12 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
 
     const generateSupplierDuesPDF = async () => {
         if (supplierDues.length === 0) { showToast("No data to export.", 'error'); return; }
-        
+
         try {
             const totalDue = supplierDues.reduce((sum, p) => sum + p.dueAmount, 0);
             const doc = await generateGenericReportPDF(
                 "Supplier Dues Report",
-                `Filter: Supplier=${supplierFilter === 'all' ? 'All' : state.suppliers.find(s=>s.id===supplierFilter)?.name}`,
+                `Filter: Supplier=${supplierFilter === 'all' ? 'All' : state.suppliers.find(s => s.id === supplierFilter)?.name}`,
                 ['Supplier', 'Purchase ID', 'Next Due Date', 'Due Amount'],
                 supplierDues.map(p => [
                     p.supplierName,
@@ -295,7 +296,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                 state.reportTemplate,
                 state.customFonts
             );
-            
+
             const dateStr = new Date().toLocaleDateString('en-IN').replace(/\//g, '-');
             doc.save(`Report_SupplierDues_${dateStr}.pdf`);
         } catch (e) {
@@ -329,7 +330,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
 
     const generateSupplierSummaryPDF = async () => {
         if (supplierAccountSummary.length === 0) { showToast("No data to export.", 'error'); return; }
-        
+
         try {
             const doc = await generateGenericReportPDF(
                 "Supplier Account Summary",
@@ -346,7 +347,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                 state.reportTemplate,
                 state.customFonts
             );
-            
+
             const dateStr = new Date().toLocaleDateString('en-IN').replace(/\//g, '-');
             doc.save(`Report_SupplierSummary_${dateStr}.pdf`);
         } catch (e) {
@@ -387,7 +388,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
 
     const generateLowStockPDF = async () => {
         if (lowStockItems.length === 0) { showToast("No low stock items found.", 'info'); return; }
-        
+
         try {
             const doc = await generateGenericReportPDF(
                 "Low Stock Reorder Report",
@@ -403,7 +404,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                 state.reportTemplate,
                 state.customFonts
             );
-            
+
             const dateStr = new Date().toLocaleDateString('en-IN').replace(/\//g, '-');
             doc.save(`Report_LowStock_${dateStr}.pdf`);
         } catch (e) {
@@ -420,8 +421,8 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
     };
 
     const SheetButton: React.FC<{ onClick: () => void }> = ({ onClick }) => (
-        <Button 
-            onClick={onClick} 
+        <Button
+            onClick={onClick}
             className="bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm border-transparent"
         >
             {isExporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileSpreadsheet className="w-4 h-4 mr-2" />}
@@ -429,37 +430,68 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
         </Button>
     );
 
+    // --- Mode Switching ---
+    // We default to V2 for the new experience, but allow fallback
+    const [reportMode, setReportMode] = useState<'STANDARD' | 'ENTERPRISE'>('ENTERPRISE');
+    // Lazy load V2 to avoid circular dep issues in this file if any, though here it is fine.
+    // If strict separation needed, we'd use React.Suspense but direct import is okay for now if ReportsPageV2 is a sibling.
+
+    // We will conditionally render V2 if customized.
+    // For now, let's keep the file simpler:
+
+    // Check if we render V2
+    if (reportMode === 'ENTERPRISE') {
+        // We need to pass the toggle back to allow returning to legacy if needed
+        return (
+            <div className="space-y-4">
+                <div className="flex justify-end px-4">
+                    <Button onClick={() => setReportMode('STANDARD')} variant="secondary" className="text-xs">
+                        Switch to Standard Reports
+                    </Button>
+                </div>
+                <ReportsPageV2 />
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6">
-            <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                    <BarChart3 className="w-6 h-6" />
+            <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                        <BarChart3 className="w-6 h-6" />
+                    </div>
+                    <h1 className="text-2xl font-bold text-primary">Standad Reports</h1>
                 </div>
-                <h1 className="text-2xl font-bold text-primary">Reports</h1>
+                <Button onClick={() => setReportMode('ENTERPRISE')} className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white border-none shadow-lg hover:shadow-xl hover:scale-105 transition-all">
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Try Enterprise Reporting
+                </Button>
             </div>
+
             <div className="border-b dark:border-slate-700">
                 <nav className="-mb-px flex space-x-6 overflow-x-auto">
-                    <button 
-                        onClick={() => setActiveTab('customer')} 
+                    <button
+                        onClick={() => setActiveTab('customer')}
                         className={`py-2 px-1 border-b-2 font-semibold flex items-center gap-2 ${activeTab === 'customer' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-gray-500'}`}
                     >
                         <Users size={16} /> Customer Reports
                     </button>
-                    <button 
-                        onClick={() => setActiveTab('supplier')} 
+                    <button
+                        onClick={() => setActiveTab('supplier')}
                         className={`py-2 px-1 border-b-2 font-semibold flex items-center gap-2 ${activeTab === 'supplier' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-gray-500'}`}
                     >
                         <Package size={16} /> Supplier Reports
                     </button>
-                    <button 
-                        onClick={() => setActiveTab('stock')} 
+                    <button
+                        onClick={() => setActiveTab('stock')}
                         className={`py-2 px-1 border-b-2 font-semibold flex items-center gap-2 ${activeTab === 'stock' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-gray-500'}`}
                     >
                         <AlertTriangle size={16} /> Inventory Reports
                     </button>
                 </nav>
             </div>
-            
+
             {activeTab === 'customer' && (
                 <div className="animate-fade-in-fast space-y-6">
                     <Card title="Filters">
@@ -467,8 +499,8 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Filter by Area</label>
                                 <div className="mt-1">
-                                    <Dropdown 
-                                        options={[{value: 'all', label: 'All Areas'}, ...uniqueAreas.map(area => ({ value: area, label: area }))]}
+                                    <Dropdown
+                                        options={[{ value: 'all', label: 'All Areas' }, ...uniqueAreas.map(area => ({ value: area, label: area }))]}
                                         value={areaFilter}
                                         onChange={setAreaFilter}
                                         searchable={true}
@@ -574,8 +606,8 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Filter by Supplier</label>
                             <div className="mt-1">
-                                <Dropdown 
-                                    options={[{value: 'all', label: 'All Suppliers'}, ...uniqueSuppliers.map(s => ({ value: s.id, label: s.name }))]}
+                                <Dropdown
+                                    options={[{ value: 'all', label: 'All Suppliers' }, ...uniqueSuppliers.map(s => ({ value: s.id, label: s.name }))]}
                                     value={supplierFilter}
                                     onChange={setSupplierFilter}
                                     searchable={true}

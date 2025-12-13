@@ -197,6 +197,7 @@ const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({ isOpen, onClo
                         area: ['North', 'South', 'East', 'West', 'Central'][Math.floor(Math.random() * 5)],
                         priceTier: Math.random() > 0.8 ? 'WHOLESALE' : 'RETAIL'
                     });
+                    if (i % 500 === 0) await new Promise(r => setTimeout(r, 0));
                 }
 
                 // 2. Generate Products
@@ -213,6 +214,7 @@ const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({ isOpen, onClo
                         salePrice: Math.floor(price * 1.3),
                         gstPercent: [0, 5, 12, 18, 28][Math.floor(Math.random() * 5)]
                     });
+                    if (i % 500 === 0) await new Promise(r => setTimeout(r, 0));
                 }
 
                 // 3. Generate Sales
@@ -227,6 +229,9 @@ const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({ isOpen, onClo
 
                     for (let k = 0; k < numItems; k++) {
                         const prod = products[Math.floor(Math.random() * products.length)];
+                        // Safety check if products array is empty, though unlikely with stress test
+                        if (!prod) continue;
+
                         const qty = Math.floor(Math.random() * 5) + 1;
                         const lineTotal = prod.salePrice * qty;
 
@@ -247,7 +252,7 @@ const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({ isOpen, onClo
 
                     sales.push({
                         id: `INV-GEN-${i}`,
-                        customerId: customers[Math.floor(Math.random() * customers.length)].id,
+                        customerId: customers[Math.floor(Math.random() * customers.length)]?.id || 'CUST-GEN-0',
                         items: saleItems,
                         totalAmount: Math.floor(total),
                         gstAmount: Math.floor(gst),
@@ -260,9 +265,14 @@ const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({ isOpen, onClo
                             date: date.toISOString()
                         }] : [] // 20% unpaid
                     });
+
+                    if (i % 200 === 0) {
+                        setGenProgress(`Generating Sales... ${Math.round((i / stressConfig.sales) * 100)}%`);
+                        await new Promise(r => setTimeout(r, 0));
+                    }
                 }
 
-                setGenProgress('Saving to Database...');
+                setGenProgress('Saving to Database (this may take a moment)...');
                 await db.saveCollection('customers', customers);
                 await db.saveCollection('products', products);
                 await db.saveCollection('sales', sales);

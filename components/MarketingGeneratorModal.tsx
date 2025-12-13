@@ -1,11 +1,12 @@
-import React, { useState, useRef } from 'react';
-import { X, Image as ImageIcon, Video, Loader2, Download, Wand2, RefreshCw, WifiOff, Camera, Upload } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { X, Image as ImageIcon, Video, Loader2, Download, Wand2, RefreshCw, WifiOff, Camera, Upload, Type } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import Card from './Card';
 import Button from './Button';
 import { Product } from '../types';
 import { useAppContext } from '../context/AppContext';
 import { compressImage } from '../utils/imageUtils';
+import { AIController } from '../utils/ai/AIController';
 
 interface MarketingGeneratorModalProps {
     isOpen: boolean;
@@ -15,14 +16,23 @@ interface MarketingGeneratorModalProps {
 
 const MarketingGeneratorModal: React.FC<MarketingGeneratorModalProps> = ({ isOpen, onClose, product }) => {
     const { state, showToast } = useAppContext();
-    const [mode, setMode] = useState<'IMAGE' | 'VIDEO' | 'REMIX'>('IMAGE');
+    const [mode, setMode] = useState<'IMAGE' | 'VIDEO' | 'REMIX' | 'TEXT'>('IMAGE');
     const [prompt, setPrompt] = useState(`Professional studio shot of ${product.name}, ${product.category || 'product'}, cinematic lighting, 4k resolution.`);
     const [isGenerating, setIsGenerating] = useState(false);
     const [resultUrl, setResultUrl] = useState<string | null>(null);
+    const [resultText, setResultText] = useState<string | null>(null);
     const [uploadedImage, setUploadedImage] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // Auto-switch to TEXT if offline
+    useEffect(() => {
+        if (!state.isOnline && isOpen) {
+            setMode('TEXT');
+        }
+    }, [state.isOnline, isOpen]);
+
     const checkApiKey = async () => {
+        if (!state.isOnline) return true; // Offline doesn't need key for TEXT templates
         const aistudio = (window as any).aistudio;
         if (aistudio) {
             const hasKey = await aistudio.hasSelectedApiKey();
@@ -47,8 +57,9 @@ const MarketingGeneratorModal: React.FC<MarketingGeneratorModalProps> = ({ isOpe
     };
 
     const handleGenerate = async () => {
-        if (!state.isOnline) {
-            showToast("Offline. Cannot generate.", 'error');
+        if (!state.isOnline && mode !== 'TEXT') {
+            showToast("Offline. Switch to Text mode.", 'error');
+            setMode('TEXT');
             return;
         }
 
@@ -64,6 +75,13 @@ const MarketingGeneratorModal: React.FC<MarketingGeneratorModalProps> = ({ isOpe
             const hasKey = await checkApiKey();
             if (!hasKey && !(window as any).aistudio) {
                 showToast("API Key required. Please configure in Settings.", 'error');
+                setIsGenerating(false);
+                return;
+            }
+
+            if (mode === 'TEXT') {
+                const copy = await AIController.generateMarketingCopy(product, state);
+                setResultText(copy);
                 setIsGenerating(false);
                 return;
             }
@@ -177,27 +195,36 @@ const MarketingGeneratorModal: React.FC<MarketingGeneratorModalProps> = ({ isOpe
                 </div>
 
                 <div className="p-5 space-y-5">
-                    {state.isOnline ? (
+                    {true ? ( // Always show UI, handle offline in buttons
                         <>
                             {/* Mode Selector */}
-                            <div className="flex bg-gray-100 dark:bg-slate-800 p-1 rounded-lg">
+                            <div className="flex bg-gray-100 dark:bg-slate-800 p-1 rounded-lg overflow-x-auto">
                                 <button
-                                    onClick={() => { setMode('IMAGE'); setResultUrl(null); }}
-                                    className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-xs sm:text-sm font-semibold transition-all ${mode === 'IMAGE' ? 'bg-white dark:bg-slate-700 shadow text-pink-600 dark:text-pink-400' : 'text-gray-500'}`}
+                                    onClick={() => { setMode('IMAGE'); setResultUrl(null); setResultText(null); }}
+                                    disabled={!state.isOnline}
+                                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-2 rounded-md text-xs sm:text-sm font-semibold transition-all ${mode === 'IMAGE' ? 'bg-white dark:bg-slate-700 shadow text-pink-600 dark:text-pink-400' : 'text-gray-500'} ${!state.isOnline ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 >
                                     <ImageIcon size={14} /> Create
                                 </button>
                                 <button
-                                    onClick={() => { setMode('REMIX'); setResultUrl(null); }}
-                                    className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-xs sm:text-sm font-semibold transition-all ${mode === 'REMIX' ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400' : 'text-gray-500'}`}
+                                    onClick={() => { setMode('REMIX'); setResultUrl(null); setResultText(null); }}
+                                    disabled={!state.isOnline}
+                                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-2 rounded-md text-xs sm:text-sm font-semibold transition-all ${mode === 'REMIX' ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400' : 'text-gray-500'} ${!state.isOnline ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 >
                                     <RefreshCw size={14} /> Remix
                                 </button>
                                 <button
-                                    onClick={() => { setMode('VIDEO'); setResultUrl(null); }}
-                                    className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-xs sm:text-sm font-semibold transition-all ${mode === 'VIDEO' ? 'bg-white dark:bg-slate-700 shadow text-purple-600 dark:text-purple-400' : 'text-gray-500'}`}
+                                    onClick={() => { setMode('VIDEO'); setResultUrl(null); setResultText(null); }}
+                                    disabled={!state.isOnline}
+                                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-2 rounded-md text-xs sm:text-sm font-semibold transition-all ${mode === 'VIDEO' ? 'bg-white dark:bg-slate-700 shadow text-purple-600 dark:text-purple-400' : 'text-gray-500'} ${!state.isOnline ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 >
                                     <Video size={14} /> Video
+                                </button>
+                                <button
+                                    onClick={() => { setMode('TEXT'); setResultUrl(null); setResultText(null); }}
+                                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-2 rounded-md text-xs sm:text-sm font-semibold transition-all ${mode === 'TEXT' ? 'bg-white dark:bg-slate-700 shadow text-green-600 dark:text-green-400' : 'text-gray-500'}`}
+                                >
+                                    <Type size={14} /> WiFi-Free
                                 </button>
                             </div>
 
@@ -229,6 +256,20 @@ const MarketingGeneratorModal: React.FC<MarketingGeneratorModalProps> = ({ isOpe
                                         )}
                                         <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
                                     </div>
+                                ) : mode === 'TEXT' ? (
+                                    <div className="p-6 text-center w-full h-full flex items-center justify-center">
+                                        {resultText ? (
+                                            <div className="text-left w-full h-full overflow-y-auto">
+                                                <p className="text-lg font-serif italic text-gray-800 dark:text-gray-200">"{resultText}"</p>
+                                                <p className="text-xs text-gray-400 mt-4 text-right">- Generated by AI</p>
+                                            </div>
+                                        ) : (
+                                            <div className="text-gray-400">
+                                                <Type size={40} className="mx-auto mb-2 opacity-50" />
+                                                <p className="text-sm">Generate catchy captions</p>
+                                            </div>
+                                        )}
+                                    </div>
                                 ) : (
                                     <div className="text-center text-gray-400">
                                         <Wand2 size={40} className="mx-auto mb-2 opacity-50" />
@@ -241,7 +282,7 @@ const MarketingGeneratorModal: React.FC<MarketingGeneratorModalProps> = ({ isOpe
                             <div className="space-y-3">
                                 <div>
                                     <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">
-                                        {mode === 'REMIX' ? 'Edit Instructions' : 'Creative Prompt'}
+                                        {mode === 'REMIX' ? 'Edit Instructions' : mode === 'TEXT' ? 'Parameters (Mood, etc)' : 'Creative Prompt'}
                                     </label>
                                     <textarea
                                         value={prompt}
@@ -273,16 +314,11 @@ const MarketingGeneratorModal: React.FC<MarketingGeneratorModalProps> = ({ isOpe
                                 </div>
                             </div>
                         </>
-                    ) : (
-                        <div className="flex flex-col items-center justify-center py-10 gap-4 text-gray-500">
-                            <WifiOff size={48} />
-                            <p className="font-medium">You are currently offline.</p>
-                            <Button onClick={onClose} variant="secondary">Close</Button>
-                        </div>
-                    )}
-                </div>
-            </Card>
+                        </>
+                ) : null}
         </div>
+            </Card >
+        </div >
     );
 };
 

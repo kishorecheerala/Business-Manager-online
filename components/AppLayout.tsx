@@ -297,10 +297,35 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                             ))}
                         </div>
                     </div>
-                    {/* Mobile View omitted for brevity - reuse same pattern */}
+
+                    {/* Mobile Navigation View */}
+                    <div className="md:hidden flex w-full justify-around items-center p-2 px-4 shadow-lg-up">
+                        {pinnedItems.map(item => (
+                            <div key={item.page} className="flex-1 max-w-[4rem]">
+                                <NavItem
+                                    page={item.page}
+                                    label={item.label}
+                                    icon={item.icon}
+                                    onClick={() => onNavigate(item.page as Page)}
+                                    isActive={currentPage === item.page}
+                                />
+                            </div>
+                        ))}
+                        <div className="flex-1 max-w-[4rem]">
+                            <button
+                                onClick={() => setIsMenuOpen(true)}
+                                className={`flex flex-col items-center justify-center w-full pt-3 pb-2 px-0.5 rounded-2xl transition-all duration-300 group text-white/70 hover:text-white hover:bg-white/10`}
+                            >
+                                <div className={`p-1 rounded-full text-white/70`}>
+                                    <Menu size={24} strokeWidth={2} />
+                                </div>
+                                <span className={`text-[9px] sm:text-[10px] font-semibold mt-1 leading-tight`}>More</span>
+                            </button>
+                        </div>
+                    </div>
                 </nav>
             )}
-        </div>
+        </div >
     );
 };
 

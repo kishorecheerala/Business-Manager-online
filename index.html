@@ -190,7 +190,66 @@
 
 <body
   class="bg-background dark:bg-slate-900 text-text dark:text-slate-300 antialiased selection:bg-primary selection:text-white">
-  <div id="root"></div>
+  <div id="root">
+    <div id="initial-loader"
+      class="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-background dark:bg-slate-900 cursor-wait">
+      <style>
+        .animate-pulse-slow {
+          animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @keyframes pulse {
+
+          0%,
+          100% {
+            opacity: 1;
+            transform: scale(1);
+          }
+
+          50% {
+            opacity: 0.8;
+            transform: scale(0.95);
+          }
+        }
+
+        .animate-bounce-dot {
+          animation: bounce 1s infinite;
+        }
+
+        @keyframes bounce {
+
+          0%,
+          100% {
+            transform: translateY(0);
+            animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
+          }
+
+          50% {
+            transform: translateY(-25%);
+            animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+          }
+        }
+      </style>
+      <div class="relative flex items-center justify-center mb-8">
+        <div
+          class="relative z-10 text-[200px] leading-none font-serif font-bold text-primary select-none animate-pulse-slow"
+          style="color: rgb(var(--primary-color)); text-shadow: 0 0 30px rgb(var(--primary-color) / 0.3);">
+          ॐ
+        </div>
+      </div>
+      <div class="flex flex-col items-center gap-4 z-10 w-64">
+        <div class="text-lg font-bold tracking-widest uppercase flex items-end leading-none h-6"
+          style="color: rgb(var(--primary-color) / 0.8);">
+          LOADING
+          <div class="flex ml-1 mb-1">
+            <span class="animate-bounce-dot mx-[1px]" style="animation-delay: 0s">.</span>
+            <span class="animate-bounce-dot mx-[1px]" style="animation-delay: 0.2s">.</span>
+            <span class="animate-bounce-dot mx-[1px]" style="animation-delay: 0.4s">.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
   <script type="module" src="./index.tsx"></script>
 </body>
 

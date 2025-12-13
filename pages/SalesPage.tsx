@@ -822,7 +822,16 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                             </Button>
                         )}
 
-                        <Button onClick={resetForm} variant="secondary" className="w-full bg-teal-200 hover:bg-teal-300 focus:ring-teal-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600">
+                        <Button
+                            onClick={() => {
+                                if (mode === 'edit' && customerId) {
+                                    dispatch({ type: 'SET_SELECTION', payload: { page: 'CUSTOMERS', id: customerId } });
+                                }
+                                resetForm();
+                            }}
+                            variant="secondary"
+                            className="w-full bg-teal-200 hover:bg-teal-300 focus:ring-teal-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
+                        >
                             {mode === 'edit' ? 'Cancel Edit' : 'Clear Form'}
                         </Button>
                     </div>

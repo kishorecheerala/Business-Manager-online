@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import { GoogleGenAI } from "@google/genai";
 import { Send, Bot, User, X, Loader2, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from './Button';
 import Input from './Input';
 import { useAppContext } from '../context/AppContext';
+import { AIController } from '../utils/ai/AIController';
 
 interface Message {
     id: string;
@@ -54,44 +54,7 @@ const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
         setLoading(true);
 
         try {
-            const apiKey = localStorage.getItem('gemini_api_key') || process.env.API_KEY;
-
-            if (!state.isOnline) throw new Error("Offline mode. Cannot connect to AI.");
-            if (!apiKey) throw new Error("API Key missing. Please check settings.");
-
-            const ai = new GoogleGenAI({ apiKey });
-
-            // --- Context Preparation (Simplified for Chat) ---
-            const totalSales = state.sales.reduce((sum, s) => sum + Number(s.totalAmount), 0);
-            const salesCount = state.sales.length;
-            const topProducts = state.products
-                .sort((a, b) => b.quantity < a.quantity ? 1 : -1)
-                .slice(0, 5)
-                .map(p => `${p.name} (${p.quantity} left)`)
-                .join(', ');
-
-            const lowStock = state.products.filter(p => p.quantity < 5).map(p => `${p.name} (ID: ${p.id})`).join(', ');
-
-            const context = `
-                Context:
-                - Business Name: ${state.profile?.name || 'My Business'}
-                - Total Revenue (30 days): ₹${totalSales}
-                - Transaction Count: ${salesCount}
-                - Top Sellers: ${topProducts}
-                - Low Stock Alerts: ${lowStock}
-                
-                You are a helpful business assitant. Keep answers short (max 2-3 sentences).
-             `;
-
-            const model = ai.models.generateContent({
-                model: 'gemini-2.0-flash',
-                contents: [
-                    { role: 'user', parts: [{ text: context + "\n\nUser Question: " + userMsg.text }] }
-                ]
-            });
-
-            const result = await model;
-            const responseText = (result as any).response.text();
+            const responseText = await AIController.chat(userMsg.text, state);
 
             const botMsg: Message = {
                 id: (Date.now() + 1).toString(),

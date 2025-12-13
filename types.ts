@@ -1,7 +1,33 @@
 
 import { ReactNode } from "react";
 
-export type Page = 'DASHBOARD' | 'CUSTOMERS' | 'SALES' | 'PURCHASES' | 'REPORTS' | 'RETURNS' | 'PRODUCTS' | 'INSIGHTS' | 'EXPENSES' | 'QUOTATIONS' | 'INVOICE_DESIGNER' | 'SYSTEM_OPTIMIZER' | 'SQL_ASSISTANT' | 'TRASH';
+export type Page = 'DASHBOARD' | 'CUSTOMERS' | 'SALES' | 'PURCHASES' | 'REPORTS' | 'RETURNS' | 'PRODUCTS' | 'INSIGHTS' | 'EXPENSES' | 'QUOTATIONS' | 'INVOICE_DESIGNER' | 'SYSTEM_OPTIMIZER' | 'SQL_ASSISTANT' | 'TRASH' | 'FINANCIAL_PLANNING';
+// ... (rest of imports)
+
+// --- Financial Planning Types ---
+export interface Budget {
+  id: string; // "monthly_expense"
+  category: string; // e.g., "Advertising" or "All Expenses"
+  amount: number; // Target amount
+  period: 'monthly' | 'quarterly' | 'yearly';
+  startDate: string; // ISO
+}
+
+export interface FinancialScenario {
+  id: string;
+  name: string;
+  description?: string;
+  changes: {
+    revenueChangePercent: number; // e.g. -10 for 10% drop
+    expenseChangePercent: number; // e.g. +5 for 5% increase
+    cogsChangePercent: number; // Cost of Goods Sold adjustment
+  };
+  isActive: boolean; // Is this the currently visualized scenario?
+}
+
+
+
+// ... rest
 export type Theme = 'light' | 'dark';
 
 export interface GoogleUser {
@@ -416,3 +442,119 @@ export interface TrashItem {
   data: any;
   deletedAt: string; // ISO String
 }
+
+// --- AI Types ---
+export interface ActionItem {
+  id: string;
+  title: string;
+  description: string;
+  type: 'restock' | 'promo' | 'collect' | 'general';
+  targetId?: string; // e.g. productId to restock
+  priority: 'high' | 'medium' | 'low';
+}
+
+export interface AIResponse {
+  businessHealthScore: number; // 0-100
+  healthReason: string;
+  growthAnalysis: string;
+  riskAnalysis: string;
+  actions: ActionItem[];
+  strategy: string;
+}
+
+// --- Application State ---
+
+export interface ToastState {
+  message: string;
+  show: boolean;
+  type: 'success' | 'info' | 'error';
+}
+
+export interface AppState {
+  customers: Customer[];
+  suppliers: Supplier[];
+  products: Product[];
+  sales: Sale[];
+  purchases: Purchase[];
+  returns: Return[];
+  expenses: Expense[];
+  quotes: Quote[];
+  customFonts: CustomFont[];
+  app_metadata: AppMetadata[];
+  notifications: Notification[];
+  audit_logs: AuditLogEntry[];
+  profile: ProfileData | null;
+  invoiceTemplate: InvoiceTemplateConfig;
+  estimateTemplate: InvoiceTemplateConfig;
+  debitNoteTemplate: InvoiceTemplateConfig;
+  receiptTemplate: InvoiceTemplateConfig;
+  reportTemplate: InvoiceTemplateConfig;
+  invoiceSettings?: AppMetadataInvoiceSettings;
+
+  // Financial Planning
+  budgets: Budget[];
+  financialScenarios: FinancialScenario[];
+
+  // UI Preferences
+  uiPreferences: AppMetadataUIPreferences;
+
+  toast: ToastState;
+  selection: { page: Page; id: string; action?: 'edit' | 'new'; data?: any } | null;
+  pin: string | null;
+  theme: Theme;
+  themeColor: string;
+  headerColor: string;
+  themeGradient: string;
+  font: string;
+  googleUser: GoogleUser | null;
+  syncStatus: SyncStatus;
+  lastSyncTime: null | number | string;
+  lastLocalUpdate: number;
+  devMode: boolean;
+  performanceMode: boolean;
+  navOrder: string[];
+  quickActions: string[];
+  isOnline: boolean;
+
+  // Sales Management State
+  currentSale: SaleDraft;
+  parkedSales: ParkedSale[];
+
+  // Trash
+  trash: TrashItem[];
+
+  restoreFromFileId?: (fileId: string) => Promise<void>;
+}
+
+// --- Enterprise Reporting Types ---
+
+export type ReportType = 'TABLE' | 'BAR' | 'LINE' | 'PIE' | 'AREA' | 'SCATTER' | 'COMPOSED' | 'KPI';
+
+export type Aggregation = 'SUM' | 'AVG' | 'COUNT' | 'MIN' | 'MAX' | 'NONE';
+
+export interface ReportField {
+  id: string; // "totalAmount", "customer.name"
+  label: string;
+  type: 'string' | 'number' | 'date' | 'currency';
+  aggregation?: Aggregation;
+  hidden?: boolean; // Used for calculation but not display
+}
+
+export interface ReportFilter {
+  id: string; // Field ID
+  operator: 'equals' | 'contains' | 'gt' | 'lt' | 'between' | 'in';
+  value: any;
+}
+
+export interface ReportConfig {
+  id: string;
+  title: string;
+  description?: string;
+  dataSource: 'sales' | 'purchases' | 'inventory' | 'customers' | 'expenses';
+  fields: ReportField[];
+  filters: ReportFilter[];
+  groupBy?: string; // Field ID to group by
+  chartType: ReportType;
+  createdAt: number;
+}
+

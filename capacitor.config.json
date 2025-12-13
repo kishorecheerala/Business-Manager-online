@@ -1,0 +1,20 @@
+{
+    "appId": "com.sareebusiness.manager",
+    "appName": "Saree Business Manager",
+    "webDir": "dist",
+    "bundledWebRuntime": false,
+    "server": {
+        "androidScheme": "https"
+    },
+    "plugins": {
+        "SplashScreen": {
+            "launchShowDuration": 2000,
+            "launchAutoHide": true,
+            "backgroundColor": "#ffffffff",
+            "androidSplashResourceName": "splash",
+            "iosSplashDuration": 2000,
+            "showSpinner": true,
+            "spinnerColor": "#db2777"
+        }
+    }
+}

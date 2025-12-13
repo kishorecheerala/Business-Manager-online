@@ -1095,6 +1095,34 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                 </div>
             )}
 
+            {/* Mobile Quick Actions */}
+            <div className="md:hidden grid grid-cols-4 gap-3 mb-6">
+                <button onClick={() => setCurrentPage('SALES')} className="flex flex-col items-center gap-2 p-3 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-transform">
+                    <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-full text-indigo-600 dark:text-indigo-400">
+                        <ShoppingCart size={20} />
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">New Sale</span>
+                </button>
+                <button onClick={() => setCurrentPage('CUSTOMERS')} className="flex flex-col items-center gap-2 p-3 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-transform">
+                    <div className="p-2 bg-pink-50 dark:bg-pink-900/30 rounded-full text-pink-600 dark:text-pink-400">
+                        <User size={20} />
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">Add Cust</span>
+                </button>
+                <button onClick={() => setCurrentPage('EXPENSES')} className="flex flex-col items-center gap-2 p-3 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-transform">
+                    <div className="p-2 bg-rose-50 dark:bg-rose-900/30 rounded-full text-rose-600 dark:text-rose-400">
+                        <Receipt size={20} />
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">Expense</span>
+                </button>
+                <button onClick={() => setIsCheckpointsModalOpen(true)} className="flex flex-col items-center gap-2 p-3 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-transform">
+                    <div className="p-2 bg-emerald-50 dark:bg-emerald-900/30 rounded-full text-emerald-600 dark:text-emerald-400">
+                        <Archive size={20} />
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">Backup</span>
+                </button>
+            </div>
+
             {/* Toolbar for Period Selectors */}
             <div className="flex flex-wrap justify-end items-center mb-1 gap-2">
                 <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-1 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 relative z-20">

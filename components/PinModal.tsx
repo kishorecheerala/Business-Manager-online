@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import Card from './Card';
-import { Lock, Delete, X } from 'lucide-react';
+import { Lock, Delete, X, Fingerprint, ScanFace } from 'lucide-react';
 
 interface PinModalProps {
     mode: 'setup' | 'enter';
@@ -42,6 +42,37 @@ const PinModal: React.FC<PinModalProps> = ({ mode, onSetPin, onCorrectPin, corre
             document.body.style.overflow = '';
         };
     }, []);
+
+    // Biometrics Check
+    const [biometricsAvailable, setBiometricsAvailable] = useState(false);
+    useEffect(() => {
+        if (window.PublicKeyCredential &&
+            window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable) {
+            window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().then(available => {
+                setBiometricsAvailable(available);
+            });
+        }
+    }, []);
+
+    const handleBiometricUnlock = async () => {
+        try {
+            const challenge = new Uint8Array(32);
+            window.crypto.getRandomValues(challenge);
+
+            await navigator.credentials.get({
+                publicKey: {
+                    challenge,
+                    timeout: 60000,
+                    userVerification: 'required'
+                }
+            });
+            // If we get here, it succeeded (User verified ownership of device)
+            onCorrectPin?.();
+        } catch (e) {
+            console.error("Biometric failed", e);
+            triggerError();
+        }
+    };
 
     const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = e.target.value;
@@ -195,6 +226,17 @@ const PinModal: React.FC<PinModalProps> = ({ mode, onSetPin, onCorrectPin, corre
                     ))}
                 </div>
 
+                {/* Biometric Button */}
+                {step === 'enter' && biometricsAvailable && (
+                    <button
+                        onClick={handleBiometricUnlock}
+                        className="flex items-center gap-2 px-4 py-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
+                    >
+                        <ScanFace size={20} />
+                        <span className="text-sm font-semibold">Unlock with FaceID / TouchID</span>
+                    </button>
+                )}
+
                 {/* Number Pad Visual (Optional, as keyboard is up, but looks good) */}
                 <div className="pt-4 text-xs text-gray-400 font-medium">
                     {onResetRequest && step === 'enter' && (
@@ -204,8 +246,8 @@ const PinModal: React.FC<PinModalProps> = ({ mode, onSetPin, onCorrectPin, corre
                     )}
                 </div>
 
-            </Card>
-        </div>,
+            </Card >
+        </div >,
         document.body
     );
 };

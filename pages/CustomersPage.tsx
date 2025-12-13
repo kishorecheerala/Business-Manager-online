@@ -18,59 +18,60 @@ import ModernDateInput from '../components/ModernDateInput';
 
 // Custom WhatsApp Icon Component
 const WhatsAppIcon = ({ size = 24, className = "" }: { size?: number, className?: string }) => (
-    <svg 
-        width={size} 
-        height={size} 
-        viewBox="0 0 24 24" 
-        fill="currentColor" 
+    <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="currentColor"
         className={className}
         xmlns="http://www.w3.org/2000/svg"
     >
-        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.008-.57-.008-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.008-.57-.008-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
     </svg>
 );
 
 // --- Customer Segmentation Helper ---
-type CustomerSegment = 'VIP' | 'Regular' | 'New' | 'At-Risk';
+// Customer Segmentation Removed as per user request
+// type CustomerSegment = 'VIP' | 'Regular' | 'New' | 'At-Risk';
 
-const getCustomerSegment = (sales: Sale[]): CustomerSegment => {
-    if (!sales || sales.length === 0) return 'New';
-    
-    const totalSpent = sales.reduce((acc, sale) => acc + Number(sale.totalAmount), 0);
-    const orderCount = sales.length;
-    
-    // Check At-Risk (Last order > 60 days ago AND significant spend previously)
-    const lastOrderDate = sales.reduce((latest, sale) => {
-        const d = new Date(sale.date);
-        return d > latest ? d : latest;
-    }, new Date(0));
-    
-    const daysSinceLastOrder = (new Date().getTime() - lastOrderDate.getTime()) / (1000 * 3600 * 24);
-    
-    if (daysSinceLastOrder > 60 && totalSpent > 5000) return 'At-Risk';
-    
-    if (totalSpent > 50000 || orderCount > 10) return 'VIP';
-    if (orderCount > 2) return 'Regular';
-    
-    return 'New';
-};
+// const getCustomerSegment = (sales: Sale[]): CustomerSegment => {
+//     if (!sales || sales.length === 0) return 'New';
 
-const SegmentBadge: React.FC<{ segment: CustomerSegment }> = ({ segment }) => {
-    switch (segment) {
-        case 'VIP':
-            return <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200"><Crown size={10} className="mr-1"/> VIP</span>;
-        case 'At-Risk':
-            return <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-800 border border-red-200"><ShieldAlert size={10} className="mr-1"/> At-Risk</span>;
-        case 'Regular':
-            return <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200"><BadgeCheck size={10} className="mr-1"/> Regular</span>;
-        default:
-            return <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-800 border border-green-200">New</span>;
-    }
-};
+//     const totalSpent = sales.reduce((acc, sale) => acc + Number(sale.totalAmount), 0);
+//     const orderCount = sales.length;
+
+//     // Check At-Risk (Last order > 60 days ago AND significant spend previously)
+//     const lastOrderDate = sales.reduce((latest, sale) => {
+//         const d = new Date(sale.date);
+//         return d > latest ? d : latest;
+//     }, new Date(0));
+
+//     const daysSinceLastOrder = (new Date().getTime() - lastOrderDate.getTime()) / (1000 * 3600 * 24);
+
+//     if (daysSinceLastOrder > 60 && totalSpent > 5000) return 'At-Risk';
+
+//     if (totalSpent > 50000 || orderCount > 10) return 'VIP';
+//     if (orderCount > 2) return 'Regular';
+
+//     return 'New';
+// };
+
+// const SegmentBadge: React.FC<{ segment: CustomerSegment }> = ({ segment }) => {
+//     switch (segment) {
+//         case 'VIP':
+//             return <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200"><Crown size={10} className="mr-1" /> VIP</span>;
+//         case 'At-Risk':
+//             return <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-800 border border-red-200"><ShieldAlert size={10} className="mr-1" /> At-Risk</span>;
+//         case 'Regular':
+//             return <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200"><BadgeCheck size={10} className="mr-1" /> Regular</span>;
+//         default:
+//             return <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-800 border border-green-200">New</span>;
+//     }
+// };
 
 interface CustomersPageProps {
-  setIsDirty: (isDirty: boolean) => void;
-  setCurrentPage: (page: Page) => void;
+    setIsDirty: (isDirty: boolean) => void;
+    setCurrentPage: (page: Page) => void;
 }
 
 const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPage }) => {
@@ -91,15 +92,16 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
         date: getLocalDateString(),
         reference: '',
     });
-    
+    const [editingPayment, setEditingPayment] = useState<{ saleId: string; payment: Payment } | null>(null);
+
     // Opening Balance Modal State
     const [isOpeningBalanceModalOpen, setIsOpeningBalanceModalOpen] = useState(false);
     const [openingBalance, setOpeningBalance] = useState('');
     const [openingDate, setOpeningDate] = useState(getLocalDateString());
-    
+
     const [confirmModalState, setConfirmModalState] = useState<{ isOpen: boolean, saleIdToDelete: string | null }>({ isOpen: false, saleIdToDelete: null });
     const [isLedgerOpen, setIsLedgerOpen] = useState(false);
-    
+
     const isDirtyRef = useRef(false);
     const actionMenuRef = useRef<HTMLDivElement>(null);
 
@@ -160,7 +162,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
         setIsAdding(false);
         showToast("Customer added successfully!");
     };
-    
+
     const handleUpdateCustomer = async () => {
         if (editedCustomer) {
             const confirmed = await showConfirm('Are you sure you want to save these changes to the customer details?');
@@ -195,35 +197,84 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
         setCurrentPage('RETURNS');
     };
 
-    const handleAddPayment = () => {
+    const handleEditPayment = (saleId: string, payment: Payment) => {
+        setEditingPayment({ saleId, payment });
+        setPaymentDetails({
+            amount: payment.amount.toString(),
+            method: payment.method as any,
+            date: getLocalDateString(new Date(payment.date)),
+            reference: payment.reference || ''
+        });
+        setPaymentModalState({ isOpen: true, saleId });
+    };
+
+    const handlePaymentSubmit = () => {
         const sale = state.sales.find(s => s.id === paymentModalState.saleId);
-        if (!sale || !paymentDetails.amount) {
+
+        if (!paymentDetails.amount || parseFloat(paymentDetails.amount) <= 0) {
             showToast("Please enter a valid amount.", 'error');
             return;
         }
-        
-        const amountPaid = sale.payments.reduce((sum, p) => sum + Number(p.amount), 0);
-        const dueAmount = Number(sale.totalAmount) - amountPaid;
-        const newPaymentAmount = parseFloat(paymentDetails.amount);
 
-        if(newPaymentAmount > dueAmount + 0.01) { // Epsilon for float
-            showToast(`Payment of ₹${newPaymentAmount.toLocaleString('en-IN')} exceeds due amount of ₹${dueAmount.toLocaleString('en-IN')}.`, 'error');
+        if (!sale) {
+            showToast("Sale not found.", 'error');
+            setPaymentModalState({ isOpen: false, saleId: null });
             return;
         }
 
-        const payment: Payment = {
-            id: `PAY-${Date.now()}`,
-            amount: newPaymentAmount,
-            method: paymentDetails.method,
-            date: new Date(paymentDetails.date).toISOString(),
-            reference: paymentDetails.reference.trim() || undefined,
-        };
+        try {
+            // Safe Date Parsing
+            let isoDate = new Date().toISOString();
+            if (paymentDetails.date) {
+                const d = new Date(paymentDetails.date);
+                if (!isNaN(d.getTime())) {
+                    isoDate = d.toISOString();
+                }
+            }
 
-        dispatch({ type: 'ADD_PAYMENT_TO_SALE', payload: { saleId: sale.id, payment } });
-        showToast('Payment added successfully!');
-        
-        setPaymentModalState({ isOpen: false, saleId: null });
-        setPaymentDetails({ amount: '', method: 'CASH', date: getLocalDateString(), reference: '' });
+            if (editingPayment) {
+                // UPDATE PREVIOUS PAYMENT
+                const updatedPayment: Payment = {
+                    ...editingPayment.payment,
+                    amount: parseFloat(paymentDetails.amount),
+                    method: paymentDetails.method,
+                    date: isoDate,
+                    reference: paymentDetails.reference.trim() || undefined
+                };
+
+                dispatch({ type: 'UPDATE_PAYMENT_IN_SALE', payload: { saleId: sale.id, payment: updatedPayment } });
+                showToast('Payment updated successfully!');
+                setEditingPayment(null);
+            } else {
+                // ADD NEW PAYMENT
+                const amountPaid = sale.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+                const dueAmount = Number(sale.totalAmount) - amountPaid;
+                const newPaymentAmount = parseFloat(paymentDetails.amount);
+
+                if (newPaymentAmount > dueAmount + 1) { // 1 Rupee buffer
+                    showToast(`Payment of ₹${newPaymentAmount.toLocaleString('en-IN')} exceeds due amount.`, 'error');
+                    return;
+                }
+
+                const payment: Payment = {
+                    id: `PAY-${Date.now()}`,
+                    amount: newPaymentAmount,
+                    method: paymentDetails.method,
+                    date: isoDate,
+                    reference: paymentDetails.reference.trim() || undefined,
+                };
+
+                dispatch({ type: 'ADD_PAYMENT_TO_SALE', payload: { saleId: sale.id, payment } });
+                showToast('Payment added successfully!');
+            }
+
+            // Close and Reset
+            setPaymentModalState({ isOpen: false, saleId: null });
+            setPaymentDetails({ amount: '', method: 'CASH', date: getLocalDateString(), reference: '' });
+        } catch (error) {
+            console.error("Payment Submit Error", error);
+            showToast("Failed to save payment. Please check details.", 'error');
+        }
     };
 
     const handleAddOpeningBalance = () => {
@@ -237,7 +288,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
         // Create a special sale for opening balance
         const saleId = `OPBAL-${Date.now()}`;
         const saleDateWithTime = new Date(`${openingDate}T00:00:00`).toISOString();
-        
+
         const item: SaleItem = {
             productId: 'OPENING-BAL',
             productName: 'Opening Balance / Previous Dues',
@@ -258,7 +309,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
 
         dispatch({ type: 'ADD_SALE', payload: openingSale });
         showToast("Opening balance added successfully.", 'success');
-        
+
         setIsOpeningBalanceModalOpen(false);
         setOpeningBalance('');
         setOpeningDate(getLocalDateString());
@@ -290,11 +341,11 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
         try {
             const doc = await generateA4InvoicePdf(sale, selectedCustomer, state.profile, state.invoiceTemplate, state.customFonts);
             const pdfBlob = doc.output('blob');
-            
+
             const cleanName = selectedCustomer.name.replace(/[^a-z0-9]/gi, '_');
             const dateStr = new Date(sale.date).toLocaleDateString('en-IN').replace(/\//g, '-');
             const filename = `Invoice_${cleanName}_${dateStr}.pdf`;
-            
+
             const pdfFile = new File([pdfBlob], filename, { type: 'application/pdf' });
             const businessName = state.profile?.name || 'Invoice';
 
@@ -329,7 +380,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
             const paid = (sale.payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
             return total + (Number(sale.totalAmount) - paid);
         }, 0);
-        
+
         try {
             const doc = await generateGenericReportPDF(
                 "Customer Dues Summary",
@@ -356,17 +407,17 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
             const cleanName = selectedCustomer.name.replace(/[^a-z0-9]/gi, '_');
             const dateStr = new Date().toLocaleDateString('en-IN').replace(/\//g, '-');
             const filename = `Dues_${cleanName}_${dateStr}.pdf`;
-            
+
             const pdfFile = new File([pdfBlob], filename, { type: 'application/pdf' });
             const businessName = state.profile?.name || 'Dues Summary';
 
             if (navigator.share && navigator.canShare({ files: [pdfFile] })) {
-              await navigator.share({
-                title: `${businessName} - Dues for ${selectedCustomer.name}`,
-                files: [pdfFile],
-              });
+                await navigator.share({
+                    title: `${businessName} - Dues for ${selectedCustomer.name}`,
+                    files: [pdfFile],
+                });
             } else {
-              doc.save(filename);
+                doc.save(filename);
             }
         } catch (e) {
             console.error("PDF Report Error", e);
@@ -388,15 +439,15 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
             c.area.toLowerCase().includes(lowerTerm)
         );
     }, [state.customers, searchTerm]);
-    
+
     if (selectedCustomer && editedCustomer) {
         const customerSales = state.sales.filter(s => s.customerId === selectedCustomer.id);
         const customerReturns = state.returns.filter(r => r.type === 'CUSTOMER' && r.partyId === selectedCustomer.id);
-        
+
         const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
             setEditedCustomer({ ...editedCustomer, [e.target.name]: e.target.value });
         };
-        
+
         const selectedSaleForPayment = state.sales.find(s => s.id === paymentModalState.saleId);
         const amountPaidForSelected = selectedSaleForPayment ? selectedSaleForPayment.payments.reduce((sum, p) => sum + Number(p.amount), 0) : 0;
         const dueAmountForSelected = selectedSaleForPayment ? Number(selectedSaleForPayment.totalAmount) - amountPaidForSelected : 0;
@@ -404,7 +455,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
         return (
             <>
                 {isLedgerOpen && <LedgerModal isOpen={isLedgerOpen} onClose={() => setIsLedgerOpen(false)} partyId={selectedCustomer.id} partyType="CUSTOMER" />}
-                
+
                 {/* Opening Balance Modal */}
                 {isOpeningBalanceModalOpen && (
                     <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
@@ -412,15 +463,15 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                         <Card className="relative z-10 w-full max-w-sm animate-scale-in">
                             <h2 className="text-lg font-bold text-gray-800 dark:text-white mb-4">Add Previous Dues</h2>
                             <div className="space-y-4">
-                                <Input 
-                                    label="Opening Balance Amount" 
-                                    type="number" 
-                                    value={openingBalance} 
-                                    onChange={(e) => setOpeningBalance(e.target.value)} 
+                                <Input
+                                    label="Opening Balance Amount"
+                                    type="number"
+                                    value={openingBalance}
+                                    onChange={(e) => setOpeningBalance(e.target.value)}
                                     placeholder="Enter total due amount"
                                     autoFocus
                                 />
-                                <ModernDateInput 
+                                <ModernDateInput
                                     label="Date of Balance"
                                     value={openingDate}
                                     onChange={(e) => setOpeningDate(e.target.value)}
@@ -444,14 +495,15 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                 </ConfirmationModal>
                 <PaymentModal
                     isOpen={paymentModalState.isOpen}
-                    onClose={() => setPaymentModalState({isOpen: false, saleId: null})}
-                    onSubmit={handleAddPayment}
+                    onClose={() => { setPaymentModalState({ isOpen: false, saleId: null }); setEditingPayment(null); }}
+                    onSubmit={handlePaymentSubmit}
+                    title={editingPayment ? 'Edit Payment' : 'Add Payment'}
                     totalAmount={selectedSaleForPayment ? selectedSaleForPayment.totalAmount : 0}
                     dueAmount={dueAmountForSelected}
                     paymentDetails={paymentDetails}
                     setPaymentDetails={setPaymentDetails}
                 />
-            
+
                 <div className="space-y-4 animate-fade-in-fast">
                     <Button onClick={() => setSelectedCustomer(null)}>&larr; Back to List</Button>
                     <Card>
@@ -459,7 +511,6 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                             <div>
                                 <h2 className="text-lg font-bold text-primary flex items-center gap-2">
                                     {selectedCustomer.name}
-                                    <SegmentBadge segment={getCustomerSegment(customerSales)} />
                                 </h2>
                             </div>
                             <div className="flex gap-2 items-center flex-shrink-0">
@@ -467,11 +518,11 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                                     <>
                                         <Button onClick={handleUpdateCustomer} className="h-9 px-3"><Save size={16} /> Save</Button>
                                         <button onClick={() => setIsEditing(false)} className="p-2 rounded-full text-gray-500 hover:bg-gray-100 transition-colors">
-                                            <X size={20}/>
+                                            <X size={20} />
                                         </button>
                                     </>
                                 ) : (
-                                    <Button onClick={() => setIsEditing(true)}><Edit size={16}/> Edit</Button>
+                                    <Button onClick={() => setIsEditing(true)}><Edit size={16} /> Edit</Button>
                                 )}
                             </div>
                         </div>
@@ -484,10 +535,10 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                                 <div><label className="text-sm font-medium">Reference</label><input type="text" name="reference" value={editedCustomer.reference ?? ''} onChange={handleInputChange} className="w-full p-2 border rounded" /></div>
                                 <div>
                                     <label className="text-sm font-medium">Pricing Tier</label>
-                                    <select 
-                                        name="priceTier" 
-                                        value={editedCustomer.priceTier || 'RETAIL'} 
-                                        onChange={handleInputChange} 
+                                    <select
+                                        name="priceTier"
+                                        value={editedCustomer.priceTier || 'RETAIL'}
+                                        onChange={handleInputChange}
                                         className="w-full p-2 border rounded bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-white"
                                     >
                                         <option value="RETAIL">Retail</option>
@@ -500,33 +551,29 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                                 <div>
                                     <p className="text-sm text-gray-500 dark:text-gray-400 font-mono mb-2">ID: {selectedCustomer.id}</p>
                                     <div className="flex flex-wrap gap-2">
-                                        <a 
-                                            href={`tel:${selectedCustomer.phone}`} 
+                                        <a
+                                            href={`tel:${selectedCustomer.phone}`}
                                             className="flex items-center gap-2 px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-lg hover:bg-green-100 transition-colors text-sm font-medium dark:bg-green-900/30 dark:border-green-800 dark:text-green-300"
                                         >
                                             <Phone size={14} /> Call
                                         </a>
-                                        <a 
-                                            href={`https://wa.me/${selectedCustomer.phone.replace(/\D/g, '')}`} 
+                                        <a
+                                            href={`https://wa.me/${selectedCustomer.phone.replace(/\D/g, '')}`}
                                             target="_blank"
                                             className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors text-sm font-medium dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-300"
                                         >
                                             <WhatsAppIcon size={14} /> WhatsApp
                                         </a>
-                                        <a 
-                                            href={`truecaller://search_number?phoneNumber=${selectedCustomer.phone.replace(/\D/g, '')}`} 
+                                        <a
+                                            href={`truecaller://search_number?phoneNumber=${selectedCustomer.phone.replace(/\D/g, '')}`}
                                             className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-300"
                                         >
-                                            <ShieldAlert size={14} /> Truecaller 
+                                            <ShieldAlert size={14} /> Truecaller
                                         </a>
                                     </div>
                                 </div>
-                                
+
                                 <div className="flex items-center gap-4 text-sm mt-2">
-                                    <div className="flex items-center gap-1 bg-yellow-50 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 px-2 py-1 rounded border border-yellow-200 dark:border-yellow-800">
-                                        <Star size={14} fill="currentColor" />
-                                        <span className="font-bold">{selectedCustomer.loyaltyPoints || 0}</span> Points
-                                    </div>
                                     <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 rounded border border-gray-200 dark:border-gray-700">
                                         <Tag size={14} />
                                         <span className="font-bold">{selectedCustomer.priceTier || 'RETAIL'}</span>
@@ -535,7 +582,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
 
                                 <div className="flex items-center gap-2 mt-2">
                                     <p><strong>Address:</strong> {selectedCustomer.address}</p>
-                                    <button 
+                                    <button
                                         onClick={(e) => handleOpenMap(e, selectedCustomer.address + ', ' + selectedCustomer.area)}
                                         className="p-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                                         title="View on Google Maps"
@@ -571,84 +618,94 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                                     const subTotal = Number(sale.totalAmount) + Number(sale.discount);
 
                                     return (
-                                    <div key={sale.id} className="bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg p-4 shadow-sm animate-fade-in-fast mb-4">
-                                        <div className="flex justify-between items-start mb-3 border-b dark:border-slate-700 pb-2">
-                                            <div>
-                                                <p className="font-bold text-gray-800 dark:text-gray-200">{sale.id}</p>
-                                                <p className="text-xs text-gray-600 dark:text-gray-400">{new Date(sale.date).toLocaleString()}</p>
-                                            </div>
-                                            <div className="text-right">
-                                                <p className="font-bold text-lg text-primary">₹{Number(sale.totalAmount).toLocaleString('en-IN')}</p>
-                                                <p className={`text-sm font-semibold ${isPaid ? 'text-green-600' : 'text-red-600'}`}>
-                                                    {isPaid ? 'Paid' : `Due: ₹${dueAmount.toLocaleString('en-IN')}`}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        
-                                        <div className="space-y-3">
-                                            <div>
-                                                <h4 className="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-1">Items:</h4>
-                                                <ul className="list-disc list-inside text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                                                    {sale.items.map((item, index) => (
-                                                        <li key={index}>
-                                                            {item.productName} (x{item.quantity}) @ ₹{Number(item.price).toLocaleString('en-IN')} each
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            </div>
-                                            
-                                            <div className="p-2 bg-gray-50 dark:bg-slate-700/50 rounded-md text-sm border dark:border-slate-600">
-                                                <div className="space-y-1 dark:text-gray-300">
-                                                    <div className="flex justify-between"><span>Subtotal:</span> <span>₹{subTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
-                                                    <div className="flex justify-between"><span>Discount:</span> <span>- ₹{Number(sale.discount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
-                                                    <div className="flex justify-between"><span>GST Included:</span> <span>₹{Number(sale.gstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
+                                        <div key={sale.id} className="bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg p-4 shadow-sm animate-fade-in-fast mb-4">
+                                            <div className="flex justify-between items-start mb-3 border-b dark:border-slate-700 pb-2">
+                                                <div>
+                                                    <p className="font-bold text-gray-800 dark:text-gray-200">{sale.id}</p>
+                                                    <p className="text-xs text-gray-600 dark:text-gray-400">{new Date(sale.date).toLocaleString()}</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="font-bold text-lg text-primary">₹{Number(sale.totalAmount).toLocaleString('en-IN')}</p>
+                                                    <p className={`text-sm font-semibold ${isPaid ? 'text-green-600' : 'text-red-600'}`}>
+                                                        {isPaid ? 'Paid' : `Due: ₹${dueAmount.toLocaleString('en-IN')}`}
+                                                    </p>
                                                 </div>
                                             </div>
 
-                                            <div>
-                                                <h4 className="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-1">Payments:</h4>
-                                                {sale.payments.length > 0 ? (
+                                            <div className="space-y-3">
+                                                <div>
+                                                    <h4 className="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-1">Items:</h4>
                                                     <ul className="list-disc list-inside text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                                                        {sale.payments.map(payment => (
-                                                            <li key={payment.id}>
-                                                                ₹{Number(payment.amount).toLocaleString('en-IN')} {payment.method === 'RETURN_CREDIT' ? <span className="text-blue-600 font-semibold">(Return Credit)</span> : `via ${payment.method}`} on {new Date(payment.date).toLocaleDateString()}
-                                                                {payment.reference && <span className="text-xs text-gray-500 block">Ref: {payment.reference}</span>}
+                                                        {sale.items.map((item, index) => (
+                                                            <li key={index}>
+                                                                {item.productName} (x{item.quantity}) @ ₹{Number(item.price).toLocaleString('en-IN')} each
                                                             </li>
                                                         ))}
                                                     </ul>
-                                                ) : <p className="text-sm text-gray-500 italic">No payments made yet.</p>}
-                                            </div>
-
-                                            <div className="pt-2 flex flex-wrap gap-2 justify-end items-center border-t dark:border-slate-700 mt-2">
-                                                {!isPaid && (
-                                                    <Button onClick={() => setPaymentModalState({ isOpen: true, saleId: sale.id })} className="h-8 text-xs bg-green-600 hover:bg-green-700">
-                                                        <Plus size={14} className="mr-1"/> Pay
-                                                    </Button>
-                                                )}
-                                                
-                                                <button onClick={() => handleEditSale(sale.id)} className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded border dark:border-slate-600" title="Edit Sale"><Edit size={16} /></button>
-                                                
-                                                <div className="relative" ref={actionMenuSaleId === sale.id ? actionMenuRef : undefined}>
-                                                    <button onClick={() => setActionMenuSaleId(sale.id)} className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded border dark:border-slate-600" title="Share/Download">
-                                                        <Share2 size={16} />
-                                                    </button>
-                                                    {actionMenuSaleId === sale.id && (
-                                                        <div className="absolute bottom-full right-0 mb-1 w-48 bg-white dark:bg-slate-800 rounded-md shadow-xl border dark:border-slate-700 text-gray-700 dark:text-gray-200 z-10 animate-scale-in origin-bottom-right">
-                                                            <button onClick={() => { handlePrintA4Invoice(sale); setActionMenuSaleId(null); }} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-slate-700">Print (A4)</button>
-                                                            <button onClick={() => { handleDownloadThermalReceipt(sale); setActionMenuSaleId(null); }} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-slate-700">Download Receipt</button>
-                                                            <button onClick={() => { handleShareInvoice(sale); setActionMenuSaleId(null); }} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-slate-700">Share Invoice</button>
-                                                        </div>
-                                                    )}
                                                 </div>
-                                                
-                                                <DeleteButton 
-                                                    variant="delete" 
-                                                    onClick={(e) => { e.stopPropagation(); handleDeleteSale(sale.id); }} 
-                                                />
+
+                                                <div className="p-2 bg-gray-50 dark:bg-slate-700/50 rounded-md text-sm border dark:border-slate-600">
+                                                    <div className="space-y-1 dark:text-gray-300">
+                                                        <div className="flex justify-between"><span>Subtotal:</span> <span>₹{subTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
+                                                        <div className="flex justify-between"><span>Discount:</span> <span>- ₹{Number(sale.discount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
+                                                        <div className="flex justify-between"><span>GST Included:</span> <span>₹{Number(sale.gstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <h4 className="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-1">Payments:</h4>
+                                                    {sale.payments.length > 0 ? (
+                                                        <ul className="list-disc list-inside text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                                                            {sale.payments.map(payment => (
+                                                                <li key={payment.id} className="flex justify-between items-start group">
+                                                                    <div>
+                                                                        ₹{Number(payment.amount).toLocaleString('en-IN')} {payment.method === 'RETURN_CREDIT' ? <span className="text-blue-600 font-semibold">(Return Credit)</span> : `via ${payment.method}`} on {new Date(payment.date).toLocaleDateString()}
+                                                                        {payment.reference && <span className="text-xs text-gray-500 block">Ref: {payment.reference}</span>}
+                                                                    </div>
+                                                                    <button
+                                                                        onClick={() => handleEditPayment(sale.id, payment)}
+                                                                        className="opacity-0 group-hover:opacity-100 p-1 text-blue-600 hover:bg-blue-50 rounded transition-opacity"
+                                                                        title="Edit Payment"
+                                                                    >
+                                                                        <Edit size={12} />
+                                                                    </button>
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    ) : <p className="text-sm text-gray-500 italic">No payments made yet.</p>}
+                                                </div>
+
+                                                <div className="pt-2 flex flex-wrap gap-2 justify-end items-center border-t dark:border-slate-700 mt-2">
+                                                    {!isPaid && (
+                                                        <Button onClick={() => setPaymentModalState({ isOpen: true, saleId: sale.id })} className="h-8 text-xs bg-green-600 hover:bg-green-700">
+                                                            <Plus size={14} className="mr-1" /> Pay
+                                                        </Button>
+                                                    )}
+
+                                                    <button onClick={() => handleEditSale(sale.id)} className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded border dark:border-slate-600" title="Edit Sale"><Edit size={16} /></button>
+
+                                                    <div className="relative" ref={actionMenuSaleId === sale.id ? actionMenuRef : undefined}>
+                                                        <button onClick={() => setActionMenuSaleId(sale.id)} className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded border dark:border-slate-600" title="Share/Download">
+                                                            <Share2 size={16} />
+                                                        </button>
+                                                        {actionMenuSaleId === sale.id && (
+                                                            <div className="absolute bottom-full right-0 mb-1 w-48 bg-white dark:bg-slate-800 rounded-md shadow-xl border dark:border-slate-700 text-gray-700 dark:text-gray-200 z-10 animate-scale-in origin-bottom-right">
+                                                                <button onClick={() => { handlePrintA4Invoice(sale); setActionMenuSaleId(null); }} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-slate-700">Print (A4)</button>
+                                                                <button onClick={() => { handleDownloadThermalReceipt(sale); setActionMenuSaleId(null); }} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-slate-700">Download Receipt</button>
+                                                                <button onClick={() => { handleShareInvoice(sale); setActionMenuSaleId(null); }} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-slate-700">Share Invoice</button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    <DeleteButton
+                                                        variant="delete"
+                                                        onClick={(e) => { e.stopPropagation(); handleDeleteSale(sale.id); }}
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                )})}
+                                    )
+                                })}
                             </div>
                         ) : (
                             <p className="text-gray-500">No sales recorded for this customer.</p>
@@ -694,14 +751,14 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
     return (
         <>
             {isAdding && (
-                <AddCustomerModal 
+                <AddCustomerModal
                     isOpen={isAdding}
                     onClose={() => setIsAdding(false)}
                     onAdd={handleAddCustomer}
                     existingCustomers={state.customers}
                 />
             )}
-            
+
             <div className="space-y-4 animate-fade-in-fast">
 
                 <div className="flex justify-between items-center mb-6">
@@ -736,25 +793,24 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                         const totalDue = totalPurchase - totalPaid;
 
                         return (
-                            <Card 
-                                key={customer.id} 
-                                className="cursor-pointer transition-shadow animate-slide-up-fade hover:shadow-lg" 
+                            <Card
+                                key={customer.id}
+                                className="cursor-pointer transition-shadow animate-slide-up-fade hover:shadow-lg"
                                 style={{ animationDelay: `${index * 50}ms` }}
                                 onClick={() => setSelectedCustomer(customer)}
                             >
                                 <div className="flex justify-between items-start">
                                     <div className="flex-1 min-w-0">
                                         <p className="font-bold text-lg text-primary flex items-center gap-2">
-                                            <User size={16}/> {customer.name}
-                                            <SegmentBadge segment={getCustomerSegment(customerSales)} />
+                                            <User size={16} /> {customer.name}
                                         </p>
                                         <div className="flex flex-col gap-1 mt-1">
-                                            <a href={`tel:${customer.phone}`} className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2 hover:text-primary transition-colors" onClick={(e) => e.stopPropagation()}>
-                                                <Phone size={14}/> {customer.phone}
+                                            <a href={`tel:${customer.phone}`} className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2 hover:text-primary transition-colors w-fit" onClick={(e) => e.stopPropagation()}>
+                                                <Phone size={14} /> {customer.phone}
                                             </a>
                                             <div className="flex items-center gap-2">
-                                                <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2"><MapPin size={14}/> {customer.area}</p>
-                                                <button 
+                                                <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2"><MapPin size={14} /> {customer.area}</p>
+                                                <button
                                                     onClick={(e) => handleOpenMap(e, customer.address + ', ' + customer.area)}
                                                     className="p-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded hover:bg-green-200 dark:hover:bg-green-800 transition-colors"
                                                     title="View on Google Maps"
@@ -767,11 +823,6 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                                             {customer.priceTier === 'WHOLESALE' && (
                                                 <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded border border-purple-200 font-bold">WHOLESALE</span>
                                             )}
-                                            {customer.loyaltyPoints && customer.loyaltyPoints > 0 ? (
-                                                <span className="text-[10px] bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded border border-yellow-200 flex items-center gap-1">
-                                                    <Star size={10} fill="currentColor" /> {customer.loyaltyPoints} Pts
-                                                </span>
-                                            ) : null}
                                         </div>
                                     </div>
                                     <div className="text-right flex-shrink-0 ml-4">

@@ -5,6 +5,7 @@ import Dropdown from './Dropdown';
 import ModernDateInput from './ModernDateInput';
 import Input from './Input';
 import { useAppContext } from '../context/AppContext';
+import { Smartphone } from 'lucide-react';
 
 interface PaymentModalProps {
     isOpen: boolean;
@@ -20,19 +21,21 @@ interface PaymentModalProps {
     };
     setPaymentDetails: (details: any) => void;
     type?: 'sale' | 'purchase';
+    title?: string;
 }
 
-const PaymentModal: React.FC<PaymentModalProps> = ({ 
-    isOpen, 
-    onClose, 
-    onSubmit, 
-    totalAmount, 
-    dueAmount, 
-    paymentDetails, 
+const PaymentModal: React.FC<PaymentModalProps> = ({
+    isOpen,
+    onClose,
+    onSubmit,
+    totalAmount,
+    dueAmount,
+    paymentDetails,
     setPaymentDetails,
-    type = 'sale'
+    type = 'sale',
+    title = 'Add Payment'
 }) => {
-    const { showToast } = useAppContext();
+    const { state, showToast } = useAppContext();
 
     if (!isOpen) return null;
 
@@ -51,13 +54,13 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     }
 
     return (
-        <div 
-            style={{ 
-                position: 'fixed', 
-                top: 0, 
-                left: 0, 
-                right: 0, 
-                bottom: 0, 
+        <div
+            style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
                 zIndex: 99999,
                 display: 'flex',
                 alignItems: 'center',
@@ -66,7 +69,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
             className="p-4"
         >
             <div className="absolute inset-0 bg-black/50 animate-fade-in-fast" onClick={onClose} />
-            <Card title="Add Payment" className="relative z-10 w-full max-w-sm animate-scale-in">
+            <Card title={title} className="relative z-10 w-full max-w-sm animate-scale-in">
                 <div className="space-y-4">
                     <div className="p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg border dark:border-slate-600">
                         <p className="flex justify-between text-sm">
@@ -78,35 +81,35 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                             <span className="font-bold text-red-600">₹{dueAmount.toLocaleString('en-IN')}</span>
                         </p>
                     </div>
-                    
+
                     <div>
-                        <Input 
+                        <Input
                             label="Amount"
-                            type="number" 
-                            placeholder="Enter amount" 
-                            value={paymentDetails.amount} 
-                            onChange={e => setPaymentDetails({ ...paymentDetails, amount: e.target.value })} 
+                            type="number"
+                            placeholder="Enter amount"
+                            value={paymentDetails.amount}
+                            onChange={e => setPaymentDetails({ ...paymentDetails, amount: e.target.value })}
                             autoFocus
                         />
                     </div>
-                    
+
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Method</label>
-                         <Dropdown 
+                        <Dropdown
                             options={paymentMethodOptions}
                             value={paymentDetails.method}
                             onChange={(val) => setPaymentDetails({ ...paymentDetails, method: val as any })}
                         />
                     </div>
-                    
+
                     <ModernDateInput
                         label="Payment Date"
-                        value={paymentDetails.date} 
-                        onChange={e => setPaymentDetails({ ...paymentDetails, date: e.target.value })} 
+                        value={paymentDetails.date}
+                        onChange={e => setPaymentDetails({ ...paymentDetails, date: e.target.value })}
                     />
-                    
+
                     <div>
-                        <Input 
+                        <Input
                             label="Reference (Optional)"
                             type="text"
                             placeholder="e.g. UPI ID, Cheque No."
@@ -114,10 +117,30 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                             onChange={e => setPaymentDetails({ ...paymentDetails, reference: e.target.value })}
                         />
                     </div>
-                    
+
+                    {/* Mobile Payment Deep Link */}
+                    {paymentDetails.method === 'UPI' && paymentDetails.amount && (
+                        <button
+                            onClick={() => {
+                                const upiId = state.invoiceTemplate.content.upiId;
+                                const name = state.invoiceTemplate.content.payeeName || state.profile?.name;
+
+                                if (!upiId) {
+                                    showToast("Please configure UPI ID in Invoice Settings first.", "error");
+                                    return;
+                                }
+                                const url = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(name || '')}&am=${paymentDetails.amount}&cu=INR`;
+                                window.location.href = url;
+                            }}
+                            className="w-full flex items-center justify-center gap-2 p-2 bg-indigo-50 text-indigo-700 rounded-lg border border-indigo-200 hover:bg-indigo-100 transition-colors text-sm font-semibold"
+                        >
+                            <Smartphone size={16} /> Open UPI App / GPay
+                        </button>
+                    )}
+
                     <div className="flex gap-2 pt-2">
-                       <Button onClick={handleSubmit} className="w-full">Save Payment</Button>
-                       <Button onClick={onClose} variant="secondary" className="w-full">Cancel</Button>
+                        <Button onClick={handleSubmit} className="w-full">Save Payment</Button>
+                        <Button onClick={onClose} variant="secondary" className="w-full">Cancel</Button>
                     </div>
                 </div>
             </Card>

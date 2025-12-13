@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { GoogleGenAI } from "@google/genai";
 import {
-    Sparkles, Brain, AlertTriangle, TrendingUp, TrendingDown, Loader2, RefreshCw,
+    Sparkles, Brain, AlertTriangle, TrendingUp, Loader2, RefreshCw,
     Gauge, ArrowRight, Target, ShoppingBag, Users, Zap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -10,29 +9,13 @@ import Card from './Card';
 import Button from './Button';
 import AskAIModal from './AskAIModal';
 import { calculateLinearRegression } from '../utils/analytics';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, Tooltip, ResponsiveContainer } from 'recharts';
+import { AIController } from '../utils/ai/AIController';
+import { AIResponse, ActionItem } from '../types';
 
 interface AIInsightsViewProps {
     className?: string;
     onNavigate?: (page: string, id?: string) => void;
-}
-
-interface ActionItem {
-    id: string;
-    title: string;
-    description: string;
-    type: 'restock' | 'promo' | 'collect' | 'general';
-    targetId?: string; // e.g. productId to restock
-    priority: 'high' | 'medium' | 'low';
-}
-
-interface AIResponse {
-    businessHealthScore: number; // 0-100
-    healthReason: string;
-    growthAnalysis: string;
-    riskAnalysis: string;
-    actions: ActionItem[];
-    strategy: string;
 }
 
 const AIInsightsView: React.FC<AIInsightsViewProps> = ({ className, onNavigate }) => {
@@ -46,91 +29,12 @@ const AIInsightsView: React.FC<AIInsightsViewProps> = ({ className, onNavigate }
     const regression = useMemo(() => calculateLinearRegression(state.sales, 30), [state.sales]);
 
     const generateInsight = async () => {
-        if (!state.isOnline) {
-            setError("Offline: Go online for AI insights.");
-            return;
-        }
-
-        const apiKey = localStorage.getItem('gemini_api_key') || process.env.API_KEY;
-        if (!apiKey) {
-            setError("Missing API Key.");
-            return;
-        }
-
         setLoading(true);
         setError(null);
 
         try {
-            const ai = new GoogleGenAI({ apiKey });
-
-            // --- Context Preparation ---
-            const totalSales = state.sales.reduce((sum, s) => sum + Number(s.totalAmount), 0);
-            const salesCount = state.sales.length;
-            const topProducts = state.products
-                .sort((a, b) => b.quantity < a.quantity ? 1 : -1)
-                .slice(0, 5)
-                .map(p => `${p.name} (${p.quantity} left)`)
-                .join(', ');
-
-            const lowStock = state.products.filter(p => p.quantity < 5).map(p => `${p.name} (ID: ${p.id})`).join(', ');
-
-            const totalDues = state.customers.reduce((acc, c) => {
-                const cSales = state.sales.filter(s => s.customerId === c.id);
-                const paid = cSales.reduce((sum, s) => sum + s.payments.reduce((p, pay) => p + Number(pay.amount), 0), 0);
-                const billed = cSales.reduce((sum, s) => sum + Number(s.totalAmount), 0);
-                return acc + (billed - paid);
-            }, 0);
-
-            const trendDescription = `Sales Trend: ${regression.trend.toUpperCase()} (Growth Rate: ${(regression.growthRate * 100).toFixed(1)}%)`;
-
-            const prompt = `
-                You are a Strategic CFO for a retail business. 
-                Analyze this data and output strictly Valid JSON. Do not output markdown code blocks.
-
-                **Data:**
-                - 30-Day Revenue: ₹${totalSales} (${salesCount} txns)
-                - ${trendDescription}
-                - Top Sellers: ${topProducts || "None"}
-                - Critical Low Stock: ${lowStock || "None"}
-                - Pending Dues: ₹${totalDues}
-
-                **JSON Schema:**
-                {
-                    "businessHealthScore": number (0-100),
-                    "healthReason": "Short sentence explaining score",
-                    "growthAnalysis": "1-2 sentences on what is driving growth or what is missing.",
-                    "riskAnalysis": "1-2 sentences on biggest risk (stock, cash flow, stagnation).",
-                    "strategy": "One key strategic move for next week.",
-                    "actions": [
-                        {
-                            "id": "unique_string",
-                            "title": "Short Action Title",
-                            "description": "Why do this?",
-                            "type": "restock" | "promo" | "collect" | "general",
-                            "targetId": "product_id_if_restock_or_customer_id_if_collect",
-                            "priority": "high" | "medium" | "low"
-                        }
-                    ] (Max 3 actions)
-                }
-            `;
-
-            const model = ai.models.generateContent({
-                model: 'gemini-2.0-flash',
-                contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                config: { responseMimeType: 'application/json' }
-            });
-
-            const result = await model;
-            const text = (result as any).response.text();
-
-            try {
-                const parsed = JSON.parse(text);
-                setData(parsed);
-            } catch (e) {
-                console.error("JSON Parse Error", text);
-                setError("AI returned invalid data format.");
-            }
-
+            const insights = await AIController.getInsights(state);
+            setData(insights);
         } catch (err) {
             console.error("AI Error:", err);
             setError("Failed to generate insights.");
