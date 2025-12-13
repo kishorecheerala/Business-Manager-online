@@ -109,6 +109,20 @@ const AppContent: React.FC = () => {
         window.scrollTo(0, 0);
     }, [currentPage]);
 
+    // Remove loader ONLY when DB is loaded
+    useEffect(() => {
+        if (isDbLoaded) {
+            const loader = document.getElementById('initial-loader');
+            if (loader) {
+                loader.style.opacity = '0';
+                loader.style.transition = 'opacity 0.5s ease';
+                setTimeout(() => {
+                    loader.remove();
+                }, 500);
+            }
+        }
+    }, [isDbLoaded]);
+
     // Back Button Handling
     useEffect(() => {
         const safePushState = (data: any, title: string, url?: string | null) => {
