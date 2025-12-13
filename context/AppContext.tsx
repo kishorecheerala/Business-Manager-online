@@ -1053,6 +1053,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             // Backup Metadata
             const lastBackupMeta = app_metadata.find(m => m.id === 'lastBackup');
 
+            // Profile processing
+            let finalProfile = (profile && profile.length > 0) ? profile[0] : null;
+
+            // Bank Accounts
+            const finalBankAccounts = Array.isArray(bankAccountsData) ? (bankAccountsData as unknown as BankAccount[]) : [];
+
             dispatch({
                 type: 'SET_STATE',
                 payload: {
@@ -1067,11 +1073,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     notifications: notifications as Notification[],
                     audit_logs: audit_logs as AuditLogEntry[],
 
-                    // Profile is stored as array but used as object
-                    profile: profileData && profileData.length > 0 ? profileData[0] : null,
+                    profile: finalProfile,
 
                     trash: trashData as TrashItem[],
-                    bankAccounts: bankAccounts as BankAccount[],
+                    bankAccounts: finalBankAccounts,
 
                     // Metadata Hydration
                     theme: themeMeta?.theme || localDefaults.theme || 'light',
