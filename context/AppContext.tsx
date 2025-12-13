@@ -1261,27 +1261,36 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     const googleSignIn = (options?: { forceConsent?: boolean }) => {
-        if (!tokenClientRef.current) {
-            // Re-init if missing (safety)
-            tokenClientRef.current = initGoogleAuth(handleGoogleLoginResponse, (err) => {
-                console.error(err);
-                showToast("Google Auth Error", 'error');
-            });
-        }
+        const performSignIn = () => {
+            if (!tokenClientRef.current) {
+                showToast("Auth client failed to initialize.", 'error');
+                return;
+            }
+
+            if (state.googleUser?.accessToken && !options?.forceConsent) {
+                syncData();
+            } else {
+                const prompt = options?.forceConsent ? 'consent' : '';
+                tokenClientRef.current.requestAccessToken({ prompt });
+            }
+        };
 
         if (!tokenClientRef.current) {
-            showToast("Auth client not ready. Refreshing...", 'error');
-            setTimeout(() => window.location.reload(), 1000);
-            return;
-        }
-
-        if (state.googleUser?.accessToken && !options?.forceConsent) {
-            // Already signed in, check validity? 
-            // Just trigger sync
-            syncData();
+            // Load script first
+            loadGoogleScript()
+                .then(() => {
+                    tokenClientRef.current = initGoogleAuth(handleGoogleLoginResponse, (err) => {
+                        console.error("Auth Init Error:", err);
+                        showToast("Google Auth Error", 'error');
+                    });
+                    performSignIn();
+                })
+                .catch(err => {
+                    console.error("Failed to load Google Script", err);
+                    showToast("Failed to load Google Sign-In.", 'error');
+                });
         } else {
-            const prompt = options?.forceConsent ? 'consent' : '';
-            tokenClientRef.current.requestAccessToken({ prompt });
+            performSignIn();
         }
     };
 
