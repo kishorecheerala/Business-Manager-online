@@ -11,14 +11,18 @@ const isAIStudioEnvironment = () => {
   return hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('preview') || hostname.includes('staging') || hostname.includes('ai.studio') || hostname.includes('usercontent.goog') || hostname.includes('webcontainer.io');
 }
 
-if ('serviceWorker' in navigator && !isAIStudioEnvironment()) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js', { scope: '/' })
-      .then(reg => console.log('✅ SW registered'))
-      .catch(err => console.warn('⚠️ SW registration failed (expected in dev):', err))
-  })
-} else {
-  console.log('Skipping service worker registration in this environment.');
+// P0 CRITICAL FIX: FORCE UNREGISTER ALL SERVICE WORKERS
+// The previous SW implementation caused production freezes. 
+// We are aggressively removing it to restore stability.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(function (registrations) {
+    for (let registration of registrations) {
+      console.log('🚨 Emergency Unregistering SW:', registration);
+      registration.unregister();
+    }
+  }).catch(function (err) {
+    console.error('Service Worker unregistration failed: ', err);
+  });
 }
 
 // Add global error handler for top-level crashes
