@@ -457,16 +457,18 @@ export interface AppMetadataUIPreferences {
   updatedAt?: string;
 }
 
-id: 'dashboardConfig';
-greetingText: string;
-showGreeting: boolean;
 export interface AppMetadataDashboardConfig {
   id: 'dashboardConfig';
   greetingText: string;
   showGreeting: boolean;
   showLogo: boolean;
   titleText: string;
-  logoSize?: number; // scale factor, e.g. 1.0 = normal (h-20)
+  logoSize?: number; // scale factor, e.g. 1.0 = normal (h-20) - DEPRECATED in favor of specific
+  logoSizeMobile?: number;
+  logoSizeDesktop?: number;
+  logoFillMobile?: boolean; // deprecated/renamed or just fill
+  logoFillDesktop?: boolean;
+  logoSettingsTab?: 'mobile' | 'desktop'; // UI state persistence
   customLogo?: string; // base64
   useCustomLogo?: boolean;
   uppercaseGreeting?: boolean;

@@ -180,7 +180,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                                 className="pointer-events-auto flex flex-col items-center justify-center hover:opacity-90 transition-opacity"
                             >
                                 <h1 className="text-lg sm:text-xl font-bold tracking-tight truncate max-w-[200px] sm:max-w-[300px] leading-tight drop-shadow-sm">
-                                    {state.profile?.ownerName || (state.profile?.name || 'Saree Business Manager')}
+                                    {state.profile?.name || (state.profile?.ownerName || 'Saree Business Manager')}
                                 </h1>
                                 <div className="flex items-center gap-1.5 mt-0.5 animate-fade-in-fast">
                                     {state.googleUser ? (

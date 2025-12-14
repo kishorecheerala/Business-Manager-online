@@ -4,7 +4,7 @@ import {
     AppMetadata, AppMetadataTheme, AppMetadataPin, AppMetadataUIPreferences,
     Notification, ProfileData, InvoiceTemplateConfig, Budget, FinancialScenario,
     AuditLogEntry, SaleDraft, ParkedSale, Page, ExpenseCategory, Theme,
-    GoogleUser, SyncStatus, AppMetadataInvoiceSettings, CustomFont, PurchaseItem, AppMetadataNavOrder, AppMetadataQuickActions, TrashItem, AppState, ToastState, BankAccount, Payment
+    GoogleUser, SyncStatus, AppMetadataInvoiceSettings, CustomFont, PurchaseItem, AppMetadataNavOrder, AppMetadataQuickActions, TrashItem, AppState, ToastState, BankAccount, Payment, AppMetadataDashboardConfig
 } from '../types';
 import * as db from '../utils/db';
 import { StoreName } from '../utils/db';
@@ -47,6 +47,7 @@ type Action =
     | { type: 'SET_THEME_GRADIENT'; payload: string }
     | { type: 'SET_FONT'; payload: string }
     | { type: 'UPDATE_UI_PREFERENCES'; payload: Partial<AppMetadataUIPreferences> }
+    | { type: 'UPDATE_DASHBOARD_CONFIG'; payload: Partial<AppMetadataDashboardConfig> }
     | { type: 'SET_PIN'; payload: string }
     | { type: 'SET_SELECTION'; payload: { page: Page; id: string; action?: 'edit' | 'new' } | null }
     | { type: 'CLEAR_SELECTION' }
@@ -129,7 +130,12 @@ const DEFAULT_DASHBOARD_CONFIG: AppMetadataDashboardConfig = {
     useCustomLogo: false,
     uppercaseGreeting: true,
     greetingColor: '',
-    greetingFontSize: 'sm'
+    greetingFontSize: 'sm',
+    logoSizeMobile: 1.0,
+    logoSizeDesktop: 1.0,
+    logoFillMobile: false,
+    logoFillDesktop: false,
+    logoSettingsTab: 'mobile'
 };
 
 // Default empty sale draft
@@ -1216,7 +1222,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     font: themeMeta?.font || localDefaults.font || 'Inter',
 
                     pin: pinMeta?.security?.pin || null,
-                    isLocked: !!(pinMeta?.security?.enabled),
                     isLocked: !!(pinMeta?.security?.enabled),
                     uiPreferences: uiMeta ? { ...DEFAULT_UI_PREFS, ...uiMeta } : DEFAULT_UI_PREFS,
                     dashboardConfig: dashMeta ? { ...DEFAULT_DASHBOARD_CONFIG, ...dashMeta } : DEFAULT_DASHBOARD_CONFIG,

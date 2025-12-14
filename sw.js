@@ -1,12 +1,13 @@
-// Cache-busting service worker - PANIC MODE
+// Cache-busting service worker - PRODUCTION HOTFIX
 // This version forces a complete cache clear to resolve "White Screen" / Freeze issues.
-const CACHE_VERSION = 'v-panic-reset-1';
+const CACHE_VERSION = 'v-production-hotfix-1';
 const CACHE_NAME = `business-manager-${CACHE_VERSION}`;
 
-console.log('[SW] Panic Mode: Active', CACHE_NAME);
+console.log('[SW] Hotfix Active:', CACHE_NAME);
 
 self.addEventListener('install', (event) => {
-  self.skipWaiting(); // Force activation
+  console.log('[SW] Installing - Forcing activation...');
+  self.skipWaiting(); // Force activation immediately
 });
 
 self.addEventListener('activate', (event) => {
@@ -15,22 +16,31 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          // DELETE EVERYTHING that isn't the new cache
-          if (cacheName !== CACHE_NAME) {
-            console.log('[SW] Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
-          }
+          // DELETE EVERYTHING to ensure no stale data
+          console.log('[SW] Deleting old cache:', cacheName);
+          return caches.delete(cacheName);
         })
       );
     }).then(() => {
-      console.log('[SW] Clients Claimed.');
+      console.log('[SW] Clients Claimed - Taking control.');
       return self.clients.claim();
     })
   );
 });
 
 self.addEventListener('fetch', (event) => {
-  // NETWORK ONLY for this version to ensure we get fresh files
-  // We will re-enable caching in v-robust-4 once stable.
+  // NETWORK ONLY STRATEGY
+  // We explicitly bypass cache to prevent the "stale/freeze" issue.
+  // This ensures the user always gets the latest Vercel deployment.
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
   event.respondWith(
-    console.log('[SW] Service Worker loaded - Cache busting enabled');
+    fetch(event.request).catch((error) => {
+      console.error('[SW] Fetch failed:', error);
+      // Optional: return a fallback offline page here if needed in future
+      throw error;
+    })
+  );
+});

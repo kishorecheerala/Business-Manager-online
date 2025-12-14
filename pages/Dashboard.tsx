@@ -1072,12 +1072,25 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                 )}
 
                 {dashboardConfig.showLogo && (dashboardConfig.useCustomLogo ? dashboardConfig.customLogo : profile?.logo) && (
-                    <div className="mb-4 relative group" style={{ height: `${(dashboardConfig.logoSize || 1) * 5}rem`, width: 'auto' }}>
+                    <div
+                        className={`mb-4 relative group transition-all duration-300
+                            h-[var(--logo-h-mobile)] md:h-[var(--logo-h-desktop)]
+                            ${dashboardConfig.logoFillMobile ? 'w-full' : 'w-auto'}
+                            ${dashboardConfig.logoFillDesktop ? 'md:w-full' : 'md:w-auto'}
+                        `}
+                        style={{
+                            '--logo-h-mobile': `${(dashboardConfig.logoSizeMobile || dashboardConfig.logoSize || 1) * 5}rem`,
+                            '--logo-h-desktop': `${(dashboardConfig.logoSizeDesktop || dashboardConfig.logoSize || 1) * 5}rem`,
+                        } as React.CSSProperties}
+                    >
                         <div className="absolute -inset-1 bg-gradient-to-r from-orange-400 to-indigo-400 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
                         <img
                             src={dashboardConfig.useCustomLogo ? dashboardConfig.customLogo : profile?.logo}
                             alt="Dashboard Logo"
-                            className="relative h-full w-auto object-contain rounded-xl shadow-lg border-2 border-white dark:border-slate-700 bg-white dark:bg-slate-800 p-1"
+                            className={`relative h-full rounded-xl shadow-lg border-2 border-white dark:border-slate-700 bg-white dark:bg-slate-800 p-1
+                                ${dashboardConfig.logoFillMobile ? 'w-full object-cover' : 'w-auto object-contain'}
+                                ${dashboardConfig.logoFillDesktop ? 'md:w-full md:object-cover' : 'md:w-auto md:object-contain'}
+                            `}
                         />
                     </div>
                 )}

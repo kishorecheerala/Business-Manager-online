@@ -275,8 +275,8 @@ const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) =>
                                                         key={size}
                                                         onClick={() => setDashConfig({ ...dashConfig, greetingFontSize: size as any })}
                                                         className={`px-2 py-1 text-xs border rounded ${(dashConfig.greetingFontSize || 'sm') === size
-                                                                ? 'bg-indigo-100 border-indigo-500 text-indigo-700 font-bold'
-                                                                : 'bg-white dark:bg-slate-700 dark:text-gray-300'
+                                                            ? 'bg-indigo-100 border-indigo-500 text-indigo-700 font-bold'
+                                                            : 'bg-white dark:bg-slate-700 dark:text-gray-300'
                                                             }`}
                                                     >
                                                         {size.toUpperCase()}
@@ -346,21 +346,77 @@ const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) =>
                                                 </div>
                                             )}
 
-                                            {/* Only show Size Slider if logo is visible */}
-                                            <div>
-                                                <div className="flex justify-between text-xs text-slate-500 mb-1">
-                                                    <span>Size</span>
-                                                    <span>{(dashConfig.logoSize || 1) * 100}%</span>
+                                            {/* Logo Settings: Mobile vs Desktop */}
+                                            <div className="mt-3 bg-white dark:bg-slate-700/50 rounded-lg p-2 border border-gray-200 dark:border-slate-600">
+                                                <div className="flex text-xs font-bold mb-3 bg-gray-100 dark:bg-slate-700 rounded p-0.5">
+                                                    <button
+                                                        className={`flex-1 py-1 px-2 rounded flex items-center justify-center gap-1 transition-all ${!dashConfig.logoSettingsTab || dashConfig.logoSettingsTab === 'mobile' ? 'bg-white dark:bg-slate-600 shadow text-indigo-600' : 'text-gray-500'}`}
+                                                        onClick={() => setDashConfig({ ...dashConfig, logoSettingsTab: 'mobile' } as any)}
+                                                    >
+                                                        <Smartphone size={12} /> Mobile
+                                                    </button>
+                                                    <button
+                                                        className={`flex-1 py-1 px-2 rounded flex items-center justify-center gap-1 transition-all ${dashConfig.logoSettingsTab === 'desktop' ? 'bg-white dark:bg-slate-600 shadow text-indigo-600' : 'text-gray-500'}`}
+                                                        onClick={() => setDashConfig({ ...dashConfig, logoSettingsTab: 'desktop' } as any)}
+                                                    >
+                                                        <Layout size={12} /> Desktop
+                                                    </button>
                                                 </div>
-                                                <input
-                                                    type="range"
-                                                    min="0.5"
-                                                    max="2.5"
-                                                    step="0.1"
-                                                    value={dashConfig.logoSize || 1}
-                                                    onChange={(e) => setDashConfig({ ...dashConfig, logoSize: Number(e.target.value) })}
-                                                    className="w-full accent-indigo-600 h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                                                />
+
+                                                {/* Controls based on active tab */}
+                                                {(!dashConfig.logoSettingsTab || dashConfig.logoSettingsTab === 'mobile') ? (
+                                                    <div className="space-y-3 animate-fade-in">
+                                                        <div>
+                                                            <div className="flex justify-between text-xs text-slate-500 mb-1">
+                                                                <span>Mobile Size ({(dashConfig.logoSizeMobile || dashConfig.logoSize || 1) * 100}%)</span>
+                                                            </div>
+                                                            <input
+                                                                type="range"
+                                                                min="0.5"
+                                                                max="3.0"
+                                                                step="0.1"
+                                                                value={dashConfig.logoSizeMobile || dashConfig.logoSize || 1}
+                                                                onChange={(e) => setDashConfig({ ...dashConfig, logoSizeMobile: Number(e.target.value) })}
+                                                                className="w-full accent-indigo-600 h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                                                            />
+                                                        </div>
+                                                        <label className="flex items-center justify-between text-xs font-medium cursor-pointer">
+                                                            <span>Stretch to Fill Width</span>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={!!dashConfig.logoFillMobile}
+                                                                onChange={(e) => setDashConfig({ ...dashConfig, logoFillMobile: e.target.checked })}
+                                                                className="w-4 h-4 rounded border-gray-300 accent-indigo-600"
+                                                            />
+                                                        </label>
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-3 animate-fade-in">
+                                                        <div>
+                                                            <div className="flex justify-between text-xs text-slate-500 mb-1">
+                                                                <span>Desktop Size ({(dashConfig.logoSizeDesktop || dashConfig.logoSize || 1) * 100}%)</span>
+                                                            </div>
+                                                            <input
+                                                                type="range"
+                                                                min="0.5"
+                                                                max="4.0"
+                                                                step="0.1"
+                                                                value={dashConfig.logoSizeDesktop || dashConfig.logoSize || 1}
+                                                                onChange={(e) => setDashConfig({ ...dashConfig, logoSizeDesktop: Number(e.target.value) })}
+                                                                className="w-full accent-indigo-600 h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                                                            />
+                                                        </div>
+                                                        <label className="flex items-center justify-between text-xs font-medium cursor-pointer">
+                                                            <span>Stretch to Fill Area</span>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={!!dashConfig.logoFillDesktop}
+                                                                onChange={(e) => setDashConfig({ ...dashConfig, logoFillDesktop: e.target.checked })}
+                                                                className="w-4 h-4 rounded border-gray-300 accent-indigo-600"
+                                                            />
+                                                        </label>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     )}
