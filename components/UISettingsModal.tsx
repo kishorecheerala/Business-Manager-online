@@ -5,272 +5,312 @@ import { X, Save, Layout, Smartphone, CreditCard, Bell, Maximize2, Minimize2, Ar
 import Card from './Card';
 import Button from './Button';
 import { useAppContext } from '../context/AppContext';
-import { AppMetadataUIPreferences } from '../types';
+import { AppMetadataUIPreferences, AppMetadataDashboardConfig } from '../types';
 
 interface UISettingsModalProps {
     isOpen: boolean;
     onClose: () => void;
 }
 
+const fonts = [
+    { name: 'Inter', family: 'Inter, sans-serif' },
+    { name: 'Poppins', family: 'Poppins, sans-serif' },
+    { name: 'Roboto', family: 'Roboto, sans-serif' },
+    { name: 'Open Sans', family: '"Open Sans", sans-serif' },
+    { name: 'Lato', family: 'Lato, sans-serif' },
+    { name: 'Montserrat', family: 'Montserrat, sans-serif' },
+    { name: 'Playfair Display', family: '"Playfair Display", serif' },
+    { name: 'Merriweather', family: 'Merriweather, serif' },
+    { name: 'Space Mono', family: '"Space Mono", monospace' },
+];
+
 const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) => {
     const { state, dispatch, showToast } = useAppContext();
     const [prefs, setPrefs] = useState<AppMetadataUIPreferences>(state.uiPreferences);
+    const [dashConfig, setDashConfig] = useState<AppMetadataDashboardConfig>(state.dashboardConfig);
+    const [activeFont, setActiveFont] = useState(state.font || 'Inter');
+    const [customFont, setCustomFont] = useState('');
+    const [scale, setScale] = useState(100); // Percentage for base font size
+    const [radius, setRadius] = useState(0.5); // rem
 
     useEffect(() => {
         if (isOpen) {
             setPrefs(state.uiPreferences);
-            document.body.style.overflow = 'hidden';
+            setDashConfig(state.dashboardConfig);
+            setActiveFont(state.font || 'Inter');
+
+            // Read persisted visual tweaks
+            const savedScale = localStorage.getItem('ui_scale');
+            if (savedScale) setScale(Number(savedScale));
+
+            const savedRadius = localStorage.getItem('ui_radius');
+            if (savedRadius) setRadius(Number(savedRadius));
         }
-        return () => {
-            document.body.style.overflow = '';
-        };
-    }, [isOpen, state.uiPreferences]);
+    }, [isOpen, state.uiPreferences, state.font, state.dashboardConfig]);
+
+    // Live Preview Effect
+    useEffect(() => {
+        const root = document.documentElement;
+
+        // Apply Font
+        const selectedFontObj = fonts.find(f => f.name === activeFont);
+        if (selectedFontObj) {
+            root.style.setProperty('--font-primary', selectedFontObj.family);
+        } else if (activeFont) {
+            root.style.setProperty('--font-primary', `${activeFont}, sans-serif`);
+        }
+
+        // Apply Scale (Font Size)
+        // Base is usually 16px (1rem), we scale this
+        // Changing root font-size scales all rem units
+        root.style.fontSize = `${(scale / 100) * 16}px`;
+
+        // Apply Radius
+        root.style.setProperty('--radius-btn', `${radius}rem`);
+        root.style.setProperty('--radius-card', `${radius + 0.25}rem`); // Cards slightly rounder
+
+    }, [activeFont, scale, radius]);
+
 
     const handleSave = () => {
         dispatch({ type: 'UPDATE_UI_PREFERENCES', payload: prefs });
-        showToast("UI settings updated. Preferences will sync with your account.", 'success');
+        dispatch({ type: 'UPDATE_DASHBOARD_CONFIG', payload: dashConfig });
+        // Also update standard Theme Metadata for font
+        dispatch({ type: 'SET_FONT', payload: activeFont });
+        // Persist Scale/Radius via a metadata update or simply localStorage for now if types not updated
+        // For robustness, usually we'd add fields to AppMetadataUIPreferences
+        localStorage.setItem('ui_scale', scale.toString());
+        localStorage.setItem('ui_radius', radius.toString());
+
+        showToast("UI settings updated successfully.", 'success');
         onClose();
     };
 
-    const handleApplyPreset = (preset: 'modern' | 'classic' | 'playful') => {
-        let newPrefs: Partial<AppMetadataUIPreferences> = {};
-        if (preset === 'modern') {
-            newPrefs = { buttonStyle: 'rounded', cardStyle: 'solid', toastPosition: 'top-center', density: 'comfortable', navStyle: 'docked', fontSize: 'normal' };
-        } else if (preset === 'classic') {
-            newPrefs = { buttonStyle: 'sharp', cardStyle: 'bordered', toastPosition: 'bottom-right', density: 'compact', navStyle: 'docked', fontSize: 'small' };
-        } else if (preset === 'playful') {
-            newPrefs = { buttonStyle: 'pill', cardStyle: 'glass', toastPosition: 'top-center', density: 'comfortable', navStyle: 'floating', fontSize: 'normal' };
-        }
-        setPrefs(prev => ({ ...prev, ...newPrefs }));
+    const handleLoadGoogleFont = () => {
+        if (!customFont) return;
+
+        const link = document.createElement('link');
+        link.href = `https://fonts.googleapis.com/css2?family=${customFont.replace(/\s+/g, '+')}:wght@300;400;500;700&display=swap`;
+        link.rel = 'stylesheet';
+        document.head.appendChild(link);
+
+        setActiveFont(customFont);
+        setCustomFont('');
+        showToast(`Loaded font: ${customFont}`, 'success');
     };
 
     if (!isOpen) return null;
 
     return createPortal(
-        <div
-            className="fixed inset-0 z-[80] flex items-center justify-center p-4"
-        >
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in-fast" onClick={onClose} />
-            <Card className="relative z-10 w-full max-w-lg h-[90vh] flex flex-col p-0 overflow-hidden animate-scale-in border-none shadow-2xl bg-white dark:bg-slate-900">
+            <div className="relative z-10 w-full max-w-2xl h-[90vh] flex flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
+
+                {/* Header */}
                 <div className="bg-slate-800 text-white p-4 flex justify-between items-center shrink-0">
                     <div className="flex items-center gap-2">
-                        <Layout className="text-teal-400" />
-                        <h2 className="font-bold text-lg">UI Customizer</h2>
+                        <Type className="text-teal-400" />
+                        <h2 className="font-bold text-lg">Appearance & Typography</h2>
                     </div>
                     <button onClick={onClose} className="p-1 hover:bg-white/20 rounded-full transition-colors"><X size={20} /></button>
                 </div>
 
-                <div className="flex-grow overflow-y-auto p-5 space-y-8 bg-slate-50 dark:bg-slate-900 custom-scrollbar">
+                <div className="flex-grow overflow-y-auto p-6 space-y-8 bg-slate-50 dark:bg-slate-900 custom-scrollbar">
 
-                    {/* Quick Presets */}
+                    {/* Font Family Section */}
                     <section>
-                        <h3 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-2">
-                            <Layout size={14} /> Quick Themes
+                        <h3 className="text-sm font-bold text-slate-500 uppercase mb-4 flex items-center gap-2">
+                            <span className="bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-400 p-1 rounded">Aa</span> Font Family
                         </h3>
-                        <div className="grid grid-cols-3 gap-3">
-                            <button onClick={() => handleApplyPreset('modern')} className="p-3 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-xl hover:ring-2 hover:ring-indigo-500 text-sm font-medium transition-all shadow-sm">Modern</button>
-                            <button onClick={() => handleApplyPreset('classic')} className="p-3 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-none hover:ring-2 hover:ring-indigo-500 text-sm font-medium transition-all shadow-sm">Classic</button>
-                            <button onClick={() => handleApplyPreset('playful')} className="p-3 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-full hover:ring-2 hover:ring-indigo-500 text-sm font-medium transition-all shadow-sm">Playful</button>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+                            {fonts.map(f => (
+                                <button
+                                    key={f.name}
+                                    onClick={() => setActiveFont(f.name)}
+                                    className={`p-3 rounded-xl border text-left transition-all hover:scale-[1.02] ${activeFont === f.name
+                                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-md ring-2 ring-indigo-200 dark:ring-indigo-900'
+                                        : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700'}`}
+                                >
+                                    <p className="font-bold text-sm">{f.name}</p>
+                                    <p className="text-xs opacity-70" style={{ fontFamily: f.family }}>The quick brown fox</p>
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Custom Google Font */}
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                value={customFont}
+                                onChange={(e) => setCustomFont(e.target.value)}
+                                placeholder="Enter Google Font Name (e.g., 'Righteous')"
+                                className="flex-1 p-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm"
+                            />
+                            <Button onClick={handleLoadGoogleFont} size="sm" variant="secondary">Load</Button>
                         </div>
                     </section>
 
-                    <div className="border-t dark:border-slate-700"></div>
+                    <div className="h-px bg-gray-200 dark:bg-slate-700"></div>
 
-                    {/* Component Styles */}
-                    <div className="space-y-6">
-                        {/* Button Style */}
+                    {/* Pro Customization Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+
+                        {/* Font Scaling */}
                         <section>
-                            <h3 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-2">
-                                <Smartphone size={14} /> Button Style
+                            <h3 className="text-sm font-bold text-slate-500 uppercase mb-4 flex items-center gap-2">
+                                <Maximize2 size={16} /> Text Scaling
                             </h3>
-                            <div className="grid grid-cols-3 gap-3">
-                                {[
-                                    { id: 'rounded', label: 'Rounded' },
-                                    { id: 'pill', label: 'Pill' },
-                                    { id: 'sharp', label: 'Sharp' }
-                                ].map((opt) => (
-                                    <button
-                                        key={opt.id}
-                                        onClick={() => setPrefs({ ...prefs, buttonStyle: opt.id as any })}
-                                        className={`p-3 text-sm font-bold transition-all flex items-center justify-center border shadow-sm ${prefs.buttonStyle === opt.id
-                                                ? 'bg-indigo-50 border-indigo-500 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 ring-1 ring-indigo-500'
-                                                : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-600 dark:text-gray-400 hover:border-gray-300'
-                                            } ${opt.id === 'rounded' ? 'rounded-lg' : opt.id === 'pill' ? 'rounded-full' : 'rounded-none'
-                                            }`}
-                                    >
-                                        {opt.label}
-                                    </button>
-                                ))}
+                            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm">
+                                <div className="flex justify-between mb-2">
+                                    <span className="text-xs font-bold text-slate-400">Compact</span>
+                                    <span className="text-sm font-bold text-indigo-600">{scale}%</span>
+                                    <span className="text-xs font-bold text-slate-400">Large</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="80"
+                                    max="130"
+                                    step="5"
+                                    value={scale}
+                                    onChange={(e) => setScale(Number(e.target.value))}
+                                    className="w-full accent-indigo-600 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                                />
+                                <div className="mt-4 p-3 bg-gray-50 dark:bg-slate-900 rounded border border-gray-100 dark:border-slate-700">
+                                    <p className="text-sm text-slate-600 dark:text-slate-300">
+                                        Adjust the base text size. This affects readable content across the dashboard.
+                                    </p>
+                                </div>
                             </div>
                         </section>
 
-                        {/* Card Style */}
+                        {/* Border Radius */}
                         <section>
-                            <h3 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-2">
-                                <CreditCard size={14} /> Card Style
+                            <h3 className="text-sm font-bold text-slate-500 uppercase mb-4 flex items-center gap-2">
+                                <Layout size={16} /> Corner Roundness
                             </h3>
-                            <div className="grid grid-cols-3 gap-3">
-                                <button
-                                    onClick={() => setPrefs({ ...prefs, cardStyle: 'solid' })}
-                                    className={`flex flex-col items-center justify-center p-3 text-center border rounded-xl text-sm font-medium transition-all shadow-sm ${prefs.cardStyle === 'solid' ? 'ring-2 ring-indigo-500 border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300' : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 hover:border-gray-300 text-gray-600 dark:text-gray-400'}`}
-                                >
-                                    Solid <span className="text-[10px] font-normal opacity-70 mt-1">Opaque</span>
-                                </button>
-                                <button
-                                    onClick={() => setPrefs({ ...prefs, cardStyle: 'bordered' })}
-                                    className={`flex flex-col items-center justify-center p-3 text-center border rounded-xl text-sm font-medium transition-all shadow-sm ${prefs.cardStyle === 'bordered' ? 'ring-2 ring-indigo-500 border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300' : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 hover:border-gray-300 text-gray-600 dark:text-gray-400'}`}
-                                >
-                                    Bordered <span className="text-[10px] font-normal opacity-70 mt-1">Outline</span>
-                                </button>
-                                <button
-                                    onClick={() => setPrefs({ ...prefs, cardStyle: 'glass' })}
-                                    className={`flex flex-col items-center justify-center p-3 text-center border rounded-xl text-sm font-medium transition-all shadow-sm ${prefs.cardStyle === 'glass' ? 'ring-2 ring-indigo-500 border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300' : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 hover:border-gray-300 text-gray-600 dark:text-gray-400'}`}
-                                >
-                                    Glass <span className="text-[10px] font-normal opacity-70 mt-1">Blur</span>
-                                </button>
-                            </div>
-                        </section>
-                    </div>
-
-                    <div className="border-t dark:border-slate-700"></div>
-
-                    {/* Navigation & Typography */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                        {/* Navigation Style */}
-                        <section>
-                            <h3 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-2">
-                                <Navigation size={14} /> Navigation Bar
-                            </h3>
-                            <div className="grid grid-cols-2 gap-3">
-                                <button
-                                    onClick={() => setPrefs({ ...prefs, navStyle: 'docked' })}
-                                    className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all shadow-sm ${(prefs.navStyle || 'docked') === 'docked'
-                                            ? 'bg-indigo-50 border-indigo-500 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 ring-1 ring-indigo-500'
-                                            : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-600 dark:text-gray-400 hover:border-gray-300'
-                                        }`}
-                                >
-                                    <div className="h-6 w-full max-w-[40px] border-b-2 border-current mb-2 opacity-50"></div>
-                                    <span className="text-sm font-bold">Docked</span>
-                                </button>
-                                <button
-                                    onClick={() => setPrefs({ ...prefs, navStyle: 'floating' })}
-                                    className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all shadow-sm ${prefs.navStyle === 'floating'
-                                            ? 'bg-indigo-50 border-indigo-500 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 ring-1 ring-indigo-500'
-                                            : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-600 dark:text-gray-400 hover:border-gray-300'
-                                        }`}
-                                >
-                                    <div className="h-6 w-full max-w-[40px] border-2 border-current rounded-full mb-2 opacity-50"></div>
-                                    <span className="text-sm font-bold">Floating</span>
-                                </button>
-                            </div>
-                        </section>
-
-                        {/* Font Size */}
-                        <section>
-                            <h3 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-2">
-                                <Type size={14} /> Font Size
-                            </h3>
-                            <div className="grid grid-cols-3 gap-3">
-                                {[
-                                    { id: 'small', label: 'Small', class: 'text-xs' },
-                                    { id: 'normal', label: 'Normal', class: 'text-sm' },
-                                    { id: 'large', label: 'Large', class: 'text-base' }
-                                ].map((opt) => (
-                                    <button
-                                        key={opt.id}
-                                        onClick={() => setPrefs({ ...prefs, fontSize: opt.id as any })}
-                                        className={`flex flex-col items-center justify-center p-2 rounded-xl font-medium transition-all border shadow-sm ${(prefs.fontSize || 'normal') === opt.id
-                                                ? 'bg-indigo-50 border-indigo-500 text-indigo-600 dark:text-indigo-300 dark:bg-indigo-900/30 ring-1 ring-indigo-500'
-                                                : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-500 dark:text-gray-400 hover:border-gray-300'
-                                            }`}
-                                    >
-                                        <span className={opt.class}>A</span>
-                                        <span className="text-[10px] mt-1">{opt.label}</span>
-                                    </button>
-                                ))}
+                            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm">
+                                <div className="flex justify-between mb-2">
+                                    <span className="text-xs font-bold text-slate-400">Sharp</span>
+                                    <span className="text-sm font-bold text-indigo-600">{radius}rem</span>
+                                    <span className="text-xs font-bold text-slate-400">Round</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="1.5"
+                                    step="0.1"
+                                    value={radius}
+                                    onChange={(e) => setRadius(Number(e.target.value))}
+                                    className="w-full accent-indigo-600 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                                />
+                                <div className="mt-4 flex gap-3 justify-center">
+                                    <button className="px-4 py-2 bg-indigo-600 text-white shadow-sm transition-all" style={{ borderRadius: `${radius}rem` }}>Button</button>
+                                    <div className="w-10 h-10 border-2 border-indigo-600 bg-indigo-50" style={{ borderRadius: `${radius}rem` }}></div>
+                                </div>
                             </div>
                         </section>
                     </div>
 
-                    <div className="border-t dark:border-slate-700"></div>
+                    <div className="h-px bg-gray-200 dark:bg-slate-700"></div>
 
-                    {/* Layout & Positioning */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                        {/* Notification Position */}
-                        <section>
-                            <h3 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-2">
-                                <Bell size={14} /> Toast Position
-                            </h3>
-                            <div className="grid grid-cols-2 gap-3">
-                                {[
-                                    { id: 'top-center', label: 'Top Center', icon: ArrowUp },
-                                    { id: 'top-right', label: 'Top Right', icon: ArrowUp },
-                                    { id: 'bottom-center', label: 'Btm Center', icon: ArrowDown },
-                                    { id: 'bottom-right', label: 'Btm Right', icon: ArrowDown }
-                                ].map((pos) => {
-                                    const Icon = pos.icon;
-                                    const isSelected = prefs.toastPosition === pos.id;
-                                    return (
+                    {/* Dashboard Header Customization */}
+                    <section>
+                        <h3 className="text-sm font-bold text-slate-500 uppercase mb-4 flex items-center gap-2">
+                            <Layout size={16} /> Dashboard Header
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-3">
+                                <label className="flex items-center justify-between text-sm font-semibold">
+                                    Show Greeting
+                                    <input
+                                        type="checkbox"
+                                        checked={dashConfig?.showGreeting}
+                                        onChange={(e) => setDashConfig({ ...dashConfig, showGreeting: e.target.checked })}
+                                        className="w-4 h-4 rounded border-gray-300 accent-indigo-600"
+                                    />
+                                </label>
+                                <input
+                                    type="text"
+                                    value={dashConfig?.greetingText}
+                                    onChange={(e) => setDashConfig({ ...dashConfig, greetingText: e.target.value })}
+                                    className="w-full p-2 text-sm border bg-white dark:bg-slate-800 rounded-lg dark:border-slate-700"
+                                    placeholder="e.g. Om Namo Venkatesaya"
+                                    disabled={!dashConfig?.showGreeting}
+                                />
+                            </div>
+
+                            <div className="space-y-3">
+                                <label className="flex items-center justify-between text-sm font-semibold">
+                                    Show Logo
+                                    <input
+                                        type="checkbox"
+                                        checked={dashConfig?.showLogo}
+                                        onChange={(e) => setDashConfig({ ...dashConfig, showLogo: e.target.checked })}
+                                        className="w-4 h-4 rounded border-gray-300 accent-indigo-600"
+                                    />
+                                </label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={dashConfig?.titleText}
+                                        onChange={(e) => setDashConfig({ ...dashConfig, titleText: e.target.value })}
+                                        className="w-full p-2 text-sm border bg-white dark:bg-slate-800 rounded-lg dark:border-slate-700"
+                                        placeholder="Main Title (Business Insights)"
+                                    />
+                                </div>
+                                <p className="text-[10px] text-slate-400 text-right">To change logo image, go to Profile.</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <div className="h-px bg-gray-200 dark:bg-slate-700"></div>
+
+                    {/* Legacy UI Preferences (Still useful for specific toggles) */}
+                    <section>
+                        <h3 className="text-sm font-bold text-slate-500 uppercase mb-4">Other Preferences</h3>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-2">Notification Position</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {['top-center', 'bottom-right'].map(pos => (
                                         <button
-                                            key={pos.id}
-                                            onClick={() => setPrefs({ ...prefs, toastPosition: pos.id as any })}
-                                            className={`flex flex-col items-center justify-center p-2 rounded-xl text-xs transition-all border shadow-sm ${isSelected
-                                                    ? 'bg-indigo-50 border-indigo-500 text-indigo-600 dark:text-indigo-300 dark:bg-indigo-900/30 ring-1 ring-indigo-500'
-                                                    : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-500 hover:border-gray-300'
-                                                }`}
+                                            key={pos}
+                                            onClick={() => setPrefs({ ...prefs, toastPosition: pos as any })}
+                                            className={`p-2 text-xs border rounded transition-all ${prefs.toastPosition === pos ? 'bg-indigo-50 border-indigo-500 text-indigo-700 font-bold' : 'bg-white dark:bg-slate-800 dark:text-slate-300'}`}
                                         >
-                                            <Icon size={14} className="mb-1 opacity-70" />
-                                            {pos.label}
+                                            {pos}
                                         </button>
-                                    )
-                                })}
+                                    ))}
+                                </div>
                             </div>
-                        </section>
-
-                        {/* Layout Density */}
-                        <section>
-                            <h3 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-2">
-                                <Maximize2 size={14} /> Layout Density
-                            </h3>
-                            <div className="grid grid-cols-2 gap-3">
-                                <button
-                                    onClick={() => setPrefs({ ...prefs, density: 'comfortable' })}
-                                    className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all shadow-sm ${prefs.density === 'comfortable'
-                                            ? 'bg-indigo-50 border-indigo-500 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 ring-1 ring-indigo-500'
-                                            : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-600 dark:text-gray-400 hover:border-gray-300'
-                                        }`}
-                                >
-                                    <Maximize2 size={18} className="mb-1 opacity-70" />
-                                    <span className="text-xs font-bold">Comfortable</span>
-                                </button>
-                                <button
-                                    onClick={() => setPrefs({ ...prefs, density: 'compact' })}
-                                    className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all shadow-sm ${prefs.density === 'compact'
-                                            ? 'bg-indigo-50 border-indigo-500 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 ring-1 ring-indigo-500'
-                                            : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-600 dark:text-gray-400 hover:border-gray-300'
-                                        }`}
-                                >
-                                    <Minimize2 size={18} className="mb-1 opacity-70" />
-                                    <span className="text-xs font-bold">Compact</span>
-                                </button>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-2">Card Style</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {['solid', 'glass'].map(style => (
+                                        <button
+                                            key={style}
+                                            onClick={() => setPrefs({ ...prefs, cardStyle: style as any })}
+                                            className={`p-2 text-xs border rounded transition-all ${prefs.cardStyle === style ? 'bg-indigo-50 border-indigo-500 text-indigo-700 font-bold' : 'bg-white dark:bg-slate-800 dark:text-slate-300'}`}
+                                        >
+                                            {style}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
-                        </section>
-                    </div>
+                        </div>
+                    </section>
 
                 </div>
 
                 <div className="p-4 bg-white dark:bg-slate-800 border-t dark:border-slate-700 flex gap-3 shrink-0">
-                    <Button onClick={onClose} variant="secondary" className="flex-1">
-                        Cancel
-                    </Button>
-                    <Button onClick={handleSave} className="flex-[2]">
-                        <Save size={16} className="mr-2" /> Save Preferences
-                    </Button>
+                    <Button onClick={onClose} variant="secondary" className="flex-1">Cancel</Button>
+                    <Button onClick={handleSave} className="flex-[2]"><Save size={16} className="mr-2" /> Save Changes</Button>
                 </div>
-            </Card>
+            </div>
         </div>,
         document.body
     );
 };
 
 export default UISettingsModal;
+

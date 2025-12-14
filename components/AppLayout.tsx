@@ -146,6 +146,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                     onLockApp={handleLockApp}
                     onOpenAPIConfig={() => setIsAPIConfigOpen(true)}
                     onHelpClick={() => setIsHelpOpen(true)}
+                    onOpenNavCustomizer={() => setIsNavCustomizerOpen(true)}
                 />
                 <UniversalSearch isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} onNavigate={onNavigate} />
                 <AskAIModal isOpen={isAskAIOpen} onClose={() => setIsAskAIOpen(false)} onNavigate={onNavigate} />
@@ -173,13 +174,13 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                             </button>
                         </div>
 
-                        <div className="absolute left-0 right-0 top-0 bottom-0 flex flex-col justify-center items-center pointer-events-none z-10 px-16">
+                        <div className="absolute left-0 right-0 top-0 bottom-0 flex flex-col justify-center items-center pointer-events-none z-10 px-28 sm:px-16">
                             <button
                                 onClick={() => onNavigate('DASHBOARD')}
                                 className="pointer-events-auto flex flex-col items-center justify-center hover:opacity-90 transition-opacity"
                             >
                                 <h1 className="text-lg sm:text-xl font-bold tracking-tight truncate max-w-[200px] sm:max-w-[300px] leading-tight drop-shadow-sm">
-                                    {state.profile?.name || 'Saree Business Manager'}
+                                    {state.profile?.ownerName || (state.profile?.name || 'Saree Business Manager')}
                                 </h1>
                                 <div className="flex items-center gap-1.5 mt-0.5 animate-fade-in-fast">
                                     {state.googleUser ? (
@@ -195,13 +196,13 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                                             </div>
 
                                             {/* Last Synced Time - Aligned Single Line */}
-                                            <div className="hidden sm:flex items-center justify-end mr-3 gap-1.5">
-                                                <span className="text-xs font-medium text-white/90">
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="hidden sm:inline text-xs font-medium text-white/90">
                                                     {state.syncStatus === 'syncing' ? 'Status:' :
                                                         state.syncStatus === 'error' ? 'Status:' :
                                                             'Last Synced:'}
                                                 </span>
-                                                <span className="text-xs font-bold text-white drop-shadow-md flex items-center">
+                                                <span className="text-[10px] sm:text-xs font-bold text-white drop-shadow-md flex items-center">
                                                     {state.syncStatus === 'syncing' ? (
                                                         <>
                                                             Syncing
@@ -308,7 +309,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
             {currentPage !== 'INVOICE_DESIGNER' && (
                 <nav className={`fixed pb-[env(safe-area-inset-bottom)] z-50 transition-all duration-300 ${navContainerClass}`}>
                     <div className="hidden md:flex w-full overflow-x-auto custom-scrollbar">
-                        <div className="flex flex-nowrap mx-auto items-center gap-2 lg:gap-6 p-2 px-6 min-w-max">
+                        <div className="flex flex-nowrap mx-auto items-center justify-center gap-1 lg:gap-4 p-2 px-4 w-full">
                             {mainNavItems.map(item => (
                                 <div key={item.page} className="w-16 lg:w-20 flex-shrink-0">
                                     <NavItem
@@ -326,7 +327,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                     {/* Mobile Navigation View */}
                     {/* Mobile Navigation Bar - Now Themed */}
                     <nav
-                        className={`md:hidden fixed z-[40] transition-all duration-300 pb-safe ${state.uiPreferences?.navStyle === 'floating' ? 'bottom-4 left-4 right-4 rounded-2xl shadow-xl' : 'bottom-0 left-0 right-0 border-t border-white/20'}`}
+                        className={`md:hidden fixed z-[40] transition-all duration-500 pb-safe animate-slide-up-fade ${state.uiPreferences?.navStyle === 'floating' ? 'bottom-4 left-4 right-4 rounded-2xl shadow-xl' : 'bottom-0 left-0 right-0 rounded-t-[30px] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] border-t border-white/10'}`}
                         style={{
                             background: state.themeGradient || state.themeColor || (state.theme === 'dark' ? '#0f172a' : '#ffffff'),
                             backdropFilter: 'blur(12px)',
@@ -379,7 +380,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                                 >
                                     <div className={`p-1 rounded-full mb-0.5 transition-colors ${isMobileQuickAddOpen ? 'bg-white/20' : ''}`}
                                     >
-                                        <Plus size={20} strokeWidth={2} />
+                                        <Plus size={20} strokeWidth={3} className="animate-pulse" />
                                     </div>
                                     <span className="text-[10px] leading-tight font-medium">Add</span>
                                 </button>
@@ -390,49 +391,66 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                     {/* Mobile Quick Add VIBRANT FAB Menu (Replaces Sheet) */}
                     {isMobileQuickAddOpen && (
                         <>
-                            <div className="fixed inset-0 z-[59] bg-black/20 backdrop-blur-[2px] transition-opacity" onClick={() => setIsMobileQuickAddOpen(false)} />
+                            <div className="fixed inset-0 z-[59] bg-black/40 backdrop-blur-[4px] transition-opacity" onClick={() => setIsMobileQuickAddOpen(false)} />
 
-                            <div className={`fixed z-[60] flex flex-col gap-3 items-end pr-2 ${state.uiPreferences?.navStyle === 'floating' ? 'bottom-24 right-4' : 'bottom-20 right-2'}`}>
+                            {/* Customizable Quick Actions - Curved Layout */}
+                            {/* Combined List for Curve Calculation */}
+                            {[
+                                // Customize Item (Last in stack, First physically?) - Order matters for Index 
+                                // Let's stack from bottom up.
+                                ...Object.entries(QUICK_ACTION_REGISTRY as any).slice(0, 5).reverse().map(([key, action]: [string, any]) => ({
+                                    label: action.label,
+                                    icon: action.icon,
+                                    onClick: () => {
+                                        setIsMobileQuickAddOpen(false);
+                                        if (action.action) {
+                                            dispatch({ type: 'SET_SELECTION', payload: { page: action.page, id: action.action as any } });
+                                        }
+                                        onNavigate(action.page);
+                                    }
+                                })),
+                                {
+                                    label: 'Customize',
+                                    icon: Settings,
+                                    onClick: () => { setIsMobileQuickAddOpen(false); setIsNavCustomizerOpen(true); }
+                                }
+                            ].map((item, index) => {
+                                // Straight Line with Slight Curve
+                                const bottomPos = 90 + (index * 55);
+                                const rightPos = 24 + (Math.pow(index, 1.2) * 10);
+                                const delay = index * 40;
 
-                                {/* Customize Quick Actions */}
-                                <button
-                                    onClick={() => { setIsMobileQuickAddOpen(false); setIsNavCustomizerOpen(true); }}
-                                    className="flex items-center gap-3 pl-4 pr-2 py-2 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 rounded-full shadow-lg border border-white/20 hover:scale-105 active:scale-95 transition-all animate-slide-up origin-right"
-                                >
-                                    <span className="font-bold text-sm">Customize Actions</span>
-                                    <div className="w-10 h-10 rounded-full bg-gray-50 dark:bg-slate-700 flex items-center justify-center text-gray-400 dark:text-gray-500 shadow-inner">
-                                        <Settings size={18} />
-                                    </div>
-                                </button>
-
-                                {/* Quick Actions Stack */}
-                                {Object.entries(QUICK_ACTION_REGISTRY as any).slice(0, 5).reverse().map(([key, action]: [string, any], index) => {
-                                    const Icon = action.icon;
-                                    const delay = index * 50;
-                                    return (
-                                        <button
-                                            key={key}
-                                            onClick={() => {
-                                                setIsMobileQuickAddOpen(false);
-                                                if (action.action) {
-                                                    dispatch({ type: 'SET_SELECTION', payload: { page: action.page, id: action.action as any } });
-                                                }
-                                                onNavigate(action.page);
-                                            }}
-                                            className="flex items-center gap-3 pl-4 pr-2 py-2 text-white rounded-full shadow-lg hover:scale-105 active:scale-95 transition-all animate-slide-up origin-right"
+                                return (
+                                    <div
+                                        key={index}
+                                        className="fixed z-[60] flex items-center justify-end animate-scale-in origin-bottom-right"
+                                        style={{
+                                            bottom: `${bottomPos}px`,
+                                            right: `${rightPos}px`,
+                                            animationDelay: `${delay}ms`
+                                        }}
+                                    >
+                                        <span
+                                            className="absolute right-16 px-3 py-1 bg-white dark:bg-slate-800 text-gray-800 dark:text-gray-200 text-xs font-bold rounded-lg shadow-md whitespace-nowrap opacity-0 animate-fade-in-right origin-right"
                                             style={{
-                                                animationDelay: `${delay}ms`,
-                                                background: state.themeGradient || state.themeColor || 'linear-gradient(to right, #10b981, #0d9488)'
+                                                animationDelay: `${delay + 100}ms`,
+                                                animationFillMode: 'forwards'
                                             }}
                                         >
-                                            <span className="font-bold text-sm">{action.label}</span>
-                                            <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white border border-white/30 shadow-inner">
-                                                <Icon size={20} strokeWidth={2.5} />
-                                            </div>
+                                            {item.label}
+                                        </span>
+                                        <button
+                                            onClick={item.onClick}
+                                            className="w-12 h-12 rounded-full shadow-lg shadow-black/20 flex items-center justify-center text-white hover:scale-110 active:scale-95 transition-all text-white border-2 border-white/20"
+                                            style={{
+                                                background: state.themeGradient || state.themeColor || '#0f172a'
+                                            }}
+                                        >
+                                            <item.icon size={20} strokeWidth={2.5} />
                                         </button>
-                                    );
-                                })}
-                            </div>
+                                    </div>
+                                );
+                            })}
                         </>
                     )}
 
@@ -440,72 +458,73 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                     {/* Mobile More VIBRANT FAB Menu */}
                     {isMoreMenuOpen && (
                         <>
-                            {/* Invisible Overlay for closing */}
-                            <div className="fixed inset-0 z-[59] bg-black/20 backdrop-blur-[2px] transition-opacity" onClick={() => setIsMoreMenuOpen(false)} />
+                            <div className="fixed inset-0 z-[59] bg-black/40 backdrop-blur-[4px] transition-opacity" onClick={() => setIsMoreMenuOpen(false)} />
 
-                            <div className={`fixed z-[60] flex flex-col gap-3 items-end pr-2 ${state.uiPreferences?.navStyle === 'floating' ? 'bottom-24 right-4' : 'bottom-20 right-2'}`}>
+                            {/* More Menu - Curved Layout */}
+                            {[
+                                ...mobileMoreItems.map((item) => ({
+                                    label: item.label,
+                                    icon: item.icon,
+                                    onClick: () => {
+                                        setIsMoreMenuOpen(false);
+                                        onNavigate(item.page as Page);
+                                    }
+                                })),
+                                {
+                                    label: 'AI Center',
+                                    icon: Sparkles,
+                                    onClick: () => { setIsMoreMenuOpen(false); setIsAskAIOpen(true); }
+                                },
+                                {
+                                    label: 'Customize Nav',
+                                    icon: Layout,
+                                    onClick: () => { setIsMoreMenuOpen(false); setIsNavCustomizerOpen(true); }
+                                },
+                                {
+                                    label: 'Settings',
+                                    icon: Settings,
+                                    onClick: () => { setIsMoreMenuOpen(false); setIsMenuOpen(true); }
+                                }
+                            ].map((item, index) => {
+                                // Straight Line with Slight Curve
+                                const bottomPos = 90 + (index * 55);
+                                const rightPos = 24 + (Math.pow(index, 1.2) * 10);
+                                const delay = index * 40;
 
-                                {/* Settings */}
-                                <button
-                                    onClick={() => { setIsMoreMenuOpen(false); setIsMenuOpen(true); }}
-                                    className="flex items-center gap-3 pl-4 pr-2 py-2 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 rounded-full shadow-lg border border-white/20 hover:scale-105 active:scale-95 transition-all animate-slide-up origin-right"
-                                    style={{ animationDelay: '50ms' }}
-                                >
-                                    <span className="font-bold text-sm">Settings</span>
-                                    <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-slate-700 flex items-center justify-center text-gray-600 dark:text-gray-300 shadow-inner">
-                                        <Settings size={20} />
-                                    </div>
-                                </button>
-
-                                {/* Customize Navigation */}
-                                <button
-                                    onClick={() => { setIsMoreMenuOpen(false); setIsNavCustomizerOpen(true); }}
-                                    className="flex items-center gap-3 pl-4 pr-2 py-2 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 rounded-full shadow-lg border border-white/20 hover:scale-105 active:scale-95 transition-all animate-slide-up origin-right"
-                                    style={{ animationDelay: '75ms' }}
-                                >
-                                    <span className="font-bold text-sm">Customize Nav</span>
-                                    <div className="w-10 h-10 rounded-full bg-cyan-50 dark:bg-slate-700 flex items-center justify-center text-cyan-600 dark:text-cyan-400 shadow-inner">
-                                        <Layout size={20} />
-                                    </div>
-                                </button>
-
-                                {/* AI Command Center (Restored & Vibrant) */}
-                                <button
-                                    onClick={() => { setIsMoreMenuOpen(false); setIsAskAIOpen(true); }}
-                                    className="flex items-center gap-3 pl-4 pr-2 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-full shadow-xl shadow-indigo-500/30 hover:scale-105 active:scale-95 transition-all animate-slide-up origin-right"
-                                    style={{ animationDelay: '100ms' }}
-                                >
-                                    <span className="font-bold text-sm">AI Command Center</span>
-                                    <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white border border-white/30 shadow-inner">
-                                        <Sparkles size={20} fill="currentColor" className="animate-pulse" />
-                                    </div>
-                                </button>
-
-                                {/* Dynamic More Items */}
-                                {mobileMoreItems.map((item, index) => {
-                                    const Icon = item.icon;
-                                    const delay = (mobileMoreItems.length - index + 2) * 50; // Stagger from bottom
-                                    return (
-                                        <button
-                                            key={item.page}
-                                            onClick={() => {
-                                                setIsMoreMenuOpen(false);
-                                                onNavigate(item.page as Page);
+                                return (
+                                    <div
+                                        key={index}
+                                        className="fixed z-[60] flex items-center justify-end animate-scale-in origin-bottom-right"
+                                        style={{
+                                            bottom: `${bottomPos}px`,
+                                            right: `${rightPos}px`,
+                                            animationDelay: `${delay}ms`
+                                        }}
+                                    >
+                                        <span
+                                            className="absolute right-16 px-3 py-1 bg-white dark:bg-slate-800 text-gray-800 dark:text-gray-200 text-xs font-bold rounded-lg shadow-md whitespace-nowrap opacity-0 animate-fade-in-right origin-right"
+                                            style={{
+                                                animationDelay: `${delay + 100}ms`,
+                                                animationFillMode: 'forwards'
                                             }}
-                                            className="flex items-center gap-3 pl-4 pr-2 py-2 bg-white dark:bg-slate-900 text-gray-800 dark:text-gray-100 rounded-full shadow-lg border border-gray-100 dark:border-slate-800 hover:scale-105 active:scale-95 transition-all animate-slide-up origin-right"
-                                            style={{ animationDelay: `${delay}ms` }}
                                         >
-                                            <span className="font-bold text-sm">{item.label}</span>
-                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center shadow-sm ${currentPage === item.page ? 'bg-theme text-white' : 'bg-gray-50 dark:bg-slate-800 text-theme'}`}>
-                                                <Icon size={20} strokeWidth={2.5} />
-                                            </div>
+                                            {item.label}
+                                        </span>
+                                        <button
+                                            onClick={item.onClick}
+                                            className="w-12 h-12 rounded-full shadow-lg shadow-black/20 flex items-center justify-center text-white hover:scale-110 active:scale-95 transition-all text-white border-2 border-white/20"
+                                            style={{
+                                                background: state.themeGradient || state.themeColor || '#0f172a'
+                                            }}
+                                        >
+                                            <item.icon size={20} strokeWidth={2.5} />
                                         </button>
-                                    );
-                                })}
-                            </div>
+                                    </div>
+                                );
+                            })}
                         </>
                     )}
-                </nav>
+                </nav >
             )}
         </div >
     );

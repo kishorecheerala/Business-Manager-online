@@ -14,6 +14,7 @@ import { GoogleGenAI, Modality } from "@google/genai";
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import ModernDateInput from '../components/ModernDateInput';
 import { getLocalDateString } from '../utils/dateUtils';
+import { formatCurrency, formatNumber, formatDate } from '../utils/formatUtils';
 import SalesTrendChart from '../components/charts/SalesTrendChart';
 import AIInsightsView from '../components/AIInsightsView';
 
@@ -45,8 +46,8 @@ const MetricCard: React.FC<{
             <Icon className={`w-6 h-6 sm:w-8 sm:h-8 ${textColor}`} />
         </div>
         <div className="ml-3 sm:ml-5 flex-grow min-w-0">
-            <p className={`font-bold text-sm sm:text-xl ${textColor} truncate`}>{title}</p>
-            <p className={`text-xl sm:text-3xl font-extrabold ${textColor} break-all mt-0.5 sm:mt-1`}>{unit}{typeof value === 'number' ? value.toLocaleString('en-IN') : value}</p>
+            <p className={`font-bold text-sm sm:text-lg ${textColor} truncate`}>{title}</p>
+            <p className={`text-xl sm:text-2xl font-extrabold ${textColor} break-all mt-0.5 sm:mt-1`}>{unit}{typeof value === 'number' ? formatNumber(value) : value}</p>
             {subValue && <p className={`text-xs sm:text-sm font-medium mt-0.5 sm:mt-1 opacity-90 ${textColor} truncate`}>{subValue}</p>}
         </div>
     </div>
@@ -145,7 +146,7 @@ const SmartAnalystCard: React.FC<{
 
         // Briefing
         const greeting = now.getHours() < 12 ? 'Good Morning' : now.getHours() < 17 ? 'Good Afternoon' : 'Good Evening';
-        const briefing = `${greeting}, ${ownerName}. Today's collection so far is ₹${todaysCollection.toLocaleString()}. You have ${deadStockList.length} dead stock items and ${churnList.length} customers at risk.`;
+        const briefing = `${greeting}, ${ownerName}. Today's collection so far is ${formatCurrency(todaysCollection)}. You have ${deadStockList.length} dead stock items and ${churnList.length} customers at risk.`;
 
         return { todaysCollection, deadStockList, churnList, briefing };
     }, [sales, products, customers, ownerName]);
@@ -166,7 +167,7 @@ const SmartAnalystCard: React.FC<{
             }, 0);
 
             const prompt = `Act as a business analyst for owner ${ownerName}. 
-            Data: Today's Collection ₹${analysis.todaysCollection}, Outstanding Dues ₹${totalDue}, Dead Stock Items ${analysis.deadStockList.length}.
+            Data: Today's Collection ${formatCurrency(analysis.todaysCollection)}, Outstanding Dues ${formatCurrency(totalDue)}, Dead Stock Items ${analysis.deadStockList.length}.
             Write a 2-bullet point executive briefing. Focus on today's cash flow or inventory action. Keep it encouraging but realistic. Max 30 words per bullet.`;
 
             const response = await ai.models.generateContent({
@@ -366,7 +367,7 @@ const SmartAnalystCard: React.FC<{
                                             </div>
                                             <div className="text-right">
                                                 <p className="font-bold text-red-600 text-sm">{p.quantity} Units</p>
-                                                <p className="text-[10px] text-gray-400">Value: ₹{(p.quantity * p.purchasePrice).toLocaleString()}</p>
+                                                <p className="text-[10px] text-gray-400">Value: {formatCurrency(p.quantity * p.purchasePrice)}</p>
                                             </div>
                                         </div>
                                     ))
@@ -386,7 +387,7 @@ const SmartAnalystCard: React.FC<{
                                             </div>
                                             <div className="text-right">
                                                 <p className="font-bold text-gray-600 dark:text-gray-300 text-xs">Last Seen</p>
-                                                <p className="text-xs text-gray-500">{c.lastSeen ? c.lastSeen.toLocaleDateString() : 'Unknown'}</p>
+                                                <p className="text-xs text-gray-500">{formatDate(c.lastSeen)}</p>
                                             </div>
                                         </div>
                                     ))
@@ -520,7 +521,7 @@ const OverdueDuesCard: React.FC<{ sales: Sale[]; customers: Customer[]; onNaviga
 
     const sendWhatsAppReminder = (e: React.MouseEvent, customer: Customer, totalDue: number) => {
         e.stopPropagation();
-        const message = `Dear ${customer.name}, your outstanding balance with ${businessName} is ₹${totalDue.toLocaleString('en-IN')}. Please clear it at the earliest. Thank you.`;
+        const message = `Dear ${customer.name}, your outstanding balance with ${businessName} is ${formatCurrency(totalDue)}. Please clear it at the earliest. Thank you.`;
         const encodedMessage = encodeURIComponent(message);
         const cleanPhone = customer.phone.replace(/\D/g, '');
         const finalPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
@@ -565,7 +566,7 @@ const OverdueDuesCard: React.FC<{ sales: Sale[]; customers: Customer[]; onNaviga
                             </div>
                         </div>
                         <div className="text-right flex-shrink-0 ml-2">
-                            <p className="font-bold text-lg text-red-600 dark:text-red-400">₹{totalOverdue.toLocaleString('en-IN')}</p>
+                            <p className="font-bold text-lg text-red-600 dark:text-red-400">{formatCurrency(totalOverdue)}</p>
                             <div className="flex items-center justify-end gap-2">
                                 <p className="text-xs text-gray-500 dark:text-gray-400">{Math.floor((new Date().getTime() - new Date(oldestOverdueDate).getTime()) / (1000 * 60 * 60 * 24))} days old</p>
                                 <button onClick={(e) => sendWhatsAppReminder(e, customer, totalOverdue)} className="bg-green-500 text-white p-1 rounded-full hover:scale-110 transition-transform" title="Send Reminder"><MessageCircle size={12} /></button>
@@ -619,7 +620,7 @@ const TopProductsCard: React.FC<{ sales: Sale[] }> = ({ sales }) => {
                                 <p className="text-xs text-gray-500">{p.quantity} units sold</p>
                             </div>
                         </div>
-                        <p className="font-bold text-indigo-600 dark:text-indigo-400">₹{p.revenue.toLocaleString('en-IN')}</p>
+                        <p className="font-bold text-indigo-600 dark:text-indigo-400">{formatCurrency(p.revenue)}</p>
                     </div>
                 ))}
             </div>
@@ -746,7 +747,7 @@ const LowStockCard: React.FC<{ products: Product[]; onNavigate: (id: string) => 
 
 const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
     const { state, dispatch, showToast } = useAppContext();
-    const { customers, sales, purchases, products, app_metadata, suppliers, returns, profile, expenses } = state;
+    const { customers, sales, purchases, products, app_metadata, suppliers, returns, profile, expenses, dashboardConfig } = state;
     const { showConfirm, showAlert } = useDialog();
     const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
     const [bannerDismissed, setBannerDismissed] = useState(false);
@@ -1060,8 +1061,25 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
             )}
 
             {/* Header Section */}
-            <div className="mb-6 text-center">
-                <h1 className="text-3xl font-bold text-primary">Dashboard</h1>
+            <div className="mb-6 text-center flex flex-col items-center animate-fade-in-down">
+                {dashboardConfig.showGreeting && (
+                    <p className="text-sm font-semibold text-orange-600 dark:text-orange-400 mb-2 font-serif tracking-widest uppercase opacity-90">
+                        {dashboardConfig.greetingText}
+                    </p>
+                )}
+
+                {dashboardConfig.showLogo && profile?.logo && (
+                    <div className="mb-4 relative group">
+                        <div className="absolute -inset-1 bg-gradient-to-r from-orange-400 to-indigo-400 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
+                        <img
+                            src={profile.logo}
+                            alt={profile.name}
+                            className="relative h-20 w-auto object-contain rounded-xl shadow-lg border-2 border-white dark:border-slate-700 bg-white dark:bg-slate-800 p-1"
+                        />
+                    </div>
+                )}
+
+                <h1 className="text-3xl font-bold text-primary drop-shadow-sm">{dashboardConfig.titleText}</h1>
             </div>
 
             {/* Install Prompt Banner */}
@@ -1095,33 +1113,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                 </div>
             )}
 
-            {/* Mobile Quick Actions */}
-            <div className="md:hidden grid grid-cols-4 gap-3 mb-6">
-                <button onClick={() => setCurrentPage('SALES')} className="flex flex-col items-center gap-2 p-3 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-transform">
-                    <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-full text-indigo-600 dark:text-indigo-400">
-                        <ShoppingCart size={20} />
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">New Sale</span>
-                </button>
-                <button onClick={() => setCurrentPage('CUSTOMERS')} className="flex flex-col items-center gap-2 p-3 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-transform">
-                    <div className="p-2 bg-pink-50 dark:bg-pink-900/30 rounded-full text-pink-600 dark:text-pink-400">
-                        <User size={20} />
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">Add Cust</span>
-                </button>
-                <button onClick={() => setCurrentPage('EXPENSES')} className="flex flex-col items-center gap-2 p-3 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-transform">
-                    <div className="p-2 bg-rose-50 dark:bg-rose-900/30 rounded-full text-rose-600 dark:text-rose-400">
-                        <Receipt size={20} />
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">Expense</span>
-                </button>
-                <button onClick={() => setIsCheckpointsModalOpen(true)} className="flex flex-col items-center gap-2 p-3 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-transform">
-                    <div className="p-2 bg-emerald-50 dark:bg-emerald-900/30 rounded-full text-emerald-600 dark:text-emerald-400">
-                        <Archive size={20} />
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">Backup</span>
-                </button>
-            </div>
+
 
             {/* Toolbar for Period Selectors */}
             <div className="flex flex-wrap justify-end items-center mb-1 gap-2">

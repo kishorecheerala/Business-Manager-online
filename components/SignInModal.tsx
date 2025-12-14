@@ -33,7 +33,7 @@ const SignInModal: React.FC<SignInModalProps> = ({ isOpen, onClose }) => {
             className="fixed inset-0 z-[80] flex items-center justify-center p-4"
         >
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in-fast" onClick={onClose} />
-            <Card className="relative z-10 w-full max-w-md p-0 overflow-hidden animate-scale-in border-none shadow-2xl bg-white dark:bg-slate-900">
+            <Card className="relative z-10 w-full max-w-md p-0 max-h-[85vh] overflow-y-auto animate-scale-in border-none shadow-2xl bg-white dark:bg-slate-900 custom-scrollbar">
                 <button
                     onClick={onClose}
                     className="absolute top-4 right-4 p-2 rounded-full bg-black/10 hover:bg-black/20 text-white transition-colors z-20"

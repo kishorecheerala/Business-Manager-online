@@ -4,7 +4,7 @@ import {
     AppMetadata, AppMetadataTheme, AppMetadataPin, AppMetadataUIPreferences,
     Notification, ProfileData, InvoiceTemplateConfig, Budget, FinancialScenario,
     AuditLogEntry, SaleDraft, ParkedSale, Page, ExpenseCategory, Theme,
-    GoogleUser, SyncStatus, AppMetadataInvoiceSettings, CustomFont, PurchaseItem, AppMetadataNavOrder, AppMetadataQuickActions, TrashItem, AppState, ToastState, BankAccount
+    GoogleUser, SyncStatus, AppMetadataInvoiceSettings, CustomFont, PurchaseItem, AppMetadataNavOrder, AppMetadataQuickActions, TrashItem, AppState, ToastState, BankAccount, Payment
 } from '../types';
 import * as db from '../utils/db';
 import { StoreName } from '../utils/db';
@@ -32,6 +32,8 @@ type Action =
     | { type: 'ADD_RETURN'; payload: Return }
     | { type: 'UPDATE_RETURN'; payload: { oldReturn: Return; updatedReturn: Return } }
     | { type: 'ADD_EXPENSE'; payload: Expense }
+    | { type: 'UPDATE_EXPENSE'; payload: Expense }
+    | { type: 'UPDATE_PAYMENT_IN_PURCHASE'; payload: { purchaseId: string; payment: Payment } }
     | { type: 'DELETE_EXPENSE'; payload: string }
     | { type: 'ADD_QUOTE'; payload: Quote }
     | { type: 'UPDATE_QUOTE'; payload: Quote }
@@ -76,7 +78,14 @@ type Action =
     // Bank Account Actions
     | { type: 'ADD_BANK_ACCOUNT'; payload: BankAccount }
     | { type: 'UPDATE_BANK_ACCOUNT'; payload: BankAccount }
-    | { type: 'DELETE_BANK_ACCOUNT'; payload: string };
+    | { type: 'DELETE_BANK_ACCOUNT'; payload: string }
+    // Financial Planning Actions
+    | { type: 'ADD_BUDGET'; payload: Budget }
+    | { type: 'UPDATE_BUDGET'; payload: Budget }
+    | { type: 'DELETE_BUDGET'; payload: string }
+    | { type: 'ADD_SCENARIO'; payload: FinancialScenario }
+    | { type: 'UPDATE_SCENARIO'; payload: FinancialScenario }
+    | { type: 'DELETE_SCENARIO'; payload: string };
 
 // Default Template to prevent crashes
 const DEFAULT_TEMPLATE: InvoiceTemplateConfig = {
@@ -102,11 +111,19 @@ const DEFAULT_QUICK_ACTIONS = [
 const DEFAULT_UI_PREFS: AppMetadataUIPreferences = {
     id: 'uiPreferences',
     buttonStyle: 'rounded',
-    cardStyle: 'glass',
-    toastPosition: 'top-center',
+    cardStyle: 'solid',
+    toastPosition: 'bottom-center',
     density: 'comfortable',
-    navStyle: 'floating',
+    navStyle: 'docked',
     fontSize: 'normal'
+};
+
+const DEFAULT_DASHBOARD_CONFIG: AppMetadataDashboardConfig = {
+    id: 'dashboardConfig',
+    greetingText: '🕉 Om Namo Venkatesaya 🕉',
+    showGreeting: true,
+    showLogo: true,
+    titleText: 'Business Insights',
 };
 
 // Default empty sale draft
@@ -189,6 +206,7 @@ const initialState: AppState = {
     receiptTemplate: { ...DEFAULT_TEMPLATE, content: { ...DEFAULT_TEMPLATE.content, titleText: 'RECEIPT' } },
     reportTemplate: { ...DEFAULT_TEMPLATE, content: { ...DEFAULT_TEMPLATE.content, titleText: 'REPORT' } },
     uiPreferences: DEFAULT_UI_PREFS,
+    dashboardConfig: DEFAULT_DASHBOARD_CONFIG,
     toast: { message: '', show: false, type: 'info' },
     selection: null,
     pin: null,
@@ -580,6 +598,35 @@ const appReducer = (state: AppState, action: Action): AppState => {
             db.saveCollection('returns', updatedReturns);
             return { ...state, returns: updatedReturns, ...touch };
 
+        case 'UPDATE_EXPENSE':
+            const updatedExpense = { ...action.payload, updatedAt: new Date().toISOString() };
+            const updatedExpenses = state.expenses.map(e => e.id === updatedExpense.id ? updatedExpense : e);
+            db.saveCollection('expenses', updatedExpenses);
+            newLog = logAction(state, 'Expense Updated', `${updatedExpense.category} - ${updatedExpense.amount}`);
+            db.saveCollection('audit_logs', [newLog, ...state.audit_logs]);
+            return { ...state, expenses: updatedExpenses, audit_logs: [newLog, ...state.audit_logs], ...touch };
+
+        case 'UPDATE_PAYMENT_IN_PURCHASE':
+            const { purchaseId: pId, payment: updatedPurchPayment } = action.payload;
+            const targetPurchase = state.purchases.find(p => p.id === pId);
+            if (!targetPurchase) return state;
+
+            const updatedPurchPayments = targetPurchase.payments.map(p =>
+                p.id === updatedPurchPayment.id ? { ...updatedPurchPayment } : p
+            );
+
+            const updatedPurchaseWithPayment = {
+                ...targetPurchase,
+                payments: updatedPurchPayments,
+                updatedAt: new Date().toISOString()
+            };
+
+            const allPurchases = state.purchases.map(p => p.id === pId ? updatedPurchaseWithPayment : p);
+            db.saveCollection('purchases', allPurchases);
+            newLog = logAction(state, 'Purchase Payment Updated', `Purch: ${pId}, Amt: ${updatedPurchPayment.amount}`);
+            db.saveCollection('audit_logs', [newLog, ...state.audit_logs]);
+            return { ...state, purchases: allPurchases, audit_logs: [newLog, ...state.audit_logs], ...touch };
+
         case 'ADD_EXPENSE':
             const newExpense = { ...action.payload, updatedAt: new Date().toISOString() };
             db.saveCollection('expenses', [...state.expenses, newExpense]);
@@ -782,7 +829,15 @@ const appReducer = (state: AppState, action: Action): AppState => {
             const metaWithoutPrefs = state.app_metadata.filter(m => m.id !== 'uiPreferences');
             const prefsMeta = { ...newPrefs, id: 'uiPreferences', updatedAt: new Date().toISOString() } as AppMetadataUIPreferences;
             db.saveCollection('app_metadata', [...metaWithoutPrefs, prefsMeta]);
+            db.saveCollection('app_metadata', [...metaWithoutPrefs, prefsMeta]);
             return { ...state, uiPreferences: newPrefs, app_metadata: [...metaWithoutPrefs, prefsMeta], ...touch };
+
+        case 'UPDATE_DASHBOARD_CONFIG':
+            const newDashConfig = { ...state.dashboardConfig, ...action.payload };
+            const metaWithoutDash = state.app_metadata.filter(m => m.id !== 'dashboardConfig');
+            const dashMeta = { ...newDashConfig, id: 'dashboardConfig', updatedAt: new Date().toISOString() } as AppMetadataDashboardConfig;
+            db.saveCollection('app_metadata', [...metaWithoutDash, dashMeta]);
+            return { ...state, dashboardConfig: newDashConfig, app_metadata: [...metaWithoutDash, dashMeta], ...touch };
 
         case 'SET_PIN':
             const pinMeta: AppMetadataPin = {
@@ -952,6 +1007,46 @@ const appReducer = (state: AppState, action: Action): AppState => {
             safeSetItem('parked_sales', JSON.stringify(filteredDrafts));
             return { ...state, parkedSales: filteredDrafts };
 
+        case 'DELETE_BANK_ACCOUNT':
+            const bankAccountsAfterDelete = state.bankAccounts.filter(acc => acc.id !== action.payload);
+            db.saveCollection('bank_accounts', bankAccountsAfterDelete);
+            return { ...state, bankAccounts: bankAccountsAfterDelete, ...touch };
+
+        // Financial Planning Reducers
+        case 'ADD_BUDGET':
+            const newBudget = action.payload;
+            const updatedBudgets = [...state.budgets, newBudget];
+            db.saveCollection('budgets', updatedBudgets);
+            return { ...state, budgets: updatedBudgets, ...touch };
+
+        case 'UPDATE_BUDGET':
+            const modifiedBudget = action.payload;
+            const budgetList = state.budgets.map(b => b.id === modifiedBudget.id ? modifiedBudget : b);
+            db.saveCollection('budgets', budgetList);
+            return { ...state, budgets: budgetList, ...touch };
+
+        case 'DELETE_BUDGET':
+            const filteredBudgets = state.budgets.filter(b => b.id !== action.payload);
+            db.saveCollection('budgets', filteredBudgets);
+            return { ...state, budgets: filteredBudgets, ...touch };
+
+        case 'ADD_SCENARIO':
+            const newScenario = action.payload;
+            const updatedScenarios = [...state.financialScenarios, newScenario];
+            db.saveCollection('financial_scenarios', updatedScenarios);
+            return { ...state, financialScenarios: updatedScenarios, ...touch };
+
+        case 'UPDATE_SCENARIO':
+            const modifiedScenario = action.payload;
+            const scenarioList = state.financialScenarios.map(s => s.id === modifiedScenario.id ? modifiedScenario : s);
+            db.saveCollection('financial_scenarios', scenarioList);
+            return { ...state, financialScenarios: scenarioList, ...touch };
+
+        case 'DELETE_SCENARIO':
+            const filteredScenarios = state.financialScenarios.filter(s => s.id !== action.payload);
+            db.saveCollection('financial_scenarios', filteredScenarios);
+            return { ...state, financialScenarios: filteredScenarios, ...touch };
+
         default:
             return state;
     }
@@ -1071,6 +1166,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             const themeMeta = app_metadata.find(m => m.id === 'themeSettings') as AppMetadataTheme;
             const pinMeta = app_metadata.find(m => m.id === 'securityPin') as AppMetadataPin;
             const uiMeta = app_metadata.find(m => m.id === 'uiPreferences') as AppMetadataUIPreferences;
+            const dashMeta = app_metadata.find(m => m.id === 'dashboardConfig') as AppMetadataDashboardConfig;
             const invoiceMeta = app_metadata.find(m => m.id === 'invoiceSettings') as AppMetadataInvoiceSettings;
             const navMeta = app_metadata.find(m => m.id === 'navOrder') as AppMetadataNavOrder;
             const qaMeta = app_metadata.find(m => m.id === 'quickActions') as AppMetadataQuickActions;
@@ -1103,6 +1199,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     trash: trashData as TrashItem[],
                     bankAccounts: finalBankAccounts,
 
+                    budgets: budget as Budget[],
+                    financialScenarios: scenarios as FinancialScenario[],
+
                     // Metadata Hydration
                     theme: themeMeta?.theme || localDefaults.theme || 'light',
                     themeColor: themeMeta?.color || localDefaults.themeColor || '#8b5cf6',
@@ -1112,7 +1211,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
                     pin: pinMeta?.security?.pin || null,
                     isLocked: !!(pinMeta?.security?.enabled),
+                    isLocked: !!(pinMeta?.security?.enabled),
                     uiPreferences: uiMeta ? { ...DEFAULT_UI_PREFS, ...uiMeta } : DEFAULT_UI_PREFS,
+                    dashboardConfig: dashMeta ? { ...DEFAULT_DASHBOARD_CONFIG, ...dashMeta } : DEFAULT_DASHBOARD_CONFIG,
                     invoiceTemplate: invoiceMeta?.template || DEFAULT_TEMPLATE,
                     navOrder: navMeta?.order || DEFAULT_NAV_ORDER,
                     quickActions: qaMeta?.actions || DEFAULT_QUICK_ACTIONS,
@@ -1191,10 +1292,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             dispatch({ type: 'SET_LAST_SYNC_TIME', payload: now });
 
             showToast("Sync completed successfully!", 'success');
-        } catch (error) {
+        } catch (error: any) {
             console.error("Sync Failed:", error);
             dispatch({ type: 'SET_SYNC_STATUS', payload: 'error' });
-            showToast("Sync failed. Please try again.", 'error');
+
+            const isAuthError = error.message?.includes('401') || error.message?.includes('Unauthorized') || error.message?.includes('invalid_grant');
+
+            if (isAuthError) {
+                showToast("Session expired. Please sign in again.", 'error');
+                dispatch({ type: 'SET_GOOGLE_USER', payload: null });
+                // Also clear from local storage to prevent loop on reload
+                try { localStorage.removeItem('google_user'); } catch (e) { }
+            } else {
+                showToast("Sync failed. Please try again.", 'error');
+            }
         }
     };
 

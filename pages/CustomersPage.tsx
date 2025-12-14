@@ -12,6 +12,7 @@ import { useDialog } from '../context/DialogContext';
 import PaymentModal from '../components/PaymentModal';
 import AddCustomerModal from '../components/AddCustomerModal';
 import { getLocalDateString } from '../utils/dateUtils';
+import { formatCurrency, formatDate } from '../utils/formatUtils';
 import LedgerModal from '../components/LedgerModal';
 import Input from '../components/Input';
 import ModernDateInput from '../components/ModernDateInput';
@@ -204,7 +205,8 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
             amount: payment.amount.toString(),
             method: payment.method,
             date: getLocalDateString(new Date(payment.date)),
-            reference: payment.reference || ''
+            reference: payment.reference || '',
+            accountId: payment.accountId || ''
         });
         setPaymentModalState({ isOpen: true, saleId });
     };
@@ -217,7 +219,8 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
             amount: parseFloat(paymentDetails.amount),
             method: paymentDetails.method,
             date: new Date(`${paymentDetails.date}T${new Date().toTimeString().split(' ')[0]}`).toISOString(),
-            reference: paymentDetails.reference.trim() || undefined
+            reference: paymentDetails.reference.trim() || undefined,
+            accountId: paymentDetails.accountId || undefined
         };
 
         dispatch({
@@ -231,7 +234,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
         showToast("Payment updated successfully.");
         setPaymentModalState({ isOpen: false, saleId: null });
         setEditingPayment(null);
-        setPaymentDetails({ amount: '', method: 'CASH', date: getLocalDateString(), reference: '' });
+        setPaymentDetails({ amount: '', method: 'CASH', date: getLocalDateString(), reference: '', accountId: '' });
     };
 
     const handlePaymentSubmit = () => {
@@ -286,7 +289,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                 const newPaymentAmount = parseFloat(paymentDetails.amount);
 
                 if (newPaymentAmount > dueAmount + 1) { // 1 Rupee buffer
-                    showToast(`Payment of ₹${newPaymentAmount.toLocaleString('en-IN')} exceeds due amount.`, 'error');
+                    showToast(`Payment of ${formatCurrency(newPaymentAmount)} exceeds due amount.`, 'error');
                     return;
                 }
 
@@ -296,6 +299,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                     method: paymentDetails.method,
                     date: isoDate,
                     reference: paymentDetails.reference.trim() || undefined,
+                    accountId: paymentDetails.accountId || undefined
                 };
 
                 dispatch({ type: 'ADD_PAYMENT_TO_SALE', payload: { saleId: sale.id, payment } });
@@ -304,7 +308,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
 
             // Close and Reset
             setPaymentModalState({ isOpen: false, saleId: null });
-            setPaymentDetails({ amount: '', method: 'CASH', date: getLocalDateString(), reference: '' });
+            setPaymentDetails({ amount: '', method: 'CASH', date: getLocalDateString(), reference: '', accountId: '' });
         } catch (error) {
             console.error("Payment Submit Error", error);
             showToast("Failed to save payment. Please check details.", 'error');
@@ -425,13 +429,13 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                     const due = Number(sale.totalAmount) - paid;
                     return [
                         sale.id,
-                        new Date(sale.date).toLocaleDateString(),
-                        `Rs. ${Number(sale.totalAmount).toLocaleString('en-IN')}`,
-                        `Rs. ${paid.toLocaleString('en-IN')}`,
-                        `Rs. ${due.toLocaleString('en-IN')}`
+                        formatDate(sale.date),
+                        formatCurrency(Number(sale.totalAmount)).replace('₹', 'Rs. '), // PDF generator might prefer Rs. prefix for compatibility
+                        formatCurrency(paid).replace('₹', 'Rs. '),
+                        formatCurrency(due).replace('₹', 'Rs. ')
                     ];
                 }),
-                [{ label: 'Total Outstanding Due', value: `Rs. ${totalDue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, color: '#dc2626' }],
+                [{ label: 'Total Outstanding Due', value: formatCurrency(totalDue).replace('₹', 'Rs. '), color: '#dc2626' }],
                 state.profile,
                 state.reportTemplate,
                 state.customFonts
@@ -599,7 +603,9 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                                             <WhatsAppIcon size={14} /> WhatsApp
                                         </a>
                                         <a
-                                            href={`truecaller://search_number?phoneNumber=${selectedCustomer.phone.replace(/\D/g, '')}`}
+                                            href={`https://www.truecaller.com/search/in/${selectedCustomer.phone.replace(/\D/g, '')}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
                                             className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-300"
                                         >
                                             <ShieldAlert size={14} /> Truecaller
@@ -628,16 +634,16 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                                 {selectedCustomer.reference && <p><strong>Reference:</strong> {selectedCustomer.reference}</p>}
                             </div>
                         )}
-                        <div className="mt-4 pt-4 border-t flex flex-wrap gap-2">
-                            <Button onClick={(e) => { e.stopPropagation(); setIsLedgerOpen(true); }} variant="secondary" className="flex-1">
-                                <FileText size={16} className="mr-2" />
-                                Statement / Ledger
+                        <div className="mt-4 pt-4 border-t grid grid-cols-2 gap-2">
+                            <Button onClick={(e) => { e.stopPropagation(); setIsLedgerOpen(true); }} variant="secondary" className="h-full px-2">
+                                <FileText size={16} className="mr-1 sm:mr-2 flex-shrink-0" />
+                                <span className="text-center leading-tight">Statement / Ledger</span>
                             </Button>
-                            <Button onClick={handleShareDuesSummary} className="flex-1">
-                                <Share2 size={16} className="mr-2" />
-                                Share Dues Summary
+                            <Button onClick={handleShareDuesSummary} className="h-full px-2">
+                                <Share2 size={16} className="mr-1 sm:mr-2 flex-shrink-0" />
+                                <span className="text-center leading-tight">Share Dues</span>
                             </Button>
-                            <Button onClick={() => setIsOpeningBalanceModalOpen(true)} variant="secondary" className="w-full sm:w-auto bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100">
+                            <Button onClick={() => setIsOpeningBalanceModalOpen(true)} variant="secondary" className="col-span-2 bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100">
                                 <Wallet size={16} className="mr-2" /> Add Opening Balance
                             </Button>
                         </div>
@@ -659,9 +665,9 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                                                     <p className="text-xs text-gray-600 dark:text-gray-400">{new Date(sale.date).toLocaleString()}</p>
                                                 </div>
                                                 <div className="text-right">
-                                                    <p className="font-bold text-lg text-primary">₹{Number(sale.totalAmount).toLocaleString('en-IN')}</p>
+                                                    <p className="font-bold text-lg text-primary">{formatCurrency(Number(sale.totalAmount))}</p>
                                                     <p className={`text-sm font-semibold ${isPaid ? 'text-green-600' : 'text-red-600'}`}>
-                                                        {isPaid ? 'Paid' : `Due: ₹${dueAmount.toLocaleString('en-IN')}`}
+                                                        {isPaid ? 'Paid' : `Due: ${formatCurrency(dueAmount)}`}
                                                     </p>
                                                 </div>
                                             </div>
@@ -672,7 +678,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                                                     <ul className="list-disc list-inside text-sm text-gray-600 dark:text-gray-400 space-y-1">
                                                         {sale.items.map((item, index) => (
                                                             <li key={index}>
-                                                                {item.productName} (x{item.quantity}) @ ₹{Number(item.price).toLocaleString('en-IN')} each
+                                                                {item.productName} (x{item.quantity}) @ {formatCurrency(item.price)} each
                                                             </li>
                                                         ))}
                                                     </ul>
@@ -680,9 +686,9 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
 
                                                 <div className="p-2 bg-gray-50 dark:bg-slate-700/50 rounded-md text-sm border dark:border-slate-600">
                                                     <div className="space-y-1 dark:text-gray-300">
-                                                        <div className="flex justify-between"><span>Subtotal:</span> <span>₹{subTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
-                                                        <div className="flex justify-between"><span>Discount:</span> <span>- ₹{Number(sale.discount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
-                                                        <div className="flex justify-between"><span>GST Included:</span> <span>₹{Number(sale.gstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
+                                                        <div className="flex justify-between"><span>Subtotal:</span> <span>{formatCurrency(subTotal)}</span></div>
+                                                        <div className="flex justify-between"><span>Discount:</span> <span>- {formatCurrency(Number(sale.discount))}</span></div>
+                                                        <div className="flex justify-between"><span>GST Included:</span> <span>{formatCurrency(Number(sale.gstAmount))}</span></div>
                                                     </div>
                                                 </div>
 
@@ -693,7 +699,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                                                             {sale.payments.map(payment => (
                                                                 <li key={payment.id} className="flex justify-between items-start group">
                                                                     <div>
-                                                                        ₹{Number(payment.amount).toLocaleString('en-IN')} {payment.method === 'RETURN_CREDIT' ? <span className="text-blue-600 font-semibold">(Return Credit)</span> : `via ${payment.method}`} on {new Date(payment.date).toLocaleDateString()}
+                                                                        {formatCurrency(Number(payment.amount))} {payment.method === 'RETURN_CREDIT' ? <span className="text-blue-600 font-semibold">(Return Credit)</span> : `via ${payment.method}`} on {formatDate(payment.date)}
                                                                         {payment.reference && <span className="text-xs text-gray-500 block">Ref: {payment.reference}</span>}
                                                                     </div>
                                                                     <button
@@ -752,11 +758,11 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                                     <div key={ret.id} className="p-3 bg-gray-50 rounded-lg border">
                                         <div className="flex justify-between items-start">
                                             <div>
-                                                <p className="font-semibold">Return on {new Date(ret.returnDate).toLocaleDateString()}</p>
+                                                <p className="font-semibold">Return on {formatDate(ret.returnDate)}</p>
                                                 <p className="text-xs text-gray-500">Original Invoice: {ret.referenceId}</p>
                                             </div>
                                             <div className="flex items-center gap-2">
-                                                <p className="font-semibold text-primary">Refunded: ₹{Number(ret.amount).toLocaleString('en-IN')}</p>
+                                                <p className="font-semibold text-primary">Refunded: {formatCurrency(Number(ret.amount))}</p>
                                                 <Button onClick={() => handleEditReturn(ret.id)} variant="secondary" className="p-2 h-auto">
                                                     <Edit size={16} />
                                                 </Button>
@@ -797,18 +803,18 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
 
             <div className="space-y-4 animate-fade-in-fast">
 
-                <div className="flex justify-between items-center mb-6">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-primary/10 rounded-lg text-primary">
                             <Users className="w-6 h-6" />
                         </div>
                         <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Customers</h1>
                     </div>
-                    <div className="flex gap-2">
-                        <Button variant="secondary" onClick={() => { setLedgerPartyId('ALL_CUSTOMERS'); setIsLedgerOpen(true); }}>
+                    <div className="flex gap-2 w-full sm:w-auto">
+                        <Button variant="secondary" onClick={() => { setLedgerPartyId('ALL_CUSTOMERS'); setIsLedgerOpen(true); }} className="flex-1 sm:flex-none justify-center">
                             <FileText size={16} className="mr-2" /> All Transactions
                         </Button>
-                        <Button onClick={() => setIsAdding(true)}>
+                        <Button onClick={() => setIsAdding(true)} className="flex-1 sm:flex-none justify-center">
                             <Plus size={20} className="mr-2" /> Add Customer
                         </Button>
                     </div>

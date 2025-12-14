@@ -431,6 +431,7 @@ export interface AppMetadataInvoiceSettings {
   footer: string;
   showQr: boolean;
   updatedAt?: string;
+  template?: InvoiceTemplateConfig;
 }
 
 export interface AppMetadataNavOrder {
@@ -452,11 +453,21 @@ export interface AppMetadataUIPreferences {
   toastPosition: 'top-center' | 'top-right' | 'bottom-center' | 'bottom-right';
   density: 'comfortable' | 'compact';
   navStyle?: 'docked' | 'floating';
+  navStyle?: 'docked' | 'floating';
   fontSize?: 'small' | 'normal' | 'large';
   updatedAt?: string;
 }
 
-export type AppMetadata = AppMetadataPin | AppMetadataBackup | AppMetadataRevenueGoal | AppMetadataLastModified | AppMetadataTheme | AppMetadataInvoiceSettings | AppMetadataNavOrder | AppMetadataQuickActions | AppMetadataUIPreferences | InvoiceTemplateConfig;
+export interface AppMetadataDashboardConfig {
+  id: 'dashboardConfig';
+  greetingText: string;
+  showGreeting: boolean;
+  showLogo: boolean;
+  titleText: string;
+  updatedAt?: string;
+}
+
+export type AppMetadata = AppMetadataPin | AppMetadataBackup | AppMetadataRevenueGoal | AppMetadataLastModified | AppMetadataTheme | AppMetadataInvoiceSettings | AppMetadataNavOrder | AppMetadataQuickActions | AppMetadataUIPreferences | InvoiceTemplateConfig | AppMetadataDashboardConfig;
 
 export interface Snapshot {
   id: string;
@@ -519,6 +530,7 @@ export interface AppState {
   receiptTemplate: InvoiceTemplateConfig;
   reportTemplate: InvoiceTemplateConfig;
   invoiceSettings?: AppMetadataInvoiceSettings;
+  dashboardConfig: AppMetadataDashboardConfig;
 
   // Multi-Account
   bankAccounts: BankAccount[];

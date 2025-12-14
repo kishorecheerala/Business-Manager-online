@@ -8,6 +8,7 @@ import Button from '../components/Button';
 import DeleteButton from '../components/DeleteButton';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
 import { getLocalDateString } from '../utils/dateUtils';
+import { formatCurrency, formatDate, formatNumber } from '../utils/formatUtils';
 import { calculateTotals } from '../utils/calculations';
 import AddCustomerModal from '../components/AddCustomerModal';
 import ProductSearchModal from '../components/ProductSearchModal';
@@ -299,7 +300,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         });
 
         return {
-            date: new Date(lastSale.date).toLocaleDateString(),
+            date: formatDate(lastSale.date),
             amount: lastSale.totalAmount
         };
     }, [customerId, state.sales]);
@@ -357,7 +358,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             const subTotal = calculations.subTotal;
             const dueAmountOnSale = Number(sale.totalAmount) - paidAmountOnSale;
 
-            const whatsAppText = `Thank you for your purchase from ${businessName}!\n\n*Invoice Summary:*\nInvoice ID: ${sale.id}\nDate: ${new Date(sale.date).toLocaleString()}\n\n*Items:*\n${sale.items.map(i => `- ${i.productName} (x${i.quantity}) - Rs. ${(Number(i.price) * Number(i.quantity)).toLocaleString('en-IN')}`).join('\n')}\n\nSubtotal: Rs. ${subTotal.toLocaleString('en-IN')}\nGST: Rs. ${Number(sale.gstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}\nDiscount: Rs. ${Number(sale.discount).toLocaleString('en-IN')}\n*Total: Rs. ${Number(sale.totalAmount).toLocaleString('en-IN')}*\nPaid: Rs. ${paidAmountOnSale.toLocaleString('en-IN')}\nDue: Rs. ${dueAmountOnSale.toLocaleString('en-IN', { minimumFractionDigits: 2 })}\n\nHave a blessed day!`;
+            const whatsAppText = `Thank you for your purchase from ${businessName}!\n\n*Invoice Summary:*\nInvoice ID: ${sale.id}\nDate: ${formatDate(sale.date)}\n\n*Items:*\n${sale.items.map(i => `- ${i.productName} (x${i.quantity}) - ${formatCurrency(Number(i.price) * Number(i.quantity))}`).join('\n')}\n\nSubtotal: ${formatCurrency(subTotal)}\nGST: ${formatCurrency(Number(sale.gstAmount))}\nDiscount: ${formatCurrency(Number(sale.discount))}\n*Total: ${formatCurrency(Number(sale.totalAmount))}*\nPaid: ${formatCurrency(paidAmountOnSale)}\nDue: ${formatCurrency(dueAmountOnSale)}\n\nHave a blessed day!`;
 
             if (navigator.share && navigator.canShare({ files: [pdfFile] })) {
                 try {
@@ -403,7 +404,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         if (mode === 'add') {
             const paidAmount = parseFloat(paymentDetails.amount) || 0;
             if (paidAmount > totalAmount + 0.01) {
-                showToast(`Paid amount (₹${paidAmount.toLocaleString('en-IN')}) cannot be greater than the total amount (₹${totalAmount.toLocaleString('en-IN')}).`, 'error');
+                showToast(`Paid amount (${formatCurrency(paidAmount)}) cannot be greater than the total amount (${formatCurrency(totalAmount)}).`, 'error');
                 return;
             }
             const payments: Payment[] = [];
@@ -434,7 +435,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             const totalPaid = storedPayments.reduce((sum, p) => sum + Number(p.amount), 0) + newPaymentAmount;
 
             if (totalAmount < totalPaid - 0.01) {
-                showToast(`The new total amount (₹${totalAmount.toLocaleString('en-IN')}) cannot be less than the amount already paid (₹${totalPaid.toLocaleString('en-IN')}).`, 'error');
+                showToast(`The new total amount (${formatCurrency(totalAmount)}) cannot be less than the amount already paid (${formatCurrency(totalPaid)}).`, 'error');
                 return;
             }
 
@@ -511,7 +512,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             remainingPayment -= amountToApply;
         }
 
-        showToast(`Payment of ₹${paidAmount.toLocaleString('en-IN')} recorded successfully.`);
+        showToast(`Payment of ${formatCurrency(paidAmount)} recorded successfully.`);
         resetForm();
     };
 
@@ -573,9 +574,9 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                                             <div>
                                                 <p className="font-bold text-sm dark:text-white">{customer?.name || 'Unknown'}</p>
                                                 <p className="text-xs text-gray-500 flex items-center gap-1">
-                                                    <Clock size={10} /> {new Date(draft.parkedAt).toLocaleString()}
+                                                    <Clock size={10} /> {formatDate(draft.parkedAt)}
                                                 </p>
-                                                <p className="text-xs font-semibold mt-1">{draft.items.length} items • ₹{total.toLocaleString()}</p>
+                                                <p className="text-xs font-semibold mt-1">{draft.items.length} items • {formatCurrency(total)}</p>
                                             </div>
                                             <div className="flex gap-2">
                                                 <Button onClick={() => handleResumeDraft(draft)} className="h-8 text-xs px-2 bg-emerald-600 hover:bg-emerald-700">
@@ -683,7 +684,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                             {lastPurchaseInfo && mode === 'add' && (
                                 <div className="text-xs text-gray-500 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 p-2 rounded-md border border-blue-100 dark:border-blue-800 flex items-center justify-between">
                                     <span>Last Order: <strong>{lastPurchaseInfo.date}</strong></span>
-                                    <span>Amount: <strong>₹{lastPurchaseInfo.amount.toLocaleString('en-IN')}</strong></span>
+                                    <span>Amount: <strong>{formatCurrency(lastPurchaseInfo.amount)}</strong></span>
                                 </div>
                             )}
 
@@ -693,7 +694,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                                         Selected Customer's Total Outstanding Due:
                                     </p>
                                     <p className={`text-xl font-bold ${customerTotalDue > 0.01 ? 'text-red-600' : 'text-green-600'}`}>
-                                        ₹{customerTotalDue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                        {formatCurrency(customerTotalDue)}
                                     </p>
                                 </div>
                             )}
@@ -729,7 +730,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                                         <Input type="number" value={item.quantity} onChange={e => handleItemChange(item.productId, 'quantity', e.target.value)} className="w-20 !p-1 text-center" placeholder="Qty" />
                                         <span>x</span>
                                         <Input type="number" value={item.price} onChange={e => handleItemChange(item.productId, 'price', e.target.value)} className="w-24 !p-1 text-center" placeholder="Price" />
-                                        <span>= ₹{(Number(item.quantity) * Number(item.price)).toLocaleString('en-IN')}</span>
+                                        <span>= {formatCurrency(Number(item.quantity) * Number(item.price))}</span>
                                     </div>
                                 </div>
                             ))}
@@ -742,7 +743,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                             {/* Section 1: Calculation Details */}
                             <div className="grid grid-cols-[1fr_auto] gap-3 items-center text-gray-700 dark:text-gray-300">
                                 <span>Subtotal:</span>
-                                <span className="text-right font-medium">₹{calculations.subTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                <span className="text-right font-medium">{formatCurrency(calculations.subTotal)}</span>
 
                                 <span>Discount:</span>
                                 <div className="flex justify-end">
@@ -755,14 +756,14 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                                 </div>
 
                                 <span>GST Included:</span>
-                                <span className="text-right font-medium">₹{calculations.gstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                <span className="text-right font-medium">{formatCurrency(calculations.gstAmount)}</span>
                             </div>
 
                             {/* Section 2: Grand Total */}
                             <div className="text-center pt-2 border-t dark:border-slate-700 mt-2">
                                 <p className="text-sm text-gray-500 dark:text-gray-400">Grand Total</p>
-                                <p className="text-4xl font-bold text-primary">
-                                    ₹{calculations.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                <p className="text-3xl font-bold text-primary">
+                                    {formatCurrency(calculations.totalAmount)}
                                 </p>
                             </div>
 
@@ -946,7 +947,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                                 }
                             }}
                             variant="secondary"
-                            className="w-full bg-teal-200 hover:bg-teal-300 focus:ring-teal-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
+                            className="w-full"
                         >
                             {mode === 'edit' ? 'Cancel Edit' : 'Clear Form'}
                         </Button>

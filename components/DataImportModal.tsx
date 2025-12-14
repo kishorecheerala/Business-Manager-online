@@ -279,8 +279,8 @@ export const DataImportModal: React.FC<DataImportModalProps> = ({ isOpen, onClos
                                     key={key}
                                     onClick={() => { setActiveTab(key as Tab); setImportStatus(null); }}
                                     className={`flex items-center gap-3 p-3 rounded-md text-left w-full transition-colors whitespace-nowrap ${isActive
-                                            ? 'bg-primary text-white'
-                                            : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-slate-700'
+                                        ? 'bg-primary text-white'
+                                        : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-slate-700'
                                         }`}
                                     aria-current={isActive ? 'page' : undefined}
                                 >
@@ -311,7 +311,7 @@ export const DataImportModal: React.FC<DataImportModalProps> = ({ isOpen, onClos
                             <Button onClick={() => handleDownloadTemplate(activeTab)} className="w-full">
                                 <Download className="w-4 h-4 mr-2" /> Download Template
                             </Button>
-                            <label htmlFor={`csv-import-${activeTab}`} className="px-4 py-2 rounded-md font-semibold text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 shadow-sm flex items-center justify-center gap-2 transform hover:shadow-md hover:-translate-y-px active:shadow-sm active:translate-y-0 bg-secondary hover:bg-teal-500 focus:ring-secondary cursor-pointer w-full text-center">
+                            <label htmlFor={`csv-import-${activeTab}`} className="px-4 py-2 rounded-md font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 shadow-sm flex items-center justify-center gap-2 transform hover:shadow-md hover:-translate-y-px active:shadow-sm active:translate-y-0 bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 cursor-pointer w-full text-center">
                                 <Upload className="w-4 h-4 mr-2" /> Upload & Replace
                             </label>
                             <input

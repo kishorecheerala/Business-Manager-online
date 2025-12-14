@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { Search, Edit, Save, X, Package, IndianRupee, Percent, PackageCheck, Barcode, Printer, Filter, Grid, List, Camera, Image as ImageIcon, Eye, Trash2, QrCode, Boxes, Maximize2, Minimize2, ArrowLeft, CheckSquare, Square, Plus, Clock, AlertTriangle, Share2, MoreHorizontal, LayoutGrid, Check, Wand2, Loader2, Sparkles, MessageCircle, CheckCircle, Copy, Share, GripVertical, GripHorizontal, FileSpreadsheet, TrendingUp, Scale, Settings, History } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Product, PurchaseItem } from '../types';
+import { formatCurrency } from '../utils/formatUtils';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import BarcodeModal from '../components/BarcodeModal';
@@ -298,7 +299,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
 
         // 2. Fallback: WhatsApp Text Link
         const combinedText = `*Product Catalog*\n\n` + selectedProducts.map(p =>
-            `*${p.name}*\nPrice: ₹${p.salePrice.toLocaleString('en-IN')}${p.description ? '\n' + p.description : ''}`
+            `*${p.name}*\nPrice: ${formatCurrency(p.salePrice)}${p.description ? '\n' + p.description : ''}`
         ).join('\n\n----------------\n\n');
 
         const url = `https://wa.me/?text=${encodeURIComponent(combinedText)}`;
@@ -418,7 +419,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
 
         const shareData: any = {
             title: editedProduct.name,
-            text: `*${editedProduct.name}*\nPrice: ₹${editedProduct.salePrice.toLocaleString('en-IN')}\n${editedProduct.description || ''}`,
+            text: `*${editedProduct.name}*\nPrice: ${formatCurrency(editedProduct.salePrice)}\n${editedProduct.description || ''}`,
         };
 
         if (navigator.canShare && navigator.share) {
@@ -445,7 +446,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     };
 
     const handleWhatsAppShare = (product: Product) => {
-        const text = `*${product.name}*\nPrice: ₹${product.salePrice.toLocaleString('en-IN')}\n${product.description || ''}`;
+        const text = `*${product.name}*\nPrice: ${formatCurrency(product.salePrice)}\n${product.description || ''}`;
         const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
         window.open(url, '_blank');
     };
@@ -820,7 +821,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                 <div className="flex gap-4 p-4 bg-gray-50 dark:bg-slate-700/50 rounded-xl border dark:border-slate-700">
                                     <div>
                                         <p className="text-xs text-gray-500 uppercase mb-1">Price</p>
-                                        <p className="text-2xl font-bold text-primary">₹{editedProduct.salePrice.toLocaleString('en-IN')}</p>
+                                        <p className="text-2xl font-bold text-primary">{formatCurrency(editedProduct.salePrice)}</p>
                                     </div>
                                     <div className="w-px bg-gray-300 dark:bg-slate-600"></div>
                                     <div>
@@ -915,22 +916,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                 />
             )}
 
-            {/* Inventory Summary Header */}
-            <div className="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-xl border border-indigo-100 dark:border-indigo-800 flex justify-between items-center text-sm mb-2 shrink-0">
-                <div className="flex gap-4">
-                    <span className="text-indigo-800 dark:text-indigo-200">
-                        <span className="font-bold">Total Items:</span> {inventoryStats.totalCount}
-                    </span>
-                    <span className="text-indigo-800 dark:text-indigo-200">
-                        <span className="font-bold">Inventory Value:</span> ₹{inventoryStats.totalValue.toLocaleString('en-IN')}
-                    </span>
-                </div>
-                {inventoryStats.lowStock > 0 && (
-                    <span className="text-red-600 dark:text-red-400 font-bold flex items-center gap-1 text-xs bg-red-100 dark:bg-red-900/30 px-2 py-0.5 rounded-full">
-                        <AlertTriangle size={12} /> {inventoryStats.lowStock} Low Stock
-                    </span>
-                )}
-            </div>
+
 
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 flex-shrink-0">
                 <div className="flex items-center gap-3">
@@ -1005,6 +991,25 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                 </div>
             )}
 
+            {/* Inventory Summary (Larger Font on Desktop, Compact on Mobile) */}
+            <div className="bg-indigo-50 dark:bg-indigo-900/20 p-2 sm:p-4 rounded-xl border border-indigo-100 dark:border-indigo-800 flex flex-row justify-between items-center text-sm sm:text-lg mb-4 shrink-0 transition-all hover:shadow-md">
+                <div className="flex flex-row gap-3 sm:gap-6 text-left">
+                    <div className="whitespace-nowrap">
+                        <span className="font-bold text-indigo-950 dark:text-white">Items: </span>
+                        <span className="font-bold text-indigo-600 dark:text-indigo-300">{inventoryStats.totalCount}</span>
+                    </div>
+                    <div className="whitespace-nowrap">
+                        <span className="font-bold text-indigo-950 dark:text-white">Value: </span>
+                        <span className="font-bold text-indigo-600 dark:text-indigo-300">{formatCurrency(inventoryStats.totalValue)}</span>
+                    </div>
+                </div>
+                {inventoryStats.lowStock > 0 && (
+                    <span className="ml-2 text-red-600 dark:text-red-400 font-bold flex items-center gap-1 text-[10px] sm:text-sm bg-red-100 dark:bg-red-900/30 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full animate-pulse whitespace-nowrap">
+                        <AlertTriangle size={12} className="sm:w-4 sm:h-4" /> <span className="hidden sm:inline">{inventoryStats.lowStock} Low Stock</span><span className="sm:hidden">{inventoryStats.lowStock} Low</span>
+                    </span>
+                )}
+            </div>
+
             <div className="flex gap-2 flex-shrink-0">
                 <div className="relative flex-grow">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
@@ -1072,7 +1077,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
 
                             {/* Price & Stock */}
                             <div className="text-right flex-shrink-0">
-                                <p className="font-bold text-primary">₹{product.salePrice.toLocaleString('en-IN')}</p>
+                                <p className="font-bold text-primary">{formatCurrency(product.salePrice)}</p>
                                 <p className={`text-xs font-medium ${product.quantity < 5 ? 'text-red-500' : 'text-gray-500'}`}>
                                     {product.quantity} in stock
                                 </p>
@@ -1146,7 +1151,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                             <div className="p-3">
                                 <h3 className="font-bold text-sm text-gray-800 dark:text-white truncate mb-1">{product.name}</h3>
                                 <div className="flex justify-between items-center">
-                                    <span className="text-primary font-bold text-sm">₹{product.salePrice}</span>
+                                    <span className="text-primary font-bold text-sm">{formatCurrency(product.salePrice)}</span>
                                     <span className="text-xs text-gray-500">{product.quantity} left</span>
                                 </div>
                             </div>
@@ -1172,6 +1177,8 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                     )}
                 />
             )}
+
+
         </div>
     );
 };

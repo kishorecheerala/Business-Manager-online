@@ -5,8 +5,8 @@ import {
     Sparkles, Bell, HelpCircle, Cloud, CloudOff, RefreshCw, Layout, Edit,
     X, Download, Sun, Moon, CalendarClock, WifiOff, Database, PauseCircle, Trash2
 } from 'lucide-react';
-import { AppProvider, useAppContext } from './context/AppContext';
-import { DialogProvider, useDialog } from './context/DialogContext';
+import { useAppContext } from './context/AppContext';
+import { useDialog } from './context/DialogContext';
 import { Page } from './types';
 import { ICON_MAP } from './utils/iconMap';
 
@@ -45,7 +45,8 @@ import PinLock from './components/PinLock';
 
 import { QUICK_ACTION_REGISTRY, QUICK_ACTION_SHORTCUTS } from './utils/quickActions';
 
-const AppContent: React.FC = () => {
+// Root Component
+const App: React.FC = () => {
     const { state, dispatch, isDbLoaded, showToast, unlockApp } = useAppContext();
     const { showConfirm } = useDialog();
 
@@ -369,13 +370,6 @@ const AppContent: React.FC = () => {
     );
 };
 
-// Root Component
-const App: React.FC = () => (
-    <AppProvider>
-        <DialogProvider>
-            <AppContent />
-        </DialogProvider>
-    </AppProvider>
-);
+
 
 export default App;

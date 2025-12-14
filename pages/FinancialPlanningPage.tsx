@@ -12,6 +12,7 @@ import Card from '../components/Card';
 import Button from '../components/Button';
 import { Budget, FinancialScenario, ExpenseCategory } from '../types';
 import { calculateRevenueForecast } from '../utils/analytics';
+import { formatCurrency, formatNumber } from '../utils/formatUtils';
 
 const FinancialPlanningPage: React.FC = () => {
     const { state, dispatch, showToast } = useAppContext();
@@ -56,16 +57,27 @@ const FinancialPlanningPage: React.FC = () => {
 
     const handleSaveBudget = () => {
         if (!newBudget.category || !newBudget.amount) return;
-        const budget: Budget = {
-            id: `budget_${Date.now()} `,
-            category: newBudget.category,
-            amount: Number(newBudget.amount),
-            period: newBudget.period || 'monthly',
-            startDate: new Date().toISOString()
-        };
-        // In a real implementation we would dispatch to store. For now, we mock valid dispatch
-        // dispatch({ type: 'ADD_BUDGET', payload: budget });
-        showToast("Budget saved (Mock)", "success");
+
+        const existingBudget = state.budgets.find(b => b.category === newBudget.category);
+
+        if (existingBudget) {
+            dispatch({
+                type: 'UPDATE_BUDGET',
+                payload: { ...existingBudget, amount: Number(newBudget.amount), updatedAt: new Date().toISOString() }
+            });
+            showToast(`Budget updated for ${newBudget.category}`, "success");
+        } else {
+            const budget: Budget = {
+                id: `budget_${Date.now()}`,
+                category: newBudget.category,
+                amount: Number(newBudget.amount),
+                period: newBudget.period || 'monthly',
+                startDate: new Date().toISOString()
+            };
+            dispatch({ type: 'ADD_BUDGET', payload: budget });
+            showToast(`Budget set for ${newBudget.category}`, "success");
+        }
+        setNewBudget({ period: 'monthly' }); // Reset form
     };
 
     // Actual Spend per category
@@ -118,15 +130,15 @@ const FinancialPlanningPage: React.FC = () => {
                     <p className="text-gray-500 text-sm">Forecasting, Budgeting & Strategy</p>
                 </div>
 
-                <div className="flex bg-gray-100 dark:bg-slate-800 p-1 rounded-lg w-fit">
+                <div className="flex bg-gray-100 dark:bg-slate-800 p-1 rounded-lg w-full md:w-fit overflow-x-auto scrollbar-hide">
                     {(['budgets', 'forecasting', 'scenarios', 'tax'] as const).map(tab => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
-                            className={`px - 4 py - 2 rounded - md text - sm font - medium transition - all ${activeTab === tab
-                                    ? 'bg-white dark:bg-slate-700 shadow text-teal-600 dark:text-teal-400'
-                                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
-                                } `}
+                            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === tab
+                                ? 'bg-white dark:bg-slate-700 shadow text-teal-600 dark:text-teal-400'
+                                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
+                                }`}
                         >
                             {tab.charAt(0).toUpperCase() + tab.slice(1)}
                         </button>
@@ -163,10 +175,13 @@ const FinancialPlanningPage: React.FC = () => {
 
                         <div className="mt-6 space-y-4">
                             {expenseCategories.map(cat => {
-                                // Mock budget for demo if not set
-                                const budgetAmt = 50000;
+                                // Find real budget or default to 0
+                                const budgetItem = state.budgets.find(b => b.category === cat);
+                                const budgetAmt = budgetItem ? budgetItem.amount : 0;
                                 const spent = actualSpend[cat] || 0;
-                                const percent = Math.min(100, (spent / budgetAmt) * 100);
+                                // If budget is 0, percentage is undefined or 100% if spent > 0? 
+                                // Let's handle visual: if budget 0, show spent but bar is full red if spent > 0
+                                const percent = budgetAmt > 0 ? Math.min(100, (spent / budgetAmt) * 100) : (spent > 0 ? 100 : 0);
                                 const isOver = spent > budgetAmt;
 
                                 return (
@@ -174,13 +189,13 @@ const FinancialPlanningPage: React.FC = () => {
                                         <div className="flex justify-between text-sm">
                                             <span className="font-medium">{cat}</span>
                                             <span className={isOver ? 'text-red-500' : 'text-gray-500'}>
-                                                {spent.toLocaleString()} / {budgetAmt.toLocaleString()}
+                                                {formatCurrency(spent)} / {formatCurrency(budgetAmt)}
                                             </span>
                                         </div>
                                         <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                                             <div
-                                                className={`h - full ${isOver ? 'bg-red-500' : 'bg-teal-500'} `}
-                                                style={{ width: `${percent}% ` }}
+                                                className={`h-full ${isOver ? 'bg-red-500' : 'bg-teal-500'}`}
+                                                style={{ width: `${percent}%` }}
                                             />
                                         </div>
                                     </div>
@@ -213,7 +228,7 @@ const FinancialPlanningPage: React.FC = () => {
                         <Card className="text-center">
                             <div className="text-gray-500 text-sm">Projected Revenue (30 Days)</div>
                             <div className="text-2xl font-bold text-green-600">
-                                ₹{(totalRevenue * 1.1).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                {formatCurrency(totalRevenue * 1.1)}
                             </div>
                             <div className="text-xs text-green-500 flex justify-center items-center">
                                 <ArrowUpRight size={12} /> +10% vs last month
@@ -222,7 +237,7 @@ const FinancialPlanningPage: React.FC = () => {
                         <Card className="text-center">
                             <div className="text-gray-500 text-sm">Projected Cash Flow</div>
                             <div className="text-2xl font-bold text-blue-600">
-                                ₹{((totalRevenue - totalExpenses) * 1.05).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                {formatCurrency((totalRevenue - totalExpenses) * 1.05)}
                             </div>
                             <div className="text-xs text-gray-400">Based on current burn rate</div>
                         </Card>
@@ -315,7 +330,20 @@ const FinancialPlanningPage: React.FC = () => {
                             <Button variant="secondary" className="w-full mb-2" onClick={() => setScenario({ revenueChange: 0, expenseChange: 0, cogsChange: 0 })}>
                                 <RefreshCw size={16} className="mr-2" /> Reset
                             </Button>
-                            <Button className="w-full" onClick={() => showToast("Scenario Saved!", "success")}>
+                            <Button className="w-full" onClick={() => {
+                                const newScenario: FinancialScenario = {
+                                    id: `scenario_${Date.now()}`,
+                                    name: `Scenario ${new Date().toLocaleDateString()}`,
+                                    changes: {
+                                        revenueChangePercent: scenario.revenueChange,
+                                        expenseChangePercent: scenario.expenseChange,
+                                        cogsChangePercent: scenario.cogsChange
+                                    },
+                                    isActive: false
+                                };
+                                dispatch({ type: 'ADD_SCENARIO', payload: newScenario });
+                                showToast("Scenario Saved!", "success");
+                            }}>
                                 <Save size={16} className="mr-2" /> Save Scenario
                             </Button>
                         </div>
@@ -324,21 +352,21 @@ const FinancialPlanningPage: React.FC = () => {
                     <Card className="lg:col-span-2">
                         <h3 className="font-bold mb-4">Projected Profit & Loss</h3>
 
-                        <div className="grid grid-cols-3 gap-4 mb-8">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
                             <div className="p-4 bg-gray-50 dark:bg-slate-700 rounded-lg text-center">
                                 <div className="text-sm text-gray-500">Revenue</div>
-                                <div className="text-xl font-bold">₹{scenarioResult.projectedRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+                                <div className="text-xl font-bold">{formatCurrency(scenarioResult.projectedRevenue)}</div>
                             </div>
                             <div className="p-4 bg-gray-50 dark:bg-slate-700 rounded-lg text-center">
                                 <div className="text-sm text-gray-500">Total Costs</div>
                                 <div className="text-xl font-bold text-red-500">
-                                    ₹{(scenarioResult.projectedExpense + scenarioResult.projectedCOGS).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                    {formatCurrency(scenarioResult.projectedExpense + scenarioResult.projectedCOGS)}
                                 </div>
                             </div>
                             <div className="p-4 bg-gray-50 dark:bg-slate-700 rounded-lg text-center">
                                 <div className="text-sm text-gray-500">Net Profit</div>
-                                <div className={`text - xl font - bold ${scenarioResult.projectedProfit >= 0 ? 'text-green-600' : 'text-red-600'} `}>
-                                    ₹{scenarioResult.projectedProfit.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                <div className={`text-xl font-bold ${scenarioResult.projectedProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                    {formatCurrency(scenarioResult.projectedProfit)}
                                 </div>
                             </div>
                         </div>
@@ -352,7 +380,7 @@ const FinancialPlanningPage: React.FC = () => {
                                     <CartesianGrid strokeDasharray="3 3" />
                                     <XAxis dataKey="name" />
                                     <YAxis />
-                                    <Tooltip formatter={(value) => `₹${Number(value).toLocaleString()} `} />
+                                    <Tooltip formatter={(value) => `${formatCurrency(Number(value))} `} />
                                     <Legend />
                                     <Bar dataKey="revenue" fill="#0d9488" name="Revenue" barSize={50} />
                                     <Bar dataKey="profit" fill="#f59e0b" name="Net Profit" barSize={50} />
@@ -370,8 +398,8 @@ const FinancialPlanningPage: React.FC = () => {
                         <div className="space-y-6">
                             <div className="p-4 bg-slate-50 dark:bg-slate-700 rounded border border-l-4 border-l-blue-500">
                                 <h3 className="text-sm text-gray-500 uppercase font-bold mb-1">Net GST Payable</h3>
-                                <div className="text-3xl font-bold text-blue-600">
-                                    ₹{taxData.payable.toLocaleString()}
+                                <div className="text-2xl font-bold text-blue-600">
+                                    {formatCurrency(taxData.payable)}
                                 </div>
                                 <p className="text-xs text-gray-400 mt-1">Output Tax (Sales) - Input Tax (Purchases)</p>
                             </div>
@@ -379,11 +407,11 @@ const FinancialPlanningPage: React.FC = () => {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="p-3 bg-red-50 dark:bg-red-900/10 rounded">
                                     <div className="text-xs text-red-500 font-bold">Output Tax (Collected)</div>
-                                    <div className="text-lg font-bold">₹{taxData.outputTax.toLocaleString()}</div>
+                                    <div className="text-lg font-bold">{formatCurrency(taxData.outputTax)}</div>
                                 </div>
                                 <div className="p-3 bg-green-50 dark:bg-green-900/10 rounded">
                                     <div className="text-xs text-green-600 font-bold">Input Tax (Paid)</div>
-                                    <div className="text-lg font-bold">₹{taxData.inputTax.toLocaleString()}</div>
+                                    <div className="text-lg font-bold">{formatCurrency(taxData.inputTax)}</div>
                                 </div>
                             </div>
 
@@ -399,10 +427,10 @@ const FinancialPlanningPage: React.FC = () => {
                                 <div>
                                     <div className="text-sm text-gray-500">Break-Even Revenue Point</div>
                                     <div className="text-2xl font-bold text-indigo-600">
-                                        ₹{breakEvenData.breakEvenRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                        {formatCurrency(breakEvenData.breakEvenRevenue)}
                                     </div>
                                 </div>
-                                <div className={`text - sm font - bold ${breakEvenData.currentProgress >= 100 ? 'text-green-500' : 'text-orange-500'} `}>
+                                <div className={`text-sm font-bold ${breakEvenData.currentProgress >= 100 ? 'text-green-500' : 'text-orange-500'}`}>
                                     {breakEvenData.currentProgress.toFixed(1)}% Reached
                                 </div>
                             </div>
@@ -410,19 +438,19 @@ const FinancialPlanningPage: React.FC = () => {
                             <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden relative">
                                 <div
                                     className="h-full bg-green-500"
-                                    style={{ width: `${Math.min(100, breakEvenData.currentProgress)}% ` }}
+                                    style={{ width: `${Math.min(100, breakEvenData.currentProgress)}%` }}
                                 ></div>
                                 {/* Marker for 100% */}
                                 <div className="absolute top-0 bottom-0 w-0.5 bg-black left-[100%] opacity-0"></div>
                             </div>
                             <div className="flex justify-between text-xs text-gray-400">
-                                <span>₹0</span>
-                                <span>Current: ₹{totalRevenue.toLocaleString()}</span>
-                                <span>Target: ₹{breakEvenData.breakEvenRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                <span>{formatCurrency(0)}</span>
+                                <span>Current: {formatCurrency(totalRevenue)}</span>
+                                <span>Target: {formatCurrency(breakEvenData.breakEvenRevenue)}</span>
                             </div>
 
                             <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/10 text-xs text-yellow-800 dark:text-yellow-200 rounded border border-yellow-200">
-                                <strong>Insight:</strong> You need to generate ₹{(Math.max(0, breakEvenData.breakEvenRevenue - totalRevenue)).toLocaleString()} more in revenue to cover all fixed expenses (Rent, Salaries) and COGS.
+                                <strong>Insight:</strong> You need to generate {formatCurrency(Math.max(0, breakEvenData.breakEvenRevenue - totalRevenue))} more in revenue to cover all fixed expenses (Rent, Salaries) and COGS.
                             </div>
                         </div>
                     </Card>

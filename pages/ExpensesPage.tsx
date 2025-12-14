@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Plus, Trash2, Filter, Receipt, DollarSign, X, Camera, Image as ImageIcon, ScanLine, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Filter, Receipt, DollarSign, X, Camera, Image as ImageIcon, ScanLine, Loader2, Edit } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Expense, ExpenseCategory } from '../types';
 import Card from '../components/Card';
@@ -14,7 +14,7 @@ import { getLocalDateString } from '../utils/dateUtils';
 import { GoogleGenAI } from "@google/genai";
 
 interface ExpensesPageProps {
-  setIsDirty: (isDirty: boolean) => void;
+    setIsDirty: (isDirty: boolean) => void;
 }
 
 const EXPENSE_CATEGORIES: { value: ExpenseCategory; label: string }[] = [
@@ -41,11 +41,17 @@ const ExpensesPage: React.FC<ExpensesPageProps> = ({ setIsDirty }) => {
     const [category, setCategory] = useState<ExpenseCategory>('Other');
     const [date, setDate] = useState(getLocalDateString());
     const [note, setNote] = useState('');
-    const [paymentMethod, setPaymentMethod] = useState<'CASH'|'UPI'|'CHEQUE'>('CASH');
-    const [isAdding, setIsAdding] = useState(false);
+    const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'UPI' | 'CHEQUE'>('CASH');
+    const [accountId, setAccountId] = useState('none');
+
+    // Edit Mode State
+    const [isEditing, setIsEditing] = useState(false);
+    const [editId, setEditId] = useState<string | null>(null);
+    const [isAdding, setIsAdding] = useState(false); // Used for both Add and Edit modal visibility
+
     const [receiptImage, setReceiptImage] = useState<string | null>(null);
     const [isScanning, setIsScanning] = useState(false);
-    
+
     const [filterCategory, setFilterCategory] = useState<string>('all');
     const [filterMonth, setFilterMonth] = useState(new Date().getMonth().toString());
     const [filterYear, setFilterYear] = useState(new Date().getFullYear().toString());
@@ -123,9 +129,9 @@ const ExpensesPage: React.FC<ExpensesPageProps> = ({ setIsDirty }) => {
 
                 const text = response.text;
                 if (!text) throw new Error("No data returned");
-                
+
                 const data = JSON.parse(text);
-                
+
                 if (data.amount) setAmount(data.amount.toString());
                 if (data.date) setDate(data.date);
                 if (data.merchant) setNote(data.merchant);
@@ -147,32 +153,59 @@ const ExpensesPage: React.FC<ExpensesPageProps> = ({ setIsDirty }) => {
         }
     };
 
-    const handleAddExpense = () => {
+    const handleAddOrUpdateExpense = () => {
         if (!amount || parseFloat(amount) <= 0) {
             showToast("Please enter a valid amount.", 'error');
             return;
         }
 
-        const newExpense: Expense = {
-            id: `EXP-${Date.now()}`,
+        const expenseData: Expense = {
+            id: isEditing && editId ? editId : `EXP-${Date.now()}`,
             amount: parseFloat(amount),
             category,
             date: new Date(date).toISOString(),
             note: note.trim(),
             paymentMethod,
-            receiptImage: receiptImage || undefined
+            receiptImage: receiptImage || undefined,
+            accountId: accountId !== 'none' ? accountId : undefined
         };
 
-        dispatch({ type: 'ADD_EXPENSE', payload: newExpense });
-        showToast("Expense added successfully!");
-        
+        if (isEditing) {
+            dispatch({ type: 'UPDATE_EXPENSE', payload: expenseData });
+            showToast("Expense updated successfully!");
+        } else {
+            dispatch({ type: 'ADD_EXPENSE', payload: expenseData });
+            showToast("Expense added successfully!");
+        }
+
         // Reset form
+        resetForm();
+    };
+
+    const resetForm = () => {
         setAmount('');
         setNote('');
         setCategory('Other');
         setDate(getLocalDateString());
         setReceiptImage(null);
+        setPaymentMethod('CASH');
+        setAccountId('none');
         setIsAdding(false);
+        setIsEditing(false);
+        setEditId(null);
+    };
+
+    const handleEditStart = (expense: Expense) => {
+        setEditId(expense.id);
+        setAmount(expense.amount.toString());
+        setCategory(expense.category);
+        setDate(expense.date.split('T')[0]);
+        setNote(expense.note || '');
+        setPaymentMethod(expense.paymentMethod);
+        setReceiptImage(expense.receiptImage || null);
+        setAccountId(expense.accountId || 'none');
+        setIsEditing(true);
+        setIsAdding(true); // Open modal
     };
 
     const handleDelete = async (id: string) => {
@@ -194,9 +227,9 @@ const ExpensesPage: React.FC<ExpensesPageProps> = ({ setIsDirty }) => {
         }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [state.expenses, filterMonth, filterYear, filterCategory]);
 
-    const totalExpenses = useMemo(() => 
-        filteredExpenses.reduce((sum, e) => sum + e.amount, 0), 
-    [filteredExpenses]);
+    const totalExpenses = useMemo(() =>
+        filteredExpenses.reduce((sum, e) => sum + e.amount, 0),
+        [filteredExpenses]);
 
     const years = useMemo(() => {
         const yearsSet = new Set<string>([new Date().getFullYear().toString()]);
@@ -209,7 +242,7 @@ const ExpensesPage: React.FC<ExpensesPageProps> = ({ setIsDirty }) => {
             {viewImageModal && (
                 <div className="fixed inset-0 bg-black/80 z-[150] flex items-center justify-center p-4" onClick={() => setViewImageModal(null)}>
                     <div className="relative max-w-full max-h-full">
-                        <button className="absolute -top-10 right-0 text-white p-2" onClick={() => setViewImageModal(null)}><X size={24}/></button>
+                        <button className="absolute -top-10 right-0 text-white p-2" onClick={() => setViewImageModal(null)}><X size={24} /></button>
                         <img src={viewImageModal} alt="Receipt" className="max-w-full max-h-[90vh] rounded-lg" />
                     </div>
                 </div>
@@ -221,15 +254,18 @@ const ExpensesPage: React.FC<ExpensesPageProps> = ({ setIsDirty }) => {
                         <Receipt /> Expenses
                     </h1>
                 </div>
-                <Button onClick={() => setIsAdding(!isAdding)}>
-                    {isAdding ? <><X size={16} className="mr-2"/> Cancel</> : <><Plus size={16} className="mr-2"/> Add Expense</>}
+                <Button onClick={() => {
+                    if (isAdding) resetForm();
+                    else setIsAdding(true);
+                }}>
+                    {isAdding ? <><X size={16} className="mr-2" /> Cancel</> : <><Plus size={16} className="mr-2" /> Add Expense</>}
                 </Button>
             </div>
 
             {isAdding && (
-                <Card title="Add New Expense" className="animate-slide-down-fade border-l-4 border-l-rose-500 relative">
+                <Card title={isEditing ? "Edit Expense" : "Add New Expense"} className="animate-slide-down-fade border-l-4 border-l-rose-500 relative">
                     <div className="space-y-4">
-                        
+
                         {/* Receipt Attachment Bar */}
                         <div className="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-lg border border-indigo-100 dark:border-indigo-800 flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
@@ -240,45 +276,45 @@ const ExpensesPage: React.FC<ExpensesPageProps> = ({ setIsDirty }) => {
                                     {receiptImage ? 'Receipt Attached' : 'Attach Receipt'}
                                 </span>
                             </div>
-                            
+
                             <div className="flex gap-2">
                                 {receiptImage && (
-                                    <button 
+                                    <button
                                         onClick={() => setReceiptImage(null)}
                                         className="px-3 py-1.5 bg-red-100 text-red-700 hover:bg-red-200 text-xs font-bold rounded shadow-sm transition-colors border border-red-200"
                                     >
                                         Remove
                                     </button>
                                 )}
-                                <button 
+                                <button
                                     onClick={() => fileInputRef.current?.click()}
                                     className="text-xs bg-white dark:bg-slate-700 border hover:bg-gray-50 text-gray-700 dark:text-white px-3 py-1.5 rounded-md flex items-center gap-1 transition-colors shadow-sm font-bold"
                                 >
                                     <Camera size={14} /> {receiptImage ? 'Change' : 'Photo'}
                                 </button>
-                                <button 
+                                <button
                                     onClick={() => scanInputRef.current?.click()}
                                     disabled={isScanning}
                                     className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-md flex items-center gap-1 transition-colors shadow-sm font-bold"
                                 >
-                                    {isScanning ? <Loader2 size={14} className="animate-spin" /> : <ScanLine size={14} />} 
+                                    {isScanning ? <Loader2 size={14} className="animate-spin" /> : <ScanLine size={14} />}
                                     {isScanning ? 'Scanning...' : 'Auto-Scan'}
                                 </button>
                             </div>
-                            <input 
-                                type="file" 
-                                accept="image/*" 
-                                capture="environment" 
-                                ref={fileInputRef} 
-                                className="hidden" 
+                            <input
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                ref={fileInputRef}
+                                className="hidden"
                                 onChange={handleImageUpload}
                             />
-                            <input 
-                                type="file" 
-                                accept="image/*" 
-                                capture="environment" 
-                                ref={scanInputRef} 
-                                className="hidden" 
+                            <input
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                ref={scanInputRef}
+                                className="hidden"
                                 onChange={handleScanReceipt}
                             />
                         </div>
@@ -297,10 +333,10 @@ const ExpensesPage: React.FC<ExpensesPageProps> = ({ setIsDirty }) => {
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Amount</label>
                                 <div className="relative">
                                     <DollarSign size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                                    <Input 
-                                        type="number" 
-                                        value={amount} 
-                                        onChange={e => setAmount(e.target.value)} 
+                                    <Input
+                                        type="number"
+                                        value={amount}
+                                        onChange={e => setAmount(e.target.value)}
                                         className="pl-9"
                                         placeholder="0.00"
                                         autoFocus
@@ -309,42 +345,53 @@ const ExpensesPage: React.FC<ExpensesPageProps> = ({ setIsDirty }) => {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category</label>
-                                <Dropdown 
+                                <Dropdown
                                     options={EXPENSE_CATEGORIES}
                                     value={category}
                                     onChange={(val) => setCategory(val as ExpenseCategory)}
                                 />
                             </div>
                         </div>
-                        
+
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <ModernDateInput 
+                            <ModernDateInput
                                 label="Date"
                                 value={date}
                                 onChange={e => setDate(e.target.value)}
                             />
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Payment Method</label>
-                                <Dropdown 
+                                <Dropdown
                                     options={PAYMENT_METHODS}
                                     value={paymentMethod}
                                     onChange={(val) => setPaymentMethod(val as any)}
                                 />
                             </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Paid From (Optional)</label>
+                                <Dropdown
+                                    options={[
+                                        { value: 'none', label: 'None (Cash/External)' },
+                                        ...state.bankAccounts.map(b => ({ value: b.id, label: `${b.name} (${b.type})` }))
+                                    ]}
+                                    value={accountId}
+                                    onChange={setAccountId}
+                                />
+                            </div>
                         </div>
 
                         <div>
-                            <Input 
+                            <Input
                                 label="Note (Optional)"
-                                type="text" 
-                                value={note} 
-                                onChange={e => setNote(e.target.value)} 
+                                type="text"
+                                value={note}
+                                onChange={e => setNote(e.target.value)}
                                 placeholder="Merchant / Description..."
                             />
                         </div>
 
-                        <Button onClick={handleAddExpense} className="w-full bg-rose-600 hover:bg-rose-700 focus:ring-rose-600">
-                            Save Expense
+                        <Button onClick={handleAddOrUpdateExpense} className="w-full bg-rose-600 hover:bg-rose-700 focus:ring-rose-600">
+                            {isEditing ? 'Update Expense' : 'Save Expense'}
                         </Button>
                     </div>
                 </Card>
@@ -353,24 +400,24 @@ const ExpensesPage: React.FC<ExpensesPageProps> = ({ setIsDirty }) => {
             <Card>
                 <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-4 border-b dark:border-slate-700 pb-4">
                     <h2 className="text-lg font-bold text-gray-700 dark:text-gray-300">Expense History</h2>
-                    
+
                     <div className="flex gap-2 w-full sm:w-auto overflow-x-auto">
-                        <Dropdown 
-                            options={[{value: 'all', label: 'All Categories'}, ...EXPENSE_CATEGORIES]}
+                        <Dropdown
+                            options={[{ value: 'all', label: 'All Categories' }, ...EXPENSE_CATEGORIES]}
                             value={filterCategory}
                             onChange={setFilterCategory}
                             className="w-40"
                         />
-                        <Dropdown 
-                             options={[{value: 'all', label: 'All Months'}, ...Array.from({length: 12}).map((_, i) => ({
-                                 value: i.toString(),
-                                 label: new Date(0, i).toLocaleString('default', { month: 'short' })
-                             }))]}
-                             value={filterMonth}
-                             onChange={setFilterMonth}
-                             className="w-32"
+                        <Dropdown
+                            options={[{ value: 'all', label: 'All Months' }, ...Array.from({ length: 12 }).map((_, i) => ({
+                                value: i.toString(),
+                                label: new Date(0, i).toLocaleString('default', { month: 'short' })
+                            }))]}
+                            value={filterMonth}
+                            onChange={setFilterMonth}
+                            className="w-32"
                         />
-                        <Dropdown 
+                        <Dropdown
                             options={years.map(y => ({ value: y, label: y }))}
                             value={filterYear}
                             onChange={setFilterYear}
@@ -387,8 +434,8 @@ const ExpensesPage: React.FC<ExpensesPageProps> = ({ setIsDirty }) => {
                 <div className="space-y-3">
                     {filteredExpenses.length > 0 ? (
                         filteredExpenses.map((expense, index) => (
-                            <div 
-                                key={expense.id} 
+                            <div
+                                key={expense.id}
                                 className="p-3 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg flex justify-between items-center shadow-sm hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors animate-slide-up-fade"
                                 style={{ animationDelay: `${index * 50}ms` }}
                             >
@@ -409,6 +456,15 @@ const ExpensesPage: React.FC<ExpensesPageProps> = ({ setIsDirty }) => {
                                         </button>
                                     )}
                                     <span className="font-bold text-rose-600 dark:text-rose-400">₹{expense.amount.toLocaleString('en-IN')}</span>
+
+                                    <button
+                                        onClick={() => handleEditStart(expense)}
+                                        className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700 rounded transition-colors"
+                                        title="Edit Expense"
+                                    >
+                                        <Edit size={16} />
+                                    </button>
+
                                     <DeleteButton variant="delete" onClick={() => handleDelete(expense.id)} />
                                 </div>
                             </div>

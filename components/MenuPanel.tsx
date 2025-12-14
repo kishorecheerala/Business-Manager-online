@@ -25,6 +25,7 @@ interface MenuPanelProps {
     onOpenSignIn?: () => void;
     onHelpClick?: () => void;
     onOpenAPIConfig: () => void;
+    onOpenNavCustomizer?: () => void;
 }
 
 interface ThemeColor {
@@ -117,7 +118,7 @@ const getContrastColor = (hexColor: string) => {
     return (yiq >= 128) ? 'black' : 'white';
 };
 
-const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, onNavigate, onOpenDevTools, onLockApp, onOpenChangeLog, onOpenSignIn, onHelpClick, onOpenAPIConfig }) => {
+const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, onNavigate, onOpenDevTools, onLockApp, onOpenChangeLog, onOpenSignIn, onHelpClick, onOpenAPIConfig, onOpenNavCustomizer }) => {
     const { state, dispatch, googleSignOut, syncData, showToast } = useAppContext();
     const { showConfirm } = useDialog();
     const { isInstallable, install } = usePWAInstall();
@@ -444,6 +445,12 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                                 <button onClick={() => { onClose(); setIsUISettingsOpen(true); }} className="menu-item">
                                     <Layout className="w-5 h-5 text-teal-500" />
                                     <span className="flex-grow text-sm font-medium">UI Preferences</span>
+                                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                                </button>
+
+                                <button onClick={() => { onClose(); onOpenNavCustomizer?.(); }} className="menu-item">
+                                    <PenTool className="w-5 h-5 text-purple-500" />
+                                    <span className="flex-grow text-sm font-medium">Customize Navigation</span>
                                     <ChevronRight className="w-4 h-4 text-gray-400" />
                                 </button>
 
