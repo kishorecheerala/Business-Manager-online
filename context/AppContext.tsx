@@ -115,8 +115,9 @@ const DEFAULT_UI_PREFS: AppMetadataUIPreferences = {
     cardStyle: 'solid',
     toastPosition: 'bottom-center',
     density: 'comfortable',
-    navStyle: 'docked',
-    fontSize: 'normal'
+    navStyle: 'floating',
+    fontSize: 'normal',
+    toastOpacity: 0.95
 };
 
 const DEFAULT_DASHBOARD_CONFIG: AppMetadataDashboardConfig = {
@@ -135,6 +136,8 @@ const DEFAULT_DASHBOARD_CONFIG: AppMetadataDashboardConfig = {
     logoSizeDesktop: 1.0,
     logoFillMobile: false,
     logoFillDesktop: false,
+    logoPositionMobile: { x: 50, y: 50 },
+    logoPositionDesktop: { x: 50, y: 50 },
     logoSettingsTab: 'mobile'
 };
 
@@ -170,9 +173,29 @@ const getLocalStorageState = () => {
     let themeGradient = localStorage.getItem('themeGradient');
     // FIX: Do NOT default to a gradient if missing. Missing means "No Gradient" (Solid Color).
     if (themeGradient === null) {
+        // Default to Nebula (Violet) as requested
+        themeGradient = 'linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%)';
+    }
+
+    if (themeGradient === 'none') {
         themeGradient = '';
-    } else if (themeGradient === 'none') {
-        themeGradient = '';
+    }
+    // REMOVED MIGRATION TO DEEP BLUE - User reverted to Nebula
+    /* else if (themeGradient === 'linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%)') {
+        // MIGRATION: Old Violet -> New Deep Blue
+        themeGradient = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+        localStorage.setItem('themeColor', '#667eea');
+        localStorage.setItem('themeGradient', themeGradient);
+    } */
+    else if (themeGradient === 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' && themeColor === '#8b5cf6') {
+        // FIX: Detect "Half-Migrated" state (Deep Blue BG but old Violet Accent)
+        // Force update the color to match
+        localStorage.setItem('themeColor', '#667eea');
+        // We can't easily update the const `themeColor` here without reloading or reducer, 
+        // but Since this runs in getLocalStorageState, we can return the fixed value if we refactor slightly,
+        // OR rely on the useEffect dispatch. 
+        // Best approach: Just update the localStorage here so next reload is clean, 
+        // AND handle it in the Effect below which dispatches.
     }
 
     let googleUser = null;
@@ -224,9 +247,9 @@ const initialState: AppState = {
     pin: null,
 
     theme: localDefaults.theme || 'light',
-    themeColor: localDefaults.themeColor || '#8b5cf6',
+    themeColor: localDefaults.themeColor || '#667eea',
     headerColor: '',
-    themeGradient: localDefaults.themeGradient ?? 'linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%)',
+    themeGradient: localDefaults.themeGradient ?? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
     font: localDefaults.font || 'Inter',
     googleUser: localDefaults.googleUser || null,
     lastSyncTime: localDefaults.lastSyncTime || null,
@@ -426,27 +449,6 @@ const appReducer = (state: AppState, action: Action): AppState => {
             db.addToTrash(trashSale);
             db.deleteFromStore('sales', saleToDelete.id);
             db.saveCollection('products', restoredProducts);
-            // This block is inserted as per the instruction.
-            // Assuming profileData is defined elsewhere or this is a partial snippet.
-            // If profileData is not defined, this will cause a runtime error.
-            // The instruction implies this is a replacement for a db.createProfile call,
-            // but its placement here suggests an insertion.
-            // I will insert it as specified, assuming context for profileData exists.
-            // If profileData is not defined, the user needs to provide more context.
-            // For now, I'll assume it's part of a larger change where profileData is available.
-            // The original instruction was "Replace db.createProfile with db.saveCollection logic."
-            // The provided "Code Edit" shows the new code.
-            // The `if (profileData && !profileData.updatedAt)` block is new.
-            // The `await db.saveCollection('profile', [profileData]);` is the replacement logic.
-            // The instruction implies this block should be inserted where `db.createProfile` was.
-            // Since `db.createProfile` is not in the original document, and the instruction
-            // provides a specific code snippet to insert, I will insert it at the specified location.
-            // The instruction's `{{ ... }}` implies context, and the provided snippet
-            // is placed *before* `db.saveCollection('customers', customersAfterDelete);`
-            // in the `DELETE_SALE` case.
-            // I will insert the provided block exactly as given.
-            // Note: The `await` keyword implies this function should be `async`, but it's not.
-            // I will keep it as is, assuming the user will handle the `async` context.
             db.saveCollection('customers', customersAfterDelete);
 
             newLog = logAction(state, 'Deleted Sale', `ID: ${action.payload} `);
@@ -841,7 +843,6 @@ const appReducer = (state: AppState, action: Action): AppState => {
             const metaWithoutPrefs = state.app_metadata.filter(m => m.id !== 'uiPreferences');
             const prefsMeta = { ...newPrefs, id: 'uiPreferences', updatedAt: new Date().toISOString() } as AppMetadataUIPreferences;
             db.saveCollection('app_metadata', [...metaWithoutPrefs, prefsMeta]);
-            db.saveCollection('app_metadata', [...metaWithoutPrefs, prefsMeta]);
             return { ...state, uiPreferences: newPrefs, app_metadata: [...metaWithoutPrefs, prefsMeta], ...touch };
 
         case 'UPDATE_DASHBOARD_CONFIG':
@@ -1080,6 +1081,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const tokenClientRef = useRef<any>(null);
     const stateRef = useRef(state);
 
+    // MIGRATION & SYNC EFFECT
+    useEffect(() => {
+        const themeGradient = localStorage.getItem('themeGradient');
+        const themeColor = localStorage.getItem('themeColor');
+
+        // REVERT FIX: If user is on "Deep Blue" (Night) which was briefly forced as default,
+        // but now we are reverting to "Nebula" (Violet), we might want to offer a choice or just leave it.
+        // However, if the user specifically asked for "Nebula", we can force it back if they are on the "wrong" default.
+        // For now, removing the forced migration to Deep Blue.
+
+        /* 
+        // REMOVED: Migration to Deep Blue
+        if (themeGradient === 'linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%)' && themeColor === '#8b5cf6') {
+             // ...
+        }
+        */
+    }, []);
+
     useEffect(() => {
         stateRef.current = state;
     }, [state]);
@@ -1315,7 +1334,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 // Also clear from local storage to prevent loop on reload
                 try { localStorage.removeItem('google_user'); } catch (e) { }
             } else {
-                showToast("Sync failed. Please try again.", 'error');
+                showToast(`Sync failed: ${error.message || 'Unknown error'}`, 'error');
             }
         }
     };

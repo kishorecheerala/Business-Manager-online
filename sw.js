@@ -31,8 +31,16 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   // NETWORK ONLY STRATEGY
   // We explicitly bypass cache to prevent the "stale/freeze" issue.
-  // This ensures the user always gets the latest Vercel deployment.
+
+  // 1. Ignore Non-GET requests (POST/PUT/DELETE go direct to network)
   if (event.request.method !== 'GET') {
+    return;
+  }
+
+  // 2. Ignore Cross-Origin requests (Google API, etc.)
+  // Let the browser handle these directly to avoid CORS/Proxy issues in SW
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) {
     return;
   }
 

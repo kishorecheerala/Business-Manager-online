@@ -454,6 +454,7 @@ export interface AppMetadataUIPreferences {
   density: 'comfortable' | 'compact';
   navStyle?: 'docked' | 'floating';
   fontSize?: 'small' | 'normal' | 'large';
+  toastOpacity?: number; // 0.5 to 1.0
   updatedAt?: string;
 }
 
@@ -468,6 +469,8 @@ export interface AppMetadataDashboardConfig {
   logoSizeDesktop?: number;
   logoFillMobile?: boolean; // deprecated/renamed or just fill
   logoFillDesktop?: boolean;
+  logoPositionMobile?: { x: number; y: number }; // Percentage 0-100
+  logoPositionDesktop?: { x: number; y: number }; // Percentage 0-100
   logoSettingsTab?: 'mobile' | 'desktop'; // UI state persistence
   customLogo?: string; // base64
   useCustomLogo?: boolean;

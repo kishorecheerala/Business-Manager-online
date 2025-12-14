@@ -41,7 +41,10 @@ const Toast: React.FC = () => {
 
   return (
     <div className={`fixed ${positionClasses} z-[200] flex items-center justify-center pointer-events-none transition-all duration-300`}>
-      <div className={`${bgColors[type]} pointer-events-auto rounded-xl shadow-2xl py-3 px-4 min-w-[280px] max-w-sm flex items-center gap-3 animate-scale-in border border-white/10 relative`}>
+      <div
+        className={`${bgColors[type]} pointer-events-auto rounded-xl shadow-2xl py-3 px-4 min-w-[280px] max-w-sm flex items-center gap-3 animate-scale-in border border-white/10 relative`}
+        style={{ '--toast-opacity': state.uiPreferences?.toastOpacity ?? 0.95 } as React.CSSProperties}
+      >
         {/* Content */}
         <div className="flex items-start gap-3 w-full">
           <div className="shrink-0 mt-0.5">
