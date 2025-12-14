@@ -758,6 +758,40 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
                             const totalPaid = supplierPurchases.reduce((sum, p) => sum + (p.payments || []).reduce((psum, pay) => psum + Number(pay.amount), 0), 0);
                             const due = totalPurchased - totalPaid;
 
+                            // Calculate Next Due Date
+                            let nextDueDate: string | null = null;
+                            let daysUntilDue: number | null = null;
+                            let isOverdue = false;
+
+                            const allDueDates: string[] = [];
+                            supplierPurchases.forEach(p => {
+                                const pPaid = (p.payments || []).reduce((sum, pay) => sum + Number(pay.amount), 0);
+                                const pDue = Number(p.totalAmount) - pPaid;
+
+                                if (pDue > 0.01 && p.paymentDueDates) {
+                                    p.paymentDueDates.forEach(date => {
+                                        // Only consider dates that haven't "passed" in terms of being fully paid? 
+                                        // Actually simplest is just collect ALL dates from UNPAID invoices.
+                                        allDueDates.push(date);
+                                    });
+                                }
+                            });
+
+                            if (allDueDates.length > 0) {
+                                allDueDates.sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+                                // Find earliest date
+                                const today = new Date();
+                                today.setHours(0, 0, 0, 0);
+
+                                // Logic: Find the earliest date. If it's in past -> Overdue.
+                                const earliest = new Date(allDueDates[0]);
+                                nextDueDate = allDueDates[0];
+
+                                const diffTime = earliest.getTime() - today.getTime();
+                                daysUntilDue = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                                isOverdue = daysUntilDue < 0;
+                            }
+
                             return (
                                 <Card
                                     key={supplier.id}
@@ -765,16 +799,40 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
                                     style={{ animationDelay: `${index * 50}ms` }}
                                     onClick={() => setSelectedSupplier(supplier)}
                                 >
-                                    <div className="flex justify-between items-center">
+                                    <div className="flex justify-between items-start">
                                         <div>
-                                            <h3 className="font-bold text-lg text-gray-800 dark:text-white">{supplier.name}</h3>
-                                            <p className="text-sm text-gray-500 dark:text-gray-400">{supplier.location}</p>
+                                            <h3 className="font-bold text-lg text-gray-800 dark:text-white mb-1">{supplier.name}</h3>
+                                            <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                                                {supplier.location}
+                                            </p>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">Outstanding Due</p>
-                                            <p className={`font-bold text-lg ${due > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-                                                {formatCurrency(due)}
-                                            </p>
+                                            {/* Financial Summary */}
+                                            <div className="flex flex-col gap-0.5">
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                    Total Invoice: <span className="font-semibold text-gray-700 dark:text-gray-200">{formatCurrency(totalPurchased)}</span>
+                                                </p>
+                                                <p className={`font-bold text-lg ${due > 0.01 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                                                    Outstanding: {formatCurrency(due)}
+                                                </p>
+
+                                                {/* Due Date Indicator */}
+                                                {nextDueDate && daysUntilDue !== null && due > 0.01 && (
+                                                    <div className={`text-xs font-bold mt-1 px-2 py-1 rounded-md inline-block self-end ${isOverdue
+                                                            ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                                                            : daysUntilDue === 0
+                                                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                                                                : 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                                                        }`}>
+                                                        {isOverdue
+                                                            ? `Overdue by ${Math.abs(daysUntilDue)} days (${formatDate(nextDueDate)})`
+                                                            : daysUntilDue === 0
+                                                                ? `Due Today`
+                                                                : `Due in ${daysUntilDue} days (${formatDate(nextDueDate)})`
+                                                        }
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </Card>

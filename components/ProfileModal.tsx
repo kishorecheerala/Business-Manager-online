@@ -8,6 +8,7 @@ import Button from './Button';
 import { compressImage } from '../utils/imageUtils';
 import Input from './Input';
 import Textarea from './Textarea';
+import FormattedNumberInput from './FormattedNumberInput';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -228,9 +229,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                   </div>
 
                   {/* Opening balance only for new accounts or allow edit? Usually opening bal implies start. */}
-                  <Input
+                  <FormattedNumberInput
                     label="Opening Balance"
-                    type="number"
                     value={accountForm.openingBalance ?? ''}
                     onChange={(e) => setAccountForm({ ...accountForm, openingBalance: Number(e.target.value) })}
                   />

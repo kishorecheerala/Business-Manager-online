@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Target, Trophy, TrendingUp, Edit2, Check } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Card from '../Card';
+import FormattedNumberInput from '../FormattedNumberInput';
 import { Sale } from '../../types';
 
 interface GoalTrackerProps {
@@ -67,8 +68,7 @@ const GoalTracker: React.FC<GoalTrackerProps> = ({ sales, className }) => {
 
                 {isEditing ? (
                     <div className="flex items-center gap-2">
-                        <input
-                            type="number"
+                        <FormattedNumberInput
                             className="w-24 text-sm border rounded px-1 py-0.5 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
                             value={tempGoal}
                             onChange={(e) => setTempGoal(e.target.value)}

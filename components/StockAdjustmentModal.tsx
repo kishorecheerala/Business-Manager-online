@@ -4,6 +4,7 @@ import { X, Save, AlertTriangle, Scale, History } from 'lucide-react';
 import Card from './Card';
 import Button from './Button';
 import Dropdown from './Dropdown';
+import FormattedNumberInput from './FormattedNumberInput';
 import { useAppContext } from '../context/AppContext';
 import { Product } from '../types';
 
@@ -113,10 +114,9 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({ isOpen, onC
                                 </div>
                                 <div>
                                     <span className="text-xs text-gray-500 uppercase font-bold">Actual Qty</span>
-                                    <input
-                                        type="number"
+                                    <FormattedNumberInput
                                         value={actualStock}
-                                        onChange={e => setActualStock(e.target.value)}
+                                        onChange={(e) => setActualStock(e.target.value)}
                                         className="w-full text-center text-xl font-bold bg-white dark:bg-slate-900 border-b-2 border-indigo-500 focus:outline-none py-1"
                                     />
                                 </div>

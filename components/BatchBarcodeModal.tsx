@@ -4,6 +4,7 @@ import jsPDF from 'jspdf';
 import JsBarcode from 'jsbarcode';
 import Card from './Card';
 import Button from './Button';
+import FormattedNumberInput from './FormattedNumberInput';
 import { X, Download, Printer } from 'lucide-react';
 import { PurchaseItem } from '../types';
 import { useAppContext } from '../context/AppContext';
@@ -235,8 +236,7 @@ const BatchBarcodeModal: React.FC<BatchBarcodeModalProps> = ({ isOpen, purchaseI
                                 <p className="font-semibold text-sm">{item.productName}</p>
                                 <p className="text-xs text-gray-500 dark:text-gray-400">{item.productId}</p>
                             </div>
-                            <input
-                                type="number"
+                            <FormattedNumberInput
                                 value={quantities[item.productId] || ''}
                                 onChange={e => handleQuantityChange(item.productId, e.target.value)}
                                 className="w-full p-2 border rounded text-center dark:bg-slate-600 dark:border-slate-500 dark:text-slate-200"

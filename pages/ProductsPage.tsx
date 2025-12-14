@@ -9,6 +9,7 @@ import Button from '../components/Button';
 import BarcodeModal from '../components/BarcodeModal';
 import BatchBarcodeModal from '../components/BatchBarcodeModal';
 import Input from '../components/Input';
+import FormattedNumberInput from '../components/FormattedNumberInput';
 import { compressImage } from '../utils/imageUtils';
 import { Html5Qrcode } from 'html5-qrcode';
 import EmptyState from '../components/EmptyState';
@@ -723,8 +724,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                                 Magic Price
                                             </button>
                                         </div>
-                                        <Input
-                                            type="number"
+                                        <FormattedNumberInput
                                             value={editedProduct.salePrice}
                                             onChange={e => setEditedProduct({ ...editedProduct, salePrice: parseFloat(e.target.value) })}
                                             className="pl-8 font-bold text-lg" // Larger text
@@ -735,11 +735,10 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                     </div>
                                     <div>
                                         <label className="text-xs font-bold text-gray-500 uppercase">Stock Qty</label>
-                                        <input
-                                            type="number"
+                                        <FormattedNumberInput
                                             value={editedProduct.quantity}
                                             onChange={e => setEditedProduct({ ...editedProduct, quantity: parseFloat(e.target.value) || 0 })}
-                                            className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white font-bold"
+                                            className="font-bold"
                                         />
                                     </div>
                                 </div>
@@ -747,8 +746,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                     <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Wholesale Price</label>
                                     <div className="relative">
                                         <IndianRupee size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                                        <Input
-                                            type="number"
+                                        <FormattedNumberInput
                                             placeholder="Optional"
                                             value={editedProduct.wholesalePrice || ''}
                                             onChange={e => setEditedProduct({ ...editedProduct, wholesalePrice: parseFloat(e.target.value) })}
@@ -788,22 +786,18 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                                     </div>
                                     <div>
                                         <label className="text-xs font-bold text-gray-500 uppercase">Purchase Price</label>
-                                        <input
-                                            type="number"
+                                        <FormattedNumberInput
                                             value={editedProduct.purchasePrice}
                                             onChange={e => setEditedProduct({ ...editedProduct, purchasePrice: parseFloat(e.target.value) || 0 })}
-                                            className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white"
                                         />
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="text-xs font-bold text-gray-500 uppercase">GST %</label>
-                                        <input
-                                            type="number"
+                                        <FormattedNumberInput
                                             value={editedProduct.gstPercent}
                                             onChange={e => setEditedProduct({ ...editedProduct, gstPercent: parseFloat(e.target.value) || 0 })}
-                                            className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white"
                                         />
                                     </div>
                                 </div>

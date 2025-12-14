@@ -4,6 +4,7 @@ import jsPDF from 'jspdf';
 import JsBarcode from 'jsbarcode';
 import Card from './Card';
 import Button from './Button';
+import FormattedNumberInput from './FormattedNumberInput';
 import { X, Download, Printer, LayoutGrid, File } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
@@ -29,8 +30,8 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({ isOpen, product, onC
   const printIframeRef = useRef<HTMLIFrameElement | null>(null);
 
   useEffect(() => {
-      if (isOpen) document.body.style.overflow = 'hidden';
-      return () => { document.body.style.overflow = ''; };
+    if (isOpen) document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
   }, [isOpen]);
 
   const generateLabelCanvas = (): HTMLCanvasElement => {
@@ -61,7 +62,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({ isOpen, product, onC
       displayValue: false, // We will render text manually
       margin: 0,
     });
-    
+
     // Draw barcode onto the main label canvas, centered
     const barcodeX = (labelCanvas.width - barcodeCanvas.width) / 2;
     const barcodeY = 30 * dpiScale;
@@ -90,39 +91,39 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({ isOpen, product, onC
 
   useEffect(() => {
     if (isOpen && product) {
-        setNumberOfCopies(product.quantity || 0);
+      setNumberOfCopies(product.quantity || 0);
     }
 
     // Cleanup iframe on modal close/unmount
     return () => {
-        if (printIframeRef.current) {
-            if (document.body.contains(printIframeRef.current)) {
-                document.body.removeChild(printIframeRef.current);
-            }
-            printIframeRef.current = null;
+      if (printIframeRef.current) {
+        if (document.body.contains(printIframeRef.current)) {
+          document.body.removeChild(printIframeRef.current);
         }
+        printIframeRef.current = null;
+      }
     };
   }, [isOpen, product]);
 
   useEffect(() => {
     if (isOpen && product && labelPreviewCanvasRef.current) {
-        const fullLabelCanvas = generateLabelCanvas();
-        const previewCtx = labelPreviewCanvasRef.current.getContext('2d');
-        if (previewCtx) {
-            const previewWidth = 200;
-            const previewHeight = 100;
-            // Render at 2x for retina displays, then style down
-            labelPreviewCanvasRef.current.width = previewWidth * 2; 
-            labelPreviewCanvasRef.current.height = previewHeight * 2;
-            labelPreviewCanvasRef.current.style.width = `${previewWidth}px`;
-            labelPreviewCanvasRef.current.style.height = `${previewHeight}px`;
+      const fullLabelCanvas = generateLabelCanvas();
+      const previewCtx = labelPreviewCanvasRef.current.getContext('2d');
+      if (previewCtx) {
+        const previewWidth = 200;
+        const previewHeight = 100;
+        // Render at 2x for retina displays, then style down
+        labelPreviewCanvasRef.current.width = previewWidth * 2;
+        labelPreviewCanvasRef.current.height = previewHeight * 2;
+        labelPreviewCanvasRef.current.style.width = `${previewWidth}px`;
+        labelPreviewCanvasRef.current.style.height = `${previewHeight}px`;
 
-            previewCtx.fillStyle = '#FFFFFF';
-            previewCtx.fillRect(0, 0, labelPreviewCanvasRef.current.width, labelPreviewCanvasRef.current.height);
-            previewCtx.drawImage(fullLabelCanvas, 0, 0, labelPreviewCanvasRef.current.width, labelPreviewCanvasRef.current.height);
-        }
+        previewCtx.fillStyle = '#FFFFFF';
+        previewCtx.fillRect(0, 0, labelPreviewCanvasRef.current.width, labelPreviewCanvasRef.current.height);
+        previewCtx.drawImage(fullLabelCanvas, 0, 0, labelPreviewCanvasRef.current.width, labelPreviewCanvasRef.current.height);
+      }
     }
-  }, [isOpen, product, businessName, numberOfCopies]); 
+  }, [isOpen, product, businessName, numberOfCopies]);
 
 
   const handleDownloadPDF = async () => {
@@ -132,7 +133,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({ isOpen, product, onC
     }
     try {
       const doc = new jsPDF({
-        orientation: paperType === 'roll' ? 'landscape' : 'portrait', 
+        orientation: paperType === 'roll' ? 'landscape' : 'portrait',
         unit: 'mm',
         format: paperType === 'roll' ? [50.8, 25.4] : 'a4', // 2x1 inch for roll, A4 for sheet
       });
@@ -141,59 +142,59 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({ isOpen, product, onC
       const imageData = labelCanvas.toDataURL('image/png');
 
       if (paperType === 'roll') {
-          // One label per page (standard thermal printer)
-          const pageWidth = doc.internal.pageSize.getWidth();
-          const margin = 1;
-          const imgWidth = pageWidth - 2 * margin;
-          const imgHeight = (imgWidth * labelCanvas.height) / labelCanvas.width;
-          const yPosition = (doc.internal.pageSize.getHeight() - imgHeight) / 2;
+        // One label per page (standard thermal printer)
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const margin = 1;
+        const imgWidth = pageWidth - 2 * margin;
+        const imgHeight = (imgWidth * labelCanvas.height) / labelCanvas.width;
+        const yPosition = (doc.internal.pageSize.getHeight() - imgHeight) / 2;
 
-          for (let copy = 0; copy < numberOfCopies; copy++) {
-            if (copy > 0) doc.addPage();
-            doc.addImage(imageData, 'PNG', margin, yPosition, imgWidth, imgHeight);
-          }
+        for (let copy = 0; copy < numberOfCopies; copy++) {
+          if (copy > 0) doc.addPage();
+          doc.addImage(imageData, 'PNG', margin, yPosition, imgWidth, imgHeight);
+        }
       } else {
-          // Grid layout on A4 (e.g., 4 columns, 10 rows)
-          const margin = 10;
-          const cols = 4;
-          const rows = 10;
-          const pageWidth = 210; // A4 width in mm
-          const pageHeight = 297; // A4 height in mm
-          const labelWidth = (pageWidth - (margin * 2)) / cols;
-          const labelHeight = 25.4; // 1 inch height
-          
-          let x = margin;
-          let y = margin;
-          let col = 0;
-          let row = 0;
+        // Grid layout on A4 (e.g., 4 columns, 10 rows)
+        const margin = 10;
+        const cols = 4;
+        const rows = 10;
+        const pageWidth = 210; // A4 width in mm
+        const pageHeight = 297; // A4 height in mm
+        const labelWidth = (pageWidth - (margin * 2)) / cols;
+        const labelHeight = 25.4; // 1 inch height
 
-          for (let i = 0; i < numberOfCopies; i++) {
-              if (row >= rows) {
-                  doc.addPage();
-                  row = 0;
-                  y = margin;
-              }
-              
-              // Draw border for A4 sheet visual guide
-              doc.setDrawColor(200);
-              doc.rect(x, y, labelWidth, labelHeight);
-              
-              // Draw Image centered in cell
-              const padding = 2;
-              const cellInnerWidth = labelWidth - (padding * 2);
-              const cellInnerHeight = labelHeight - (padding * 2);
-              doc.addImage(imageData, 'PNG', x + padding, y + padding, cellInnerWidth, cellInnerHeight);
+        let x = margin;
+        let y = margin;
+        let col = 0;
+        let row = 0;
 
-              col++;
-              x += labelWidth;
-              
-              if (col >= cols) {
-                  col = 0;
-                  x = margin;
-                  row++;
-                  y += labelHeight;
-              }
+        for (let i = 0; i < numberOfCopies; i++) {
+          if (row >= rows) {
+            doc.addPage();
+            row = 0;
+            y = margin;
           }
+
+          // Draw border for A4 sheet visual guide
+          doc.setDrawColor(200);
+          doc.rect(x, y, labelWidth, labelHeight);
+
+          // Draw Image centered in cell
+          const padding = 2;
+          const cellInnerWidth = labelWidth - (padding * 2);
+          const cellInnerHeight = labelHeight - (padding * 2);
+          doc.addImage(imageData, 'PNG', x + padding, y + padding, cellInnerWidth, cellInnerHeight);
+
+          col++;
+          x += labelWidth;
+
+          if (col >= cols) {
+            col = 0;
+            x = margin;
+            row++;
+            y += labelHeight;
+          }
+        }
       }
 
       const filename = `${product.id}-labels-${numberOfCopies}.pdf`;
@@ -206,58 +207,58 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({ isOpen, product, onC
 
   const handlePrint = async () => {
     if (paperType === 'a4') {
-        const confirmed = await showConfirm("For A4 printing, it is recommended to Download PDF first for accurate grid alignment. Proceed to download?", { confirmText: "Download PDF", cancelText: "Cancel" });
-        if(confirmed) {
-            handleDownloadPDF();
-            return;
-        }
+      const confirmed = await showConfirm("For A4 printing, it is recommended to Download PDF first for accurate grid alignment. Proceed to download?", { confirmText: "Download PDF", cancelText: "Cancel" });
+      if (confirmed) {
+        handleDownloadPDF();
+        return;
+      }
     }
-    
+
     // Fallback Roll Printing Logic
     try {
-        const labelCanvas = generateLabelCanvas();
-        const imageDataUrl = labelCanvas.toDataURL('image/png');
+      const labelCanvas = generateLabelCanvas();
+      const imageDataUrl = labelCanvas.toDataURL('image/png');
 
-        let labelsHtml = '';
-        for (let i = 0; i < numberOfCopies; i++) {
-            labelsHtml += `<div class="label"><img src="${imageDataUrl}" style="width: 100%; height: 100%;" /></div>`;
-        }
+      let labelsHtml = '';
+      for (let i = 0; i < numberOfCopies; i++) {
+        labelsHtml += `<div class="label"><img src="${imageDataUrl}" style="width: 100%; height: 100%;" /></div>`;
+      }
 
-        const printStyles = `
+      const printStyles = `
             @page { size: 2in 1in; margin: 0; }
             @media print {
                 html, body { width: 2in; height: 1in; margin: 0; padding: 0; display: block; }
                 .label { width: 2in; height: 1in; page-break-after: always; box-sizing: border-box; display: block; }
             }
         `;
-        
-        if (printIframeRef.current && document.body.contains(printIframeRef.current)) {
-            document.body.removeChild(printIframeRef.current);
-        }
 
-        const iframe = document.createElement('iframe');
-        printIframeRef.current = iframe; 
-        iframe.style.position = 'absolute';
-        iframe.style.width = '0';
-        iframe.style.height = '0';
-        iframe.style.border = '0';
-        document.body.appendChild(iframe);
+      if (printIframeRef.current && document.body.contains(printIframeRef.current)) {
+        document.body.removeChild(printIframeRef.current);
+      }
 
-        const doc = iframe.contentDocument;
-        if (doc) {
-            doc.open();
-            doc.write(`<html><head><title>Print Labels</title><style>${printStyles}</style></head><body>${labelsHtml}</body></html>`);
-            doc.close();
-            iframe.onload = () => {
-                if (iframe.contentWindow) {
-                    iframe.contentWindow.focus();
-                    iframe.contentWindow.print();
-                }
-            };
-        }
+      const iframe = document.createElement('iframe');
+      printIframeRef.current = iframe;
+      iframe.style.position = 'absolute';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      document.body.appendChild(iframe);
+
+      const doc = iframe.contentDocument;
+      if (doc) {
+        doc.open();
+        doc.write(`<html><head><title>Print Labels</title><style>${printStyles}</style></head><body>${labelsHtml}</body></html>`);
+        doc.close();
+        iframe.onload = () => {
+          if (iframe.contentWindow) {
+            iframe.contentWindow.focus();
+            iframe.contentWindow.print();
+          }
+        };
+      }
     } catch (error) {
-        console.error('Printing failed:', error);
-        showToast('Failed to print labels. Please try again.', 'error');
+      console.error('Printing failed:', error);
+      showToast('Failed to print labels. Please try again.', 'error');
     }
   };
 
@@ -265,8 +266,8 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({ isOpen, product, onC
   if (!isOpen || !product) return null;
 
   return createPortal(
-    <div 
-        className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+    <div
+      className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
     >
       <div className="absolute inset-0 bg-black/50 animate-fade-in-fast" onClick={onClose} />
       <Card className="relative z-10 w-full max-w-md animate-scale-in">
@@ -286,39 +287,38 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({ isOpen, product, onC
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 text-center">Number of copies</label>
             <div className="flex items-center justify-center gap-2">
-                <Button onClick={() => setNumberOfCopies(prev => Math.max(0, prev - 1))} className="px-4 py-2 text-xl font-bold" variant="secondary">-</Button>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={numberOfCopies}
-                  onChange={(e) => setNumberOfCopies(Math.max(0, parseInt(e.target.value) || 0))}
-                  className="w-24 p-2 border rounded text-center text-lg dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
-                />
-                <Button onClick={() => setNumberOfCopies(prev => Math.min(100, prev + 1))} className="px-4 py-2 text-xl font-bold" variant="secondary">+</Button>
+              <Button onClick={() => setNumberOfCopies(prev => Math.max(0, prev - 1))} className="px-4 py-2 text-xl font-bold" variant="secondary">-</Button>
+              <FormattedNumberInput
+                min={0}
+                max={100}
+                value={numberOfCopies}
+                onChange={(e) => setNumberOfCopies(Math.max(0, parseInt(e.target.value) || 0))}
+                className="w-24 p-2 border rounded text-center text-lg dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
+              />
+              <Button onClick={() => setNumberOfCopies(prev => Math.min(100, prev + 1))} className="px-4 py-2 text-xl font-bold" variant="secondary">+</Button>
             </div>
           </div>
-          
+
           {/* Paper Type Selection */}
           <div className="flex gap-2">
-              <button 
-                onClick={() => setPaperType('roll')}
-                className={`flex-1 p-2 rounded border text-sm font-medium flex items-center justify-center gap-2 ${paperType === 'roll' ? 'bg-primary/10 border-primary text-primary' : 'bg-gray-50 border-gray-200 text-gray-600'}`}
-              >
-                  <LayoutGrid size={16} /> Label Roll (2x1")
-              </button>
-              <button 
-                onClick={() => setPaperType('a4')}
-                className={`flex-1 p-2 rounded border text-sm font-medium flex items-center justify-center gap-2 ${paperType === 'a4' ? 'bg-primary/10 border-primary text-primary' : 'bg-gray-50 border-gray-200 text-gray-600'}`}
-              >
-                  <File size={16} /> A4 Sheet (Grid)
-              </button>
+            <button
+              onClick={() => setPaperType('roll')}
+              className={`flex-1 p-2 rounded border text-sm font-medium flex items-center justify-center gap-2 ${paperType === 'roll' ? 'bg-primary/10 border-primary text-primary' : 'bg-gray-50 border-gray-200 text-gray-600'}`}
+            >
+              <LayoutGrid size={16} /> Label Roll (2x1")
+            </button>
+            <button
+              onClick={() => setPaperType('a4')}
+              className={`flex-1 p-2 rounded border text-sm font-medium flex items-center justify-center gap-2 ${paperType === 'a4' ? 'bg-primary/10 border-primary text-primary' : 'bg-gray-50 border-gray-200 text-gray-600'}`}
+            >
+              <File size={16} /> A4 Sheet (Grid)
+            </button>
           </div>
 
           <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-3 rounded">
             <p className="text-xs font-semibold text-yellow-800 dark:text-yellow-200 mb-1">Print Settings</p>
             <p className="text-xs text-yellow-700 dark:text-yellow-300">
-              {paperType === 'roll' 
+              {paperType === 'roll'
                 ? "Printer: Label Printer. Size: 2x1 inch (50.8x25.4mm). Scale: Actual Size."
                 : "Printer: A4 Printer. Scale: 100% / Actual Size. Generates a grid of labels."}
             </p>

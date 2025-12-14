@@ -8,6 +8,7 @@ import DeleteButton from '../components/DeleteButton';
 import ModernDateInput from '../components/ModernDateInput';
 import Dropdown from '../components/Dropdown';
 import Input from '../components/Input';
+import FormattedNumberInput from '../components/FormattedNumberInput';
 import { compressImage } from '../utils/imageUtils';
 import { useDialog } from '../context/DialogContext';
 import { getLocalDateString } from '../utils/dateUtils';
@@ -333,8 +334,7 @@ const ExpensesPage: React.FC<ExpensesPageProps> = ({ setIsDirty }) => {
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Amount</label>
                                 <div className="relative">
                                     <DollarSign size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                                    <Input
-                                        type="number"
+                                    <FormattedNumberInput
                                         value={amount}
                                         onChange={e => setAmount(e.target.value)}
                                         className="pl-9"

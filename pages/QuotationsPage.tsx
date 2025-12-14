@@ -16,6 +16,7 @@ import { getLocalDateString } from '../utils/dateUtils';
 import { calculateTotals } from '../utils/calculations';
 import { useHotkeys } from '../hooks/useHotkeys';
 import Input from '../components/Input';
+import FormattedNumberInput from '../components/FormattedNumberInput';
 import QRScannerModal from '../components/QRScannerModal';
 
 
@@ -24,14 +25,14 @@ const QuotationsPage: React.FC = () => {
     const { showConfirm } = useDialog();
     const [view, setView] = useState<'list' | 'create' | 'edit'>('list');
     const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
-    
+
     // Form State
     const [customerId, setCustomerId] = useState('');
     const [quoteDate, setQuoteDate] = useState(getLocalDateString());
     const [validUntil, setValidUntil] = useState(getLocalDateString(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)));
     const [items, setItems] = useState<QuoteItem[]>([]);
     const [discount, setDiscount] = useState('0');
-    
+
     // Product Selection
     const [productSearch, setProductSearch] = useState('');
     const [showProductDropdown, setShowProductDropdown] = useState(false);
@@ -54,8 +55,8 @@ const QuotationsPage: React.FC = () => {
         searchText: `${c.name} ${c.area}`
     })), [state.customers]);
 
-    const filteredProducts = useMemo(() => state.products.filter(p => 
-        p.name.toLowerCase().includes(productSearch.toLowerCase()) || 
+    const filteredProducts = useMemo(() => state.products.filter(p =>
+        p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
         p.id.toLowerCase().includes(productSearch.toLowerCase())
     ), [state.products, productSearch]);
 
@@ -70,7 +71,7 @@ const QuotationsPage: React.FC = () => {
             setCustomerId(editingQuote.customerId);
             setQuoteDate(getLocalDateString(new Date(editingQuote.date)));
             setValidUntil(editingQuote.validUntil ? getLocalDateString(new Date(editingQuote.validUntil)) : '');
-            setItems(editingQuote.items.map(i => ({...i})));
+            setItems(editingQuote.items.map(i => ({ ...i })));
             setDiscount(editingQuote.discount.toString());
         } else if (view === 'create') {
             setCustomerId('');
@@ -156,7 +157,7 @@ const QuotationsPage: React.FC = () => {
                 date: new Date().toISOString(),
                 payments: []
             };
-            
+
             const outOfStockItems = [];
             for (const item of quote.items) {
                 const product = state.products.find(p => p.id === item.productId);
@@ -171,14 +172,14 @@ const QuotationsPage: React.FC = () => {
             }
 
             dispatch({ type: 'ADD_SALE', payload: sale });
-            
+
             quote.items.forEach(item => {
                 dispatch({ type: 'UPDATE_PRODUCT_STOCK', payload: { productId: item.productId, change: -item.quantity } });
             });
 
             const updatedQuote: Quote = { ...quote, status: 'CONVERTED', convertedSaleId: saleId };
             dispatch({ type: 'UPDATE_QUOTE', payload: updatedQuote });
-            
+
             showToast("Converted to Sale successfully!");
         }
     };
@@ -190,7 +191,7 @@ const QuotationsPage: React.FC = () => {
             const doc = await generateEstimatePDF(quote, customer, state.profile, state.estimateTemplate, state.customFonts);
             const pdfBlob = doc.output('blob');
             const file = new File([pdfBlob], `Estimate-${quote.id}.pdf`, { type: 'application/pdf' });
-            
+
             if (navigator.share && navigator.canShare({ files: [file] })) {
                 await navigator.share({ files: [file], title: `Estimate ${quote.id}` });
             } else {
@@ -251,14 +252,14 @@ const QuotationsPage: React.FC = () => {
                                         <div className="flex items-center gap-2">
                                             {quote.status === 'PENDING' && (
                                                 <Button onClick={() => handleConvertToSale(quote)} className="h-8 text-xs bg-success hover:bg-emerald-600 text-white">
-                                                    <ShoppingCart size={14} className="mr-1"/> Convert
+                                                    <ShoppingCart size={14} className="mr-1" /> Convert
                                                 </Button>
                                             )}
                                             <button onClick={() => handleSharePDF(quote)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-300 transition-colors" title="Share Estimate">
-                                                <Share2 size={16}/>
+                                                <Share2 size={16} />
                                             </button>
                                             <button onClick={() => { setEditingQuote(quote); setView('edit'); }} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-300 transition-colors" title="Edit Estimate">
-                                                <Edit size={16}/>
+                                                <Edit size={16} />
                                             </button>
                                             <DeleteButton onClick={() => handleDeleteQuote(quote.id)} />
                                         </div>
@@ -271,7 +272,7 @@ const QuotationsPage: React.FC = () => {
             </div>
         );
     }
-    
+
     // Create/Edit View
     return (
         <div className="space-y-4 animate-fade-in-fast">
@@ -298,9 +299,9 @@ const QuotationsPage: React.FC = () => {
                     <div className="flex gap-2 mb-2">
                         <div className="relative flex-grow">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                            <Input 
-                                type="text" 
-                                placeholder="Search products..." 
+                            <Input
+                                type="text"
+                                placeholder="Search products..."
                                 value={productSearch}
                                 onChange={e => setProductSearch(e.target.value)}
                                 onFocus={() => setShowProductDropdown(true)}
@@ -316,15 +317,15 @@ const QuotationsPage: React.FC = () => {
                                 </div>
                             )}
                         </div>
-                        <Button onClick={() => setIsScanning(true)} variant="secondary" className="px-3"><QrCode size={18}/></Button>
+                        <Button onClick={() => setIsScanning(true)} variant="secondary" className="px-3"><QrCode size={18} /></Button>
                     </div>
                 </div>
                 <div className="space-y-2 mt-4">
                     {items.map(item => (
                         <div key={item.productId} className="flex gap-2 items-center p-2 bg-gray-50 dark:bg-slate-700/50 rounded">
                             <span className="flex-grow">{item.productName}</span>
-                            <Input type="number" value={item.quantity} onChange={e => handleUpdateItem(item.productId, 'quantity', e.target.value)} className="w-20 text-center !p-1.5" />
-                            <Input type="number" value={item.price} onChange={e => handleUpdateItem(item.productId, 'price', e.target.value)} className="w-24 text-center !p-1.5" />
+                            <FormattedNumberInput value={item.quantity} onChange={e => handleUpdateItem(item.productId, 'quantity', e.target.value)} className="w-20 text-center !p-1.5" />
+                            <FormattedNumberInput value={item.price} onChange={e => handleUpdateItem(item.productId, 'price', e.target.value)} className="w-24 text-center !p-1.5" />
                             <DeleteButton variant="remove" onClick={() => handleRemoveItem(item.productId)} />
                         </div>
                     ))}
@@ -336,7 +337,7 @@ const QuotationsPage: React.FC = () => {
                     <div className="flex justify-between"><span>Subtotal:</span> <span>₹{calculations.subTotal.toLocaleString()}</span></div>
                     <div className="flex justify-between items-center">
                         <span>Discount:</span>
-                        <Input type="number" value={discount} onChange={e => setDiscount(e.target.value)} className="w-24 text-right !p-1.5" />
+                        <FormattedNumberInput value={discount} onChange={e => setDiscount(e.target.value)} className="w-24 text-right !p-1.5" />
                     </div>
                     <div className="flex justify-between"><span>GST:</span> <span>₹{calculations.gstAmount.toLocaleString()}</span></div>
                     <div className="flex justify-between font-bold text-lg pt-2 border-t mt-2"><span>Grand Total:</span> <span>₹{calculations.totalAmount.toLocaleString()}</span></div>
@@ -344,7 +345,7 @@ const QuotationsPage: React.FC = () => {
             </Card>
 
             <Button onClick={handleSaveQuote} className="w-full">
-                <Save size={16} className="mr-2"/> {view === 'create' ? 'Save Estimate' : 'Update Estimate'}
+                <Save size={16} className="mr-2" /> {view === 'create' ? 'Save Estimate' : 'Update Estimate'}
             </Button>
         </div>
     );

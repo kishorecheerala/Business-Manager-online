@@ -11,6 +11,7 @@ import Dropdown from '../components/Dropdown';
 import ModernDateInput from '../components/ModernDateInput';
 import { generateDebitNotePDF } from '../utils/pdfGenerator';
 import { getLocalDateString } from '../utils/dateUtils';
+import FormattedNumberInput from '../components/FormattedNumberInput';
 
 type ReturnType = 'CUSTOMER' | 'SUPPLIER';
 
@@ -272,8 +273,7 @@ const ReturnsPage: React.FC<ReturnsPageProps> = ({ setIsDirty }) => {
                                                 <p className="font-semibold text-sm dark:text-slate-200">{item.productName}</p>
                                                 <p className="text-xs text-gray-500 dark:text-gray-400">Purchased: {item.quantity} @ ₹{item.price}</p>
                                             </div>
-                                            <input
-                                                type="number"
+                                            <FormattedNumberInput
                                                 placeholder="Qty"
                                                 value={returnedItems[item.productId] || ''}
                                                 onChange={e => handleItemQuantityChange(item.productId, e.target.value)}
@@ -288,7 +288,12 @@ const ReturnsPage: React.FC<ReturnsPageProps> = ({ setIsDirty }) => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium dark:text-gray-300">{returnType === 'CUSTOMER' ? 'Amount Refunded' : 'Credit Note Value'}</label>
-                                    <input type="number" value={returnAmount} onChange={e => setReturnAmount(e.target.value)} className="w-full p-2 border rounded mt-1 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200" placeholder={`${calculatedReturnValue.toFixed(2)}`} />
+                                    <FormattedNumberInput
+                                        value={returnAmount}
+                                        onChange={e => setReturnAmount(e.target.value)}
+                                        className="w-full p-2 border rounded mt-1 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
+                                        placeholder={`${calculatedReturnValue.toFixed(2)}`}
+                                    />
                                 </div>
                                 <ModernDateInput
                                     label="Return Date"

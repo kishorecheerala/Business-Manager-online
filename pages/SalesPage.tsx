@@ -16,6 +16,7 @@ import QRScannerModal from '../components/QRScannerModal';
 import ModernDateInput from '../components/ModernDateInput';
 import { generateA4InvoicePdf } from '../utils/pdfGenerator';
 import Input from '../components/Input';
+import FormattedNumberInput from '../components/FormattedNumberInput';
 import Dropdown from '../components/Dropdown';
 
 interface SalesPageProps {
@@ -727,9 +728,9 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                                         <DeleteButton variant="remove" onClick={() => handleRemoveItem(item.productId)} />
                                     </div>
                                     <div className="flex items-center gap-2 text-sm mt-1">
-                                        <Input type="number" value={item.quantity} onChange={e => handleItemChange(item.productId, 'quantity', e.target.value)} className="w-20 !p-1 text-center" placeholder="Qty" />
+                                        <FormattedNumberInput value={item.quantity} onChange={e => handleItemChange(item.productId, 'quantity', e.target.value)} className="w-20 !p-1 text-center" placeholder="Qty" />
                                         <span>x</span>
-                                        <Input type="number" value={item.price} onChange={e => handleItemChange(item.productId, 'price', e.target.value)} className="w-24 !p-1 text-center" placeholder="Price" />
+                                        <FormattedNumberInput value={item.price} onChange={e => handleItemChange(item.productId, 'price', e.target.value)} className="w-24 !p-1 text-center" placeholder="Price" />
                                         <span>= {formatCurrency(Number(item.quantity) * Number(item.price))}</span>
                                     </div>
                                 </div>
@@ -747,8 +748,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
 
                                 <span>Discount:</span>
                                 <div className="flex justify-end">
-                                    <Input
-                                        type="number"
+                                    <FormattedNumberInput
                                         value={discount}
                                         onChange={e => setDiscount(e.target.value)}
                                         className="w-32 h-8 text-right font-medium"
@@ -791,8 +791,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                                                     </div>
                                                     <div className="w-full sm:w-28">
                                                         <label className="text-[10px] uppercase font-bold text-gray-500 dark:text-gray-400 mb-1 block">Amount</label>
-                                                        <Input
-                                                            type="number"
+                                                        <FormattedNumberInput
                                                             value={payment.amount}
                                                             onChange={(e) => {
                                                                 const newPayments = [...storedPayments];
@@ -859,8 +858,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                                                 <button onClick={() => setShowAddPayment(false)} className="text-xs text-red-500 hover:underline">Cancel</button>
                                             )}
                                         </div>
-                                        <Input
-                                            type="number"
+                                        <FormattedNumberInput
                                             value={paymentDetails.amount}
                                             onChange={e => setPaymentDetails({ ...paymentDetails, amount: e.target.value })}
                                             placeholder={mode === 'add' ? `Total is ₹${calculations.totalAmount.toLocaleString('en-IN')}` : 'Enter amount'}
@@ -890,9 +888,8 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                     {mode === 'add' && items.length === 0 && customerId && customerTotalDue != null && customerTotalDue > 0.01 && (
                         <Card title="Record Payment for Dues">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <Input
+                                <FormattedNumberInput
                                     label="Amount Paid"
-                                    type="number"
                                     value={paymentDetails.amount}
                                     onChange={e => setPaymentDetails({ ...paymentDetails, amount: e.target.value })}
                                     placeholder={'Enter amount to pay dues'}

@@ -13,6 +13,7 @@ import Button from '../components/Button';
 import { Budget, FinancialScenario, ExpenseCategory } from '../types';
 import { calculateRevenueForecast } from '../utils/analytics';
 import { formatCurrency, formatNumber } from '../utils/formatUtils';
+import FormattedNumberInput from '../components/FormattedNumberInput';
 
 const FinancialPlanningPage: React.FC = () => {
     const { state, dispatch, showToast } = useAppContext();
@@ -160,10 +161,9 @@ const FinancialPlanningPage: React.FC = () => {
                                     <option value="">Select Category</option>
                                     {expenseCategories.map(c => <option key={c} value={c}>{c}</option>)}
                                 </select>
-                                <input
-                                    type="number"
+                                <FormattedNumberInput
                                     placeholder="Target Amount"
-                                    className="p-2 border rounded dark:bg-slate-700 dark:border-slate-600"
+                                    className="p-2 border rounded dark:bg-slate-700 dark:border-slate-600 w-full"
                                     value={newBudget.amount || ''}
                                     onChange={e => setNewBudget({ ...newBudget, amount: Number(e.target.value) })}
                                 />

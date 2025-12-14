@@ -16,6 +16,7 @@ import { formatCurrency, formatDate } from '../utils/formatUtils';
 import LedgerModal from '../components/LedgerModal';
 import Input from '../components/Input';
 import ModernDateInput from '../components/ModernDateInput';
+import FormattedNumberInput from '../components/FormattedNumberInput';
 
 // Custom WhatsApp Icon Component
 const WhatsAppIcon = ({ size = 24, className = "" }: { size?: number, className?: string }) => (
@@ -501,9 +502,8 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                         <Card className="relative z-10 w-full max-w-sm animate-scale-in">
                             <h2 className="text-lg font-bold text-gray-800 dark:text-white mb-4">Add Previous Dues</h2>
                             <div className="space-y-4">
-                                <Input
+                                <FormattedNumberInput
                                     label="Opening Balance Amount"
-                                    type="number"
                                     value={openingBalance}
                                     onChange={(e) => setOpeningBalance(e.target.value)}
                                     placeholder="Enter total due amount"

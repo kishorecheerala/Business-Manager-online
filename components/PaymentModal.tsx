@@ -4,6 +4,7 @@ import Button from './Button';
 import Dropdown from './Dropdown';
 import ModernDateInput from './ModernDateInput';
 import Input from './Input';
+import FormattedNumberInput from './FormattedNumberInput';
 import { useAppContext } from '../context/AppContext';
 import { Smartphone } from 'lucide-react';
 
@@ -92,9 +93,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                     </div>
 
                     <div>
-                        <Input
+                        <FormattedNumberInput
                             label="Amount"
-                            type="number"
                             placeholder="Enter amount"
                             value={paymentDetails.amount}
                             onChange={e => setPaymentDetails({ ...paymentDetails, amount: e.target.value })}

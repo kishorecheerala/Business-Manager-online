@@ -9,6 +9,7 @@ import Dropdown from '../components/Dropdown';
 import { generateGenericReportPDF } from '../utils/pdfGenerator';
 import { exportReportToSheet } from '../utils/googleSheets';
 import ReportsPageV2 from './ReportsPageV2';
+import FormattedNumberInput from '../components/FormattedNumberInput';
 
 interface CustomerWithDue extends Customer {
     dueAmount: number;
@@ -525,7 +526,12 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                                     />
                                 </div>
                                 {duesAgeFilter === 'custom' && (
-                                    <input type="number" value={customDuesAge} onChange={e => setCustomDuesAge(e.target.value)} placeholder="Enter days" className="w-full p-2 border rounded-lg mt-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" />
+                                    <FormattedNumberInput
+                                        value={customDuesAge}
+                                        onChange={e => setCustomDuesAge(e.target.value)}
+                                        placeholder="Enter days"
+                                        className="w-full p-2 border rounded-lg mt-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
+                                    />
                                 )}
                             </div>
                         </div>
