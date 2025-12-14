@@ -20,7 +20,7 @@ const Toast: React.FC = () => {
   if (!show) return null;
 
   const bgColors = {
-    success: 'bg-teal-600 dark:bg-teal-500 text-white',
+    success: 'bg-primary text-white',
     error: 'bg-rose-600 dark:bg-rose-500 text-white',
     // Using bg-primary allows the color to be manually adjusted via the Theme settings
     info: 'bg-primary text-white',

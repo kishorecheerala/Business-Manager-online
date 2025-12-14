@@ -124,6 +124,12 @@ const DEFAULT_DASHBOARD_CONFIG: AppMetadataDashboardConfig = {
     showGreeting: true,
     showLogo: true,
     titleText: 'Business Insights',
+    logoSize: 1.0,
+    customLogo: '',
+    useCustomLogo: false,
+    uppercaseGreeting: true,
+    greetingColor: '',
+    greetingFontSize: 'sm'
 };
 
 // Default empty sale draft

@@ -453,21 +453,29 @@ export interface AppMetadataUIPreferences {
   toastPosition: 'top-center' | 'top-right' | 'bottom-center' | 'bottom-right';
   density: 'comfortable' | 'compact';
   navStyle?: 'docked' | 'floating';
-  navStyle?: 'docked' | 'floating';
   fontSize?: 'small' | 'normal' | 'large';
   updatedAt?: string;
 }
 
+id: 'dashboardConfig';
+greetingText: string;
+showGreeting: boolean;
 export interface AppMetadataDashboardConfig {
   id: 'dashboardConfig';
   greetingText: string;
   showGreeting: boolean;
   showLogo: boolean;
   titleText: string;
+  logoSize?: number; // scale factor, e.g. 1.0 = normal (h-20)
+  customLogo?: string; // base64
+  useCustomLogo?: boolean;
+  uppercaseGreeting?: boolean;
+  greetingColor?: string; // hex color
+  greetingFontSize?: 'xs' | 'sm' | 'base' | 'lg' | 'xl' | '2xl';
   updatedAt?: string;
 }
 
-export type AppMetadata = AppMetadataPin | AppMetadataBackup | AppMetadataRevenueGoal | AppMetadataLastModified | AppMetadataTheme | AppMetadataInvoiceSettings | AppMetadataNavOrder | AppMetadataQuickActions | AppMetadataUIPreferences | InvoiceTemplateConfig | AppMetadataDashboardConfig;
+export type AppMetadata = AppMetadataPin | AppMetadataBackup | AppMetadataRevenueGoal | AppMetadataLastModified | AppMetadataTheme | AppMetadataInvoiceSettings | AppMetadataNavOrder | AppMetadataQuickActions | AppMetadataUIPreferences | AppMetadataDashboardConfig;
 
 export interface Snapshot {
   id: string;

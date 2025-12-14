@@ -1063,18 +1063,21 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
             {/* Header Section */}
             <div className="mb-6 text-center flex flex-col items-center animate-fade-in-down">
                 {dashboardConfig.showGreeting && (
-                    <p className="text-sm font-semibold text-orange-600 dark:text-orange-400 mb-2 font-serif tracking-widest uppercase opacity-90">
+                    <p
+                        className={`font-semibold mb-2 font-serif tracking-widest opacity-90 transition-all ${dashboardConfig.uppercaseGreeting !== false ? 'uppercase' : ''} ${!dashboardConfig.greetingColor ? 'text-orange-600 dark:text-orange-400' : ''} text-${dashboardConfig.greetingFontSize || 'sm'}`}
+                        style={{ color: dashboardConfig.greetingColor || undefined }}
+                    >
                         {dashboardConfig.greetingText}
                     </p>
                 )}
 
-                {dashboardConfig.showLogo && profile?.logo && (
-                    <div className="mb-4 relative group">
+                {dashboardConfig.showLogo && (dashboardConfig.useCustomLogo ? dashboardConfig.customLogo : profile?.logo) && (
+                    <div className="mb-4 relative group" style={{ height: `${(dashboardConfig.logoSize || 1) * 5}rem`, width: 'auto' }}>
                         <div className="absolute -inset-1 bg-gradient-to-r from-orange-400 to-indigo-400 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
                         <img
-                            src={profile.logo}
-                            alt={profile.name}
-                            className="relative h-20 w-auto object-contain rounded-xl shadow-lg border-2 border-white dark:border-slate-700 bg-white dark:bg-slate-800 p-1"
+                            src={dashboardConfig.useCustomLogo ? dashboardConfig.customLogo : profile?.logo}
+                            alt="Dashboard Logo"
+                            className="relative h-full w-auto object-contain rounded-xl shadow-lg border-2 border-white dark:border-slate-700 bg-white dark:bg-slate-800 p-1"
                         />
                     </div>
                 )}

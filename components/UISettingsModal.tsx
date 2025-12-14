@@ -6,6 +6,7 @@ import Card from './Card';
 import Button from './Button';
 import { useAppContext } from '../context/AppContext';
 import { AppMetadataUIPreferences, AppMetadataDashboardConfig } from '../types';
+import { compressImage } from '../utils/imageUtils';
 
 interface UISettingsModalProps {
     isOpen: boolean;
@@ -32,6 +33,8 @@ const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) =>
     const [customFont, setCustomFont] = useState('');
     const [scale, setScale] = useState(100); // Percentage for base font size
     const [radius, setRadius] = useState(0.5); // rem
+
+    const logoInputRef = React.useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (isOpen) {
@@ -98,6 +101,19 @@ const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) =>
         setCustomFont('');
         showToast(`Loaded font: ${customFont}`, 'success');
     };
+
+    const handleCustomLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            try {
+                const base64 = await compressImage(e.target.files[0], 400, 0.8);
+                setDashConfig(prev => ({ ...prev, customLogo: base64, useCustomLogo: true }));
+                showToast("Custom dashboard logo uploaded!");
+            } catch (err) {
+                showToast("Error processing image.", 'error');
+            }
+        }
+    };
+
 
     if (!isOpen) return null;
 
@@ -219,46 +235,150 @@ const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) =>
                             <Layout size={16} /> Dashboard Header
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-3">
-                                <label className="flex items-center justify-between text-sm font-semibold">
-                                    Show Greeting
-                                    <input
-                                        type="checkbox"
-                                        checked={dashConfig?.showGreeting}
-                                        onChange={(e) => setDashConfig({ ...dashConfig, showGreeting: e.target.checked })}
-                                        className="w-4 h-4 rounded border-gray-300 accent-indigo-600"
-                                    />
-                                </label>
-                                <input
-                                    type="text"
-                                    value={dashConfig?.greetingText}
-                                    onChange={(e) => setDashConfig({ ...dashConfig, greetingText: e.target.value })}
-                                    className="w-full p-2 text-sm border bg-white dark:bg-slate-800 rounded-lg dark:border-slate-700"
-                                    placeholder="e.g. Om Namo Venkatesaya"
-                                    disabled={!dashConfig?.showGreeting}
-                                />
-                            </div>
-
-                            <div className="space-y-3">
-                                <label className="flex items-center justify-between text-sm font-semibold">
-                                    Show Logo
-                                    <input
-                                        type="checkbox"
-                                        checked={dashConfig?.showLogo}
-                                        onChange={(e) => setDashConfig({ ...dashConfig, showLogo: e.target.checked })}
-                                        className="w-4 h-4 rounded border-gray-300 accent-indigo-600"
-                                    />
-                                </label>
-                                <div className="flex gap-2">
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="flex items-center justify-between text-sm font-semibold mb-2">
+                                        Show Greeting
+                                        <input
+                                            type="checkbox"
+                                            checked={dashConfig?.showGreeting}
+                                            onChange={(e) => setDashConfig({ ...dashConfig, showGreeting: e.target.checked })}
+                                            className="w-4 h-4 rounded border-gray-300 accent-indigo-600"
+                                        />
+                                    </label>
                                     <input
                                         type="text"
-                                        value={dashConfig?.titleText}
-                                        onChange={(e) => setDashConfig({ ...dashConfig, titleText: e.target.value })}
-                                        className="w-full p-2 text-sm border bg-white dark:bg-slate-800 rounded-lg dark:border-slate-700"
-                                        placeholder="Main Title (Business Insights)"
+                                        value={dashConfig?.greetingText}
+                                        onChange={(e) => setDashConfig({ ...dashConfig, greetingText: e.target.value })}
+                                        className="w-full p-2 text-sm border bg-white dark:bg-slate-800 rounded-lg dark:border-slate-700 mb-2"
+                                        placeholder="e.g. Om Namo Venkatesaya"
+                                        disabled={!dashConfig?.showGreeting}
                                     />
+                                    <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 cursor-pointer mb-3">
+                                        <input
+                                            type="checkbox"
+                                            checked={dashConfig?.uppercaseGreeting !== false}
+                                            onChange={(e) => setDashConfig({ ...dashConfig, uppercaseGreeting: e.target.checked })}
+                                            className="w-3.5 h-3.5 rounded border-gray-300 accent-indigo-600"
+                                            disabled={!dashConfig?.showGreeting}
+                                        />
+                                        Uppercase Text
+                                    </label>
+
+                                    {/* Greeting Font Size */}
+                                    {dashConfig?.showGreeting && (
+                                        <div className="mb-3">
+                                            <p className="text-xs font-semibold text-slate-500 mb-1">Greeting Size</p>
+                                            <div className="flex gap-1">
+                                                {['xs', 'sm', 'base', 'lg', 'xl'].map(size => (
+                                                    <button
+                                                        key={size}
+                                                        onClick={() => setDashConfig({ ...dashConfig, greetingFontSize: size as any })}
+                                                        className={`px-2 py-1 text-xs border rounded ${(dashConfig.greetingFontSize || 'sm') === size
+                                                                ? 'bg-indigo-100 border-indigo-500 text-indigo-700 font-bold'
+                                                                : 'bg-white dark:bg-slate-700 dark:text-gray-300'
+                                                            }`}
+                                                    >
+                                                        {size.toUpperCase()}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Greeting Color */}
+                                    {dashConfig?.showGreeting && (
+                                        <div className="mb-2">
+                                            <p className="text-xs font-semibold text-slate-500 mb-1">Greeting Color</p>
+                                            <div className="flex gap-2 items-center">
+                                                <input
+                                                    type="color"
+                                                    value={dashConfig.greetingColor || '#ea580c'}
+                                                    onChange={(e) => setDashConfig({ ...dashConfig, greetingColor: e.target.value })}
+                                                    className="w-8 h-8 rounded cursor-pointer border-0 p-0"
+                                                />
+                                                <button
+                                                    onClick={() => setDashConfig({ ...dashConfig, greetingColor: '' })}
+                                                    className="text-xs text-slate-400 hover:text-slate-600 underline"
+                                                >
+                                                    Reset to Orange
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
-                                <p className="text-[10px] text-slate-400 text-right">To change logo image, go to Profile.</p>
+
+                                <div className="p-3 bg-gray-50 dark:bg-slate-800 rounded-lg border border-gray-100 dark:border-slate-700">
+                                    <label className="flex items-center justify-between text-sm font-semibold mb-3">
+                                        Show Logo
+                                        <input
+                                            type="checkbox"
+                                            checked={dashConfig?.showLogo}
+                                            onChange={(e) => setDashConfig({ ...dashConfig, showLogo: e.target.checked })}
+                                            className="w-4 h-4 rounded border-gray-300 accent-indigo-600"
+                                        />
+                                    </label>
+
+                                    {dashConfig?.showLogo && (
+                                        <div className="space-y-3">
+                                            {/* Logo Source Switch */}
+                                            <div className="flex bg-gray-200 dark:bg-slate-700 rounded-lg p-1 text-xs font-medium">
+                                                <button
+                                                    className={`flex-1 py-1 rounded ${!dashConfig.useCustomLogo ? 'bg-white dark:bg-slate-600 shadow text-indigo-600' : 'text-gray-500'}`}
+                                                    onClick={() => setDashConfig({ ...dashConfig, useCustomLogo: false })}
+                                                >
+                                                    Profile Logo
+                                                </button>
+                                                <button
+                                                    className={`flex-1 py-1 rounded ${dashConfig.useCustomLogo ? 'bg-white dark:bg-slate-600 shadow text-indigo-600' : 'text-gray-500'}`}
+                                                    onClick={() => setDashConfig({ ...dashConfig, useCustomLogo: true })}
+                                                >
+                                                    Custom Image
+                                                </button>
+                                            </div>
+
+                                            {dashConfig.useCustomLogo && (
+                                                <div className="flex gap-2">
+                                                    <input type="file" ref={logoInputRef} accept="image/*" className="hidden" onChange={handleCustomLogoUpload} />
+                                                    <Button onClick={() => logoInputRef.current?.click()} size="sm" variant="secondary" className="w-full text-xs">
+                                                        {dashConfig.customLogo ? 'Change Image' : 'Upload Image'}
+                                                    </Button>
+                                                </div>
+                                            )}
+
+                                            {/* Only show Size Slider if logo is visible */}
+                                            <div>
+                                                <div className="flex justify-between text-xs text-slate-500 mb-1">
+                                                    <span>Size</span>
+                                                    <span>{(dashConfig.logoSize || 1) * 100}%</span>
+                                                </div>
+                                                <input
+                                                    type="range"
+                                                    min="0.5"
+                                                    max="2.5"
+                                                    step="0.1"
+                                                    value={dashConfig.logoSize || 1}
+                                                    onChange={(e) => setDashConfig({ ...dashConfig, logoSize: Number(e.target.value) })}
+                                                    className="w-full accent-indigo-600 h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold mb-2">Page Title</label>
+                                <input
+                                    type="text"
+                                    value={dashConfig?.titleText}
+                                    onChange={(e) => setDashConfig({ ...dashConfig, titleText: e.target.value })}
+                                    className="w-full p-2 text-sm border bg-white dark:bg-slate-800 rounded-lg dark:border-slate-700"
+                                    placeholder="Main Title (Business Insights)"
+                                />
+                                <div className="mt-4 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded border border-indigo-100 dark:border-indigo-800/30 text-xs text-indigo-800 dark:text-indigo-300">
+                                    <p>Using a Custom Logo here overrides your main Profile logo only on the Dashboard.</p>
+                                </div>
                             </div>
                         </div>
                     </section>
@@ -291,6 +411,20 @@ const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) =>
                                             key={style}
                                             onClick={() => setPrefs({ ...prefs, cardStyle: style as any })}
                                             className={`p-2 text-xs border rounded transition-all ${prefs.cardStyle === style ? 'bg-indigo-50 border-indigo-500 text-indigo-700 font-bold' : 'bg-white dark:bg-slate-800 dark:text-slate-300'}`}
+                                        >
+                                            {style}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-2">Navigation Style</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {['docked', 'floating'].map(style => (
+                                        <button
+                                            key={style}
+                                            onClick={() => setPrefs({ ...prefs, navStyle: style as any })}
+                                            className={`p-2 text-xs border rounded transition-all capitalize ${prefs.navStyle === style ? 'bg-indigo-50 border-indigo-500 text-indigo-700 font-bold' : 'bg-white dark:bg-slate-800 dark:text-slate-300'}`}
                                         >
                                             {style}
                                         </button>
