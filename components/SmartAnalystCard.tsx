@@ -242,6 +242,15 @@ const SmartAnalystCard: React.FC<{
                     </div>
                 </div>
 
+                <div className="mb-4 bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-lg border border-indigo-100 dark:border-indigo-800">
+                    <div className="flex items-start gap-2">
+                        <Sparkles size={16} className="text-indigo-600 dark:text-indigo-400 mt-0.5 shrink-0" />
+                        <p className="text-sm text-indigo-900 dark:text-indigo-100 font-medium leading-relaxed">
+                            "{aiBriefing || analysis.briefing}"
+                        </p>
+                    </div>
+                </div>
+
                 {/* Metrics Grid */}
                 <div className="grid grid-cols-2 gap-3">
                     <button
@@ -279,14 +288,7 @@ const SmartAnalystCard: React.FC<{
                     </button>
                 </div>
 
-                <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
-                    <div className="flex items-start gap-2">
-                        <Sparkles size={14} className="text-indigo-500 mt-0.5 shrink-0" />
-                        <p className="text-xs text-slate-600 dark:text-slate-300 italic leading-relaxed line-clamp-2">
-                            "{aiBriefing || analysis.briefing}"
-                        </p>
-                    </div>
-                </div>
+
             </div>
 
             {/* Details Modal */}

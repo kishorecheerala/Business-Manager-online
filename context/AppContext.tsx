@@ -102,8 +102,8 @@ const DEFAULT_TEMPLATE: InvoiceTemplateConfig = {
 
 const DEFAULT_NAV_ORDER = [
     'DASHBOARD', 'CUSTOMERS', 'SALES', 'PURCHASES', 'PRODUCTS',
-    'REPORTS', 'EXPENSES', 'FINANCIAL_PLANNING', 'RETURNS', 'QUOTATIONS',
-    'INSIGHTS', 'INVOICE_DESIGNER'
+    'REPORTS', 'EXPENSES', 'RETURNS', 'QUOTATIONS',
+    'INSIGHTS', 'INVOICE_DESIGNER', 'FINANCIAL_PLANNING'
 ];
 
 const DEFAULT_QUICK_ACTIONS = [
@@ -113,7 +113,7 @@ const DEFAULT_QUICK_ACTIONS = [
 const DEFAULT_UI_PREFS: AppMetadataUIPreferences = {
     id: 'uiPreferences',
     buttonStyle: 'rounded',
-    cardStyle: 'solid',
+    cardStyle: 'glass',
     toastPosition: 'bottom-center',
     density: 'comfortable',
     navStyle: 'floating',

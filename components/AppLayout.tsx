@@ -128,7 +128,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
     }
 
     return (
-        <div className={`min-h-screen flex flex-col bg-background dark:bg-slate-950 text-text dark:text-slate-200 font-sans transition-colors duration-300`}>
+        <div className={`min-h-screen flex flex-col bg-background dark:bg-slate-950 text-text dark:text-slate-200 transition-colors duration-300`}>
             {/* Modals & Overlays */}
             <Suspense fallback={null}>
 
