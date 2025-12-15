@@ -5,10 +5,12 @@ import {
 } from 'lucide-react';
 import { Page, AppMetadata } from '../types';
 import { useAppContext } from '../context/AppContext';
+import { useDialog } from '../context/DialogContext';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
 import NavItem from './NavItem';
 import { ICON_MAP, LABEL_MAP } from '../utils/iconMap';
 import { QUICK_ACTION_REGISTRY } from '../utils/quickActions';
+import PinModal from './PinModal'; // Static import for debugging
 
 // Lazy loaded components for the layout
 const MenuPanel = React.lazy(() => import('./MenuPanel'));
@@ -22,7 +24,7 @@ const ProfileModal = React.lazy(() => import('./ProfileModal'));
 const NavCustomizerModal = React.lazy(() => import('./NavCustomizerModal'));
 const ChangeLogModal = React.lazy(() => import('./ChangeLogModal'));
 const SignInModal = React.lazy(() => import('./SignInModal'));
-const PinModal = React.lazy(() => import('./PinModal'));
+// const PinModal = React.lazy(() => import('./PinModal'));
 const APIConfigModal = React.lazy(() => import('./APIConfigModal'));
 
 interface AppLayoutProps {
@@ -37,7 +39,9 @@ const AppLayout: React.FC<AppLayoutProps> = ({
     onNavigate
 }) => {
     const { state, dispatch, syncData, showToast, lockApp } = useAppContext();
+    const { showConfirm } = useDialog();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [isSignInModalOpen, setIsSignInModalOpen] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
     const [isAskAIOpen, setIsAskAIOpen] = useState(false);
@@ -50,7 +54,9 @@ const AppLayout: React.FC<AppLayoutProps> = ({
     const [isMobileQuickAddOpen, setIsMobileQuickAddOpen] = useState(false);
     const [isChangeLogOpen, setIsChangeLogOpen] = useState(false);
 
-    const [isSignInModalOpen, setIsSignInModalOpen] = useState(false);
+    // Dev Tools Unlock State
+    const [isUnlockingDevTools, setIsUnlockingDevTools] = useState(false);
+
     const [isAPIConfigOpen, setIsAPIConfigOpen] = useState(false);
 
     const notificationsRef = useRef<HTMLDivElement>(null);
@@ -87,6 +93,16 @@ const AppLayout: React.FC<AppLayoutProps> = ({
         lockApp();
         setIsMenuOpen(false);
         showToast("App Locked", 'info');
+    };
+
+    const handleOpenDevTools = () => {
+        if (state.pin) {
+            setIsUnlockingDevTools(true);
+            setIsMenuOpen(false); // Close menu if opening pin modal
+        } else {
+            setIsDevToolsOpen(true);
+            setIsMenuOpen(false);
+        }
     };
 
     // Prepare Nav Items
@@ -127,10 +143,60 @@ const AppLayout: React.FC<AppLayoutProps> = ({
         navContainerClass += ' bottom-0 left-0 right-0 border-t border-white/20';
     }
 
+    // --- Security Logic ---
+    const isPageProtected = useMemo(() => {
+        return state.protectedPages.includes(currentPage);
+    }, [state.protectedPages, currentPage]);
+
+    const requiresAuth = isPageProtected && !state.isAuthenticated;
+    const showLockScreen = state.isLocked || requiresAuth;
+
+    const handleUnlock = () => {
+        if (state.isLocked) {
+            dispatch({ type: 'UNLOCK_APP' });
+        } else {
+            dispatch({ type: 'SET_AUTHENTICATED', payload: true });
+        }
+    };
+
+    if (showLockScreen && state.pin) {
+        return (
+            <Suspense fallback={null}>
+                <PinModal
+                    mode="unlock"
+                    storedPin={state.pin}
+                    onCorrectPin={handleUnlock}
+                    onResetRequest={() => {
+                        showConfirm("Resetting passcode will remove all security locks.", { variant: 'danger' }).then(confirmed => {
+                            if (confirmed) {
+                                dispatch({ type: 'SET_PIN', payload: null });
+                                dispatch({ type: 'UNLOCK_APP' });
+                                dispatch({ type: 'SET_AUTHENTICATED', payload: true });
+                            }
+                        });
+                    }}
+                />
+            </Suspense>
+        );
+    }
+
     return (
         <div className={`min-h-screen flex flex-col bg-background dark:bg-slate-950 text-text dark:text-slate-200 transition-colors duration-300`}>
             {/* Modals & Overlays */}
             <Suspense fallback={null}>
+
+                {/* Dev Tools PIN Prompt */}
+                {isUnlockingDevTools && state.pin && (
+                    <PinModal
+                        mode="unlock"
+                        storedPin={state.pin}
+                        onCorrectPin={() => {
+                            setIsUnlockingDevTools(false);
+                            setIsDevToolsOpen(true);
+                        }}
+                        onCancel={() => setIsUnlockingDevTools(false)}
+                    />
+                )}
 
                 <ChangeLogModal isOpen={isChangeLogOpen} onClose={() => setIsChangeLogOpen(false)} />
                 <SignInModal isOpen={isSignInModalOpen} onClose={() => setIsSignInModalOpen(false)} />
@@ -139,7 +205,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                     onClose={() => setIsMenuOpen(false)}
                     onProfileClick={() => setIsProfileModalOpen(true)}
                     onNavigate={onNavigate}
-                    onOpenDevTools={() => setIsDevToolsOpen(true)}
+                    onOpenDevTools={handleOpenDevTools} // Secured Handler
                     onOpenChangeLog={() => setIsChangeLogOpen(true)}
                     onOpenSignIn={() => setIsSignInModalOpen(true)}
 
@@ -189,10 +255,10 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                                                 {state.googleUser.name}
                                             </span>
                                             <div className="relative flex h-2 w-2 shrink-0">
-                                                {state.syncStatus === 'syncing' && (
+                                                {state.isAuthenticated && (
                                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                                                 )}
-                                                <span className={`relative inline-flex rounded-full h-2 w-2 ${state.syncStatus === 'error' ? 'bg-red-500' : 'bg-green-400'} shadow-sm`}></span>
+                                                <span className={`relative inline-flex rounded-full h-2 w-2 ${!state.isAuthenticated ? 'bg-red-500' : 'bg-green-400'} shadow-sm`}></span>
                                             </div>
 
                                             {/* Last Synced Time - Aligned Single Line */}

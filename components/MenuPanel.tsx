@@ -1,6 +1,6 @@
 
-import React, { useState, useRef } from 'react';
-import { User, BarChart2, Activity, LogIn, LogOut, RefreshCw, CloudLightning, Sun, Moon, Palette, Check, Settings, Monitor, Shield, ChevronRight, RotateCcw, BrainCircuit, Terminal, Receipt, FileText, Lock, PenTool, Gauge, Cloud, Layout, Download, Sparkles, Smartphone, FileSpreadsheet, Type, PaintBucket, Plus, Trash2, Database, HelpCircle } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { User, BarChart2, Activity, LogIn, LogOut, RefreshCw, CloudLightning, Sun, Moon, Palette, Check, Settings, Monitor, Shield, ChevronRight, RotateCcw, BrainCircuit, Terminal, Receipt, FileText, Lock, Unlock, PenTool, Gauge, Cloud, Layout, Download, Sparkles, Smartphone, FileSpreadsheet, Type, PaintBucket, Plus, Trash2, Database, HelpCircle } from 'lucide-react';
 import { Page } from '../types';
 import { useAppContext } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
@@ -12,7 +12,12 @@ import PinModal from './PinModal';
 import InvoiceSettingsModal from './InvoiceSettingsModal';
 import UISettingsModal from './UISettingsModal';
 import { DataImportModal } from './DataImportModal';
+import SecuritySettingsModal from './SecuritySettingsModal'; // New Import
 import { usePWAInstall } from '../hooks/usePWAInstall';
+
+// ... lines 15-131 
+
+
 
 interface MenuPanelProps {
     isOpen: boolean;
@@ -131,9 +136,18 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
     const [isInvoiceSettingsOpen, setIsInvoiceSettingsOpen] = useState(false);
     const [isUISettingsOpen, setIsUISettingsOpen] = useState(false);
     const [isImportOpen, setIsImportOpen] = useState(false);
+    const [isSecuritySettingsOpen, setIsSecuritySettingsOpen] = useState(false);
+
+    // Listen for external trigger
+    useEffect(() => {
+        const handler = () => setIsImportOpen(true);
+        window.addEventListener('OPEN_DATA_IMPORT', handler);
+        return () => window.removeEventListener('OPEN_DATA_IMPORT', handler);
+    }, []);
 
     const [isPinModalOpen, setIsPinModalOpen] = useState(false);
     const [pinMode, setPinMode] = useState<'setup' | 'enter'>('enter');
+    const [pinAction, setPinAction] = useState<'DEV_TOOLS' | 'UNLOCK_SESSION'>('DEV_TOOLS'); // Track what triggered the PIN
     const fontInputRef = useRef<HTMLInputElement>(null);
     const [googleFontName, setGoogleFontName] = useState('');
 
@@ -236,6 +250,7 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
     };
 
     const handleDevToolsClick = () => {
+        setPinAction('DEV_TOOLS');
         if (state.pin) {
             setPinMode('enter');
         } else {
@@ -251,7 +266,19 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
         }
         setIsPinModalOpen(false);
         onClose(); // Close menu
-        onOpenDevTools();
+
+        if (pinAction === 'DEV_TOOLS') {
+            onOpenDevTools();
+        } else if (pinAction === 'UNLOCK_SESSION') {
+            dispatch({ type: 'SET_AUTHENTICATED', payload: true });
+            showToast('Session Unlocked');
+        }
+    };
+
+    const handleUnlockSessionClick = () => {
+        setPinAction('UNLOCK_SESSION');
+        setPinMode('enter');
+        setIsPinModalOpen(true);
     };
 
     if (!isOpen && !isAuditOpen && !isCloudDebugOpen && !isColorPickerOpen && !isHeaderColorPickerOpen && !isGradientPickerOpen && !isPinModalOpen && !isInvoiceSettingsOpen && !isUISettingsOpen && !isImportOpen) return null;
@@ -263,6 +290,7 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
             <InvoiceSettingsModal isOpen={isInvoiceSettingsOpen} onClose={() => setIsInvoiceSettingsOpen(false)} />
             <UISettingsModal isOpen={isUISettingsOpen} onClose={() => setIsUISettingsOpen(false)} />
             <DataImportModal isOpen={isImportOpen} onClose={() => setIsImportOpen(false)} />
+            <SecuritySettingsModal isOpen={isSecuritySettingsOpen} onClose={() => setIsSecuritySettingsOpen(false)} />
 
             {/* Accent Color Picker */}
             <ColorPickerModal
@@ -347,6 +375,12 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                                                             </p>
                                                         </div>
                                                     )}
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); googleSignOut(); onClose(); }}
+                                                        className="mt-2 text-[10px] text-red-200 hover:text-white flex items-center gap-1 transition-colors"
+                                                    >
+                                                        <LogOut size={10} /> Sign Out
+                                                    </button>
                                                 </div>
                                             </div>
                                         ) : (
@@ -385,30 +419,22 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                                     </button>
                                 </div>
                             )}
+                            <div className="my-2 border-t border-gray-100 dark:border-slate-700 mx-4"></div>
 
-                            {/* 2. Main Navigation & Actions */}
-                            <div className="p-2 space-y-1 border-b border-gray-100 dark:border-slate-700 pb-3">
+                            {/* 5. General / Other (Moved to Top) */}
+                            <div className="px-4 py-2 mt-2">
+                                <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">General</span>
+                            </div>
+                            <div className="p-2 space-y-1 pb-3">
                                 <button onClick={() => { onClose(); onProfileClick(); }} className="menu-item">
                                     <User className="w-5 h-5 text-blue-500" />
                                     <span className="flex-grow text-sm font-medium">Business Profile</span>
                                     <ChevronRight className="w-4 h-4 text-gray-400" />
                                 </button>
 
-                                <button onClick={() => { onClose(); onNavigate('INVOICE_DESIGNER'); }} className="menu-item">
-                                    <PenTool className="w-5 h-5 text-pink-500" />
-                                    <span className="flex-grow text-sm font-medium">Invoice Designer</span>
-                                    <ChevronRight className="w-4 h-4 text-gray-400" />
-                                </button>
-
                                 <button onClick={() => onNavigate('INSIGHTS')} className="menu-item">
                                     <BarChart2 className="w-5 h-5 text-purple-500" />
                                     <span className="flex-grow text-sm font-medium">Business Insights</span>
-                                    <ChevronRight className="w-4 h-4 text-gray-400" />
-                                </button>
-
-                                <button onClick={() => { onClose(); setIsAuditOpen(true); }} className="menu-item">
-                                    <Activity className="w-5 h-5 text-amber-500" />
-                                    <span className="flex-grow text-sm font-medium">Audit Logs</span>
                                     <ChevronRight className="w-4 h-4 text-gray-400" />
                                 </button>
 
@@ -423,25 +449,31 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                                     <span className="flex-grow text-sm font-medium">Help & Documentation</span>
                                     <ChevronRight className="w-4 h-4 text-gray-400" />
                                 </button>
+
+                                <button onClick={() => { onClose(); onNavigate('TRASH'); }} className="menu-item text-red-600 dark:text-red-400">
+                                    <Trash2 className="w-5 h-5" />
+                                    <span className="flex-grow text-sm font-medium">Recycle Bin</span>
+                                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                                </button>
+
+                                <button onClick={() => { onClose(); setIsSecuritySettingsOpen(true); }} className="menu-item text-rose-600 dark:text-rose-400">
+                                    <Lock className="w-5 h-5" />
+                                    <span className="flex-grow text-sm font-medium">Security Settings</span>
+                                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                                </button>
+
+                                <button onClick={() => { onClose(); setIsAuditOpen(true); }} className="menu-item text-amber-500">
+                                    <Activity className="w-5 h-5" />
+                                    <span className="flex-grow text-sm font-medium">Audit Logs</span>
+                                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                                </button>
                             </div>
 
-                            {/* 3. Admin Section */}
-                            <div className="px-4 py-2">
-                                <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Admin</span>
+                            {/* 2. Customization Section */}
+                            <div className="px-4 py-2 mt-2">
+                                <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Customization</span>
                             </div>
                             <div className="p-2 space-y-1">
-                                <button onClick={() => { onClose(); onNavigate('SQL_ASSISTANT'); }} className="menu-item">
-                                    <Database className="w-5 h-5 text-indigo-500" />
-                                    <span className="flex-grow text-sm font-medium">SQL AI Assistant</span>
-                                    <ChevronRight className="w-4 h-4 text-gray-400" />
-                                </button>
-
-                                <button onClick={() => { onClose(); setIsImportOpen(true); }} className="menu-item">
-                                    <FileSpreadsheet className="w-5 h-5 text-orange-500" />
-                                    <span className="flex-grow text-sm font-medium">Import Data (CSV)</span>
-                                    <ChevronRight className="w-4 h-4 text-gray-400" />
-                                </button>
-
                                 <button onClick={() => { onClose(); setIsUISettingsOpen(true); }} className="menu-item">
                                     <Layout className="w-5 h-5 text-teal-500" />
                                     <span className="flex-grow text-sm font-medium">UI Preferences</span>
@@ -455,49 +487,21 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                                 </button>
 
                                 <button onClick={() => { onClose(); setIsInvoiceSettingsOpen(true); }} className="menu-item">
-                                    <Settings className="w-5 h-5 text-slate-500" />
-                                    <span className="flex-grow text-sm font-medium">Quick Invoice Settings</span>
+                                    <Receipt className="w-5 h-5 text-slate-500" />
+                                    <span className="flex-grow text-sm font-medium">Quick Invoice</span>
                                     <ChevronRight className="w-4 h-4 text-gray-400" />
                                 </button>
 
-                                <button onClick={() => { onClose(); onOpenAPIConfig(); }} className="menu-item">
-                                    <Cloud className="w-5 h-5 text-sky-500" />
-                                    <span className="flex-grow text-sm font-medium">API Configuration</span>
-                                    <ChevronRight className="w-4 h-4 text-gray-400" />
-                                </button>
-
-                                <button onClick={() => { onClose(); onNavigate('SYSTEM_OPTIMIZER'); }} className="menu-item">
-                                    <Gauge className="w-5 h-5 text-emerald-500" />
-                                    <span className="flex-grow text-sm font-medium">System Optimizer</span>
-                                    <ChevronRight className="w-4 h-4 text-gray-400" />
-                                </button>
-
-                                <button onClick={() => { onClose(); onNavigate('TRASH'); }} className="menu-item text-red-600 dark:text-red-400">
-                                    <Trash2 className="w-5 h-5" />
-                                    <span className="flex-grow text-sm font-medium">Recycle Bin</span>
-                                    <ChevronRight className="w-4 h-4 text-gray-400" />
-                                </button>
-
-                                {/* Lock App - Only if PIN is set */}
-                                {state.pin && onLockApp && (
-                                    <button onClick={onLockApp} className="menu-item text-rose-600 dark:text-rose-400">
-                                        <Lock className="w-5 h-5" />
-                                        <span className="flex-grow text-sm font-medium">Lock App Now</span>
-                                        <ChevronRight className="w-4 h-4 text-gray-400" />
-                                    </button>
-                                )}
-
-                                <button onClick={handleDevToolsClick} className="menu-item bg-slate-100 dark:bg-slate-700/50 mt-1">
-                                    <Terminal className="w-5 h-5 text-green-600 dark:text-green-400" />
-                                    <span className="flex-grow text-sm font-medium text-green-800 dark:text-green-200">Developer Tools</span>
-                                    {state.pin && <Shield className="w-3 h-3 text-gray-400" />}
+                                <button onClick={() => { onClose(); onNavigate('INVOICE_DESIGNER'); }} className="menu-item">
+                                    <PenTool className="w-5 h-5 text-pink-500" />
+                                    <span className="flex-grow text-sm font-medium">Invoice Designer</span>
                                     <ChevronRight className="w-4 h-4 text-gray-400" />
                                 </button>
                             </div>
 
                             <div className="my-2 border-t border-gray-100 dark:border-slate-700 mx-4"></div>
 
-                            {/* 4. Appearance Section */}
+                            {/* 3. Appearance Section */}
                             <div className="px-3 py-2 border-b border-gray-100 dark:border-slate-700">
                                 <div className="flex items-center justify-between mb-3 px-1">
                                     <div className="flex items-center gap-2">
@@ -703,9 +707,46 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                                 </div>
                             </div>
 
+                            {/* 4. Admin Section */}
+                            <div className="px-4 py-2 mt-2">
+                                <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Admin</span>
+                            </div>
+                            <div className="p-2 space-y-1">
+                                <button onClick={() => { onClose(); onNavigate('SYSTEM_OPTIMIZER'); }} className="menu-item">
+                                    <Gauge className="w-5 h-5 text-emerald-500" />
+                                    <span className="flex-grow text-sm font-medium">System Optimizer</span>
+                                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                                </button>
+
+                                <button onClick={() => { onClose(); onNavigate('SQL_ASSISTANT'); }} className="menu-item">
+                                    <Database className="w-5 h-5 text-indigo-500" />
+                                    <span className="flex-grow text-sm font-medium">SQL AI Assistant</span>
+                                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                                </button>
+
+                                <button onClick={() => { onClose(); onOpenAPIConfig(); }} className="menu-item">
+                                    <Cloud className="w-5 h-5 text-sky-500" />
+                                    <span className="flex-grow text-sm font-medium">API Configuration</span>
+                                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                                </button>
+
+
+
+
+
+                                <button onClick={handleDevToolsClick} className="menu-item bg-slate-100 dark:bg-slate-700/50 mt-1">
+                                    <Terminal className="w-5 h-5 text-green-600 dark:text-green-400" />
+                                    <span className="flex-grow text-sm font-medium">Developer Tools</span>
+                                    {state.pin && <Shield className="w-3 h-3 text-gray-400" />}
+                                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                                </button>
+                            </div>
+
+
+
                             <div className="my-2 border-t border-gray-100 dark:border-slate-700 mx-4"></div>
 
-                            {/* 5. System / Sync Section */}
+                            {/* 6. System / Sync Section */}
                             {state.googleUser && (
                                 <div className="px-2 pb-2 space-y-1">
                                     <button
@@ -725,16 +766,31 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                                         <CloudLightning className="w-5 h-5" />
                                         <span className="flex-grow text-sm font-medium">Cloud Diagnostics</span>
                                     </button>
-
-                                    <button
-                                        onClick={() => { googleSignOut(); onClose(); }}
-                                        className="menu-item text-red-600 dark:text-red-400"
-                                    >
-                                        <LogOut className="w-5 h-5" />
-                                        <span className="flex-grow text-sm font-medium">Sign Out</span>
-                                    </button>
                                 </div>
                             )}
+                            {/* 3. Security Actions */}
+                            <div className="px-2 pb-2 mt-2">
+                                <button
+                                    onClick={() => {
+                                        if (state.isAuthenticated) {
+                                            onClose();
+                                            // Lock Session
+                                            dispatch({ type: 'SET_AUTHENTICATED', payload: false });
+                                            showToast('Session Locked');
+                                        } else {
+                                            // Unlock Session
+                                            handleUnlockSessionClick();
+                                        }
+                                    }}
+                                    className={`menu-item ${state.isAuthenticated
+                                        ? 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/10 hover:border-rose-200 dark:hover:border-rose-800'
+                                        : 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/10 hover:border-emerald-200 dark:hover:border-emerald-800'} border border-transparent`}
+                                >
+                                    {state.isAuthenticated ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
+                                    <span className="flex-grow text-sm font-medium">{state.isAuthenticated ? 'Lock Session' : 'Unlock Session'}</span>
+                                </button>
+                            </div>
+
                         </div>
 
                         <style>{`

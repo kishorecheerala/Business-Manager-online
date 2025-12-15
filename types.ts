@@ -1,7 +1,7 @@
 
 import { ReactNode } from "react";
 
-export type Page = 'DASHBOARD' | 'CUSTOMERS' | 'SALES' | 'PURCHASES' | 'REPORTS' | 'RETURNS' | 'PRODUCTS' | 'INSIGHTS' | 'EXPENSES' | 'QUOTATIONS' | 'INVOICE_DESIGNER' | 'SYSTEM_OPTIMIZER' | 'SQL_ASSISTANT' | 'TRASH' | 'FINANCIAL_PLANNING';
+export type Page = 'DASHBOARD' | 'CUSTOMERS' | 'SALES' | 'PURCHASES' | 'SUPPLIERS' | 'REPORTS' | 'RETURNS' | 'PRODUCTS' | 'INSIGHTS' | 'EXPENSES' | 'QUOTATIONS' | 'INVOICE_DESIGNER' | 'SYSTEM_OPTIMIZER' | 'SQL_ASSISTANT' | 'TRASH' | 'FINANCIAL_PLANNING';
 // ... (rest of imports)
 
 // --- Financial Planning Types ---
@@ -398,6 +398,7 @@ export interface AppMetadataPin {
     enabled: boolean;
     lastAttempt?: number;
   };
+  protectedPages?: Page[]; // New: Granular locking
   updatedAt?: string;
 }
 
@@ -572,7 +573,9 @@ export interface AppState {
   navOrder: string[];
   quickActions: string[];
   isOnline: boolean;
-  isLocked: boolean; // For App Lock
+  isLocked: boolean; // Legacy Global Lock
+  isAuthenticated: boolean; // New Session Auth State
+  protectedPages: Page[]; // Pages requiring auth
 
   // Sales Management State
   currentSale: SaleDraft;

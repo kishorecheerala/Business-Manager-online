@@ -14,7 +14,12 @@ interface PinModalProps {
 
 const PinModal: React.FC<PinModalProps> = ({ mode, onSetPin, onCorrectPin, correctPin, onResetRequest, onCancel }) => {
     const [pin, setPin] = useState('');
-    const [confirmPin, setConfirmPin] = useState('');
+    const [confirmPin, setConfirmPin] = useState(''); // Not actively used but kept to avoid breakage
+
+    // Correct Logic for State Management
+    const [tempPin, setTempPin] = useState(''); // Stores the first PIN during setup
+    const [finalPin, setFinalPin] = useState(''); // Stores PIN while waiting for biometric setup
+
     // Biometric Registration
     const [step, setStep] = useState<'enter' | 'create' | 'confirm' | 'biometric-setup'>(mode === 'setup' ? 'create' : 'enter');
     const [error, setError] = useState(false);
@@ -117,13 +122,26 @@ const PinModal: React.FC<PinModalProps> = ({ mode, onSetPin, onCorrectPin, corre
         }
     };
 
+    // Auto-trigger Biometrics
+    useEffect(() => {
+        if (mode === 'enter' && step === 'enter' && biometricsAvailable) {
+            // Check if user has enabled it previously
+            const enabled = localStorage.getItem('biometric_enabled') === 'true';
+            if (enabled) {
+                // Small delay to ensure modal execution is ready
+                const timer = setTimeout(() => {
+                    handleBiometricUnlock();
+                }, 500);
+                return () => clearTimeout(timer);
+            }
+        }
+    }, [mode, step, biometricsAvailable]);
+
     const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-        // ... (unused legacy handler, can be ignored or removed if strict, but keeping consistent with surrounding code style)
+        // ... (unused legacy handler)
     };
 
-    // Correct Logic for State Management
-    const [tempPin, setTempPin] = useState(''); // Stores the first PIN during setup
-    const [finalPin, setFinalPin] = useState(''); // Stores PIN while waiting for biometric setup
+    // Correct Logic for State Management (Moved logic to hooks, this block is just methods now)
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = e.target.value.replace(/\D/g, '').slice(0, 4);

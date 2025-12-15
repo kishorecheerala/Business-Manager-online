@@ -26,7 +26,7 @@ const SystemOptimizerPage: React.FC = () => {
         // Calculate basic stats
         let heavyImgCount = 0;
         let imgCount = 0;
-        
+
         state.products.forEach(p => {
             if (p.image) {
                 imgCount++;
@@ -54,7 +54,7 @@ const SystemOptimizerPage: React.FC = () => {
 
         setIsOptimizing(true);
         setProgress(0);
-        
+
         const productsToUpdate: Product[] = [];
         const total = state.products.length;
         let processed = 0;
@@ -63,7 +63,7 @@ const SystemOptimizerPage: React.FC = () => {
         const processChunk = async (startIndex: number) => {
             const chunkSize = 10;
             const end = Math.min(startIndex + chunkSize, total);
-            
+
             for (let i = startIndex; i < end; i++) {
                 const product = state.products[i];
                 if (product.image) {
@@ -140,9 +140,9 @@ const SystemOptimizerPage: React.FC = () => {
                         </div>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
-                        <input 
-                            type="checkbox" 
-                            className="sr-only peer" 
+                        <input
+                            type="checkbox"
+                            className="sr-only peer"
                             checked={state.performanceMode}
                             onChange={handleTogglePerformance}
                         />
@@ -164,7 +164,7 @@ const SystemOptimizerPage: React.FC = () => {
                                 Compresses large product images to efficient WebP format without visible quality loss. Significantly reduces database size.
                             </p>
                         </div>
-                        
+
                         {isOptimizing ? (
                             <div className="space-y-2">
                                 <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
@@ -185,16 +185,30 @@ const SystemOptimizerPage: React.FC = () => {
                     <div className="flex flex-col h-full justify-between">
                         <div className="space-y-2 mb-4">
                             <div className="flex justify-between items-center text-sm p-2 border-b dark:border-slate-700">
-                                <span className="flex items-center gap-2"><Database size={14}/> Audit Logs</span>
+                                <span className="flex items-center gap-2"><Database size={14} /> Audit Logs</span>
                                 <span className="font-mono">{stats.logsCount} records</span>
                             </div>
                             <div className="flex justify-between items-center text-sm p-2 border-b dark:border-slate-700">
-                                <span className="flex items-center gap-2"><BarChart2 size={14}/> Notifications</span>
+                                <span className="flex items-center gap-2"><BarChart2 size={14} /> Notifications</span>
                                 <span className="font-mono">{stats.notificationsCount} records</span>
                             </div>
                         </div>
                         <Button onClick={handleCleanup} variant="secondary" className="w-full text-red-600 hover:bg-red-50 border-red-200 dark:bg-red-900/10 dark:hover:bg-red-900/30">
                             <Trash2 size={16} className="mr-2" /> Clean Old Logs (30+ Days)
+                        </Button>
+                    </div>
+                </Card>
+
+                {/* New Data Management Card */}
+                <Card title="Data Management">
+                    <div className="flex flex-col h-full justify-between">
+                        <div>
+                            <p className="text-xs text-slate-500 mb-4">
+                                Import existing data from CSV files to quickly populate your business records.
+                            </p>
+                        </div>
+                        <Button onClick={() => window.dispatchEvent(new CustomEvent('OPEN_DATA_IMPORT'))} variant="secondary" className="w-full text-orange-600 hover:bg-orange-50 border-orange-200">
+                            <Database size={16} className="mr-2" /> Import Data (CSV)
                         </Button>
                     </div>
                 </Card>

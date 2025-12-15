@@ -91,7 +91,9 @@ type Action =
     | { type: 'DELETE_SCENARIO'; payload: string }
     | { type: 'LOCK_APP' }
     | { type: 'UNLOCK_APP' }
-    | { type: 'UPDATE_SECURITY_CONFIG'; payload: AppMetadataPin['security'] };
+    | { type: 'UPDATE_SECURITY_CONFIG'; payload: AppMetadataPin['security'] }
+    | { type: 'UPDATE_PROTECTED_PAGES'; payload: Page[] }
+    | { type: 'SET_AUTHENTICATED'; payload: boolean };
 
 // Default Template to prevent crashes
 const DEFAULT_TEMPLATE: InvoiceTemplateConfig = {
@@ -273,7 +275,9 @@ const initialState: AppState = {
 
     budgets: [],
     financialScenarios: [],
-    isLocked: false, // Default to false, will settle to true if config says so during load
+    isLocked: false,
+    isAuthenticated: false, // Default false, requires auth if accessing protected pages
+    protectedPages: [], // Will load from DB
     bankAccounts: []
 };
 
@@ -1128,15 +1132,32 @@ const appReducer = (state: AppState, action: Action): AppState => {
             const newPinMeta: AppMetadataPin = {
                 id: 'securityPin',
                 security: secConfig,
+                protectedPages: state.protectedPages, // Preserve existing
                 updatedAt: new Date().toISOString()
             };
             db.saveCollection('app_metadata', [...state.app_metadata.filter(m => m.id !== 'securityPin'), newPinMeta]);
             return {
                 ...state,
                 pin: secConfig.enabled ? secConfig.pin : null,
-                isLocked: secConfig.enabled ? state.isLocked : false // auto-unlock if disabled?
+                isLocked: secConfig.enabled ? state.isLocked : false
             };
 
+        case 'UPDATE_PROTECTED_PAGES':
+            const pPages = action.payload;
+            // Get existing pin meta or create new
+            const currentPinMeta = state.app_metadata.find(m => m.id === 'securityPin') as AppMetadataPin | undefined;
+            const updatedPinMetaWithPages: AppMetadataPin = {
+                id: 'securityPin',
+                security: currentPinMeta?.security,
+                pin: currentPinMeta?.pin,
+                protectedPages: pPages,
+                updatedAt: new Date().toISOString()
+            };
+            db.saveCollection('app_metadata', [...state.app_metadata.filter(m => m.id !== 'securityPin'), updatedPinMetaWithPages]);
+            return { ...state, protectedPages: pPages };
+
+        case 'SET_AUTHENTICATED':
+            return { ...state, isAuthenticated: action.payload };
 
         default:
             return state;
@@ -1318,16 +1339,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     themeGradient: themeMeta?.gradient ?? (localDefaults.themeGradient || ''),
                     font: themeMeta?.font || localDefaults.font || 'Inter',
 
-                    pin: pinMeta?.security?.pin || null,
-                    isLocked: !!(pinMeta?.security?.enabled),
                     uiPreferences: uiMeta ? { ...DEFAULT_UI_PREFS, ...uiMeta } : DEFAULT_UI_PREFS,
                     dashboardConfig: dashMeta ? { ...DEFAULT_DASHBOARD_CONFIG, ...dashMeta } : DEFAULT_DASHBOARD_CONFIG,
-                    invoiceTemplate: invoiceMeta?.template || DEFAULT_TEMPLATE,
+                    invoiceSettings: invoiceMeta,
                     navOrder: navMeta?.order || DEFAULT_NAV_ORDER,
                     quickActions: qaMeta?.actions || DEFAULT_QUICK_ACTIONS,
 
                     lastSyncTime: localDefaults.lastSyncTime || 0,
-                    app_metadata: app_metadata, // Store raw metadata too
+                    app_metadata: app_metadata as AppMetadata[],
+                    customFonts: customFonts as CustomFont[],
+
+                    // Security
+                    pin: pinMeta?.security?.enabled ? pinMeta.security.pin : null,
+                    isLocked: pinMeta?.security?.enabled || false,
+                    protectedPages: pinMeta?.protectedPages || [],
                 }
             });
         } finally {
