@@ -276,6 +276,16 @@ const PinModal: React.FC<PinModalProps> = ({ mode, onSetPin, onCorrectPin, corre
                             ))}
                         </div>
 
+                        {/* Forgot PIN / Reset Link */}
+                        {step === 'enter' && onResetRequest && (
+                            <button
+                                onClick={onResetRequest}
+                                className="mt-2 mb-4 text-xs text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors font-medium flex items-center gap-1"
+                            >
+                                <Delete size={12} /> Reset Passcode
+                            </button>
+                        )}
+
                         {/* Biometric Button (Enter Mode) */}
                         {step === 'enter' && biometricsAvailable && (
                             <button
@@ -284,16 +294,6 @@ const PinModal: React.FC<PinModalProps> = ({ mode, onSetPin, onCorrectPin, corre
                             >
                                 <ScanFace size={20} />
                                 <span className="text-sm font-semibold">Unlock with FaceID / TouchID</span>
-                            </button>
-                        )}
-
-                        {/* Forgot PIN / Reset Link */}
-                        {step === 'enter' && onResetRequest && (
-                            <button
-                                onClick={onResetRequest}
-                                className="mt-4 text-xs text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors font-medium flex items-center gap-1"
-                            >
-                                <Delete size={12} /> Reset Passcode
                             </button>
                         )}
                     </>

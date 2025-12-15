@@ -42,6 +42,7 @@ const FinancialPlanningPage = React.lazy(() => import('./pages/FinancialPlanning
 
 
 import PinLock from './components/PinLock';
+import PinModal from './components/PinModal';
 
 import { QUICK_ACTION_REGISTRY, QUICK_ACTION_SHORTCUTS } from './utils/quickActions';
 
@@ -322,19 +323,23 @@ const App: React.FC = () => {
     // App Lock Screen
     // Safety: If locked but no PIN is set (corruption?), auto-unlock.
     // App Lock Screen
-    // Only show PinLock if explicitly locked AND a valid PIN exists.
-    // If state.isLocked is true but pin is missing (corruption), we safely fall through to AppLayout.
-    /* EMERGENCY UNLOCK: Lock Screen Disabled by User Request
+    // Only show PinModal if explicitly locked AND a valid PIN exists.
     if (state.isLocked && state.pin) {
         return (
-            <PinLock
-                mode="unlock"
-                storedPin={state.pin}
-                onSuccess={unlockApp}
+            <PinModal
+                mode="enter"
+                correctPin={state.pin}
+                onCorrectPin={unlockApp}
+                onResetRequest={async () => {
+                    if (await showConfirm("Are you sure you want to reset your passcode? This will remove the app lock.", { confirmText: "Reset & Remove Lock", variant: 'danger' })) {
+                        dispatch({ type: 'SET_PIN', payload: null });
+                        unlockApp();
+                        showToast("Passcode removed.");
+                    }
+                }}
             />
         );
     }
-    */
 
     return (
         <AppLayout
