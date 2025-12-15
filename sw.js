@@ -1,6 +1,6 @@
 // Cache-busting service worker - PRODUCTION HOTFIX
 // This version forces a complete cache clear to resolve "White Screen" / Freeze issues.
-const CACHE_VERSION = 'v-production-hotfix-1';
+const CACHE_VERSION = 'v-production-hotfix-2';
 const CACHE_NAME = `business-manager-${CACHE_VERSION}`;
 
 console.log('[SW] Hotfix Active:', CACHE_NAME);

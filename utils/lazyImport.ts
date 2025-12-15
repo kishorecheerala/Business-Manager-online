@@ -30,7 +30,11 @@ export const lazyImport = <T extends React.ComponentType<any>>(
                 if (!hasRetried) {
                     console.log("Reloading page to recover from stale chunk...");
                     sessionStorage.setItem(storageKey, 'true');
-                    window.location.reload();
+
+                    // Force a fresh reload by appending/updating a timestamp
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('v', Date.now().toString());
+                    window.location.href = url.toString();
 
                     // Return a never-resolving promise to wait for reload
                     return new Promise(() => { });
