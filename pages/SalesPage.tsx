@@ -8,7 +8,7 @@ import Button from '../components/Button';
 import DeleteButton from '../components/DeleteButton';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
 import { getLocalDateString } from '../utils/dateUtils';
-import { formatCurrency, formatDate, formatNumber } from '../utils/formatUtils';
+import { formatCurrency, formatDate, generateDownloadFilename } from '../utils/formatUtils';
 import { calculateTotals } from '../utils/calculations';
 import AddCustomerModal from '../components/AddCustomerModal';
 import ProductSearchModal from '../components/ProductSearchModal';
@@ -42,6 +42,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         method: 'CASH' as 'CASH' | 'UPI' | 'CHEQUE',
         date: getLocalDateString(),
         reference: '',
+        accountId: ''
     });
 
     const [isSelectingProduct, setIsSelectingProduct] = useState(false);
@@ -353,7 +354,8 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         try {
             const doc = await generateA4InvoicePdf(sale, customer, state.profile, state.invoiceTemplate, state.customFonts);
             const pdfBlob = doc.output('blob');
-            const pdfFile = new File([pdfBlob], `Invoice-${sale.id}.pdf`, { type: 'application/pdf' });
+            const filename = generateDownloadFilename(`Invoice_${sale.id}`, 'pdf');
+            const pdfFile = new File([pdfBlob], filename, { type: 'application/pdf' });
             const businessName = state.profile?.name || 'Your Business';
 
             const subTotal = calculations.subTotal;
@@ -376,7 +378,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                     files: [pdfFile],
                 });
             } else {
-                doc.save(`Invoice-${sale.id}.pdf`);
+                doc.save(filename);
             }
         } catch (error: any) {
             if (error.name === 'AbortError' || (error.message && error.message.includes('Share canceled'))) {
@@ -412,7 +414,9 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             if (paidAmount > 0) {
                 payments.push({
                     id: `PAY-S-${Date.now()}`, amount: paidAmount, method: paymentDetails.method,
+
                     date: new Date(paymentDetails.date).toISOString(), reference: paymentDetails.reference.trim() || undefined,
+                    accountId: paymentDetails.accountId || undefined
                 });
             }
 
@@ -448,6 +452,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                     method: paymentDetails.method,
                     date: new Date(paymentDetails.date || new Date().toISOString()).toISOString(),
                     reference: paymentDetails.reference.trim() || undefined,
+                    accountId: paymentDetails.accountId || undefined
                 });
             }
 
@@ -755,6 +760,20 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                                     />
                                 </div>
 
+                                {mode === 'edit' && (() => {
+                                    const relatedReturns = state.returns?.filter(r => r.referenceId === saleToEdit?.id) || [];
+                                    const totalReturned = relatedReturns.reduce((sum, r) => sum + Number(r.amount), 0);
+                                    if (totalReturned > 0) {
+                                        return (
+                                            <>
+                                                <span className="text-amber-700">Less Returns:</span>
+                                                <span className="text-right font-medium text-amber-700">-{formatCurrency(totalReturned)}</span>
+                                            </>
+                                        );
+                                    }
+                                    return null;
+                                })()}
+
                                 <span>GST Included:</span>
                                 <span className="text-right font-medium">{formatCurrency(calculations.gstAmount)}</span>
                             </div>
@@ -978,7 +997,21 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                                                     </p>
                                                 </div>
                                                 <div className="text-right">
-                                                    <p className="font-bold text-sm text-primary">₹{sale.totalAmount.toLocaleString('en-IN')}</p>
+                                                    {(() => {
+                                                        const relatedReturns = state.returns?.filter(r => r.referenceId === sale.id) || [];
+                                                        const totalReturned = relatedReturns.reduce((sum, r) => sum + Number(r.amount), 0);
+                                                        if (totalReturned > 0) {
+                                                            const net = Number(sale.totalAmount) - totalReturned;
+                                                            return (
+                                                                <>
+                                                                    <p className="font-bold text-sm text-primary">{formatCurrency(net)}</p>
+                                                                    <p className="text-[10px] text-gray-400 line-through">{formatCurrency(Number(sale.totalAmount))}</p>
+                                                                    <span className="text-[9px] text-amber-600 bg-amber-50 px-1 rounded">Ret: -{formatCurrency(totalReturned)}</span>
+                                                                </>
+                                                            );
+                                                        }
+                                                        return <p className="font-bold text-sm text-primary">₹{sale.totalAmount.toLocaleString('en-IN')}</p>;
+                                                    })()}
                                                     <p className="text-[10px] text-gray-400">{new Date(sale.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                                                 </div>
                                             </div>
@@ -1017,7 +1050,14 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                             filteredHistory.map((sale) => {
                                 const saleCustomer = state.customers.find((c) => c.id === sale.customerId);
                                 const totalPaid = (sale.payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
-                                const dueAmount = Number(sale.totalAmount) - totalPaid;
+
+                                // Return Calculations
+                                const relatedReturns = state.returns?.filter(r => r.referenceId === sale.id) || [];
+                                const totalReturned = relatedReturns.reduce((sum, r) => sum + Number(r.amount), 0);
+
+                                const netPayable = Number(sale.totalAmount) - totalReturned;
+                                const dueAmount = netPayable - totalPaid;
+                                const isFullyReturned = totalReturned >= Number(sale.totalAmount) - 0.01;
 
                                 return (
                                     <div
@@ -1034,18 +1074,86 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                                                     <Clock size={12} />
                                                     {new Date(sale.date).toLocaleString('en-IN')}
                                                 </p>
+                                                {totalReturned > 0 && (
+                                                    <div className="mt-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded inline-block" title={relatedReturns.flatMap(r => r.items).map(i => i.productName).join(', ')}>
+                                                        Returns: -{formatCurrency(totalReturned)}
+                                                        <span className="ml-1 opacity-75 font-normal">
+                                                            ({relatedReturns.flatMap(r => r.items).map(i => i.productName).join(', ')})
+                                                        </span>
+                                                    </div>
+                                                )}
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-sm font-bold text-slate-900 dark:text-white">
-                                                    ₹{Number(sale.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                                </p>
+                                                {totalReturned > 0 ? (
+                                                    <>
+                                                        <p className="text-xs text-gray-500 line-through">
+                                                            {formatCurrency(Number(sale.totalAmount))}
+                                                        </p>
+                                                        <p className="text-sm font-bold text-slate-900 dark:text-white">
+                                                            {formatCurrency(netPayable)}
+                                                        </p>
+                                                    </>
+                                                ) : (
+                                                    <p className="text-sm font-bold text-slate-900 dark:text-white">
+                                                        {formatCurrency(Number(sale.totalAmount))}
+                                                    </p>
+                                                )}
+
                                                 <p className={`text-xs font-semibold ${dueAmount > 0.01 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-                                                    {dueAmount > 0.01 ? `Due: ₹${dueAmount.toLocaleString('en-IN')}` : 'Paid'}
+                                                    {dueAmount > 0.01 ? `Due: ${formatCurrency(dueAmount)}` : (isFullyReturned ? 'Returned' : 'Paid')}
                                                 </p>
                                             </div>
                                         </div>
 
                                         <div className="mt-2 pt-2 border-t border-slate-300 dark:border-slate-500/30">
+                                            {/* Transaction Lifecycle View */}
+                                            <div className="space-y-1">
+                                                {/* Payments List */}
+                                                {(sale.payments && sale.payments.length > 0) && (
+                                                    <div className="text-xs space-y-1">
+                                                        {sale.payments.map((payment, idx) => {
+                                                            const account = state.bankAccounts?.find(a => a.id === payment.accountId);
+                                                            return (
+                                                                <div key={idx} className="flex flex-col text-sm border-b border-gray-100 dark:border-slate-700/50 pb-2 last:border-0 last:pb-0 mb-2 last:mb-0">
+                                                                    <div className="flex justify-between items-center mb-1">
+                                                                        <span className="font-semibold text-green-700 dark:text-green-400">
+                                                                            {formatCurrency(Number(payment.amount))} <span className="text-gray-500 font-normal">via</span> {payment.method}
+                                                                        </span>
+                                                                        <span className="text-xs text-gray-400">{formatDate(payment.date)}</span>
+                                                                    </div>
+                                                                    {payment.reference && (
+                                                                        <div className="text-xs text-slate-500 dark:text-slate-400">
+                                                                            Ref: {payment.reference}
+                                                                        </div>
+                                                                    )}
+                                                                    {account && (
+                                                                        <div className="text-xs text-slate-500 dark:text-slate-400">
+                                                                            Credited to: {account.name} {account.accountNumber ? `(${account.accountNumber.slice(-4)})` : ''}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+
+                                                {/* Returns List */}
+                                                {relatedReturns.length > 0 && (
+                                                    <div className="mt-2 space-y-1 text-xs">
+                                                        {relatedReturns.map((ret, idx) => (
+                                                            <div key={idx} className="bg-amber-50 dark:bg-amber-900/20 p-1.5 rounded border border-amber-100 dark:border-amber-800/50">
+                                                                <div className="flex justify-between text-amber-800 dark:text-amber-400 font-medium">
+                                                                    <span>Return on {new Date(ret.returnDate).toLocaleDateString()}</span>
+                                                                    <span>-{formatCurrency(Number(ret.amount))}</span>
+                                                                </div>
+                                                                <div className="text-amber-600 dark:text-amber-500/80 mt-0.5 pl-1 italic">
+                                                                    {ret.items.map(i => `${i.productName} (x${i.quantity})`).join(', ')}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
                                             <div className="flex justify-between items-center text-xs">
                                                 <span className="text-slate-600 dark:text-slate-400">
                                                     {sale.items.length} item{sale.items.length !== 1 ? 's' : ''}

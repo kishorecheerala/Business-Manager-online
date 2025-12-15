@@ -6,6 +6,7 @@ import Button from '../components/Button';
 import ColorPickerModal from '../components/ColorPickerModal';
 import Dropdown from '../components/Dropdown';
 import { generateA4InvoicePdf, generateEstimatePDF, generateDebitNotePDF, generateReceiptPDF, generateGenericReportPDF } from '../utils/pdfGenerator';
+import { generateDownloadFilename } from '../utils/formatUtils';
 import { compressImage } from '../utils/imageUtils';
 import * as pdfjsLib from 'pdfjs-dist';
 import { useDialog } from '../context/DialogContext';
@@ -254,7 +255,7 @@ const PDFCanvasPreview: React.FC<{
                     viewport: viewport,
                 };
 
-                renderTaskRef.current = page.render(renderContext);
+                renderTaskRef.current = page.render(renderContext as any);
                 await renderTaskRef.current.promise;
 
                 // Calculate mm to px scale
@@ -801,7 +802,7 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
                     break;
                 default: doc = await generateA4InvoicePdf(dummySale, dummyCustomer, state.profile, localConfig, state.customFonts);
             }
-            doc.save(`Test_${docType}.pdf`);
+            doc.save(generateDownloadFilename(`Test_${docType}`, 'pdf'));
         } catch (e) {
             console.error(e);
             showToast("Failed to generate PDF.", "error");
@@ -841,7 +842,7 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `${docType.toLowerCase()}_template.json`;
+        link.download = generateDownloadFilename(`${docType.toLowerCase()}_template`, 'json');
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);

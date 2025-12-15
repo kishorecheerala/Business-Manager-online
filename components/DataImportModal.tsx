@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, Download, Upload, Info, CheckCircle, XCircle, Users, Package as PackageIcon, Boxes, ShoppingCart } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { StoreName } from '../utils/db';
+import { generateDownloadFilename } from '../utils/formatUtils';
 import { Customer, Supplier, Product, Purchase, PurchaseItem } from '../types';
 import Card from './Card';
 import Button from './Button';
@@ -104,7 +105,13 @@ export const DataImportModal: React.FC<DataImportModalProps> = ({ isOpen, onClos
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
-        link.setAttribute("download", fileName);
+        // Use the original filename from constants but sanitized/timestamped if needed, or simply append timestamp for standardization.
+        // However, this is a template, so maybe we want to keep it simple?
+        // The user requirement says "all downloaded files". Let's standardize it.
+        // But the import might expect a specific name? No, import is file chooser.
+        // The templates object has hardcoded filenames. Let's use them as prefix.
+        const cleanPrefix = fileName.replace('.csv', '');
+        link.setAttribute("download", generateDownloadFilename(cleanPrefix, 'csv'));
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);

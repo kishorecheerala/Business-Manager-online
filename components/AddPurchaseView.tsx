@@ -12,6 +12,7 @@ import { compressImage } from '../utils/imageUtils';
 import { getLocalDateString } from '../utils/dateUtils';
 import { calculateTotals } from '../utils/calculations';
 import { useHotkeys } from '../hooks/useHotkeys';
+import { generateDownloadFilename } from '../utils/formatUtils';
 import AddSupplierModal from './AddSupplierModal';
 import { GoogleGenAI } from "@google/genai";
 import { generateImagesToPDF } from '../utils/pdfGenerator';
@@ -182,7 +183,7 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
 
     const handleDownloadPDF = () => {
         if (invoiceImages.length === 0) return;
-        const fileName = `Invoices_${supplierInvoiceId || 'Purchase'}_${getLocalDateString()}.pdf`;
+        const fileName = generateDownloadFilename(`Invoices_${supplierInvoiceId || 'Purchase'}`, 'pdf');
         generateImagesToPDF(invoiceImages, fileName);
     };
 

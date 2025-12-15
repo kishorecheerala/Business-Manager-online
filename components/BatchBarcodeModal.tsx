@@ -8,6 +8,7 @@ import FormattedNumberInput from './FormattedNumberInput';
 import { X, Download, Printer } from 'lucide-react';
 import { PurchaseItem } from '../types';
 import { useAppContext } from '../context/AppContext';
+import { generateDownloadFilename } from '../utils/formatUtils';
 
 interface BatchBarcodeModalProps {
     isOpen: boolean;
@@ -143,7 +144,7 @@ const BatchBarcodeModal: React.FC<BatchBarcodeModalProps> = ({ isOpen, purchaseI
                 }
             }
 
-            doc.save(`purchase-labels.pdf`);
+            doc.save(generateDownloadFilename('purchase-labels', 'pdf'));
         } catch (error) {
             console.error('PDF generation failed:', error);
             showToast('Failed to generate PDF. Please try again.', 'error');

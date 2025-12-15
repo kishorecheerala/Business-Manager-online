@@ -31,6 +31,7 @@ type Action =
     | { type: 'ADD_PAYMENT_TO_PURCHASE'; payload: { purchaseId: string; payment: any } }
     | { type: 'ADD_RETURN'; payload: Return }
     | { type: 'UPDATE_RETURN'; payload: { oldReturn: Return; updatedReturn: Return } }
+    | { type: 'DELETE_RETURN'; payload: string }
     | { type: 'ADD_EXPENSE'; payload: Expense }
     | { type: 'UPDATE_EXPENSE'; payload: Expense }
     | { type: 'UPDATE_PAYMENT_IN_PURCHASE'; payload: { purchaseId: string; payment: Payment } }
@@ -611,6 +612,52 @@ const appReducer = (state: AppState, action: Action): AppState => {
             const updatedReturns = state.returns.map(r => r.id === updatedReturn.id ? updatedReturn : r);
             db.saveCollection('returns', updatedReturns);
             return { ...state, returns: updatedReturns, ...touch };
+
+        case 'DELETE_RETURN': {
+            const returnToDelete = state.returns.find(r => r.id === action.payload);
+            if (!returnToDelete) return state;
+
+            // Reverse Stock Logic
+            let reversedStockProducts = [...state.products];
+            if (returnToDelete.type === 'CUSTOMER') {
+                // Original: Added to stock. Reversal: Subtract from stock.
+                reversedStockProducts = state.products.map(p => {
+                    const item = returnToDelete.items.find(i => i.productId === p.id);
+                    // Ensure we don't go below 0 if somehow stock is messed up, but logically we just subtract
+                    return item ? { ...p, quantity: Math.max(0, p.quantity - item.quantity), updatedAt: new Date().toISOString() } : p;
+                });
+            } else {
+                // Original: Removed from stock. Reversal: Add to stock.
+                reversedStockProducts = state.products.map(p => {
+                    const item = returnToDelete.items.find(i => i.productId === p.id);
+                    return item ? { ...p, quantity: p.quantity + item.quantity, updatedAt: new Date().toISOString() } : p;
+                });
+            }
+
+            // Trash Logic
+            const trashReturn: TrashItem = {
+                id: returnToDelete.id,
+                originalStore: 'returns',
+                data: returnToDelete,
+                deletedAt: new Date().toISOString()
+            };
+
+            db.addToTrash(trashReturn);
+            db.deleteFromStore('returns', returnToDelete.id);
+            db.saveCollection('products', reversedStockProducts);
+
+            newLog = logAction(state, 'Deleted Return', `ID: ${action.payload}`);
+            db.saveCollection('audit_logs', [newLog, ...state.audit_logs]);
+
+            return {
+                ...state,
+                returns: state.returns.filter(r => r.id !== action.payload),
+                products: reversedStockProducts,
+                trash: [trashReturn, ...state.trash],
+                audit_logs: [newLog, ...state.audit_logs],
+                ...touch
+            };
+        }
 
         case 'UPDATE_EXPENSE':
             const updatedExpense = { ...action.payload, updatedAt: new Date().toISOString() };

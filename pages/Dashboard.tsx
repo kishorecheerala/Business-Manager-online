@@ -14,7 +14,7 @@ import { GoogleGenAI, Modality } from "@google/genai";
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import ModernDateInput from '../components/ModernDateInput';
 import { getLocalDateString } from '../utils/dateUtils';
-import { formatCurrency, formatNumber, formatDate } from '../utils/formatUtils';
+import { formatCurrency, formatNumber, formatDate, generateDownloadFilename } from '../utils/formatUtils';
 import SalesTrendChart from '../components/charts/SalesTrendChart';
 import AIInsightsView from '../components/AIInsightsView';
 
@@ -651,7 +651,8 @@ const UpcomingPurchaseDuesCard: React.FC<{
 
                 purchase.paymentDueDates.forEach(dateStr => {
                     const dueDate = new Date(dateStr + 'T00:00:00');
-                    if (dueDate >= today && dueDate <= thirtyDaysFromNow) {
+                    // Include overdues (past dates) and upcoming up to 30 days
+                    if (dueDate <= thirtyDaysFromNow) {
                         const timeDiff = dueDate.getTime() - today.getTime();
                         const daysRemaining = Math.ceil(timeDiff / (1000 * 3600 * 24));
                         dues.push({ purchaseId: purchase.id, supplier: supplier, totalPurchaseDue: dueAmount, dueDate: dueDate, daysRemaining: daysRemaining });
@@ -680,10 +681,21 @@ const UpcomingPurchaseDuesCard: React.FC<{
                 <AlertTriangle className="w-6 h-6 text-amber-600 dark:text-amber-400 mr-3" />
                 <h2 className="text-lg font-bold text-amber-800 dark:text-amber-200">Upcoming Purchase Dues</h2>
             </div>
-            <p className="text-sm text-amber-700 dark:text-amber-300 mb-4">The following payments to suppliers are due within the next 30 days.</p>
+            <p className="text-sm text-amber-700 dark:text-amber-300 mb-4">The following payments to suppliers are due soon or overdue.</p>
             <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
                 {upcomingDues.map((due) => {
-                    const countdownText = due.daysRemaining === 0 ? "Due today" : `Due in ${due.daysRemaining} day${due.daysRemaining !== 1 ? 's' : ''}`;
+                    let countdownText = "";
+                    let timeColor = "text-amber-600 dark:text-amber-400";
+
+                    if (due.daysRemaining < 0) {
+                        countdownText = `Overdue by ${Math.abs(due.daysRemaining)} day${Math.abs(due.daysRemaining) !== 1 ? 's' : ''}`;
+                        timeColor = "text-red-600 dark:text-red-400";
+                    } else if (due.daysRemaining === 0) {
+                        countdownText = "Due today";
+                        timeColor = "text-orange-600 dark:text-orange-400";
+                    } else {
+                        countdownText = `Due in ${due.daysRemaining} day${due.daysRemaining !== 1 ? 's' : ''}`;
+                    }
                     return (
                         <div key={`${due.purchaseId}-${due.dueDate.toISOString()}`} className="p-3 bg-white dark:bg-slate-800 rounded-lg shadow-sm cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors flex justify-between items-center border dark:border-slate-700" onClick={() => onNavigate(due.supplier.id)}>
                             <div className="flex items-center gap-3">
@@ -694,7 +706,7 @@ const UpcomingPurchaseDuesCard: React.FC<{
                                 </div>
                             </div>
                             <div className="text-right flex-shrink-0 ml-2">
-                                <p className="font-bold text-lg text-amber-600 dark:text-amber-400">{countdownText}</p>
+                                <p className={`font-bold text-lg ${timeColor}`}>{countdownText}</p>
                                 <p className="text-xs text-gray-500 dark:text-gray-400">Date: {due.dueDate.toLocaleDateString()}</p>
                             </div>
                         </div>
@@ -962,8 +974,8 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            const filename = (state.profile?.name || 'business_manager').toLowerCase().replace(/\s+/g, '_');
-            a.download = `${filename}_backup_${new Date().toISOString().split('T')[0]}.json`;
+            const filename = (state.profile?.name || 'backup').replace(/[^a-z0-9]/gi, '_');
+            a.download = generateDownloadFilename(`${filename}_backup`, 'json');
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);

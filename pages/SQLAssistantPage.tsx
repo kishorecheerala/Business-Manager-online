@@ -4,6 +4,7 @@ import { useAppContext } from '../context/AppContext';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import { AIController } from '../utils/ai/AIController';
+import { generateDownloadFilename } from '../utils/formatUtils';
 import { Page } from '../types';
 
 interface SQLAssistantPageProps {
@@ -105,7 +106,7 @@ const SQLAssistantPage: React.FC<SQLAssistantPageProps> = ({ setCurrentPage }) =
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `query_result_${Date.now()}.csv`;
+        link.download = generateDownloadFilename('query_result', 'csv');
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);

@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { Search, Edit, Save, X, Package, IndianRupee, Percent, PackageCheck, Barcode, Printer, Filter, Grid, List, Camera, Image as ImageIcon, Eye, Trash2, QrCode, Boxes, Maximize2, Minimize2, ArrowLeft, CheckSquare, Square, Plus, Clock, AlertTriangle, Share2, MoreHorizontal, LayoutGrid, Check, Wand2, Loader2, Sparkles, MessageCircle, CheckCircle, Copy, Share, GripVertical, GripHorizontal, FileSpreadsheet, TrendingUp, Scale, Settings, History } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Product, PurchaseItem } from '../types';
-import { formatCurrency } from '../utils/formatUtils';
+import { formatCurrency, generateDownloadFilename } from '../utils/formatUtils';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import BarcodeModal from '../components/BarcodeModal';
@@ -259,7 +259,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', `inventory_export_${new Date().toISOString().split('T')[0]}.csv`);
+        link.setAttribute('download', generateDownloadFilename('inventory_export', 'csv'));
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);

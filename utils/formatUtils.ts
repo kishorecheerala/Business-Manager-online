@@ -54,3 +54,19 @@ export const formatInputDate = (date: Date = new Date()): string => {
     const day = date.getDate().toString().padStart(2, '0');
     return `${year}-${month}-${day}`;
 };
+
+export const generateDownloadFilename = (prefix: string, extension: string): string => {
+    const now = new Date();
+    // Format: YYYY-MM-DD
+    const dateStr = now.toLocaleDateString('en-CA'); // ISO-like YYYY-MM-DD
+    // Format: HH-mm-ss (24h)
+    const timeStr = now.toLocaleTimeString('en-GB', { hour12: false }).replace(/:/g, '-');
+
+    // Clean prefix: remove special chars, replace spaces with underscores
+    const safePrefix = prefix.replace(/[^a-z0-9-_]/gi, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '');
+
+    // Ensure extension has dot
+    const ext = extension.startsWith('.') ? extension : `.${extension}`;
+
+    return `${safePrefix}_${dateStr}_${timeStr}${ext}`;
+};

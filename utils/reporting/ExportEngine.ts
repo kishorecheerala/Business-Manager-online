@@ -2,6 +2,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { ReportConfig } from '../../types';
+import { generateDownloadFilename } from '../formatUtils';
 
 export class ExportEngine {
 
@@ -26,7 +27,7 @@ export class ExportEngine {
         const link = document.createElement('a');
         const url = URL.createObjectURL(blob);
         link.setAttribute('href', url);
-        link.setAttribute('download', `${config.title.replace(/\s+/g, '_')}_${Date.now()}.csv`);
+        link.setAttribute('download', generateDownloadFilename(config.title, 'csv'));
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
@@ -71,6 +72,6 @@ export class ExportEngine {
             headStyles: { fillColor: [124, 58, 237] }, // Violet-600
         });
 
-        doc.save(`${config.title.replace(/\s+/g, '_')}.pdf`);
+        doc.save(generateDownloadFilename(config.title, 'pdf'));
     }
 }

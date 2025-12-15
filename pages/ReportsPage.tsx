@@ -1,5 +1,5 @@
-
 import React, { useMemo, useState } from 'react';
+import { generateDownloadFilename } from '../utils/formatUtils';
 import { Download, XCircle, Users, Package, AlertTriangle, FileSpreadsheet, Loader2, BarChart3, Sparkles } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import Card from '../components/Card';
@@ -132,8 +132,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                 state.customFonts
             );
 
-            const dateStr = new Date().toLocaleDateString('en-IN').replace(/\//g, '-');
-            doc.save(`Report_CustomerDues_${dateStr}.pdf`);
+            doc.save(generateDownloadFilename('Report_CustomerDues', 'pdf'));
         } catch (e) {
             console.error(e);
             showToast("Failed to generate PDF", 'error');
@@ -147,7 +146,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
         const csv = [headers.join(','), ...rows].join('\n');
         const link = document.createElement("a");
         link.href = 'data:text/csv;charset=utf-8,' + encodeURI(csv);
-        link.download = 'customer-dues-report.csv';
+        link.download = generateDownloadFilename('customer-dues-report', 'csv');
         link.click();
     };
 
@@ -199,8 +198,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                 state.customFonts
             );
 
-            const dateStr = new Date().toLocaleDateString('en-IN').replace(/\//g, '-');
-            doc.save(`Report_CustomerSummary_${dateStr}.pdf`);
+            doc.save(generateDownloadFilename('Report_CustomerSummary', 'pdf'));
         } catch (e) {
             console.error(e);
             showToast("Failed to generate PDF", 'error');
@@ -214,7 +212,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
         const csv = [headers.join(','), ...rows].join('\n');
         const link = document.createElement("a");
         link.href = 'data:text/csv;charset=utf-8,' + encodeURI(csv);
-        link.download = 'customer-account-summary.csv';
+        link.download = generateDownloadFilename('customer-account-summary', 'csv');
         link.click();
     };
 
@@ -298,8 +296,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                 state.customFonts
             );
 
-            const dateStr = new Date().toLocaleDateString('en-IN').replace(/\//g, '-');
-            doc.save(`Report_SupplierDues_${dateStr}.pdf`);
+            doc.save(generateDownloadFilename('Report_SupplierDues', 'pdf'));
         } catch (e) {
             console.error(e);
             showToast("Failed to generate PDF", 'error');
@@ -313,7 +310,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
         const csv = [headers.join(','), ...rows].join('\n');
         const link = document.createElement("a");
         link.href = 'data:text/csv;charset=utf-8,' + encodeURI(csv);
-        link.download = 'supplier-dues-report.csv';
+        link.download = generateDownloadFilename('supplier-dues-report', 'csv');
         link.click();
     };
 
@@ -349,8 +346,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                 state.customFonts
             );
 
-            const dateStr = new Date().toLocaleDateString('en-IN').replace(/\//g, '-');
-            doc.save(`Report_SupplierSummary_${dateStr}.pdf`);
+            doc.save(generateDownloadFilename('Report_SupplierSummary', 'pdf'));
         } catch (e) {
             console.error(e);
             showToast("Failed to generate PDF", 'error');
@@ -364,7 +360,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
         const csv = [headers.join(','), ...rows].join('\n');
         const link = document.createElement("a");
         link.href = 'data:text/csv;charset=utf-8,' + encodeURI(csv);
-        link.download = 'supplier-account-summary.csv';
+        link.download = generateDownloadFilename('supplier-account-summary', 'csv');
         link.click();
     };
 
@@ -406,8 +402,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                 state.customFonts
             );
 
-            const dateStr = new Date().toLocaleDateString('en-IN').replace(/\//g, '-');
-            doc.save(`Report_LowStock_${dateStr}.pdf`);
+            doc.save(generateDownloadFilename('Report_LowStock', 'pdf'));
         } catch (e) {
             console.error(e);
             showToast("Failed to generate PDF", 'error');

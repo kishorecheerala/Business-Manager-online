@@ -1,4 +1,4 @@
-import React, { useState, useEffect, forwardRef, useRef } from 'react';
+import React, { useState, useEffect, forwardRef } from 'react';
 import Input from './Input';
 
 interface FormattedNumberInputProps extends Omit<React.ComponentProps<typeof Input>, 'onChange' | 'value'> {
@@ -6,40 +6,39 @@ interface FormattedNumberInputProps extends Omit<React.ComponentProps<typeof Inp
     onChange: (e: { target: { value: string } }) => void; // Mimic event structure for compatibility
 }
 
+// Helper outside to be available during initialization
+const formatEnIn = (val: number | string | undefined | null): string => {
+    if (val === undefined || val === null || val === '') return '';
+    const num = Number(val);
+    if (isNaN(num)) return String(val);
+    if (num === 0 && val !== 0 && val !== '0') return ''; // Handle implicit empty/NaN resulting in 0
+    return new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 }).format(num);
+};
+
 const FormattedNumberInput = forwardRef<HTMLInputElement, FormattedNumberInputProps>(({ value, onChange, onBlur, onFocus, ...props }, ref) => {
-    const [displayValue, setDisplayValue] = useState<string>('');
+    // Initialize with formatted value so it's present on first render/autofocus
+    const [displayValue, setDisplayValue] = useState<string>(() => formatEnIn(value));
     const [isFocused, setIsFocused] = useState(false);
 
     // Sync display value with props when not focused
     useEffect(() => {
         if (!isFocused) {
-            if (value === undefined || value === '' || value === null) {
-                setDisplayValue('');
-            } else {
-                setDisplayValue(formatEnIn(value));
-            }
+            setDisplayValue(formatEnIn(value));
         }
     }, [value, isFocused]);
 
-    const formatEnIn = (val: number | string): string => {
-        if (!val && val !== 0) return '';
-        const num = Number(val);
-        if (isNaN(num)) return String(val);
-        return new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 }).format(num);
-    };
-
     const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
         setIsFocused(true);
-        // Show raw value on focus
-        if (value === undefined || value === 0 || value === '0') {
-            setDisplayValue(''); // Clearing 0 on focus for easier typing? Or keep 0? User said "4,000 showing up instead just 4000".
-            // Usually keeping 0 is better if it's significant, but clearing makes it easier to type.
-            // Let's stick to raw string.
-            const valStr = String(value);
-            setDisplayValue(valStr === '0' ? '' : valStr);
+        // Show raw value on focus, do not clear it even if it is 0 or undefined, 
+        // rely on the input's native handling or just show empty string only if null/undefined/empty string.
+        if (value === undefined || value === null) {
+            setDisplayValue('');
         } else {
+            // Simply convert to string. If it's "0", it shows "0". 
+            // This prevents the "blank" issue effectively.
             setDisplayValue(String(value));
         }
+
         if (onFocus) onFocus(e);
     };
 
@@ -61,7 +60,8 @@ const FormattedNumberInput = forwardRef<HTMLInputElement, FormattedNumberInputPr
     return (
         <Input
             ref={ref}
-            type={isFocused ? "number" : "text"} // Switch to number on focus for mobile keyboard, text otherwise for commas
+            type="text"
+            inputMode="decimal"
             value={displayValue}
             onChange={handleChange}
             onFocus={handleFocus}

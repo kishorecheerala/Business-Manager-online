@@ -8,6 +8,7 @@ import Dropdown from './Dropdown';
 import { getLocalDateString } from '../utils/dateUtils';
 import { useAppContext } from '../context/AppContext';
 import { generateGenericReportPDF } from '../utils/pdfGenerator';
+import { generateDownloadFilename } from '../utils/formatUtils';
 import { exportReportToSheet } from '../utils/googleSheets';
 
 interface LedgerModalProps {
@@ -279,7 +280,7 @@ const LedgerModal: React.FC<LedgerModalProps> = ({ isOpen, onClose, partyId, par
             ];
 
             const doc = await generateGenericReportPDF(title, subtitle, headers, rows, summary, state.profile, state.reportTemplate, state.customFonts);
-            doc.save(`Statement_${party?.name.replace(/[^a-z0-9]/gi, '_')}.pdf`);
+            doc.save(generateDownloadFilename(`Statement_${party?.name}`, 'pdf'));
         } catch (e) {
             console.error(e);
             showToast("Failed to generate statement", 'error');

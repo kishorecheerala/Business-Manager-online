@@ -16,7 +16,7 @@ import ModernDateInput from '../components/ModernDateInput';
 import { Html5Qrcode } from 'html5-qrcode';
 import { PurchaseForm } from '../components/AddPurchaseView';
 import { getLocalDateString } from '../utils/dateUtils';
-import { formatCurrency, formatDate } from '../utils/formatUtils';
+import { formatCurrency, formatDate, generateDownloadFilename } from '../utils/formatUtils';
 import { createCalendarEvent } from '../utils/googleCalendar';
 import LedgerModal from '../components/LedgerModal';
 
@@ -33,7 +33,7 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
     const [purchaseToEdit, setPurchaseToEdit] = useState<Purchase | null>(null);
     const [viewImageModal, setViewImageModal] = useState<string | null>(null);
     const [paymentModalState, setPaymentModalState] = useState<{ isOpen: boolean, purchaseId: string | null, paymentToEdit: Payment | null }>({ isOpen: false, purchaseId: null, paymentToEdit: null });
-    const [paymentDetails, setPaymentDetails] = useState({ amount: '', method: 'CASH' as 'CASH' | 'UPI' | 'CHEQUE', date: getLocalDateString(), reference: '' });
+    const [paymentDetails, setPaymentDetails] = useState({ amount: '', method: 'CASH' as 'CASH' | 'UPI' | 'CHEQUE', date: getLocalDateString(), reference: '', accountId: '' });
     const [confirmModalState, setConfirmModalState] = useState<{ isOpen: boolean, purchaseIdToDelete: string | null }>({ isOpen: false, purchaseIdToDelete: null });
     const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
     const [tempDueDates, setTempDueDates] = useState<string[]>([]);
@@ -231,8 +231,7 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
         }
         try {
             const doc = await generateDebitNotePDF(newReturn, supplier, state.profile, state.debitNoteTemplate, state.customFonts);
-            const dateStr = new Date(newReturn.returnDate).toLocaleDateString('en-IN').replace(/\//g, '-');
-            doc.save(`DebitNote_${newReturn.id}_${dateStr}.pdf`);
+            doc.save(generateDownloadFilename(`DebitNote_${newReturn.id}`, 'pdf'));
         } catch (e) {
             console.error("PDF Error", e);
             showToast("Failed to generate PDF", 'error');
@@ -274,7 +273,7 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
         }
 
         showToast("Compiling document...", 'info');
-        const fileName = `Invoice_${purchase.id}_${getLocalDateString()}.pdf`;
+        const fileName = generateDownloadFilename(`Invoice_${purchase.id}`, 'pdf');
 
         try {
             const doc = generateImagesToPDF(images, fileName);
@@ -321,7 +320,7 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
                 <div className="flex gap-4 pointer-events-auto">
                     <a
                         href={viewImageModal}
-                        download={`Invoice_${Date.now()}.jpg`}
+                        download={generateDownloadFilename('Invoice', 'jpg')}
                         className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-full backdrop-blur-md transition-colors flex items-center gap-2 px-4 shadow-lg border border-white/10"
                         title="Download Original"
                         onClick={(e) => e.stopPropagation()}
@@ -520,30 +519,36 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
                                                         <p className="text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">Payment History</p>
                                                         <div className="space-y-2">
                                                             {purchase.payments.map((pay) => (
-                                                                <div key={pay.id} className="flex justify-between items-center text-sm bg-white dark:bg-slate-700 p-2 rounded shadow-sm">
-                                                                    <div>
-                                                                        <span className="font-bold text-green-700 dark:text-green-400">{formatCurrency(pay.amount)}</span>
-                                                                        <span className="mx-2 text-gray-400">|</span>
-                                                                        <span className="text-gray-600 dark:text-gray-300">{pay.method}</span>
-                                                                        <span className="mx-2 text-gray-400">|</span>
-                                                                        <span className="text-gray-500 text-xs">{formatDate(pay.date)}</span>
-                                                                        {pay.accountId && state.bankAccounts && (
-                                                                            <div className="text-xs text-gray-400 mt-0.5">
-                                                                                Paid via: {state.bankAccounts.find(b => b.id === pay.accountId)?.name || 'Unknown Account'}
+                                                                <div key={pay.id} className="flex justify-between items-start text-sm bg-white dark:bg-slate-700 p-2 rounded shadow-sm mb-2 border border-gray-100 dark:border-slate-600">
+                                                                    <div className="flex flex-col gap-1 w-full pr-2">
+                                                                        <div className="flex justify-between items-center">
+                                                                            <span className="font-semibold text-green-700 dark:text-green-400">
+                                                                                {formatCurrency(pay.amount)} <span className="text-gray-500 font-normal">via</span> {pay.method}
+                                                                            </span>
+                                                                            <span className="text-xs text-gray-400">{formatDate(pay.date)}</span>
+                                                                        </div>
+                                                                        {pay.reference && (
+                                                                            <div className="text-xs text-slate-500 dark:text-slate-400">
+                                                                                Ref: {pay.reference}
+                                                                            </div>
+                                                                        )}
+                                                                        {state.bankAccounts && pay.accountId && (
+                                                                            <div className="text-xs text-slate-500 dark:text-slate-400">
+                                                                                Debited from: {state.bankAccounts.find(b => b.id === pay.accountId)?.name}
                                                                             </div>
                                                                         )}
                                                                     </div>
-                                                                    <div className="flex gap-1">
+                                                                    <div className="flex gap-1 flex-shrink-0">
                                                                         <button
                                                                             onClick={() => openEditPayment(purchase.id, pay)}
-                                                                            className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                                                                            className="p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded"
                                                                             title="Edit Payment"
                                                                         >
                                                                             <Edit size={14} />
                                                                         </button>
                                                                         <button
                                                                             onClick={() => handleDeletePayment(purchase.id, pay.id)}
-                                                                            className="p-1 text-red-600 hover:bg-red-50 rounded"
+                                                                            className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded"
                                                                             title="Delete Payment"
                                                                         >
                                                                             <Trash2 size={14} />
@@ -677,11 +682,11 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
                                             </div>
                                         );
                                     })}
-                                </div>
+                                </div >
                             ) : (
                                 <p className="text-gray-500 text-center py-4">No purchases recorded for this supplier.</p>
                             )}
-                        </Card>
+                        </Card >
 
                         <Card title="Debit Notes (Returns)">
                             {supplierReturns.length > 0 ? (
@@ -704,7 +709,7 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
                                 <p className="text-gray-500 text-center py-4">No debit notes created.</p>
                             )}
                         </Card>
-                    </div>
+                    </div >
                 </>
             );
         }
@@ -819,10 +824,10 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
                                                 {/* Due Date Indicator */}
                                                 {nextDueDate && daysUntilDue !== null && due > 0.01 && (
                                                     <div className={`text-xs font-bold mt-1 px-2 py-1 rounded-md inline-block self-end ${isOverdue
-                                                            ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
-                                                            : daysUntilDue === 0
-                                                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
-                                                                : 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                                                        ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                                                        : daysUntilDue === 0
+                                                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                                                            : 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
                                                         }`}>
                                                         {isOverdue
                                                             ? `Overdue by ${Math.abs(daysUntilDue)} days (${formatDate(nextDueDate)})`

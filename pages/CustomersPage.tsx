@@ -12,7 +12,7 @@ import { useDialog } from '../context/DialogContext';
 import PaymentModal from '../components/PaymentModal';
 import AddCustomerModal from '../components/AddCustomerModal';
 import { getLocalDateString } from '../utils/dateUtils';
-import { formatCurrency, formatDate } from '../utils/formatUtils';
+import { formatCurrency, formatDate, generateDownloadFilename } from '../utils/formatUtils';
 import LedgerModal from '../components/LedgerModal';
 import Input from '../components/Input';
 import ModernDateInput from '../components/ModernDateInput';
@@ -93,6 +93,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
         method: 'CASH' as 'CASH' | 'UPI' | 'CHEQUE',
         date: getLocalDateString(),
         reference: '',
+        accountId: ''
     });
     const [editingPayment, setEditingPayment] = useState<{ saleId: string; payment: Payment } | null>(null);
 
@@ -277,7 +278,9 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                     amount: parseFloat(paymentDetails.amount),
                     method: paymentDetails.method,
                     date: isoDate,
-                    reference: paymentDetails.reference.trim() || undefined
+
+                    reference: paymentDetails.reference.trim() || undefined,
+                    accountId: paymentDetails.accountId || undefined
                 };
 
                 dispatch({ type: 'UPDATE_PAYMENT_IN_SALE', payload: { saleId: sale.id, payment: updatedPayment } });
@@ -359,8 +362,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
         try {
             const doc = await generateThermalInvoicePDF(sale, selectedCustomer, state.profile, state.receiptTemplate, state.customFonts);
             const cleanName = selectedCustomer.name.replace(/[^a-z0-9]/gi, '_');
-            const dateStr = new Date(sale.date).toLocaleDateString('en-IN').replace(/\//g, '-');
-            doc.save(`Receipt_${cleanName}_${dateStr}.pdf`);
+            doc.save(generateDownloadFilename(`Receipt_${cleanName}`, 'pdf'));
         } catch (e) {
             console.error("PDF Error", e);
             showToast("Failed to generate receipt", 'error');
@@ -382,8 +384,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
             const pdfBlob = doc.output('blob');
 
             const cleanName = selectedCustomer.name.replace(/[^a-z0-9]/gi, '_');
-            const dateStr = new Date(sale.date).toLocaleDateString('en-IN').replace(/\//g, '-');
-            const filename = `Invoice_${cleanName}_${dateStr}.pdf`;
+            const filename = generateDownloadFilename(`Invoice_${cleanName}`, 'pdf');
 
             const pdfFile = new File([pdfBlob], filename, { type: 'application/pdf' });
             const businessName = state.profile?.name || 'Invoice';
@@ -444,8 +445,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
 
             const pdfBlob = doc.output('blob');
             const cleanName = selectedCustomer.name.replace(/[^a-z0-9]/gi, '_');
-            const dateStr = new Date().toLocaleDateString('en-IN').replace(/\//g, '-');
-            const filename = `Dues_${cleanName}_${dateStr}.pdf`;
+            const filename = generateDownloadFilename(`Dues_${cleanName}`, 'pdf');
 
             const pdfFile = new File([pdfBlob], filename, { type: 'application/pdf' });
             const businessName = state.profile?.name || 'Dues Summary';
@@ -485,6 +485,17 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
 
         const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
             setEditedCustomer({ ...editedCustomer, [e.target.name]: e.target.value });
+        };
+
+        const handleDeleteReturn = async (returnId: string) => {
+            const confirm = await showConfirm(
+                "Are you sure you want to delete this return? This will reverse any stock changes made by this return.",
+                { variant: 'danger', title: 'Delete Return' }
+            );
+            if (confirm) {
+                dispatch({ type: 'DELETE_RETURN', payload: returnId });
+                showToast('Return deleted successfully.', 'success');
+            }
         };
 
         const selectedSaleForPayment = state.sales.find(s => s.id === paymentModalState.saleId);
@@ -653,9 +664,19 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                             <div className="space-y-4">
                                 {customerSales.slice().reverse().map(sale => {
                                     const amountPaid = sale.payments.reduce((sum, p) => sum + Number(p.amount), 0);
-                                    const dueAmount = Number(sale.totalAmount) - amountPaid;
+
+                                    // Return Calculations
+                                    const relatedReturns = state.returns?.filter(r => r.referenceId === sale.id) || [];
+                                    const totalReturned = relatedReturns.reduce((sum, r) => sum + Number(r.amount), 0);
+
+                                    const netPayable = Number(sale.totalAmount) - totalReturned;
+                                    const dueAmount = netPayable - amountPaid;
+                                    const isFullyReturned = totalReturned >= Number(sale.totalAmount) - 0.01;
+
                                     const isPaid = dueAmount <= 0.01;
                                     const subTotal = Number(sale.totalAmount) + Number(sale.discount);
+
+                                    const returnedItemsText = relatedReturns.flatMap(r => r.items).map(i => `${i.productName}`).join(', ');
 
                                     return (
                                         <div key={sale.id} className="bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg p-4 shadow-sm animate-fade-in-fast mb-4">
@@ -663,11 +684,29 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                                                 <div>
                                                     <p className="font-bold text-gray-800 dark:text-gray-200">{sale.id}</p>
                                                     <p className="text-xs text-gray-600 dark:text-gray-400">{new Date(sale.date).toLocaleString()}</p>
+                                                    {totalReturned > 0 && (
+                                                        <div className="mt-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded inline-block" title={returnedItemsText}>
+                                                            Returns: -{formatCurrency(totalReturned)}
+                                                            <span className="ml-1 opacity-75 font-normal">({returnedItemsText})</span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 <div className="text-right">
-                                                    <p className="font-bold text-lg text-primary">{formatCurrency(Number(sale.totalAmount))}</p>
+                                                    {totalReturned > 0 ? (
+                                                        <>
+                                                            <p className="text-xs text-gray-500 line-through">
+                                                                {formatCurrency(Number(sale.totalAmount))}
+                                                            </p>
+                                                            <p className="font-bold text-lg text-primary">
+                                                                {formatCurrency(netPayable)}
+                                                            </p>
+                                                        </>
+                                                    ) : (
+                                                        <p className="font-bold text-lg text-primary">{formatCurrency(Number(sale.totalAmount))}</p>
+                                                    )}
+
                                                     <p className={`text-sm font-semibold ${isPaid ? 'text-green-600' : 'text-red-600'}`}>
-                                                        {isPaid ? 'Paid' : `Due: ${formatCurrency(dueAmount)}`}
+                                                        {isPaid ? (isFullyReturned ? 'Returned' : 'Paid') : `Due: ${formatCurrency(dueAmount)}`}
                                                     </p>
                                                 </div>
                                             </div>
@@ -684,6 +723,66 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                                                     </ul>
                                                 </div>
 
+                                                {/* Transaction Lifecycle View */}
+                                                <div className="mt-2 pt-2 border-t border-slate-300 dark:border-slate-500/30">
+                                                    <div className="space-y-1">
+                                                        {/* Payments List */}
+                                                        {(sale.payments && sale.payments.length > 0) && (
+                                                            <div className="text-xs space-y-1">
+                                                                {sale.payments.map((payment, idx) => {
+                                                                    const account = state.bankAccounts?.find(a => a.id === payment.accountId);
+                                                                    return (
+                                                                        <div key={idx} className="flex flex-col text-sm border-b border-gray-100 dark:border-slate-700/50 pb-2 last:border-0 last:pb-0 mb-2 last:mb-0">
+                                                                            <div className="flex justify-between items-start">
+                                                                                <div className="flex flex-col">
+                                                                                    <span className="font-semibold text-green-700 dark:text-green-400">
+                                                                                        {formatCurrency(Number(payment.amount))} <span className="text-gray-500 font-normal">via</span> {payment.method}
+                                                                                    </span>
+                                                                                    <span className="text-xs text-gray-400">{formatDate(payment.date)}</span>
+                                                                                </div>
+                                                                                <button
+                                                                                    onClick={(e) => { e.stopPropagation(); handleEditPayment(sale.id, payment); }}
+                                                                                    className="p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-opacity"
+                                                                                    title="Edit Payment"
+                                                                                >
+                                                                                    <Edit size={14} />
+                                                                                </button>
+                                                                            </div>
+                                                                            {payment.reference && (
+                                                                                <div className="text-xs text-slate-500 dark:text-slate-400">
+                                                                                    Ref: {payment.reference}
+                                                                                </div>
+                                                                            )}
+                                                                            {account && (
+                                                                                <div className="text-xs text-slate-500 dark:text-slate-400">
+                                                                                    Credited to: {account.name} {account.accountNumber ? `(${account.accountNumber.slice(-4)})` : ''}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        )}
+
+                                                        {/* Returns List */}
+                                                        {relatedReturns.length > 0 && (
+                                                            <div className="mt-2 space-y-1 text-xs">
+                                                                {relatedReturns.map((ret, idx) => (
+                                                                    <div key={idx} className="bg-amber-50 dark:bg-amber-900/20 p-1.5 rounded border border-amber-100 dark:border-amber-800/50">
+                                                                        <div className="flex justify-between text-amber-800 dark:text-amber-400 font-medium">
+                                                                            <span>Return on {new Date(ret.returnDate).toLocaleDateString()}</span>
+                                                                            <span>-{formatCurrency(Number(ret.amount))}</span>
+                                                                        </div>
+                                                                        <div className="text-amber-600 dark:text-amber-500/80 mt-0.5 pl-1 italic">
+                                                                            {ret.items.map(i => `${i.productName} (x${i.quantity})`).join(', ')}
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+
                                                 <div className="p-2 bg-gray-50 dark:bg-slate-700/50 rounded-md text-sm border dark:border-slate-600">
                                                     <div className="space-y-1 dark:text-gray-300">
                                                         <div className="flex justify-between"><span>Subtotal:</span> <span>{formatCurrency(subTotal)}</span></div>
@@ -692,28 +791,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                                                     </div>
                                                 </div>
 
-                                                <div>
-                                                    <h4 className="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-1">Payments:</h4>
-                                                    {sale.payments.length > 0 ? (
-                                                        <ul className="list-disc list-inside text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                                                            {sale.payments.map(payment => (
-                                                                <li key={payment.id} className="flex justify-between items-start group">
-                                                                    <div>
-                                                                        {formatCurrency(Number(payment.amount))} {payment.method === 'RETURN_CREDIT' ? <span className="text-blue-600 font-semibold">(Return Credit)</span> : `via ${payment.method}`} on {formatDate(payment.date)}
-                                                                        {payment.reference && <span className="text-xs text-gray-500 block">Ref: {payment.reference}</span>}
-                                                                    </div>
-                                                                    <button
-                                                                        onClick={() => handleEditPayment(sale.id, payment)}
-                                                                        className="p-1 text-blue-600 hover:bg-blue-50 rounded transition-opacity"
-                                                                        title="Edit Payment"
-                                                                    >
-                                                                        <Edit size={12} />
-                                                                    </button>
-                                                                </li>
-                                                            ))}
-                                                        </ul>
-                                                    ) : <p className="text-sm text-gray-500 italic">No payments made yet.</p>}
-                                                </div>
+
 
                                                 <div className="pt-2 flex flex-wrap gap-2 justify-end items-center border-t dark:border-slate-700 mt-2">
                                                     {!isPaid && (
@@ -766,6 +844,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                                                 <Button onClick={() => handleEditReturn(ret.id)} variant="secondary" className="p-2 h-auto">
                                                     <Edit size={16} />
                                                 </Button>
+                                                <DeleteButton onClick={() => handleDeleteReturn(ret.id)} title="Delete" />
                                             </div>
                                         </div>
                                         <div className="mt-2 pt-2 border-t">

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Undo2, Users, Package, Plus, Trash2, Share2, Edit, Download } from 'lucide-react';
+import { Undo2, Users, Package, Plus, Share2, Edit, Download, Trash2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { Return, ReturnItem, Sale, Purchase, Customer, Supplier } from '../types';
@@ -10,8 +10,10 @@ import autoTable from 'jspdf-autotable';
 import Dropdown from '../components/Dropdown';
 import ModernDateInput from '../components/ModernDateInput';
 import { generateDebitNotePDF } from '../utils/pdfGenerator';
+import { formatCurrency, generateDownloadFilename } from '../utils/formatUtils';
 import { getLocalDateString } from '../utils/dateUtils';
 import FormattedNumberInput from '../components/FormattedNumberInput';
+import DeleteButton from '../components/DeleteButton';
 
 type ReturnType = 'CUSTOMER' | 'SUPPLIER';
 
@@ -112,6 +114,13 @@ const ReturnsPage: React.FC<ReturnsPageProps> = ({ setIsDirty }) => {
         return list.find(inv => inv.id === referenceId);
     }, [referenceId, returnType, state.sales, state.purchases]);
 
+    const customerReturns = useMemo(() => state.returns.filter(r => r.type === 'CUSTOMER'), [state.returns]);
+    const supplierReturns = useMemo(() => state.returns.filter(r => r.type === 'SUPPLIER'), [state.returns]);
+
+    const invoiceTotal = selectedInvoice ? selectedInvoice.totalAmount : 0;
+    const amountPaid = selectedInvoice ? (selectedInvoice.payments || []).reduce((sum, p) => sum + Number(p.amount), 0) : 0;
+    const currentDue = invoiceTotal - amountPaid;
+
     const handleItemQuantityChange = (productId: string, quantityStr: string) => {
         const originalItem = selectedInvoice?.items.find(i => i.productId === productId);
         if (!originalItem) return;
@@ -188,19 +197,22 @@ const ReturnsPage: React.FC<ReturnsPageProps> = ({ setIsDirty }) => {
         if (returnType === 'SUPPLIER') {
             const supplier = state.suppliers.find(s => s.id === partyId);
             const doc = await generateDebitNotePDF(returnData, supplier, state.profile, state.debitNoteTemplate);
-            const dateStr = new Date(returnDate).toLocaleDateString('en-IN').replace(/\//g, '-');
-            doc.save(`DebitNote_${returnId}_${dateStr}.pdf`);
+            doc.save(generateDownloadFilename(`DebitNote_${returnId}`, 'pdf'));
         }
 
         resetForm();
     };
 
-    const invoiceTotal = Number(selectedInvoice?.totalAmount) || 0;
-    const amountPaid = selectedInvoice ? (selectedInvoice.payments || []).reduce((sum, p) => sum + Number(p.amount), 0) : 0;
-    const currentDue = invoiceTotal - amountPaid;
-
-    const customerReturns = state.returns.filter(r => r.type === 'CUSTOMER');
-    const supplierReturns = state.returns.filter(r => r.type === 'SUPPLIER');
+    const handleDeleteReturn = async (returnId: string) => {
+        const confirm = await showConfirm(
+            "Are you sure you want to delete this return? This will reverse any stock changes made by this return.",
+            { variant: 'danger', title: 'Delete Return' }
+        );
+        if (confirm) {
+            dispatch({ type: 'DELETE_RETURN', payload: returnId });
+            showToast('Return deleted successfully.', 'success');
+        }
+    };
 
     return (
         <div className="space-y-6">
@@ -250,7 +262,7 @@ const ReturnsPage: React.FC<ReturnsPageProps> = ({ setIsDirty }) => {
                                 onChange={(val) => { setReferenceId(val); setReturnedItems({}); }}
                                 placeholder="Select invoice"
                                 searchable={true}
-                                searchPlaceholder="Search invoices..."
+                                searchablePlaceholder="Search invoices..."
                                 icon="search"
                             />
                         </div>
@@ -346,31 +358,36 @@ const ReturnsPage: React.FC<ReturnsPageProps> = ({ setIsDirty }) => {
                                                     <li key={idx}>{item.productName} (x{item.quantity})</li>
                                                 ))}
                                             </ul>
-                                            <Button onClick={async () => {
-                                                if (isDirtyRef.current) {
-                                                    const confirm = await showConfirm("You have unsaved changes. Are you sure you want to discard them and edit this return?", { variant: 'danger' });
-                                                    if (!confirm) return;
-                                                }
-                                                resetForm();
-                                                // Trigger edit mode by setting state
-                                                setMode('edit');
-                                                setReturnToEditId(ret.id);
-                                                setReturnType(ret.type);
-                                                setPartyId(ret.partyId);
-                                                setReferenceId(ret.referenceId);
-                                                setReturnAmount(ret.amount.toString());
-                                                setReturnDate(getLocalDateString(new Date(ret.returnDate)));
-                                                setReason(ret.reason || '');
-                                                setNotes(ret.notes || '');
-                                                const itemsToEdit = ret.items.reduce((acc, item) => {
-                                                    acc[item.productId] = item.quantity;
-                                                    return acc;
-                                                }, {} as { [productId: string]: number });
-                                                setReturnedItems(itemsToEdit);
-                                                window.scrollTo({ top: 0, behavior: 'smooth' });
-                                            }} variant="secondary" className="p-2 h-auto">
-                                                <Edit size={16} />
-                                            </Button>
+                                            <div className="flex gap-2">
+                                                <Button onClick={async () => {
+                                                    if (isDirtyRef.current) {
+                                                        const confirm = await showConfirm("You have unsaved changes. Are you sure you want to discard them and edit this return?", { variant: 'danger' });
+                                                        if (!confirm) return;
+                                                    }
+                                                    resetForm();
+                                                    // Trigger edit mode by setting state
+                                                    setMode('edit');
+                                                    setReturnToEditId(ret.id);
+                                                    setReturnType(ret.type);
+                                                    setPartyId(ret.partyId);
+                                                    setReferenceId(ret.referenceId);
+                                                    setReturnAmount(ret.amount.toString());
+                                                    setReturnDate(getLocalDateString(new Date(ret.returnDate)));
+                                                    setReason(ret.reason || '');
+                                                    setNotes(ret.notes || '');
+                                                    const itemsToEdit = ret.items.reduce((acc, item) => {
+                                                        acc[item.productId] = item.quantity;
+                                                        return acc;
+                                                    }, {} as { [productId: string]: number });
+                                                    setReturnedItems(itemsToEdit);
+                                                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                                                }} variant="secondary" className="p-2 h-auto" title="Edit">
+                                                    <Edit size={16} />
+                                                </Button>
+                                                <Button onClick={() => handleDeleteReturn(ret.id)} variant="danger" className="p-2 h-auto bg-red-100 text-red-700 hover:bg-red-200 border-red-200" title="Delete">
+                                                    <Trash2 size={16} />
+                                                </Button>
+                                            </div>
                                         </div>
                                     </div>
                                 );
@@ -407,31 +424,36 @@ const ReturnsPage: React.FC<ReturnsPageProps> = ({ setIsDirty }) => {
                                                     <li key={idx}>{item.productName} (x{item.quantity})</li>
                                                 ))}
                                             </ul>
-                                            <Button onClick={async () => {
-                                                if (isDirtyRef.current) {
-                                                    const confirm = await showConfirm("You have unsaved changes. Are you sure you want to discard them and edit this return?", { variant: 'danger' });
-                                                    if (!confirm) return;
-                                                }
-                                                resetForm();
-                                                // Trigger edit mode by setting state
-                                                setMode('edit');
-                                                setReturnToEditId(ret.id);
-                                                setReturnType(ret.type);
-                                                setPartyId(ret.partyId);
-                                                setReferenceId(ret.referenceId);
-                                                setReturnAmount(ret.amount.toString());
-                                                setReturnDate(getLocalDateString(new Date(ret.returnDate)));
-                                                setReason(ret.reason || '');
-                                                setNotes(ret.notes || '');
-                                                const itemsToEdit = ret.items.reduce((acc, item) => {
-                                                    acc[item.productId] = item.quantity;
-                                                    return acc;
-                                                }, {} as { [productId: string]: number });
-                                                setReturnedItems(itemsToEdit);
-                                                window.scrollTo({ top: 0, behavior: 'smooth' });
-                                            }} variant="secondary" className="p-2 h-auto">
-                                                <Edit size={16} />
-                                            </Button>
+                                            <div className="flex gap-2">
+                                                <Button onClick={async () => {
+                                                    if (isDirtyRef.current) {
+                                                        const confirm = await showConfirm("You have unsaved changes. Are you sure you want to discard them and edit this return?", { variant: 'danger' });
+                                                        if (!confirm) return;
+                                                    }
+                                                    resetForm();
+                                                    // Trigger edit mode by setting state
+                                                    setMode('edit');
+                                                    setReturnToEditId(ret.id);
+                                                    setReturnType(ret.type);
+                                                    setPartyId(ret.partyId);
+                                                    setReferenceId(ret.referenceId);
+                                                    setReturnAmount(ret.amount.toString());
+                                                    setReturnDate(getLocalDateString(new Date(ret.returnDate)));
+                                                    setReason(ret.reason || '');
+                                                    setNotes(ret.notes || '');
+                                                    const itemsToEdit = ret.items.reduce((acc, item) => {
+                                                        acc[item.productId] = item.quantity;
+                                                        return acc;
+                                                    }, {} as { [productId: string]: number });
+                                                    setReturnedItems(itemsToEdit);
+                                                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                                                }} variant="secondary" className="p-2 h-auto" title="Edit">
+                                                    <Edit size={16} />
+                                                </Button>
+                                                <Button onClick={() => handleDeleteReturn(ret.id)} variant="danger" className="p-2 h-auto bg-red-100 text-red-700 hover:bg-red-200 border-red-200" title="Delete">
+                                                    <Trash2 size={16} />
+                                                </Button>
+                                            </div>
                                         </div>
                                     </div>
                                 );

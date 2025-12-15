@@ -8,6 +8,7 @@ import FormattedNumberInput from './FormattedNumberInput';
 import { X, Download, Printer, LayoutGrid, File } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
+import { generateDownloadFilename } from '../utils/formatUtils';
 
 interface BarcodeModalProps {
   isOpen: boolean;
@@ -197,7 +198,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({ isOpen, product, onC
         }
       }
 
-      const filename = `${product.id}-labels-${numberOfCopies}.pdf`;
+      const filename = generateDownloadFilename(`${product.id}-labels-${numberOfCopies}`, 'pdf');
       doc.save(filename);
     } catch (error) {
       console.error('PDF generation failed:', error);

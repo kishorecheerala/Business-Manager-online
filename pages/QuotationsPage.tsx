@@ -9,6 +9,7 @@ import ModernDateInput from '../components/ModernDateInput';
 import Dropdown from '../components/Dropdown';
 import DeleteButton from '../components/DeleteButton';
 import { generateEstimatePDF } from '../utils/pdfGenerator';
+import { generateDownloadFilename } from '../utils/formatUtils';
 import { Html5Qrcode } from 'html5-qrcode';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
 import { useDialog } from '../context/DialogContext';
@@ -190,12 +191,13 @@ const QuotationsPage: React.FC = () => {
         try {
             const doc = await generateEstimatePDF(quote, customer, state.profile, state.estimateTemplate, state.customFonts);
             const pdfBlob = doc.output('blob');
-            const file = new File([pdfBlob], `Estimate-${quote.id}.pdf`, { type: 'application/pdf' });
+            const filename = generateDownloadFilename(`Estimate_${quote.id}`, 'pdf');
+            const file = new File([pdfBlob], filename, { type: 'application/pdf' });
 
             if (navigator.share && navigator.canShare({ files: [file] })) {
                 await navigator.share({ files: [file], title: `Estimate ${quote.id}` });
             } else {
-                doc.save(`Estimate-${quote.id}.pdf`);
+                doc.save(filename);
             }
         } catch (e) {
             console.error(e);
