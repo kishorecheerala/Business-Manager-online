@@ -19,6 +19,7 @@ interface DropdownProps {
   searchPlaceholder?: string;
   icon?: 'chevron' | 'search';
   className?: string;
+  triggerClassName?: string;
 }
 
 const Dropdown: React.FC<DropdownProps> = ({
@@ -30,7 +31,8 @@ const Dropdown: React.FC<DropdownProps> = ({
   searchable = false,
   searchPlaceholder = 'Search...',
   icon = 'chevron',
-  className = ''
+  className = '',
+  triggerClassName = ''
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
