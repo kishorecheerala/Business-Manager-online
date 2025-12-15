@@ -255,10 +255,10 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                                                 {state.googleUser.name}
                                             </span>
                                             <div className="relative flex h-2 w-2 shrink-0">
-                                                {state.isAuthenticated && (
+                                                {state.isOnline && state.syncStatus !== 'error' && (
                                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                                                 )}
-                                                <span className={`relative inline-flex rounded-full h-2 w-2 ${!state.isAuthenticated ? 'bg-red-500' : 'bg-green-400'} shadow-sm`}></span>
+                                                <span className={`relative inline-flex rounded-full h-2 w-2 ${!state.isOnline || state.syncStatus === 'error' ? 'bg-red-500' : 'bg-green-400'} shadow-sm`}></span>
                                             </div>
 
                                             {/* Last Synced Time - Aligned Single Line */}

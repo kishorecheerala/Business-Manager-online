@@ -275,7 +275,7 @@ const InsightsPage: React.FC<InsightsPageProps> = ({ setCurrentPage }) => {
             </motion.div>
 
             {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {/* Accounts Balance Card */}
                 <motion.div variants={itemVariants} className="md:col-span-2 lg:col-span-2">
                     <Card className="bg-white dark:bg-slate-800 border-l-4 border-emerald-500 hover:shadow-lg transition-shadow relative group h-full flex flex-col p-0 overflow-hidden">
@@ -324,23 +324,23 @@ const InsightsPage: React.FC<InsightsPageProps> = ({ setCurrentPage }) => {
                         </div>
 
                         {/* Accounts Grid */}
-                        <div className="flex-1 p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="flex-1 p-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
                             {/* Cash Account Card */}
                             <div
                                 onClick={(e) => { e.stopPropagation(); setAccountFilter('CASH'); setIsStatementModalOpen(true); }}
-                                className="flex flex-col justify-between p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/20 cursor-pointer transition-all group/cash"
+                                className="flex flex-col justify-between p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/20 cursor-pointer transition-all group/cash"
                             >
-                                <div className="flex items-center justify-between mb-2">
-                                    <div className="p-2 bg-white dark:bg-slate-800 rounded-lg text-emerald-600 shadow-sm">
-                                        <Wallet size={18} />
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <div className="p-1.5 bg-white dark:bg-slate-800 rounded-lg text-emerald-600 shadow-sm">
+                                        <Wallet size={16} />
                                     </div>
                                     <p className="text-[10px] text-emerald-600/70 dark:text-emerald-400/70 font-medium opacity-0 group-hover/cash:opacity-100 transition-opacity flex items-center gap-0.5">
                                         Statement <ArrowRight size={10} />
                                     </p>
                                 </div>
                                 <div>
-                                    <p className="text-sm font-bold text-gray-700 dark:text-gray-200 group-hover/cash:text-emerald-700 dark:group-hover/cash:text-emerald-400 transition-colors">Cash in Hand</p>
-                                    <p className={`text-xl font-bold mt-0.5 ${statementData.cashNet >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-600'}`}>
+                                    <p className="text-xs font-bold text-gray-700 dark:text-gray-200 group-hover/cash:text-emerald-700 dark:group-hover/cash:text-emerald-400 transition-colors">Cash in Hand</p>
+                                    <p className={`text-lg font-bold mt-0.5 ${statementData.cashNet >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-600'}`}>
                                         ₹{statementData.cashNet.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                                     </p>
                                 </div>
@@ -351,21 +351,21 @@ const InsightsPage: React.FC<InsightsPageProps> = ({ setCurrentPage }) => {
                                 <div
                                     key={account.id}
                                     onClick={(e) => { e.stopPropagation(); setAccountFilter(account.id); setIsStatementModalOpen(true); }}
-                                    className="flex flex-col justify-between p-3 rounded-xl bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/20 cursor-pointer transition-all group/bank"
+                                    className="flex flex-col justify-between p-2.5 rounded-xl bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/20 cursor-pointer transition-all group/bank"
                                 >
-                                    <div className="flex items-center justify-between mb-2">
-                                        <div className="p-2 bg-white dark:bg-slate-800 rounded-lg text-blue-600 shadow-sm">
-                                            <IndianRupee size={18} />
+                                    <div className="flex items-center justify-between mb-1.5">
+                                        <div className="p-1.5 bg-white dark:bg-slate-800 rounded-lg text-blue-600 shadow-sm">
+                                            <IndianRupee size={16} />
                                         </div>
                                         <p className="text-[10px] text-blue-600/70 dark:text-blue-400/70 font-medium opacity-0 group-hover/bank:opacity-100 transition-opacity flex items-center gap-0.5">
                                             Statement <ArrowRight size={10} />
                                         </p>
                                     </div>
                                     <div>
-                                        <p className="text-sm font-bold text-gray-700 dark:text-gray-200 group-hover/bank:text-blue-700 dark:group-hover/bank:text-blue-400 transition-colors truncate" title={account.name}>
+                                        <p className="text-xs font-bold text-gray-700 dark:text-gray-200 group-hover/bank:text-blue-700 dark:group-hover/bank:text-blue-400 transition-colors truncate" title={account.name}>
                                             {account.name}
                                         </p>
-                                        <p className={`text-xl font-bold mt-0.5 ${statementData.bankBalances[account.id] >= 0 ? 'text-blue-700 dark:text-blue-400' : 'text-red-600'}`}>
+                                        <p className={`text-lg font-bold mt-0.5 ${statementData.bankBalances[account.id] >= 0 ? 'text-blue-700 dark:text-blue-400' : 'text-red-600'}`}>
                                             ₹{(statementData.bankBalances[account.id] || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                                         </p>
                                     </div>
