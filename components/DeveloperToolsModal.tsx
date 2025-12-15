@@ -441,22 +441,25 @@ const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({ isOpen, onClo
                                             <div className="p-4 text-center text-xs text-slate-500">No checkpoints created.</div>
                                         ) : (
                                             <div className="divide-y dark:divide-slate-700 max-h-48 overflow-y-auto">
-                                                {snapshots.map(snap => (
-                                                    <div key={snap.id} className="p-3 flex justify-between items-center hover:bg-white dark:hover:bg-slate-700/50 transition-colors">
-                                                        <div className="min-w-0">
-                                                            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 truncate">{snap.name}</p>
-                                                            <p className="text-[10px] text-slate-500 font-mono">{new Date(snap.timestamp).toLocaleString()}</p>
+                                                {snapshots.map(snap => {
+                                                    if (!snap) return null; // Safe guard
+                                                    return (
+                                                        <div key={snap.id} className="p-3 flex justify-between items-center hover:bg-white dark:hover:bg-slate-700/50 transition-colors">
+                                                            <div className="min-w-0">
+                                                                <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 truncate">{snap.name}</p>
+                                                                <p className="text-[10px] text-slate-500 font-mono">{new Date(snap.timestamp).toLocaleString()}</p>
+                                                            </div>
+                                                            <div className="flex gap-2">
+                                                                <Button onClick={() => handleRestoreSnapshot(snap)} variant="secondary" className="h-7 text-xs px-2">
+                                                                    <RotateCcw size={12} className="mr-1" /> Restore
+                                                                </Button>
+                                                                <Button onClick={() => handleDeleteSnapshot(snap.id)} variant="secondary" className="h-7 text-xs px-2 text-red-600 hover:bg-red-50 border-red-100">
+                                                                    <Trash2 size={12} />
+                                                                </Button>
+                                                            </div>
                                                         </div>
-                                                        <div className="flex gap-2">
-                                                            <Button onClick={() => handleRestoreSnapshot(snap)} variant="secondary" className="h-7 text-xs px-2">
-                                                                <RotateCcw size={12} className="mr-1" /> Restore
-                                                            </Button>
-                                                            <Button onClick={() => handleDeleteSnapshot(snap.id)} variant="secondary" className="h-7 text-xs px-2 text-red-600 hover:bg-red-50 border-red-100">
-                                                                <Trash2 size={12} />
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                ))}
+                                                    );
+                                                })}
                                             </div>
                                         )}
                                     </div>

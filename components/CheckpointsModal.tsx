@@ -88,24 +88,27 @@ const CheckpointsModal: React.FC<CheckpointsModalProps> = ({ isOpen, onClose }) 
             </div>
           ) : (
             <div className="space-y-3">
-              {snapshots.map(snap => (
-                <div key={snap.id} className="p-3 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg shadow-sm hover:shadow-md transition-all flex justify-between items-center group">
-                  <div className="min-w-0">
-                    <p className="font-bold text-slate-700 dark:text-slate-200 truncate">{snap.name}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 font-mono mt-0.5">
-                      {new Date(snap.timestamp).toLocaleString()}
-                    </p>
+              {snapshots.map(snap => {
+                if (!snap) return null;
+                return (
+                  <div key={snap.id} className="p-3 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg shadow-sm hover:shadow-md transition-all flex justify-between items-center group">
+                    <div className="min-w-0">
+                      <p className="font-bold text-slate-700 dark:text-slate-200 truncate">{snap.name}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 font-mono mt-0.5">
+                        {new Date(snap.timestamp).toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="flex gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                      <Button onClick={() => handleRestore(snap)} variant="secondary" className="h-8 px-2 text-xs" title="Restore">
+                        <RotateCcw size={14} className="mr-1" /> Restore
+                      </Button>
+                      <Button onClick={() => handleDelete(snap.id)} variant="secondary" className="h-8 px-2 text-xs text-red-600 hover:bg-red-50 border-red-100" title="Delete">
+                        <Trash2 size={14} />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                    <Button onClick={() => handleRestore(snap)} variant="secondary" className="h-8 px-2 text-xs" title="Restore">
-                      <RotateCcw size={14} className="mr-1" /> Restore
-                    </Button>
-                    <Button onClick={() => handleDelete(snap.id)} variant="secondary" className="h-8 px-2 text-xs text-red-600 hover:bg-red-50 border-red-100" title="Delete">
-                      <Trash2 size={14} />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
