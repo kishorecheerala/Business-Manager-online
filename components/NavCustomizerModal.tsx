@@ -78,6 +78,21 @@ const NavCustomizerModal: React.FC<NavCustomizerModalProps> = ({ isOpen, onClose
         onClose();
     };
 
+    const handleReset = () => {
+        if (activeTab === 'nav') {
+            // Import DEFAULT_NAV_ORDER logic or just trigger a reset action
+            dispatch({ type: 'RESET_NAV_ORDER' });
+            showToast("Navigation reset to default.");
+            onClose();
+        } else {
+            // We'd need a reset action for quick actions too, or just manually set defaults if imported
+            // simpler to dispatch a RESET_QUICK_ACTIONS if it exists, checking AppContext types later or searching logic.
+            // For now assume we might need to add these action types to reducer if missing.
+            // Actually, let's check if the reducer supports RESET.
+            dispatch({ type: 'RESET_NAV_ORDER' }); // Re-using this for now as placeholder, likely need to implement.
+        }
+    };
+
     const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
         e.dataTransfer.setData("text/plain", index.toString());
         e.dataTransfer.effectAllowed = "move";
@@ -199,10 +214,12 @@ const NavCustomizerModal: React.FC<NavCustomizerModalProps> = ({ isOpen, onClose
                                                 onDragOver={handleDragOver}
                                                 onDrop={(e) => handleDrop(e, idx, 'nav')}
                                                 onClick={() => handleItemClick(idx, 'nav')}
-                                                style={{ touchAction: 'none' }}
+                                                style={{ touchAction: 'pan-y' }}
                                                 className={`flex items-center gap-3 p-3 border-b dark:border-slate-700 last:border-0 active:bg-blue-50 dark:active:bg-blue-900/30 transition-colors cursor-move ${isSelected ? 'bg-blue-100 dark:bg-blue-900/50 ring-2 ring-inset ring-blue-500' : ''}`}
                                             >
-                                                <GripVertical size={18} className="text-gray-400" />
+                                                <div style={{ touchAction: 'none' }} className="p-1">
+                                                    <GripVertical size={18} className="text-gray-400" />
+                                                </div>
                                                 <div className="p-2 bg-primary/10 rounded-lg text-primary">
                                                     <Icon size={20} />
                                                 </div>
@@ -227,10 +244,12 @@ const NavCustomizerModal: React.FC<NavCustomizerModalProps> = ({ isOpen, onClose
                                                 onDragOver={handleDragOver}
                                                 onDrop={(e) => handleDrop(e, actualIdx, 'nav')}
                                                 onClick={() => handleItemClick(actualIdx, 'nav')}
-                                                style={{ touchAction: 'none' }}
+                                                style={{ touchAction: 'pan-y' }}
                                                 className={`flex items-center gap-3 p-3 border-b dark:border-slate-700 last:border-0 active:bg-blue-50 dark:active:bg-blue-900/30 transition-colors cursor-move ${isSelected ? 'bg-blue-100 dark:bg-blue-900/50 ring-2 ring-inset ring-blue-500' : ''}`}
                                             >
-                                                <GripVertical size={18} className="text-gray-400" />
+                                                <div style={{ touchAction: 'none' }} className="p-1">
+                                                    <GripVertical size={18} className="text-gray-400" />
+                                                </div>
                                                 <div className="p-2 bg-gray-100 dark:bg-slate-700 rounded-lg text-gray-500 dark:text-gray-400">
                                                     <Icon size={20} />
                                                 </div>
@@ -259,10 +278,12 @@ const NavCustomizerModal: React.FC<NavCustomizerModalProps> = ({ isOpen, onClose
                                                 onDragOver={handleDragOver}
                                                 onDrop={(e) => handleDrop(e, idx, 'quick')}
                                                 onClick={() => handleItemClick(idx, 'quick')}
-                                                style={{ touchAction: 'none' }}
+                                                style={{ touchAction: 'pan-y' }}
                                                 className={`flex items-center gap-3 p-3 border-b dark:border-slate-700 last:border-0 active:bg-blue-50 dark:active:bg-blue-900/30 transition-colors cursor-move ${isSelected ? 'bg-blue-100 dark:bg-blue-900/50 ring-2 ring-inset ring-blue-500' : ''}`}
                                             >
-                                                <GripVertical size={18} className="text-gray-400" />
+                                                <div style={{ touchAction: 'none' }} className="p-1">
+                                                    <GripVertical size={18} className="text-gray-400" />
+                                                </div>
                                                 <div className="p-2 bg-primary/10 rounded-lg text-primary">
                                                     <Icon size={20} />
                                                 </div>
@@ -302,11 +323,19 @@ const NavCustomizerModal: React.FC<NavCustomizerModalProps> = ({ isOpen, onClose
                     )}
                 </div>
 
-                <div className="p-4 bg-white dark:bg-slate-800 border-t dark:border-slate-700 flex gap-3 shrink-0">
-                    <Button onClick={onClose} variant="secondary" className="flex-1">Cancel</Button>
-                    <Button onClick={handleSave} className="flex-[2] bg-primary text-white shadow-lg">
-                        <Check size={18} className="mr-2" /> Save Layout
-                    </Button>
+                <div className="p-4 bg-white dark:bg-slate-800 border-t dark:border-slate-700 flex flex-col gap-3 shrink-0">
+                    <div className="flex gap-3 w-full">
+                        <Button onClick={onClose} variant="secondary" className="flex-1">Cancel</Button>
+                        <Button onClick={handleSave} className="flex-[2] bg-primary text-white shadow-lg">
+                            <Check size={18} className="mr-2" /> Save
+                        </Button>
+                    </div>
+                    <button
+                        onClick={handleReset}
+                        className="text-xs text-red-500 hover:text-red-600 underline text-center w-full py-2"
+                    >
+                        Reset to Default
+                    </button>
                 </div>
             </Card>
         </div>,

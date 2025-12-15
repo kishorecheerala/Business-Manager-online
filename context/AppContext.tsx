@@ -63,6 +63,7 @@ type Action =
     | { type: 'SET_DOCUMENT_TEMPLATE'; payload: { type: string; config: InvoiceTemplateConfig } }
     | { type: 'UPDATE_INVOICE_SETTINGS'; payload: AppMetadataInvoiceSettings }
     | { type: 'UPDATE_NAV_ORDER'; payload: string[] }
+    | { type: 'RESET_NAV_ORDER' }
     | { type: 'UPDATE_QUICK_ACTIONS'; payload: string[] }
     | { type: 'TOGGLE_PERFORMANCE_MODE' }
     | { type: 'SET_ONLINE_STATUS'; payload: boolean }
@@ -971,6 +972,12 @@ const appReducer = (state: AppState, action: Action): AppState => {
             const metaWithoutNav = state.app_metadata.filter(m => m.id !== 'navOrder');
             db.saveCollection('app_metadata', [...metaWithoutNav, navOrderMeta]);
             return { ...state, navOrder: action.payload, app_metadata: [...metaWithoutNav, navOrderMeta], ...touch };
+
+        case 'RESET_NAV_ORDER':
+            const metaNoNav = state.app_metadata.filter(m => m.id !== 'navOrder');
+            // Remove from DB (or save default, but removing allows default to take over)
+            db.saveCollection('app_metadata', metaNoNav);
+            return { ...state, navOrder: DEFAULT_NAV_ORDER, app_metadata: metaNoNav, ...touch };
 
         case 'UPDATE_QUICK_ACTIONS':
             const qaMeta: AppMetadataQuickActions = { id: 'quickActions', actions: action.payload, updatedAt: new Date().toISOString() };

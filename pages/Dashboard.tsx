@@ -723,6 +723,14 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                         setIsPinModalOpen(false);
                         setPendingAction(null);
                     }}
+                    onResetRequest={async () => {
+                        if (await showConfirm("Are you sure you want to reset your passcode? Use this only if you forgot it. This will remove the lock.", { confirmText: "Reset & Remove Lock", variant: 'danger' })) {
+                            dispatch({ type: 'SET_PIN', payload: null });
+                            showToast("Passcode removed.");
+                            setIsPinModalOpen(false);
+                            setPendingAction(null);
+                        }
+                    }}
                 />
             )}
 

@@ -690,7 +690,7 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
                     {mode === 'add' ? 'Complete Purchase' : 'Update Purchase'}
                 </Button>
                 {mode === 'add' && (
-                    <Button onClick={handleClear} variant="secondary" className="w-full bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800">
+                    <Button onClick={handleClear} variant="secondary" className="w-full">
                         Clear Form
                     </Button>
                 )}
