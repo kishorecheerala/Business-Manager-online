@@ -46,10 +46,13 @@ const SecuritySettingsModal: React.FC<SecuritySettingsModalProps> = ({ isOpen, o
     if (!isOpen) return null;
 
     return (
-        <>
-            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100]" onClick={onClose} />
-            <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-6 w-full max-w-lg z-[101] animate-scale-in">
-                <div className="flex justify-between items-center mb-6">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6" role="dialog" aria-modal="true" onClick={onClose} >
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity" aria-hidden="true" />
+            <div
+                className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-6 w-full max-w-lg relative z-[101] animate-scale-in flex flex-col max-h-[90vh]"
+                onClick={e => e.stopPropagation()}
+            >
+                <div className="flex justify-between items-center mb-6 flex-shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-xl">
                             <Shield className="w-6 h-6 text-red-600 dark:text-red-400" />
@@ -64,13 +67,13 @@ const SecuritySettingsModal: React.FC<SecuritySettingsModalProps> = ({ isOpen, o
                     </button>
                 </div>
 
-                <div className="mb-6">
+                <div className="mb-6 overflow-y-auto custom-scrollbar">
                     <p className="text-sm text-slate-600 dark:text-slate-300 mb-4 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-100 dark:border-blue-800">
                         Select pages that require <strong>PIN / Biometric authentication</strong> to access.
                         Once authenticated, the session remains active until you click "Lock Session" or reload.
                     </p>
 
-                    <div className="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar p-1">
+                    <div className="space-y-2 p-1">
                         {PROTECTABLE_PAGES.map(page => {
                             const isLocked = selectedPages.includes(page.id);
                             return (
@@ -78,8 +81,8 @@ const SecuritySettingsModal: React.FC<SecuritySettingsModalProps> = ({ isOpen, o
                                     key={page.id}
                                     onClick={() => handleToggle(page.id)}
                                     className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all ${isLocked
-                                            ? 'bg-red-50 border-red-200 dark:bg-red-900/10 dark:border-red-800'
-                                            : 'bg-white border-slate-200 dark:bg-slate-800 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                                        ? 'bg-red-50 border-red-200 dark:bg-red-900/10 dark:border-red-800'
+                                        : 'bg-white border-slate-200 dark:bg-slate-800 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
                                         }`}
                                 >
                                     <div className="flex items-center gap-3">
@@ -102,7 +105,7 @@ const SecuritySettingsModal: React.FC<SecuritySettingsModalProps> = ({ isOpen, o
                     </div>
                 </div>
 
-                <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-700">
+                <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-700 flex-shrink-0">
                     <button
                         onClick={handleSave}
                         className="flex items-center gap-2 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 px-6 py-2.5 rounded-xl font-bold hover:opacity-90 transition-opacity"
@@ -112,7 +115,7 @@ const SecuritySettingsModal: React.FC<SecuritySettingsModalProps> = ({ isOpen, o
                     </button>
                 </div>
             </div>
-        </>
+        </div>
     );
 };
 

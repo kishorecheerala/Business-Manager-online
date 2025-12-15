@@ -26,6 +26,7 @@ const ChangeLogModal = React.lazy(() => import('./ChangeLogModal'));
 const SignInModal = React.lazy(() => import('./SignInModal'));
 // const PinModal = React.lazy(() => import('./PinModal'));
 const APIConfigModal = React.lazy(() => import('./APIConfigModal'));
+const SecuritySettingsModal = React.lazy(() => import('./SecuritySettingsModal'));
 
 interface AppLayoutProps {
     children: React.ReactNode;
@@ -53,9 +54,9 @@ const AppLayout: React.FC<AppLayoutProps> = ({
     const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
     const [isMobileQuickAddOpen, setIsMobileQuickAddOpen] = useState(false);
     const [isChangeLogOpen, setIsChangeLogOpen] = useState(false);
+    const [isSecuritySettingsOpen, setIsSecuritySettingsOpen] = useState(false);
 
-    // Dev Tools Unlock State
-    const [isUnlockingDevTools, setIsUnlockingDevTools] = useState(false);
+
 
     const [isAPIConfigOpen, setIsAPIConfigOpen] = useState(false);
 
@@ -96,13 +97,8 @@ const AppLayout: React.FC<AppLayoutProps> = ({
     };
 
     const handleOpenDevTools = () => {
-        if (state.pin) {
-            setIsUnlockingDevTools(true);
-            setIsMenuOpen(false); // Close menu if opening pin modal
-        } else {
-            setIsDevToolsOpen(true);
-            setIsMenuOpen(false);
-        }
+        setIsDevToolsOpen(true);
+        setIsMenuOpen(false);
     };
 
     // Prepare Nav Items
@@ -185,18 +181,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
             {/* Modals & Overlays */}
             <Suspense fallback={null}>
 
-                {/* Dev Tools PIN Prompt */}
-                {isUnlockingDevTools && state.pin && (
-                    <PinModal
-                        mode="unlock"
-                        storedPin={state.pin}
-                        onCorrectPin={() => {
-                            setIsUnlockingDevTools(false);
-                            setIsDevToolsOpen(true);
-                        }}
-                        onCancel={() => setIsUnlockingDevTools(false)}
-                    />
-                )}
+
 
                 <ChangeLogModal isOpen={isChangeLogOpen} onClose={() => setIsChangeLogOpen(false)} />
                 <SignInModal isOpen={isSignInModalOpen} onClose={() => setIsSignInModalOpen(false)} />
@@ -213,10 +198,12 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                     onOpenAPIConfig={() => setIsAPIConfigOpen(true)}
                     onHelpClick={() => setIsHelpOpen(true)}
                     onOpenNavCustomizer={() => setIsNavCustomizerOpen(true)}
+                    onOpenSecuritySettings={() => setIsSecuritySettingsOpen(true)}
                 />
                 <UniversalSearch isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} onNavigate={onNavigate} />
                 <AskAIModal isOpen={isAskAIOpen} onClose={() => setIsAskAIOpen(false)} onNavigate={onNavigate} />
                 <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
+                <SecuritySettingsModal isOpen={isSecuritySettingsOpen} onClose={() => setIsSecuritySettingsOpen(false)} />
                 <DeveloperToolsModal isOpen={isDevToolsOpen} onClose={() => setIsDevToolsOpen(false)} onOpenCloudDebug={() => setIsCloudDebugOpen(true)} onOpenAPIConfig={() => setIsAPIConfigOpen(true)} />
                 <CloudDebugModal isOpen={isCloudDebugOpen} onClose={() => setIsCloudDebugOpen(false)} onOpenAPIConfig={() => setIsAPIConfigOpen(true)} />
                 <ProfileModal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} />

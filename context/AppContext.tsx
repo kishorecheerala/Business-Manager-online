@@ -1368,11 +1368,33 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // --- SYNC DATA FUNCTION (Moved Up for Scope) ---
     const syncData = async (overrideToken?: string) => {
         // Use override token (from login) OR state token
-        const token = overrideToken || stateRef.current.googleUser?.accessToken;
+        const currentUser = stateRef.current.googleUser;
+        let token = overrideToken || currentUser?.accessToken;
 
         if (!token) {
             if (!overrideToken) showToast("Please sign in to sync.", 'error');
             return;
+        }
+
+        // 0. AUTO-REFRESH CHECK
+        // If using stored token (not override), check if it is expiring soon (within 5 mins)
+        if (!overrideToken && currentUser?.expiresAt) {
+            const fiveMinutes = 5 * 60 * 1000;
+            if (Date.now() > currentUser.expiresAt - fiveMinutes) {
+                console.log("Token expiring or expired. Initiating Auto-Refresh...");
+
+                // If we have the client, refresh it
+                if (tokenClientRef.current) {
+                    // This triggers the popup/flow, which eventually calls handleGoogleLoginResponse
+                    // handleGoogleLoginResponse will then call syncData() again with the new token.
+                    tokenClientRef.current.requestAccessToken({ prompt: '' });
+                    return; // Abort this stale sync attempt
+                } else {
+                    // If client lost, try fully signing in
+                    googleSignIn();
+                    return;
+                }
+            }
         }
 
         dispatch({ type: 'SET_SYNC_STATUS', payload: 'syncing' });
@@ -1432,10 +1454,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             const isAuthError = error.message?.includes('401') || error.message?.includes('Unauthorized') || error.message?.includes('invalid_grant');
 
             if (isAuthError) {
-                showToast("Session expired. Please sign in again.", 'error');
-                dispatch({ type: 'SET_GOOGLE_USER', payload: null });
-                // Also clear from local storage to prevent loop on reload
-                try { localStorage.removeItem('google_user'); } catch (e) { }
+                console.warn("Auth Error 401 detected. Attempting recovery...");
+
+                // Instead of clearing user immediately, try ONE refresh if we haven't looped
+                // But syncData is async, hard to track loop. 
+                // Simplest fallback: Just ask user to sign in, but don't clear data immediately if possible?
+                // Actually, clearing is safer to avoid bad state. 
+                // But let's trigger the refresh popup instead of dying.
+
+                if (tokenClientRef.current) {
+                    showToast("Session expired. Refreshing...", 'info');
+                    tokenClientRef.current.requestAccessToken({ prompt: '' });
+                } else {
+                    showToast("Session expired. Please sign in again.", 'error');
+                    dispatch({ type: 'SET_GOOGLE_USER', payload: null });
+                    try { localStorage.removeItem('google_user'); } catch (e) { }
+                }
             } else {
                 showToast(`Sync failed: ${error.message || 'Unknown error'}`, 'error');
             }

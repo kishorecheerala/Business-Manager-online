@@ -12,7 +12,6 @@ import PinModal from './PinModal';
 import InvoiceSettingsModal from './InvoiceSettingsModal';
 import UISettingsModal from './UISettingsModal';
 import { DataImportModal } from './DataImportModal';
-import SecuritySettingsModal from './SecuritySettingsModal'; // New Import
 import { usePWAInstall } from '../hooks/usePWAInstall';
 
 // ... lines 15-131 
@@ -31,6 +30,7 @@ interface MenuPanelProps {
     onHelpClick?: () => void;
     onOpenAPIConfig: () => void;
     onOpenNavCustomizer?: () => void;
+    onOpenSecuritySettings?: () => void;
 }
 
 interface ThemeColor {
@@ -123,7 +123,7 @@ const getContrastColor = (hexColor: string) => {
     return (yiq >= 128) ? 'black' : 'white';
 };
 
-const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, onNavigate, onOpenDevTools, onLockApp, onOpenChangeLog, onOpenSignIn, onHelpClick, onOpenAPIConfig, onOpenNavCustomizer }) => {
+const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, onNavigate, onOpenDevTools, onLockApp, onOpenChangeLog, onOpenSignIn, onHelpClick, onOpenAPIConfig, onOpenNavCustomizer, onOpenSecuritySettings }) => {
     const { state, dispatch, googleSignOut, syncData, showToast } = useAppContext();
     const { showConfirm } = useDialog();
     const { isInstallable, install } = usePWAInstall();
@@ -136,7 +136,6 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
     const [isInvoiceSettingsOpen, setIsInvoiceSettingsOpen] = useState(false);
     const [isUISettingsOpen, setIsUISettingsOpen] = useState(false);
     const [isImportOpen, setIsImportOpen] = useState(false);
-    const [isSecuritySettingsOpen, setIsSecuritySettingsOpen] = useState(false);
 
     // Listen for external trigger
     useEffect(() => {
@@ -290,7 +289,6 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
             <InvoiceSettingsModal isOpen={isInvoiceSettingsOpen} onClose={() => setIsInvoiceSettingsOpen(false)} />
             <UISettingsModal isOpen={isUISettingsOpen} onClose={() => setIsUISettingsOpen(false)} />
             <DataImportModal isOpen={isImportOpen} onClose={() => setIsImportOpen(false)} />
-            <SecuritySettingsModal isOpen={isSecuritySettingsOpen} onClose={() => setIsSecuritySettingsOpen(false)} />
 
             {/* Accent Color Picker */}
             <ColorPickerModal
@@ -456,7 +454,7 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                                     <ChevronRight className="w-4 h-4 text-gray-400" />
                                 </button>
 
-                                <button onClick={() => { onClose(); setIsSecuritySettingsOpen(true); }} className="menu-item text-rose-600 dark:text-rose-400">
+                                <button onClick={() => { onClose(); onOpenSecuritySettings?.(); }} className="menu-item text-rose-600 dark:text-rose-400">
                                     <Lock className="w-5 h-5" />
                                     <span className="flex-grow text-sm font-medium">Security Settings</span>
                                     <ChevronRight className="w-4 h-4 text-gray-400" />
