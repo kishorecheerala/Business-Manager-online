@@ -88,7 +88,10 @@ type Action =
     | { type: 'DELETE_BUDGET'; payload: string }
     | { type: 'ADD_SCENARIO'; payload: FinancialScenario }
     | { type: 'UPDATE_SCENARIO'; payload: FinancialScenario }
-    | { type: 'DELETE_SCENARIO'; payload: string };
+    | { type: 'DELETE_SCENARIO'; payload: string }
+    | { type: 'LOCK_APP' }
+    | { type: 'UNLOCK_APP' }
+    | { type: 'UPDATE_SECURITY_CONFIG'; payload: AppMetadataPin['security'] };
 
 // Default Template to prevent crashes
 const DEFAULT_TEMPLATE: InvoiceTemplateConfig = {
@@ -1113,6 +1116,27 @@ const appReducer = (state: AppState, action: Action): AppState => {
             const filteredScenarios = state.financialScenarios.filter(s => s.id !== action.payload);
             db.saveCollection('financial_scenarios', filteredScenarios);
             return { ...state, financialScenarios: filteredScenarios, ...touch };
+
+        case 'LOCK_APP':
+            return { ...state, isLocked: true };
+
+        case 'UNLOCK_APP':
+            return { ...state, isLocked: false };
+
+        case 'UPDATE_SECURITY_CONFIG':
+            const secConfig = action.payload;
+            const newPinMeta: AppMetadataPin = {
+                id: 'securityPin',
+                security: secConfig,
+                updatedAt: new Date().toISOString()
+            };
+            db.saveCollection('app_metadata', [...state.app_metadata.filter(m => m.id !== 'securityPin'), newPinMeta]);
+            return {
+                ...state,
+                pin: secConfig.enabled ? secConfig.pin : null,
+                isLocked: secConfig.enabled ? state.isLocked : false // auto-unlock if disabled?
+            };
+
 
         default:
             return state;
