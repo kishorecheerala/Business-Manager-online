@@ -16,6 +16,44 @@ const PinModal: React.FC<PinModalProps> = ({ mode, onSetPin, onCorrectPin, corre
     const [pin, setPin] = useState('');
     const [confirmPin, setConfirmPin] = useState('');
     // Biometric Registration
+    const [step, setStep] = useState<'enter' | 'create' | 'confirm' | 'biometric-setup'>(mode === 'setup' ? 'create' : 'enter');
+    const [error, setError] = useState(false);
+    const [shake, setShake] = useState(false);
+
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    // Auto-focus logic
+    useEffect(() => {
+        const focusInput = () => inputRef.current?.focus();
+        const timeout = setTimeout(focusInput, 100);
+
+        // Keep focus trap
+        const interval = setInterval(() => {
+            if (document.activeElement !== inputRef.current) {
+                // optional
+            }
+        }, 1000);
+
+        document.body.style.overflow = 'hidden';
+
+        return () => {
+            clearTimeout(timeout);
+            clearInterval(interval);
+            document.body.style.overflow = '';
+        };
+    }, []);
+
+    // Biometrics Check
+    const [biometricsAvailable, setBiometricsAvailable] = useState(false);
+    useEffect(() => {
+        if (window.PublicKeyCredential &&
+            window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable) {
+            window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().then(available => {
+                setBiometricsAvailable(available);
+            });
+        }
+    }, []);
+
     const registerBiometric = async () => {
         if (!biometricsAvailable) return false;
         try {
