@@ -12,21 +12,23 @@ import { ICON_MAP, LABEL_MAP } from '../utils/iconMap';
 import { QUICK_ACTION_REGISTRY } from '../utils/quickActions';
 import PinModal from './PinModal'; // Static import for debugging
 
+import { lazyImport } from '../utils/lazyImport';
+
 // Lazy loaded components for the layout
-const MenuPanel = React.lazy(() => import('./MenuPanel'));
-const NotificationsPanel = React.lazy(() => import('./NotificationsPanel'));
-const AskAIModal = React.lazy(() => import('./AskAIModal'));
-const HelpModal = React.lazy(() => import('./HelpModal'));
-const UniversalSearch = React.lazy(() => import('./UniversalSearch'));
-const DeveloperToolsModal = React.lazy(() => import('./DeveloperToolsModal'));
-const CloudDebugModal = React.lazy(() => import('./CloudDebugModal'));
-const ProfileModal = React.lazy(() => import('./ProfileModal'));
-const NavCustomizerModal = React.lazy(() => import('./NavCustomizerModal'));
-const ChangeLogModal = React.lazy(() => import('./ChangeLogModal'));
-const SignInModal = React.lazy(() => import('./SignInModal'));
-// const PinModal = React.lazy(() => import('./PinModal'));
-const APIConfigModal = React.lazy(() => import('./APIConfigModal'));
-const SecuritySettingsModal = React.lazy(() => import('./SecuritySettingsModal'));
+const MenuPanel = lazyImport(() => import('./MenuPanel'));
+const NotificationsPanel = lazyImport(() => import('./NotificationsPanel'));
+const AskAIModal = lazyImport(() => import('./AskAIModal'));
+const HelpModal = lazyImport(() => import('./HelpModal'));
+const UniversalSearch = lazyImport(() => import('./UniversalSearch'));
+const DeveloperToolsModal = lazyImport(() => import('./DeveloperToolsModal'));
+const CloudDebugModal = lazyImport(() => import('./CloudDebugModal'));
+const ProfileModal = lazyImport(() => import('./ProfileModal'));
+const NavCustomizerModal = lazyImport(() => import('./NavCustomizerModal'));
+const ChangeLogModal = lazyImport(() => import('./ChangeLogModal'));
+const SignInModal = lazyImport(() => import('./SignInModal'));
+// const PinModal = lazyImport(() => import('./PinModal'));
+const APIConfigModal = lazyImport(() => import('./APIConfigModal'));
+const SecuritySettingsModal = lazyImport(() => import('./SecuritySettingsModal'));
 
 interface AppLayoutProps {
     children: React.ReactNode;
