@@ -19,6 +19,7 @@ import AIInsightsView from '../components/AIInsightsView';
 import SmartAnalystCard from '../components/SmartAnalystCard';
 import QuickMemoCard from '../components/QuickMemoCard';
 import GoalTrackerCard from '../components/GoalTrackerCard';
+import WhatsAppIcon from '../components/WhatsAppIcon';
 
 interface DashboardProps {
     setCurrentPage: (page: Page) => void;
@@ -38,19 +39,19 @@ const MetricCard: React.FC<{
 }> = ({ icon: Icon, title, value, color, iconBgColor, textColor, unit = '₹', subValue, onClick, delay }) => (
     <div
         onClick={onClick}
-        className={`rounded-lg shadow-md p-3 sm:p-5 flex items-center transition-all duration-300 hover:shadow-xl hover:scale-[1.01] ${color} ${onClick ? 'cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-primary/50' : ''} animate-slide-up-fade group`}
+        className={`rounded-lg shadow-md p-3 sm:p-4 flex items-center transition-all duration-300 hover:shadow-xl hover:scale-[1.01] ${color} ${onClick ? 'cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-primary/50' : ''} animate-slide-up-fade group`}
         style={{ animationDelay: `${delay || 0}ms` }}
         role={onClick ? 'button' : undefined}
         tabIndex={onClick ? 0 : undefined}
         onKeyDown={onClick ? (e) => (e.key === 'Enter' || e.key === ' ') && onClick() : undefined}
     >
-        <div className={`p-3 sm:p-4 ${iconBgColor} rounded-full flex-shrink-0 transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6`}>
-            <Icon className={`w-6 h-6 sm:w-8 sm:h-8 ${textColor}`} />
+        <div className={`p-2 sm:p-3 ${iconBgColor} rounded-full flex-shrink-0 transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6`}>
+            <Icon className={`w-5 h-5 sm:w-6 sm:h-6 ${textColor}`} />
         </div>
-        <div className="ml-3 sm:ml-5 flex-grow min-w-0">
-            <p className={`font-bold text-sm sm:text-lg ${textColor} truncate`}>{title}</p>
-            <p className={`text-xl sm:text-2xl font-extrabold ${textColor} break-all mt-0.5 sm:mt-1`}>{unit}{typeof value === 'number' ? formatNumber(value) : value}</p>
-            {subValue && <p className={`text-xs sm:text-sm font-medium mt-0.5 sm:mt-1 opacity-90 ${textColor} truncate`}>{subValue}</p>}
+        <div className="ml-3 sm:ml-4 flex-grow min-w-0">
+            <p className={`font-bold text-sm sm:text-base ${textColor} truncate`}>{title}</p>
+            <p className={`text-lg sm:text-xl font-extrabold ${textColor} break-all mt-0.5`}>{unit}{typeof value === 'number' ? formatNumber(value) : value}</p>
+            {subValue && <p className={`text-[10px] sm:text-xs font-medium mt-0.5 opacity-90 ${textColor} truncate`}>{subValue}</p>}
         </div>
     </div>
 );
@@ -222,7 +223,7 @@ const OverdueDuesCard: React.FC<{ sales: Sale[]; customers: Customer[]; onNaviga
                             <p className="font-bold text-lg text-red-600 dark:text-red-400">{formatCurrency(totalOverdue)}</p>
                             <div className="flex items-center justify-end gap-2">
                                 <p className="text-xs text-gray-500 dark:text-gray-400">{Math.floor((new Date().getTime() - new Date(oldestOverdueDate).getTime()) / (1000 * 60 * 60 * 24))} days old</p>
-                                <button onClick={(e) => sendWhatsAppReminder(e, customer, totalOverdue)} className="bg-green-500 text-white p-1 rounded-full hover:scale-110 transition-transform" title="Send Reminder"><MessageCircle size={12} /></button>
+                                <button onClick={(e) => sendWhatsAppReminder(e, customer, totalOverdue)} className="bg-green-500 text-white p-1 rounded-full hover:scale-110 transition-transform" title="Send Reminder"><WhatsAppIcon size={14} /></button>
                             </div>
                         </div>
                     </div>
@@ -837,38 +838,6 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {/* AI Analyst Card */}
-                <div className="md:col-span-2">
-                    <SmartAnalystCard
-                        sales={sales}
-                        products={products}
-                        customers={customers}
-                        purchases={purchases}
-                        returns={returns}
-                        expenses={expenses}
-                        ownerName={profile.name}
-                        onNavigate={(page, id) => {
-                            if (page === 'CUSTOMERS') {
-                                dispatch({ type: 'SET_SELECTION', payload: { page: 'CUSTOMERS', id } });
-                            } else if (page === 'PRODUCTS') {
-                                dispatch({ type: 'SET_SELECTION', payload: { page: 'PRODUCTS', id } });
-                            }
-                            setCurrentPage(page);
-                        }}
-                    />
-                </div>
-
-                {/* Productivity Widgets */}
-                <div className="md:col-span-1">
-                    <GoalTrackerCard sales={sales} />
-                </div>
-                <div className="md:col-span-1">
-                    <QuickMemoCard />
-                </div>
-            </div>
-
-
             <div className="grid grid-cols-2 lgs:grid-cols-4 gap-3 mb-6">
                 <MetricCard
                     icon={IndianRupee}
@@ -936,6 +905,37 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                     onClick={() => setCurrentPage('PURCHASES')}
                     delay={400}
                 />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                {/* AI Analyst Card */}
+                <div className="md:col-span-2">
+                    <SmartAnalystCard
+                        sales={sales}
+                        products={products}
+                        customers={customers}
+                        purchases={purchases}
+                        returns={returns}
+                        expenses={expenses}
+                        ownerName={profile.name}
+                        onNavigate={(page, id) => {
+                            if (page === 'CUSTOMERS') {
+                                dispatch({ type: 'SET_SELECTION', payload: { page: 'CUSTOMERS', id } });
+                            } else if (page === 'PRODUCTS') {
+                                dispatch({ type: 'SET_SELECTION', payload: { page: 'PRODUCTS', id } });
+                            }
+                            setCurrentPage(page);
+                        }}
+                    />
+                </div>
+
+                {/* Productivity Widgets */}
+                <div className="md:col-span-1">
+                    <GoalTrackerCard sales={sales} />
+                </div>
+                <div className="md:col-span-1">
+                    <QuickMemoCard />
+                </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

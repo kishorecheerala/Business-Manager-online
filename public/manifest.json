@@ -9,7 +9,11 @@
   "orientation": "portrait",
   "theme_color": "#db2777",
   "background_color": "#f8fafc",
-  "categories": ["business", "finance", "productivity"],
+  "categories": [
+    "business",
+    "finance",
+    "productivity"
+  ],
   "icons": [
     {
       "src": "/vite.svg",
@@ -30,6 +34,16 @@
       "purpose": "maskable"
     }
   ],
+  "share_target": {
+    "action": "/?action=share_target",
+    "method": "GET",
+    "enctype": "application/x-www-form-urlencoded",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
   "shortcuts": [
     {
       "name": "New Sale",

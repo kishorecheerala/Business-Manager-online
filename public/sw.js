@@ -1,12 +1,23 @@
 // Cache-busting service worker - Forces complete refresh
-const CACHE_VERSION = 'v-robust-1';
+const CACHE_VERSION = 'v-robust-2-shell';
 const CACHE_NAME = `business-manager-${CACHE_VERSION}`;
 
 console.log('[SW] Cache version:', CACHE_NAME);
 
-// Install - don't wait, skip immediately
+// Install - Precache App Shell
 self.addEventListener('install', (event) => {
   console.log('[SW] Installing with cache:', CACHE_NAME);
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      console.log('[SW] Precaching App Shell');
+      return cache.addAll([
+        '/',
+        '/index.html',
+        '/manifest.json',
+        '/vite.svg'
+      ]);
+    })
+  );
   self.skipWaiting();
 });
 
@@ -28,16 +39,28 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch - network first, then cache
+// Fetch - Stale-while-revalidate for assets, Network-first for API, Offline fallback for Nav
 self.addEventListener('fetch', (event) => {
   const { request } = event;
 
   // Skip non-GET requests or chrome-extension requests
   if (request.method !== 'GET' || request.url.startsWith('chrome-extension')) return;
 
+  // Navigation requests (HTML) - Network First, allow offline fallback to index.html
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .catch(() => {
+          return caches.match('/index.html');
+        })
+    );
+    return;
+  }
+
+  // Asset requests - Cache First / Network Fallback
   event.respondWith(
-    fetch(request)
-      .then((response) => {
+    caches.match(request).then((cached) => {
+      return cached || fetch(request).then((response) => {
         if (!response || response.status !== 200 || response.type !== 'basic') {
           return response;
         }
@@ -46,17 +69,8 @@ self.addEventListener('fetch', (event) => {
           cache.put(request, clone);
         });
         return response;
-      })
-      .catch(() => {
-        return caches.match(request).then((cached) => {
-          // If offline and cache missing, return basic offline response if possible
-          return cached || new Response('You are offline. Please check your connection.', {
-            status: 503,
-            statusText: 'Service Unavailable',
-            headers: new Headers({ 'Content-Type': 'text/plain' })
-          });
-        });
-      })
+      });
+    })
   );
 });
 

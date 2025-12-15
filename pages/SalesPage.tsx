@@ -18,6 +18,7 @@ import { generateA4InvoicePdf } from '../utils/pdfGenerator';
 import Input from '../components/Input';
 import FormattedNumberInput from '../components/FormattedNumberInput';
 import Dropdown from '../components/Dropdown';
+import MagicOrderModal from '../components/MagicOrderModal';
 
 interface SalesPageProps {
     setIsDirty: (isDirty: boolean) => void;
@@ -52,6 +53,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
     const isDirtyRef = useRef(false);
 
     const [isDraftsOpen, setIsDraftsOpen] = useState(false);
+    const [isMagicModalOpen, setIsMagicModalOpen] = useState(false);
 
     const [historySearch, setHistorySearch] = useState('');
 
@@ -105,6 +107,17 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             dispatch({ type: 'CLEAR_SELECTION' });
         }
     }, [state.selection, state.sales, dispatch]);
+
+    useEffect(() => {
+        const handleMagicPasteEvent = (e: CustomEvent) => {
+            if (e.detail?.text) {
+                setIsMagicModalOpen(true);
+            }
+        };
+
+        window.addEventListener('OPEN_MAGIC_PASTE', handleMagicPasteEvent as EventListener);
+        return () => window.removeEventListener('OPEN_MAGIC_PASTE', handleMagicPasteEvent as EventListener);
+    }, []);
 
     // When returning to the page, if it was in edit mode, re-fetch the saleToEdit
     useEffect(() => {
@@ -306,6 +319,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             amount: lastSale.totalAmount
         };
     }, [customerId, state.sales]);
+
 
 
     const customerTotalDue = useMemo(() => {
@@ -1044,6 +1058,28 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                             className="pl-10"
                         />
                     </div>
+
+                    {isMagicModalOpen && (
+                        <MagicOrderModal
+                            isOpen={isMagicModalOpen}
+                            onClose={() => setIsMagicModalOpen(false)}
+                            products={state.products}
+                            onOrderParsed={(parsedItems, customerName) => {
+                                const existingProductIds = items.map(i => i.productId);
+                                const newItems = parsedItems.filter(i => !existingProductIds.includes(i.productId));
+                                setItems([...items, ...newItems]);
+
+                                if (customerName) {
+                                    // Try to finding customer
+                                    const found = state.customers.find(c => c.name.toLowerCase().includes(customerName.toLowerCase()));
+                                    if (found) {
+                                        setCustomerId(found.id);
+                                        showToast(`Matched customer: ${found.name}`, 'success');
+                                    }
+                                }
+                            }}
+                        />
+                    )}
 
                     <div className="space-y-3">
                         {filteredHistory.length > 0 ? (

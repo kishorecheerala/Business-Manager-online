@@ -110,6 +110,28 @@ const App: React.FC = () => {
         window.scrollTo(0, 0);
     }, [currentPage]);
 
+    // Check for share_target action and redirect to magic paste.
+    useEffect(() => {
+        const handleShareTarget = () => {
+            const params = new URLSearchParams(window.location.search);
+            const action = params.get('action');
+            if (action === 'share_target') {
+                const text = params.get('text') || params.get('title') || params.get('url');
+                if (text) {
+                    dispatch({ type: 'SET_SELECTION', payload: { page: 'SALES', id: null } });
+                    // Use a small timeout to allow state update
+                    setTimeout(() => {
+                        window.dispatchEvent(new CustomEvent('OPEN_MAGIC_PASTE', { detail: { text } }));
+                    }, 500);
+                    // Clean URL
+                    window.history.replaceState({}, '', '/');
+                }
+            }
+        };
+
+        handleShareTarget();
+    }, [dispatch]);
+
     // Remove loader ONLY when DB is loaded
     useEffect(() => {
         if (isDbLoaded) {
