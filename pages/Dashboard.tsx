@@ -925,7 +925,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                         purchases={purchases}
                         returns={returns}
                         expenses={expenses}
-                        ownerName={profile.name}
+                        ownerName={profile?.name || 'User'}
                         onNavigate={(page, id) => {
                             if (page === 'CUSTOMERS') {
                                 dispatch({ type: 'SET_SELECTION', payload: { page: 'CUSTOMERS', id } });
