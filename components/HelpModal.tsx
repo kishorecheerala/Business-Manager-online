@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Globe } from 'lucide-react';
+import { X, Globe, BookOpen, ChevronRight, Search } from 'lucide-react';
 import Card from './Card';
 
 interface HelpModalProps {
@@ -10,186 +10,175 @@ interface HelpModalProps {
 
 const helpContent = {
   en: {
-    title: 'Help & Documentation',
+    title: 'Knowledge Base',
     sections: [
       {
-        title: 'Google Sign-In Issues',
+        title: '🚀 Getting Started',
         content: (
-          <div className="space-y-2 text-sm bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg border border-yellow-100 dark:border-yellow-800">
-            <h4 className="font-bold text-yellow-800 dark:text-yellow-200">"Google hasn't verified this app"</h4>
-            <p>If you see a scary warning screen when signing in, don't worry. This happens because the app is in "Testing Mode" for personal use.</p>
-            <p><strong>To bypass it:</strong></p>
-            <ol className="list-decimal list-inside pl-2">
-              <li>Click the <strong>Advanced</strong> link on the bottom left of that screen.</li>
-              <li>Click <strong>Go to Business Manager (unsafe)</strong>.</li>
-              <li>Click <strong>Continue</strong> to finish signing in.</li>
+          <div className="space-y-3 text-sm">
+            <p className="font-semibold text-slate-700 dark:text-slate-200">Welcome to your Business Manager!</p>
+            <p>This application is designed to run completely <strong>offline-first</strong> on your device. Here are the basics:</p>
+            <ul className="list-disc list-inside space-y-1 ml-2 text-slate-600 dark:text-slate-300">
+              <li><strong>Navigation:</strong> Use the bottom bar (mobile) or left sidebar (desktop) to switch between pages.</li>
+              <li><strong>Offline Mode:</strong> You don't need internet for day-to-day operations. Internet is only needed for Google Backups and AI features.</li>
+              <li><strong>PWA:</strong> You can install this app on your phone's home screen for a full app-like experience.</li>
+            </ul>
+          </div>
+        )
+      },
+      {
+        title: '📊 Dashboard & Widgets',
+        content: (
+          <div className="space-y-3 text-sm">
+            <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-100 dark:border-indigo-800">
+              <h4 className="font-bold text-indigo-700 dark:text-indigo-300 mb-1">Smart Analyst (AI)</h4>
+              <p>Your personal business assistant. It analyzes your data to show:</p>
+              <ul className="list-disc list-inside ml-2 mt-1 space-y-1">
+                <li><strong>Dead Stock:</strong> Items that haven't sold in 60+ days. Click to view and clear them.</li>
+                <li><strong>Churn Risk:</strong> Regular customers who haven't visited lately.</li>
+                <li><strong>Daily Briefing:</strong> A quick audio summary of your day.</li>
+              </ul>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-100 dark:border-yellow-800">
+                <h4 className="font-bold text-yellow-700 dark:text-yellow-300">Quick Memo</h4>
+                <p>A sticky note for your dashboard. Use it for temporary reminders like "Call distributor" or "Order paper rolls". It auto-saves!</p>
+              </div>
+              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
+                <h4 className="font-bold text-blue-700 dark:text-blue-300">Goal Tracker</h4>
+                <p>Set a monthly sales target. The bar fills up as you make sales. Click the pencil icon to edit your goal.</p>
+              </div>
+            </div>
+          </div>
+        )
+      },
+      {
+        title: '💰 Sales & Invoicing',
+        content: (
+          <div className="space-y-3 text-sm">
+            <h4 className="font-semibold text-slate-800 dark:text-white border-b pb-1">Creating a Sale</h4>
+            <ol className="list-decimal list-inside space-y-2 ml-2 text-slate-600 dark:text-slate-300">
+              <li>Go to <strong>Sales</strong> page.</li>
+              <li>Search for a product or scan a barcode.</li>
+              <li>Adjust quantity in the cart.</li>
+              <li>Select a Customer (optional, but recommended for tracking dues).</li>
+              <li>Click <strong>Checkout</strong>, choose payment method (Cash/Online/Due).</li>
             </ol>
-            <p className="mt-2"><strong>Can't switch accounts?</strong> We have updated the app to force the "Choose an Account" screen every time you click Sign In.</p>
+
+            <h4 className="font-semibold text-slate-800 dark:text-white border-b pb-1 mt-4">Magic Paste (AI) ✨</h4>
+            <p>Perfect for WhatsApp orders! Copy a message like <em className="text-slate-500">"Need 2 Colgate paste and 5kg Rice"</em> and click <strong>Magic Paste Order</strong>. The AI will fill your cart automatically.</p>
           </div>
         )
       },
       {
-        title: 'Dashboard & Smart Analyst',
+        title: '📦 Inventory Management',
         content: (
-          <div className="space-y-2">
-            <p>The dashboard provides a quick overview of your business metrics like sales, dues, and low stock items.</p>
-            <h4 className="font-semibold mt-2">Smart Analyst (AI)</h4>
-            <p className="text-sm">The top card uses AI to help you:</p>
-            <ul className="list-disc list-inside pl-4 text-sm">
-              <li><strong>Revenue Projection:</strong> Predicts end-of-month sales based on current trends.</li>
-              <li><strong>Stock Alerts:</strong> Identifies slow-moving "Dead Stock" to help you clear inventory.</li>
-              <li><strong>Cash Flow:</strong> Warns if spending exceeds income for the current period.</li>
+          <div className="space-y-3 text-sm">
+            <ul className="list-disc list-inside space-y-2 ml-2 text-slate-600 dark:text-slate-300">
+              <li><strong>Adding Products:</strong> Go to Products &gt; + Add. You can also generate barcodes here.</li>
+              <li><strong>Bulk Edit:</strong> Need to change many prices? Use the "Batch Editor" in the Products menu to update multiple items at once.</li>
+              <li><strong>Low Stock:</strong> Items below their "Min Stock" level appear in red on the Dashboard and Reports.</li>
             </ul>
           </div>
         )
       },
       {
-        title: 'Sales & Magic Paste',
+        title: '🛡️ Data Safety & backup (CRITICAL)',
         content: (
-          <div className="space-y-2 text-sm">
-            <p>Create new invoices and manage customer payments.</p>
-            <h4 className="font-semibold mt-2">Using Magic Paste (AI):</h4>
-            <ol className="list-decimal list-inside pl-4">
-              <li>Click the <strong>"Magic Paste Order"</strong> button on the Sales page.</li>
-              <li>Paste a text message (e.g., from WhatsApp) containing an order.</li>
-              <li>The AI will automatically extract items, quantities, and prices to fill your cart.</li>
-            </ol>
-            <h4 className="font-semibold mt-2">Recording Payment for Dues:</h4>
-            <p>Select a customer without adding items to the cart, enter the amount, and click "Record Standalone Payment".</p>
-            <h4 className="font-semibold mt-2">Editing Payments:</h4>
-            <p>To edit a payment date or amount, go to the Customer page, expand the Sale history, and click the <strong>Edit (Pencil)</strong> icon next to the payment.</p>
-          </div>
-        )
-      },
-      {
-        title: 'Invoice Designer',
-        content: (
-          <div className="space-y-2 text-sm">
-            <p>Customize your invoice layout to match your brand.</p>
-            <ul className="list-disc list-inside pl-4">
-              <li><strong>Absolute Positioning:</strong> In the Layout tab, use the arrow keys to nudge the Logo or QR code to the exact pixel you want.</li>
-              <li><strong>Draft Mode:</strong> Toggle this on to speed up the editor if it feels slow on older devices. It lowers the preview quality temporarily.</li>
-              <li><strong>Templates:</strong> Save your designs or load presets like "Modern" or "Receipt" for thermal printers.</li>
-            </ul>
-          </div>
-        )
-      },
-      {
-        title: 'System Optimizer',
-        content: (
-          <div className="space-y-2 text-sm">
-            <p>Located in the menu under "Admin", this tool helps keep your app fast.</p>
-            <ul className="list-disc list-inside pl-4">
-              <li><strong>Image Optimization:</strong> Compresses large product images to save space without losing visible quality.</li>
-              <li><strong>Performance Mode:</strong> Disables blur effects and animations to save battery on mobile devices.</li>
-              <li><strong>Database Cleanup:</strong> Removes old logs and notifications to free up storage.</li>
-            </ul>
-          </div>
-        )
-      },
-      {
-        title: 'Customization',
-        content: (
-          <div className="space-y-2 text-sm">
-            <p>Make the app truly yours via the <strong>Customize</strong> menu:</p>
-            <ul className="list-disc list-inside pl-4">
-              <li><strong>Navigation:</strong> Reorder the bottom bar buttons. Put your most used pages (like Sales or Reports) first.</li>
-              <li><strong>Quick Actions:</strong> Choose which shortcuts appear when you press the floating "+" button.</li>
-              <li><strong>Themes:</strong> Change the app color scheme or switch between Dark/Light mode in the main menu.</li>
-            </ul>
-          </div>
-        )
-      },
-      {
-        title: 'Data Safety',
-        content: (
-          <div className="space-y-2 text-sm">
-            <p className="font-bold text-red-600">Important: All data is saved ONLY on your device by default.</p>
-            <ol className="list-decimal list-inside pl-4">
-              <li><strong>Local Backups:</strong> Download a JSON backup file regularly from the Dashboard.</li>
-              <li><strong>Cloud Sync:</strong> Sign in with Google to auto-sync your data to your personal Google Drive.</li>
-              <li><strong>Checkpoints:</strong> Create a "Checkpoint" before making big changes (like bulk edits) to easily undo them later.</li>
+          <div className="space-y-3 text-sm">
+            <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-100 dark:border-red-800">
+              <h4 className="font-bold text-red-700 dark:text-red-300 flex items-center gap-2">
+                ⚠️ Your data is on YOUR device only!
+              </h4>
+              <p className="mt-1">We do not have a central server. If you lose your phone/laptop, you lose your data unless you backup.</p>
+            </div>
+
+            <h4 className="font-semibold mt-2">How to Backup:</h4>
+            <ol className="list-decimal list-inside ml-2">
+              <li><strong>Google Drive Sync:</strong> Sign in with Google (in Settings) for automatic cloud backups.</li>
+              <li><strong>Manual Backup:</strong> On Dashboard, click detail menu (top right) &gt; <strong>Download Backup</strong>. Save this file safely (email it to yourself).</li>
+              <li><strong>Checkpoints:</strong> Before making big changes, create a "Checkpoint" to save a restore point.</li>
             </ol>
           </div>
         )
       },
+      {
+        title: '⌨️ Keyboard Shortcuts',
+        content: (
+          <div className="space-y-2 text-sm">
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <div className="flex justify-between p-2 bg-slate-50 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700">
+                <span>New Sale</span> <kbd className="font-mono bg-white dark:bg-slate-700 px-1 rounded border border-slate-300 dark:border-slate-600">Shift + S</kbd>
+              </div>
+              <div className="flex justify-between p-2 bg-slate-50 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700">
+                <span>New Customer</span> <kbd className="font-mono bg-white dark:bg-slate-700 px-1 rounded border border-slate-300 dark:border-slate-600">Shift + C</kbd>
+              </div>
+              <div className="flex justify-between p-2 bg-slate-50 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700">
+                <span>New Purchase</span> <kbd className="font-mono bg-white dark:bg-slate-700 px-1 rounded border border-slate-300 dark:border-slate-600">Shift + P</kbd>
+              </div>
+              <div className="flex justify-between p-2 bg-slate-50 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700">
+                <span>New Estimate</span> <kbd className="font-mono bg-white dark:bg-slate-700 px-1 rounded border border-slate-300 dark:border-slate-600">Shift + Q</kbd>
+              </div>
+            </div>
+          </div>
+        )
+      }
     ]
   },
   te: {
-    title: 'సహాయం & డాక్యుమెంటేషన్',
+    title: 'సహాయ కేంద్రం (Help Center)',
     sections: [
       {
-        title: 'గూగుల్ సైన్-ఇన్ సమస్యలు',
+        title: '🚀 ప్రారంభించడం',
         content: (
-          <div className="space-y-2 text-sm bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg border border-yellow-100 dark:border-yellow-800">
-            <h4 className="font-bold text-yellow-800 dark:text-yellow-200">"Google hasn\'t verified this app"</h4>
-            <p>సైన్ ఇన్ చేస్తున్నప్పుడు హెచ్చరిక స్క్రీన్ కనిపిస్తే, చింతించకండి. ఇది "టెస్టింగ్ మోడ్"లో ఉన్నందున జరుగుతుంది.</p>
-            <p><strong>దాన్ని దాటవేయడానికి:</strong></p>
-            <ol className="list-decimal list-inside pl-2">
-              <li>స్క్రీన్ ఎడమ వైపున ఉన్న <strong>Advanced</strong> లింక్ పై క్లిక్ చేయండి.</li>
-              <li><strong>Go to Business Manager (unsafe)</strong> పై క్లిక్ చేయండి.</li>
-              <li>సైన్ ఇన్ పూర్తి చేయడానికి <strong>Continue</strong> పై క్లిక్ చేయండి.</li>
-            </ol>
-          </div>
-        )
-      },
-      {
-        title: 'డాష్‌బోర్డ్ & స్మార్ట్ అనలిస్ట్',
-        content: (
-          <div className="space-y-2">
-            <p>డాష్‌బోర్డ్ మీ వ్యాపారం యొక్క అమ్మకాలు మరియు బకాయిల అవలోకనాన్ని ఇస్తుంది.</p>
-            <h4 className="font-semibold mt-2">స్మార్ట్ అనలిస్ట్ (AI)</h4>
-            <ul className="list-disc list-inside pl-4 text-sm">
-              <li><strong>ఆదాయ అంచనా:</strong> ఈ నెలాఖరుకు అమ్మకాలు ఎలా ఉంటాయో అంచనా వేస్తుంది.</li>
-              <li><strong>స్టాక్ హెచ్చరికలు:</strong> అమ్ముడుపోని వస్తువులను (Dead Stock) గుర్తిస్తుంది.</li>
+          <div className="space-y-3 text-sm">
+            <p>మీ బిజినెస్ మేనేజర్‌కు స్వాగతం! ఈ యాప్ పూర్తిగా మీ ఫోన్‌లోనే పనిచేస్తుంది (Offline-first).</p>
+            <ul className="list-disc list-inside space-y-1 ml-2">
+              <li><strong>నావిగేషన్:</strong> స్క్రీన్ కింద ఉన్న బార్ ఉపయోగించి పేజీలను మార్చండి.</li>
+              <li><strong>ఆఫ్‌లైన్ మోడ్:</strong> రోజువారీ పనులకు ఇంటర్నెట్ అవసరం లేదు. కేవలం బ్యాకప్ కోసం మాత్రమే నెట్ కావాలి.</li>
             </ul>
           </div>
         )
       },
       {
-        title: 'అమ్మకాలు & మ్యాజిక్ పేస్ట్',
+        title: '📊 డాష్‌బోర్డ్',
         content: (
-          <div className="space-y-2 text-sm">
-            <p>కొత్త ఇన్‌వాయిస్‌లను సృష్టించండి.</p>
-            <h4 className="font-semibold mt-2">మ్యాజిక్ పేస్ట్ (AI) వాడకం:</h4>
-            <ol className="list-decimal list-inside pl-4">
-              <li>సేల్స్ పేజీలో <strong>"Magic Paste Order"</strong> బటన్ నొక్కండి.</li>
-              <li>WhatsApp లేదా SMS నుండి ఆర్డర్ మెసేజ్‌ను పేస్ట్ చేయండి.</li>
-              <li>AI ఆటోమేటిక్‌గా వస్తువులను మరియు ధరలను గుర్తిస్తుంది.</li>
-            </ol>
+          <div className="space-y-3 text-sm">
+            <p><strong>స్మార్ట్ అనలిస్ట్ (AI):</strong> మీ వ్యాపారం యొక్క హెల్త్ రిపోర్ట్. స్టాక్ మరియు బకాయిల వివరాలు ఇస్తుంది.</p>
+            <p><strong>క్విక్ మెమో:</strong> చిన్న చిన్న నోట్స్ రాసుకోవడానికి (ఉదా: "పాలు ఆర్డర్ చేయాలి").</p>
+            <p><strong>గోల్ ట్రాకర్:</strong> ఈ నెల అమ్మకాల లక్ష్యాన్ని సెట్ చేసుకోండి.</p>
           </div>
         )
       },
       {
-        title: 'సిస్టమ్ ఆప్టిమైజర్',
+        title: '💰 అమ్మకాలు (Sales)',
         content: (
-          <div className="space-y-2 text-sm">
-            <p>అడ్మిన్ మెనూలో ఉన్న ఈ టూల్ యాప్‌ను వేగంగా ఉంచుతుంది.</p>
-            <ul className="list-disc list-inside pl-4">
-              <li><strong>ఇమేజ్ ఆప్టిమైజేషన్:</strong> ఫోటోల సైజును తగ్గించి మెమరీని ఆదా చేస్తుంది.</li>
-              <li><strong>పెర్ఫార్మెన్స్ మోడ్:</strong> పాత ఫోన్లలో బ్యాటరీ ఆదా చేయడానికి యానిమేషన్లను తగ్గిస్తుంది.</li>
-            </ul>
+          <div className="space-y-3 text-sm">
+            <p>సేల్స్ పేజీకి వెళ్లి, వస్తువులను ఎంచుకుని, 'Checkout' నొక్కండి.</p>
+            <p><strong>మ్యాజిక్ పేస్ట్:</strong> వాట్సాప్ ఆర్డర్ మెసేజ్‌ను కాపీ చేసి ఇక్కడ పేస్ట్ చేస్తే, ఆటోమేటిక్‌గా బిల్ తయారవుతుంది!</p>
           </div>
         )
       },
       {
-        title: 'డేటా భద్రత',
+        title: '🛡️ డేటా భద్రత (ముఖ్యమైనది)',
         content: (
-          <div className="space-y-2 text-sm">
-            <p className="font-bold text-red-600">ముఖ్యమైనది: డేటా మీ ఫోన్‌లో మాత్రమే సేవ్ అవుతుంది.</p>
-            <ol className="list-decimal list-inside pl-4">
-              <li><strong>బ్యాకప్:</strong> డాష్‌బోర్డ్ నుండి తరచుగా బ్యాకప్ ఫైల్‌ను డౌన్‌లోడ్ చేసుకోండి.</li>
-              <li><strong>క్లౌడ్ సింక్:</strong> Google Driveకు ఆటోమేటిక్ బ్యాకప్ కోసం సైన్ ఇన్ చేయండి.</li>
-            </ol>
+          <div className="space-y-3 text-sm">
+            <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-100 dark:border-red-800">
+              <h4 className="font-bold text-red-700 dark:text-red-300">⚠️ డేటా మీ బాధ్యత!</h4>
+              <p>మా దగ్గర సర్వర్ లేదు. డేటా మీ ఫోన్‌లోనే ఉంటుంది.</p>
+            </div>
+            <p>దయచేసి తరచుగా <strong>Download Backup</strong> ఆప్షన్ ద్వారా డేటాను సేవ్ చేసుకోండి లేదా Google Driveకు సింక్ చేయండి.</p>
           </div>
         )
-      },
+      }
     ]
   }
 };
 
 const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
   const [language, setLanguage] = useState<'en' | 'te'>('en');
+  const [activeSection, setActiveSection] = useState<number | null>(0);
 
   useEffect(() => {
     if (isOpen) document.body.style.overflow = 'hidden';
@@ -201,40 +190,86 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
   const content = helpContent[language];
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-[80] flex items-center justify-center p-4"
-    >
+    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-fade-in-fast" onClick={onClose} />
-      <Card className="relative z-10 w-full max-w-2xl h-full flex flex-col p-0 animate-scale-in overflow-hidden">
+      <Card className="relative z-10 w-full max-w-4xl h-[85vh] flex flex-col p-0 animate-scale-in overflow-hidden shadow-2xl">
         {/* Header */}
         <div className="bg-theme p-4 flex justify-between items-center text-white shrink-0">
-          <h2 className="font-bold text-lg flex items-center gap-2">
-            {content.title}
-          </h2>
+          <div className="flex items-center gap-2">
+            <BookOpen className="opacity-80" />
+            <h2 className="font-bold text-xl">{content.title}</h2>
+          </div>
           <div className="flex items-center gap-3">
             <button
               onClick={() => setLanguage(prev => prev === 'en' ? 'te' : 'en')}
-              className="text-xs font-bold bg-white/20 hover:bg-white/30 px-2 py-1 rounded flex items-center gap-1 transition-colors"
+              className="text-xs font-bold bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-full flex items-center gap-1 transition-colors border border-white/10"
             >
               <Globe size={14} />
               {language === 'en' ? 'తెలుగు' : 'English'}
             </button>
-            <button onClick={onClose} className="p-1 hover:bg-white/20 rounded-full transition-colors">
-              <X size={20} />
+            <button onClick={onClose} className="p-1.5 hover:bg-white/20 rounded-full transition-colors">
+              <X size={22} />
             </button>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="flex-grow overflow-y-auto p-5 space-y-6">
-          {content.sections.map((section, index) => (
-            <div key={index} className="border-b border-gray-100 dark:border-slate-700 pb-4 last:border-0">
-              <h3 className="text-lg font-bold text-primary mb-2">{section.title}</h3>
-              <div className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                {section.content}
-              </div>
+        {/* Content Layout */}
+        <div className="flex flex-grow overflow-hidden">
+          {/* Sidebar (Desktop) / Top bar (Mobile) could be improved, but using simple list for now */}
+          <div className="w-1/3 border-r border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 overflow-y-auto hidden md:block">
+            <div className="p-2 space-y-1">
+              {content.sections.map((section, index) => (
+                <button
+                  key={index}
+                  onClick={() => setActiveSection(index)}
+                  className={`w-full text-left p-3 rounded-lg text-sm font-medium transition-all flex justify-between items-center ${activeSection === index
+                      ? 'bg-white dark:bg-slate-700 text-primary shadow-sm border border-slate-200 dark:border-slate-600'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                >
+                  {section.title}
+                  {activeSection === index && <ChevronRight size={14} />}
+                </button>
+              ))}
             </div>
-          ))}
+          </div>
+
+          {/* Main Content Area */}
+          <div className="flex-1 overflow-y-auto custom-scrollbar bg-white dark:bg-slate-900">
+            {/* Mobile Section Selector */}
+            <div className="md:hidden p-2 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 overflow-x-auto whitespace-nowrap">
+              {content.sections.map((section, index) => (
+                <button
+                  key={index}
+                  onClick={() => setActiveSection(index)}
+                  className={`inline-block px-4 py-2 mr-2 rounded-full text-xs font-bold border transition-colors ${activeSection === index
+                      ? 'bg-primary text-white border-primary'
+                      : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600'
+                    }`}
+                >
+                  {section.title}
+                </button>
+              ))}
+            </div>
+
+            <div className="p-6 md:p-8 max-w-3xl mx-auto">
+              {activeSection !== null && content.sections[activeSection] ? (
+                <div className="animate-fade-in-right">
+                  <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-6 pb-2 border-b border-slate-100 dark:border-slate-700">
+                    {content.sections[activeSection].title}
+                  </h2>
+                  <div className="prose dark:prose-invert max-w-none text-slate-600 dark:text-slate-300 leading-relaxed">
+                    {content.sections[activeSection].content}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                  <Search size={48} className="mb-4 opacity-50" />
+                  <p>Select a topic to view details</p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </Card>
     </div>,

@@ -19,6 +19,12 @@ export class OfflineIntelligence {
             const totalRevenue = sales.reduce((sum, s) => sum + (Number(s.totalAmount) || 0), 0);
             const lowStockProducts = products.filter(p => p.quantity < 5);
 
+            // Calculate Pending Dues (Debt)
+            const totalDue = sales.reduce((sum, s) => {
+                const paid = (s.payments || []).reduce((pSum, p) => pSum + Number(p.amount), 0);
+                return sum + Math.max(0, Number(s.totalAmount) - paid);
+            }, 0);
+
             // Safe regression
             let regression;
             try {
@@ -32,26 +38,29 @@ export class OfflineIntelligence {
             let score = 70; // Base score
             if (regression.growthRate > 0) score += 10;
             if (regression.growthRate > 0.1) score += 10;
-            if (lowStockProducts.length > 5) score -= 15;
+            if (lowStockProducts.length > 5) score -= 10;
+            if (totalDue > (totalRevenue * 0.2)) score -= 15; // Penalty if >20% revenue is pending
             if (totalRevenue === 0) score = 40;
             score = Math.min(100, Math.max(0, score));
 
             // Generate Analysis Strings
-            const healthReason = score > 80 ? "Strong sales performance & good inventory."
-                : score > 50 ? "Stable, but watch inventory levels."
-                    : "Needs attention: Low sales or stock issues.";
+            const healthReason = score > 80 ? "Strong sales performance & healthy cash flow."
+                : score > 50 ? "Stable performance. Watch inventory and pending dues."
+                    : "Needs attention: Low sales, stock issues, or high pending dues.";
 
             const growthAnalysis = regression.growthRate > 0
                 ? `Revenue is trending up by roughly ${(regression.growthRate * 100).toFixed(1)}% this period. Keep pushing top sellers.`
-                : `Revenue is slightly down. Consider running a promotion to boost traffic.`;
+                : `Revenue is slightly flat or down. Consider running a promotion to boost traffic.`;
 
-            const riskAnalysis = lowStockProducts.length > 0
-                ? `Inventory Alert: ${lowStockProducts.length} items are running low. Restock soon to avoid lost sales.`
-                : `Cash flow is the main risk. Ensure pending dues are collected.`;
+            let riskAnalysis = "Operations are stable.";
+            if (lowStockProducts.length > 0) riskAnalysis = `Inventory Alert: ${lowStockProducts.length} items are running low.`;
+            if (totalDue > 1000) riskAnalysis += ` Outstanding dues: ₹${totalDue.toLocaleString()}. Collect payments soon.`;
 
-            const strategy = lowStockProducts.length > 3
-                ? "Prioritize restocking popular items to maintain sales momentum."
-                : "Focus on customer retention and upselling high-margin products.";
+            const strategy = totalDue > (totalRevenue * 0.3)
+                ? "Immediate Focus: Cash Flow. Follow up with customers for pending payments."
+                : lowStockProducts.length > 3
+                    ? "Prioritize restocking popular items to maintain sales momentum."
+                    : "Focus on customer retention and upselling high-margin products.";
 
             // Action Items
             const actions: ActionItem[] = [];
@@ -65,6 +74,18 @@ export class OfflineIntelligence {
                     description: `Only ${topLow.quantity} left. Reorder to prevent stockouts.`,
                     type: 'restock',
                     targetId: topLow.id,
+                    priority: 'high'
+                });
+            }
+
+            // Collection Action (New)
+            if (totalDue > 0) {
+                actions.push({
+                    id: 'act_collect_dues',
+                    title: `Collect Dues (₹${totalDue.toLocaleString()})`,
+                    description: `You have pending payments from customers. Send reminders.`,
+                    type: 'default', // Using default as generic action
+                    targetId: 'reports', // Redirect to reports/dues
                     priority: 'high'
                 });
             }
@@ -107,57 +128,131 @@ export class OfflineIntelligence {
 
     // 2. Marketing Copy (Template-based)
     static generateMarketing(product: Product, mood: string = 'professional'): string {
-        const templates = [
-            `🌟 New Arrival! ${product.name} is now available using our ${mood} collection. Get yours for just ₹${product.salePrice}!`,
-            `✨ Upgrade your life with ${product.name}. High quality, great price: ₹${product.salePrice}. Visit us today!`,
+        const category = product.category ? product.category.toLowerCase() : 'general';
+
+        // Base Templates
+        let templates = [
+            `🌟 New Arrival! ${product.name} is now available. Get yours for just ₹${product.salePrice}!`,
+            `✨ Upgrade your experience with ${product.name}. High quality, great price: ₹${product.salePrice}. Visit us today!`,
             `🔥 Hot Deal! ${product.name} is selling fast. Grab it now for only ₹${product.salePrice}. Limited stock!`,
-            `📢 Exclusive Offer: ${product.name} - The best choice for your needs. Available now at ₹${product.salePrice}.`
+            `📢 Exclusive Offer: ${product.name} - The best choice for you. Available now at ₹${product.salePrice}.`
         ];
+
+        // Category Specific Overrides
+        if (category.includes('food') || category.includes('snack') || category.includes('drink')) {
+            templates = [
+                `😋 Delicious Deal! Taste the best ${product.name} for only ₹${product.salePrice}. Fresh and tasty!`,
+                `🍔 Craving something good? Grab ${product.name} at a special price of ₹${product.salePrice}.`,
+                `🥤 Thirsty? ${product.name} is the perfect refreshment. Yours for ₹${product.salePrice}.`
+            ];
+        } else if (category.includes('cloth') || category.includes('fashion') || category.includes('wear')) {
+            templates = [
+                `👗 Style Alert! Look great in ${product.name}. Now available for ₹${product.salePrice}.`,
+                `✨ Fashion Forward: ${product.name} is the perfect addition to your wardrobe. Only ₹${product.salePrice}.`
+            ];
+        } else if (category.includes('tech') || category.includes('mobile') || category.includes('gadget')) {
+            templates = [
+                `📱 Tech Upgrade: Get the ${product.name} for the best performance. Deal Price: ₹${product.salePrice}.`,
+                `⚡ High Performance: ${product.name} is in stock. Boost your productivity for ₹${product.salePrice}.`
+            ];
+        }
+
         return templates[Math.floor(Math.random() * templates.length)];
     }
 
     // 3. Chat / Q&A (Keyword Matcher)
     static chat(query: string, state: AppState): string {
-        const q = query.toLowerCase();
+        const q = query.toLowerCase().trim();
 
-        // Revenue / Sales
-        if (q.includes('sales') || q.includes('revenue') || q.includes('earned')) {
+        // 1. "Price of [X]" or "Rate of [X]"
+        const priceMatch = q.match(/(?:price|rate|cost)\s+(?:of|for)\s+(.+)/i);
+        if (priceMatch) {
+            const prodName = priceMatch[1].trim();
+            const product = state.products.find(p => p.name.toLowerCase().includes(prodName));
+            if (product) return `The price of ${product.name} is ₹${product.salePrice}.`;
+            return `I couldn't find a product named "${prodName}".`;
+        }
+
+        // 2. "Stock of [X]" or "How many [X]"
+        const stockMatch = q.match(/(?:stock|quantity|qty)\s+(?:of|for)\s+(.+)/i) || q.match(/how\s+many\s+(.+)\s+(?:do we have|are there)/i);
+        if (stockMatch) {
+            const prodName = stockMatch[1].replace('do we have', '').replace('are there', '').trim();
+            const product = state.products.find(p => p.name.toLowerCase().includes(prodName));
+            if (product) return `We have ${product.quantity} units of ${product.name} in stock.`;
+            return `I couldn't find a product named "${prodName}".`;
+        }
+
+        // 3. Debtors / Dues
+        if (q.includes('owe') || q.includes('due') || q.includes('balanc') || q.includes('unpaid')) {
+            // Find customers with unpaid invoices
+            const unpaidSales = state.sales.filter(s => {
+                const paid = (s.payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
+                return Number(s.totalAmount) > paid;
+            });
+
+            if (unpaidSales.length === 0) return "Great news! You have no pending customer payments.";
+
+            const customerDues: Record<string, number> = {};
+            unpaidSales.forEach(s => {
+                const customer = state.customers.find(c => c.id === s.customerId);
+                const name = customer ? customer.name : 'Unknown Customer';
+
+                if (!customerDues[name]) customerDues[name] = 0;
+                const paid = (s.payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
+                customerDues[name] += (Number(s.totalAmount) - paid);
+            });
+
+            const topDebtors = Object.entries(customerDues)
+                .sort(([, a], [, b]) => b - a)
+                .slice(0, 3)
+                .map(([name, amount]) => `${name} (₹${amount})`)
+                .join(', ');
+
+            return `${Object.keys(customerDues).length} customers owe you money. Top debtors: ${topDebtors}. Check 'Reports' for details.`;
+        }
+
+        // 4. Top Customers / Best Sellers (Simple Calculation)
+        if (q.includes('top customer') || q.includes('best customer')) {
+            const customerSpend: Record<string, number> = {};
+            state.sales.forEach(s => {
+                const customer = state.customers.find(c => c.id === s.customerId);
+                const name = customer ? customer.name : 'Unknown Customer';
+
+                if (!customerSpend[name]) customerSpend[name] = 0;
+                customerSpend[name] += Number(s.totalAmount);
+            });
+            const top = Object.entries(customerSpend)
+                .sort(([, a], [, b]) => b - a)
+                .slice(0, 1)
+                .map(([name, amount]) => `${name} (₹${amount})`);
+
+            if (top.length) return `Your top customer is ${top[0]}.`;
+            return "Not enough sales data explicitly linked to customers yet.";
+        }
+
+        // 5. Revenue / Sales
+        if (q.includes('sales') || q.includes('revenue') || q.includes('earned') || q.includes('income')) {
             const total = state.sales.reduce((sum, s) => sum + (Number(s.totalAmount) || 0), 0);
             return `Total revenue found is ₹${total.toLocaleString()} from ${state.sales.length} transactions.`;
         }
 
-        // Count
-        if (q.includes('how many') || q.includes('count')) {
+        // 6. Counts
+        if (q.includes('count') || q.includes('total')) {
             if (q.includes('customer')) return `You have ${state.customers.length} registered customers.`;
-            if (q.includes('product')) return `You have ${state.products.length} products in your catalog.`;
+            if (q.includes('product') || q.includes('item')) return `You have ${state.products.length} products in your catalog.`;
             if (q.includes('supplier')) return `You have ${state.suppliers.length} suppliers.`;
         }
 
-        // Best Seller
-        if (q.includes('best') || q.includes('top') || q.includes('popular')) {
-            if (state.products.length === 0) return "No products found.";
-            // Simple logic: sort by pure quantity sold would require aggregating sales items, 
-            // for now, let's just pick one with lowest current stock (assuming high turnover) 
-            // or if we had sales history indexed, we'd use that. 
-            // Let's look at customers for "best customer".
-            if (q.includes('customer')) {
-                // Find customer with most sales
-                // This is expensive O(N^2) normally, but ok for offline small data
-                return "I analyzed your customer database. Check the 'Customers' page and sort by 'Revenue' to see your stars.";
-            }
-            return "Based on inventory, I recommend checking your 'Insights' page for detailed top sellers.";
-        }
-
-        // Navigation Help
+        // 7. Navigation Help
         if (q.includes('invoice') || q.includes('bill')) return "Go to the 'Sales' tab to create new invoices.";
         if (q.includes('add')) return "Use the Quick Actions (+) button at the top to add new items.";
 
-        return "I'm currently in Offline Mode with limited brain power. I can answer basic questions about your totals and counts, but for complex analysis, please connect to the internet.";
+        return "I'm currently in Offline Mode. I can check prices ('Price of [Item]'), stock ('Stock of [Item]'), or summarize your data. For complex advice, please connect to the internet.";
     }
 
     // 4. Magic Order Parsing (Fuzzy Matcher)
     static parseOrder(text: string, catalog: { id: string, name: string, price: number }[]): SaleItem[] {
-        const lines = text.split(/[\n,.]+/);
+        const lines = text.split(/[\n,]+/); // Split by newline or comma
         const foundItems: SaleItem[] = [];
 
         for (const line of lines) {
@@ -169,44 +264,52 @@ export class OfflineIntelligence {
             const quantity = qtyMatch ? parseInt(qtyMatch[0]) : 1;
 
             // 2. Extract potential Name (remove number and common words)
-            let namePart = trimLine.replace(/(\d+)/, '').replace(/piece|pcs|qty|of|need|want|buy/gi, '').trim().toLowerCase();
+            // Enhanced cleaner to remove more noise words and "kg", "g", "l" if not relevant to product name
+            let namePart = trimLine
+                .replace(/(\d+)\s*(?:kg|g|l|ml|pc|piece|pack|box)s?/gi, '') // Remove unit with number
+                .replace(/(\d+)/, '') // Remove generic number
+                .replace(/piece|pcs|qty|of|need|want|buy|please|send/gi, '')
+                .trim()
+                .toLowerCase();
 
             if (namePart.length < 2) continue;
 
-            // 3. Find in Catalog (Simple Includes + Levenshtein-ish)
-            // We'll just use 'includes' for robustness and 'startsWith' priority
+            // 3. Find in Catalog (Improved Scoring)
             let bestMatch = null;
             let matchScore = 0; // Higher is better
 
             for (const prod of catalog) {
                 const pName = prod.name.toLowerCase();
 
-                // Exact match
+                // Exact match (highest priority)
                 if (pName === namePart) {
                     bestMatch = prod;
                     matchScore = 100;
                     break;
                 }
 
+                // Starts With (high priority)
+                if (pName.startsWith(namePart)) {
+                    bestMatch = prod;
+                    matchScore = 90;
+                    continue;
+                }
+
                 // Contains match
-                if (pName.includes(namePart) || namePart.includes(pName)) {
-                    const score = 50 + (pName.length - Math.abs(pName.length - namePart.length)); // Prefer closer length
+                if (pName.includes(namePart)) {
+                    // Score based on how much of the string it covers
+                    // e.g. "Apple" found in "Green Apple" (5/11) vs "Apple" found in "Pineapple" (5/9)
+                    const coverage = namePart.length / pName.length;
+                    const score = 60 + (coverage * 20);
                     if (score > matchScore) {
                         bestMatch = prod;
                         matchScore = score;
                     }
                 }
 
-                // Word match using token intersection
-                const prodTokens = pName.split(' ');
-                const searchTokens = namePart.split(' ');
-                let intersection = 0;
-                for (const t of searchTokens) {
-                    if (t.length > 2 && pName.includes(t)) intersection++;
-                }
-
-                if (intersection > 0) {
-                    const score = 20 + (intersection * 10);
+                // Reverse Contains (User typed "Green Apple" for "Apple") - likely rare but possible
+                if (namePart.includes(pName)) {
+                    const score = 85;
                     if (score > matchScore) {
                         bestMatch = prod;
                         matchScore = score;
@@ -214,7 +317,9 @@ export class OfflineIntelligence {
                 }
             }
 
-            if (bestMatch) {
+            // Only accept if score is reasonable confidence
+            if (bestMatch && matchScore > 50) {
+                // Check if already added, verify logic? No, just add.
                 foundItems.push({
                     productId: bestMatch.id,
                     productName: bestMatch.name,

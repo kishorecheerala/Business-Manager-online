@@ -210,13 +210,56 @@ export class AIController {
             }
         }
 
-        // Offline Fallback (Simple Keyword Mapping)
+        // Offline Fallback (Regex-based SQL Construction)
         const q = query.toLowerCase();
-        if (q.includes('product')) return "SELECT * FROM products LIMIT 50";
-        if (q.includes('customer')) return "SELECT * FROM customers LIMIT 50";
-        if (q.includes('sale') || q.includes('invoice')) return "SELECT * FROM sales ORDER BY date DESC LIMIT 50";
-        if (q.includes('expense')) return "SELECT * FROM expenses ORDER BY date DESC LIMIT 50";
 
-        return "-- Offline Mode: AI is unavailable. Please try simple queries like 'show products'.";
+        // 1. "Show products" / "List items"
+        if (q.match(/(show|list|get|find)\s+(all\s+)?(product|item)/)) {
+            if (q.includes('stock') || q.includes('quantity')) {
+                return "SELECT name, quantity, salePrice FROM products ORDER BY quantity ASC LIMIT 50";
+            }
+            return "SELECT * FROM products ORDER BY name ASC LIMIT 50";
+        }
+
+        // 2. "Show customers" / "List clients"
+        if (q.match(/(show|list|get|find)\s+(all\s+)?(customer|client)/)) {
+            if (q.includes('owe') || q.includes('due')) {
+                // Approximate SQL for dues (logic usually in code, but here's a query)
+                return "SELECT c.name, SUM(s.totalAmount) as total_bought FROM customers c JOIN sales s ON c.id = s.customerId GROUP BY c.id ORDER BY total_bought DESC LIMIT 20";
+            }
+            return "SELECT name, phone, area FROM customers ORDER BY name ASC LIMIT 50";
+        }
+
+        // 3. "Sales today" / "Revenue last week"
+        if (q.includes('sale') || q.includes('invoice') || q.includes('revenue')) {
+            if (q.includes('today')) {
+                return "SELECT * FROM sales WHERE date >= date('now', 'start of day') ORDER BY date DESC";
+            }
+            if (q.includes('week') || q.includes('7 days')) {
+                return "SELECT * FROM sales WHERE date >= date('now', '-7 days') ORDER BY date DESC";
+            }
+            if (q.includes('month') || q.includes('30 days')) {
+                return "SELECT * FROM sales WHERE date >= date('now', '-30 days') ORDER BY date DESC";
+            }
+            return "SELECT * FROM sales ORDER BY date DESC LIMIT 50";
+        }
+
+        // 4. "Expenses" / "Costs"
+        if (q.includes('expense') || q.includes('cost') || q.includes('spent')) {
+            if (q.includes('today')) {
+                return "SELECT * FROM expenses WHERE date >= date('now', 'start of day') ORDER BY date DESC";
+            }
+            return "SELECT * FROM expenses ORDER BY date DESC LIMIT 50";
+        }
+
+        // 5. Search specific
+        const searchMatch = q.match(/find\s+(product|customer)\s+(?:named|called|like)\s+(.+)/);
+        if (searchMatch) {
+            const table = searchMatch[1] + 's';
+            const term = searchMatch[2].trim();
+            return `SELECT * FROM ${table} WHERE name LIKE '%${term}%' LIMIT 20`;
+        }
+
+        return "-- Offline Mode: AI is unavailable. I can generate SQL for basic queries like 'Show products', 'Sales today', 'List customers', or 'Find product named X'.";
     }
 }

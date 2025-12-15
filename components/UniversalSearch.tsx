@@ -110,12 +110,14 @@ const UniversalSearch: React.FC<UniversalSearchProps> = ({ isOpen, onClose, onNa
     };
 
     const handleVoiceSearch = () => {
-        if (!('webkitSpeechRecognition' in window)) {
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+        if (!SpeechRecognition) {
             showToast("Voice search not supported in this browser.", 'error');
             return;
         }
 
-        const recognition = new (window as any).webkitSpeechRecognition();
+        const recognition = new SpeechRecognition();
         recognition.continuous = false;
         recognition.interimResults = false;
         recognition.lang = 'en-US';

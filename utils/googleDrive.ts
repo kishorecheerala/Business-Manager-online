@@ -475,6 +475,8 @@ export const debugDriveState = async (accessToken: string) => {
 const STABLE_SYNC_FILENAME = 'BusinessManager_LiveSync.json';
 const STABLE_ASSETS_FILENAME = 'BusinessManager_Assets.json';
 
+import { encryptData, decryptData } from './encryption';
+
 export const DriveService = {
     /**
      * Reads data from Drive.
@@ -503,6 +505,19 @@ export const DriveService = {
                 try {
                     const coreData = await downloadFile(accessToken, targetFileId);
                     if (coreData) {
+                        // Decrypt API Key if present
+                        if (coreData.metadata?.secure) {
+                            try {
+                                const decryptedKey = await decryptData(coreData.metadata.secure);
+                                if (decryptedKey) {
+                                    localStorage.setItem('gemini_api_key', decryptedKey);
+                                    console.log("Securely restored API Key.");
+                                }
+                            } catch (err) {
+                                console.warn("Failed to decrypt API Key:", err);
+                            }
+                        }
+
                         // Asynchronously check for assets to merge
                         const assetsFile = await findFileByName(accessToken, folderId, STABLE_ASSETS_FILENAME);
                         if (assetsFile) {
@@ -552,6 +567,20 @@ export const DriveService = {
 
         try {
             console.log(`Preparing sync upload...`);
+
+            // Encrypt API Key if present
+            const apiKey = localStorage.getItem('gemini_api_key');
+            if (apiKey) {
+                try {
+                    const encrypted = await encryptData(apiKey);
+                    // Ensure metadata object exists
+                    if (!data.metadata) data.metadata = {};
+                    data.metadata.secure = encrypted;
+                } catch (err) {
+                    console.error("Failed to encrypt API key:", err);
+                }
+            }
+
             const { core, assets, hasAssets } = splitStateData(data);
 
             // 1. Resolve Target ID (Prioritize Server Truth)
