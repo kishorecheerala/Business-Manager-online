@@ -298,6 +298,19 @@ const App: React.FC = () => {
         }
     });
 
+    // Global Shortcuts (Cmd+N for Invoice, Cmd+B for Bill/Purchase)
+    useHotkeys('n', () => {
+        showToast("New Invoice", 'info');
+        dispatch({ type: 'SET_SELECTION', payload: { page: 'SALES', id: 'new' } });
+        handleNavigation('SALES');
+    }, { ctrl: true });
+
+    useHotkeys('b', () => {
+        showToast("New Purchase Bill", 'info');
+        dispatch({ type: 'SET_SELECTION', payload: { page: 'PURCHASES', id: 'new' } });
+        handleNavigation('PURCHASES');
+    }, { ctrl: true });
+
     const handleParkAction = (action: 'park' | 'discard' | 'cancel') => {
         if (action === 'cancel') {
             setParkModalState({ isOpen: false, targetPage: null });

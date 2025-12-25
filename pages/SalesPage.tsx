@@ -55,7 +55,51 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
     const [isDraftsOpen, setIsDraftsOpen] = useState(false);
     const [isMagicModalOpen, setIsMagicModalOpen] = useState(false);
 
+
+
     const [historySearch, setHistorySearch] = useState('');
+
+    // --- Bulk Actions State ---
+    const [isSelectionMode, setIsSelectionMode] = useState(false);
+    const [selectedSaleIds, setSelectedSaleIds] = useState<Set<string>>(new Set());
+
+    const toggleSelectionMode = () => {
+        setIsSelectionMode(!isSelectionMode);
+        setSelectedSaleIds(new Set());
+    };
+
+    const toggleSaleSelection = (saleId: string) => {
+        const newSet = new Set(selectedSaleIds);
+        if (newSet.has(saleId)) {
+            newSet.delete(saleId);
+        } else {
+            newSet.add(saleId);
+        }
+        setSelectedSaleIds(newSet);
+    };
+
+    const handleSelectAll = () => {
+        if (selectedSaleIds.size === filteredHistory.length) {
+            setSelectedSaleIds(new Set());
+        } else {
+            setSelectedSaleIds(new Set(filteredHistory.map(s => s.id)));
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        if (await showConfirm(`Are you sure you want to delete ${selectedSaleIds.size} sales?`, { variant: 'danger' })) {
+            selectedSaleIds.forEach(id => dispatch({ type: 'DELETE_SALE', payload: id }));
+            setSelectedSaleIds(new Set());
+            setIsSelectionMode(false);
+            showToast("Selected sales deleted successfully.");
+        }
+    };
+
+    const handleBulkPrint = async () => {
+        // Placeholder for now
+        showToast("Generating Bulk PDF...", 'info');
+        // Logic to specific implementation will be added next
+    };
 
     // Sync local form state to global currentSale for navigation guard
     useEffect(() => {
@@ -1048,16 +1092,34 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             ) : (
                 // HISTORY TAB CONTENT
                 <Card className="animate-fade-in-fast h-full flex flex-col">
-                    <div className="relative mb-4">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                        <Input
-                            type="text"
-                            placeholder="Search history by customer or invoice..."
-                            value={historySearch}
-                            onChange={e => setHistorySearch(e.target.value)}
-                            className="pl-10"
-                        />
+                    <div className="relative mb-4 flex gap-2">
+                        <div className="relative flex-grow">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                            <Input
+                                type="text"
+                                placeholder="Search history..."
+                                value={historySearch}
+                                onChange={e => setHistorySearch(e.target.value)}
+                                className="pl-10"
+                            />
+                        </div>
+                        <Button
+                            variant={isSelectionMode ? 'primary' : 'secondary'}
+                            onClick={toggleSelectionMode}
+                            className={`flex-shrink-0 ${isSelectionMode ? 'bg-primary text-white' : ''}`}
+                        >
+                            {isSelectionMode ? 'Cancel' : 'Select'}
+                        </Button>
                     </div>
+
+                    {isSelectionMode && (
+                        <div className="flex justify-between items-center mb-2 px-1">
+                            <span className="text-sm font-medium">{selectedSaleIds.size} selected</span>
+                            <button onClick={handleSelectAll} className="text-sm text-blue-600 font-medium hover:underline">
+                                {selectedSaleIds.size === filteredHistory.length ? 'Deselect All' : 'Select All'}
+                            </button>
+                        </div>
+                    )}
 
                     {isMagicModalOpen && (
                         <MagicOrderModal
@@ -1086,11 +1148,8 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                             filteredHistory.map((sale) => {
                                 const saleCustomer = state.customers.find((c) => c.id === sale.customerId);
                                 const totalPaid = (sale.payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
-
-                                // Return Calculations
                                 const relatedReturns = state.returns?.filter(r => r.referenceId === sale.id) || [];
                                 const totalReturned = relatedReturns.reduce((sum, r) => sum + Number(r.amount), 0);
-
                                 const netPayable = Number(sale.totalAmount) - totalReturned;
                                 const dueAmount = netPayable - totalPaid;
                                 const isFullyReturned = totalReturned >= Number(sale.totalAmount) - 0.01;
@@ -1098,112 +1157,54 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                                 return (
                                     <div
                                         key={sale.id}
-                                        onClick={() => handleEditFromHistory(sale)}
-                                        className="p-3 bg-gradient-to-r from-slate-50 to-blue-50 dark:from-slate-700 dark:to-slate-600/30 rounded-lg border border-slate-200 dark:border-slate-600 cursor-pointer hover:shadow-md transition-all hover:scale-[1.01]"
+                                        onClick={() => {
+                                            if (isSelectionMode) {
+                                                toggleSaleSelection(sale.id);
+                                            } else {
+                                                handleEditFromHistory(sale);
+                                            }
+                                        }}
+                                        className={`p-3 rounded-lg border cursor-pointer hover:shadow-md transition-all hover:scale-[1.01] flex gap-3 ${isSelectionMode && selectedSaleIds.has(sale.id)
+                                            ? 'bg-blue-50 border-blue-400 dark:bg-blue-900/20 dark:border-blue-700'
+                                            : 'bg-gradient-to-r from-slate-50 to-blue-50 dark:from-slate-700 dark:to-slate-600/30 border-slate-200 dark:border-slate-600'
+                                            }`}
                                     >
-                                        <div className="flex justify-between items-start">
-                                            <div className="flex-grow">
-                                                <p className="font-semibold text-sm text-slate-900 dark:text-white">
-                                                    {saleCustomer?.name || 'Unknown Customer'}
-                                                </p>
-                                                <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-1">
-                                                    <Clock size={12} />
-                                                    {new Date(sale.date).toLocaleString('en-IN')}
-                                                </p>
-                                                {totalReturned > 0 && (
-                                                    <div className="mt-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded inline-block" title={relatedReturns.flatMap(r => r.items).map(i => i.productName).join(', ')}>
-                                                        Returns: -{formatCurrency(totalReturned)}
-                                                        <span className="ml-1 opacity-75 font-normal">
-                                                            ({relatedReturns.flatMap(r => r.items).map(i => i.productName).join(', ')})
-                                                        </span>
-                                                    </div>
-                                                )}
+                                        {isSelectionMode && (
+                                            <div className="flex items-center justify-center">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedSaleIds.has(sale.id)}
+                                                    onChange={() => { }}
+                                                    className="w-5 h-5 accent-primary rounded cursor-pointer"
+                                                />
                                             </div>
-                                            <div className="text-right">
-                                                {totalReturned > 0 ? (
-                                                    <>
-                                                        <p className="text-xs text-gray-500 line-through">
-                                                            {formatCurrency(Number(sale.totalAmount))}
-                                                        </p>
-                                                        <p className="text-sm font-bold text-slate-900 dark:text-white">
-                                                            {formatCurrency(netPayable)}
-                                                        </p>
-                                                    </>
-                                                ) : (
+                                        )}
+                                        <div className="flex-grow">
+                                            <div className="flex justify-between items-start">
+                                                <div className="flex-grow">
+                                                    <p className="font-semibold text-sm text-slate-900 dark:text-white">
+                                                        {saleCustomer?.name || 'Unknown Customer'}
+                                                    </p>
+                                                    <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-1">
+                                                        <Clock size={12} />
+                                                        {new Date(sale.date).toLocaleString('en-IN')}
+                                                    </p>
+                                                    {totalReturned > 0 && (
+                                                        <div className="mt-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded inline-block">
+                                                            Returns: -{formatCurrency(totalReturned)}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="text-right">
                                                     <p className="text-sm font-bold text-slate-900 dark:text-white">
                                                         {formatCurrency(Number(sale.totalAmount))}
                                                     </p>
-                                                )}
-
-                                                <p className={`text-xs font-semibold ${dueAmount > 0.01 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-                                                    {dueAmount > 0.01 ? `Due: ${formatCurrency(dueAmount)}` : (isFullyReturned ? 'Returned' : 'Paid')}
-                                                </p>
+                                                    <p className={`text-xs font-semibold ${dueAmount > 0.01 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                                                        {dueAmount > 0.01 ? `Due: ${formatCurrency(dueAmount)}` : (isFullyReturned ? 'Returned' : 'Paid')}
+                                                    </p>
+                                                </div>
                                             </div>
                                         </div>
-
-                                        <div className="mt-2 pt-2 border-t border-slate-300 dark:border-slate-500/30">
-                                            {/* Transaction Lifecycle View */}
-                                            <div className="space-y-1">
-                                                {/* Payments List */}
-                                                {(sale.payments && sale.payments.length > 0) && (
-                                                    <div className="text-xs space-y-1">
-                                                        {sale.payments.map((payment, idx) => {
-                                                            const account = state.bankAccounts?.find(a => a.id === payment.accountId);
-                                                            return (
-                                                                <div key={idx} className="flex flex-col text-sm border-b border-gray-100 dark:border-slate-700/50 pb-2 last:border-0 last:pb-0 mb-2 last:mb-0">
-                                                                    <div className="flex justify-between items-center mb-1">
-                                                                        <span className="font-semibold text-green-700 dark:text-green-400">
-                                                                            {formatCurrency(Number(payment.amount))} <span className="text-gray-500 font-normal">via</span> {payment.method}
-                                                                        </span>
-                                                                        <span className="text-xs text-gray-400">{formatDate(payment.date)}</span>
-                                                                    </div>
-                                                                    {payment.reference && (
-                                                                        <div className="text-xs text-slate-500 dark:text-slate-400">
-                                                                            Ref: {payment.reference}
-                                                                        </div>
-                                                                    )}
-                                                                    {account && (
-                                                                        <div className="text-xs text-slate-500 dark:text-slate-400">
-                                                                            Credited to: {account.name} {account.accountNumber ? `(${account.accountNumber.slice(-4)})` : ''}
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                )}
-
-                                                {/* Returns List */}
-                                                {relatedReturns.length > 0 && (
-                                                    <div className="mt-2 space-y-1 text-xs">
-                                                        {relatedReturns.map((ret, idx) => (
-                                                            <div key={idx} className="bg-amber-50 dark:bg-amber-900/20 p-1.5 rounded border border-amber-100 dark:border-amber-800/50">
-                                                                <div className="flex justify-between text-amber-800 dark:text-amber-400 font-medium">
-                                                                    <span>Return on {new Date(ret.returnDate).toLocaleDateString()}</span>
-                                                                    <span>-{formatCurrency(Number(ret.amount))}</span>
-                                                                </div>
-                                                                <div className="text-amber-600 dark:text-amber-500/80 mt-0.5 pl-1 italic">
-                                                                    {ret.items.map(i => `${i.productName} (x${i.quantity})`).join(', ')}
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div className="flex justify-between items-center text-xs">
-                                                <span className="text-slate-600 dark:text-slate-400">
-                                                    {sale.items.length} item{sale.items.length !== 1 ? 's' : ''}
-                                                </span>
-                                                <span className="text-slate-600 dark:text-slate-400 flex items-center gap-1">
-                                                    <FileText size={10} />
-                                                    {sale.id.slice(-6)}
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-2 font-semibold flex items-center gap-1">
-                                            Edit this sale <ArrowRight size={10} />
-                                        </p>
                                     </div>
                                 );
                             })
@@ -1211,6 +1212,22 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                             <p className="text-center text-gray-500 py-8">No sales found.</p>
                         )}
                     </div>
+
+
+                    {/* Bulk Actions Floating Bar */}
+                    {
+                        isSelectionMode && selectedSaleIds.size > 0 && (
+                            <div className="absolute bottom-4 left-4 right-4 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 p-3 flex justify-between items-center animate-slide-up-fade z-20">
+                                <span className="font-bold ml-2">{selectedSaleIds.size} Sales</span>
+                                <div className="flex gap-2">
+                                    <Button variant="secondary" onClick={handleBulkPrint} className="h-9 px-3">
+                                        <FileText size={16} className="mr-1" /> Print
+                                    </Button>
+                                    <DeleteButton variant="delete" onClick={handleBulkDelete} label="Delete" />
+                                </div>
+                            </div>
+                        )
+                    }
                 </Card>
             )}
         </div>

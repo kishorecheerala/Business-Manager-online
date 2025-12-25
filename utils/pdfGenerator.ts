@@ -384,7 +384,7 @@ export interface GenericDocumentData {
     date: string;
     recipient: { label: string; name: string; address: string; contact?: string; };
     sender: { label: string; idLabel: string; };
-    items: { name: string; quantity: number; rate: number; amount: number; }[];
+    items: { name: string; quantity: number; rate: number; amount: number; hsn?: string; mrp?: number; }[];
     totals: { label: string; value: string; isBold?: boolean; color?: string; size?: number; }[];
     watermarkText?: string;
     qrString?: string;
@@ -487,18 +487,28 @@ const _generateConfigurablePDF = async (
     profile: ProfileData | null,
     templateConfig: InvoiceTemplateConfig,
     customFonts?: CustomFont[],
-    customPaperSize?: [number, number]
+    customPaperSize?: [number, number],
+    existingDoc?: jsPDF
 ): Promise<jsPDF> => {
     let doc: jsPDF;
-    if (customPaperSize) {
-        doc = new jsPDF({ orientation: 'p', unit: 'mm', format: customPaperSize });
+
+    if (existingDoc) {
+        doc = existingDoc;
+        doc.addPage();
+        // If we added a page, we might need to apply background if it's per-page.
+        // PDFLayoutEngine handles background on init, but we need to consider if we need to re-apply it for new pages manually 
+        // or if layout engine does it.
     } else {
-        const paperSize = templateConfig.layout.paperSize || 'a4';
-        doc = new jsPDF({ format: paperSize });
+        if (customPaperSize) {
+            doc = new jsPDF({ orientation: 'p', unit: 'mm', format: customPaperSize });
+        } else {
+            const paperSize = templateConfig.layout.paperSize || 'a4';
+            doc = new jsPDF({ format: paperSize });
+        }
+        if (customFonts) registerCustomFonts(doc, customFonts);
     }
 
-    if (customFonts) registerCustomFonts(doc, customFonts);
-
+    // Create engine (it applies background on init)
     const engine = new PDFLayoutEngine(doc, templateConfig);
     const { colors, fonts, layout, content, currencySymbol } = templateConfig;
 
@@ -706,12 +716,20 @@ const _generateConfigurablePDF = async (
         const tableHead = ['#', defaultLabels.item];
         const hideQty = layout.tableOptions?.hideQty;
         const hideRate = layout.tableOptions?.hideRate;
+        const showHSN = layout.tableOptions?.showHSN;
+        const showMRP = layout.tableOptions?.showMRP;
+
+        // Construct Headers
+        if (showHSN) tableHead.push("HSN/SAC");
+        if (showMRP) tableHead.push("MRP");
         if (!hideQty) tableHead.push(defaultLabels.qty);
         if (!hideRate) tableHead.push(defaultLabels.rate);
         tableHead.push(defaultLabels.amount);
 
         const tableBody = data.items.map((item, i) => {
             const row = [(i + 1).toString(), item.name];
+            if (showHSN) row.push(item.hsn || '-');
+            if (showMRP) row.push(item.mrp ? formatCurrency(item.mrp, currencySymbol, fonts.bodyFont) : '-');
             if (!hideQty) row.push(item.quantity.toString());
             if (!hideRate) row.push(formatCurrency(item.rate, currencySymbol, fonts.bodyFont));
             row.push(formatCurrency(item.amount, currencySymbol, fonts.bodyFont));
@@ -719,6 +737,23 @@ const _generateConfigurablePDF = async (
         });
 
         const cw = layout.columnWidths || {};
+
+        // Dynamic Column Styles
+        const columnStyles: any = {
+            0: { cellWidth: 10, halign: 'center' }, // S.No
+            [tableHead.length - 1]: { halign: 'right', cellWidth: cw.amount || 'auto' }, // Amount
+        };
+
+        // Find indices for styling
+        const hsnIndex = tableHead.indexOf("HSN/SAC");
+        const mrpIndex = tableHead.indexOf("MRP");
+        const qtyIndex = tableHead.indexOf(defaultLabels.qty);
+        const rateIndex = tableHead.indexOf(defaultLabels.rate);
+
+        if (hsnIndex !== -1) columnStyles[hsnIndex] = { halign: 'center' };
+        if (mrpIndex !== -1) columnStyles[mrpIndex] = { halign: 'right' };
+        if (qtyIndex !== -1) columnStyles[qtyIndex] = { halign: 'center', cellWidth: cw.qty || 'auto' };
+        if (rateIndex !== -1) columnStyles[rateIndex] = { halign: 'right', cellWidth: cw.rate || 'auto' };
 
         // Ensure table doesn't break if near bottom
         engine.checkPageBreak(30);
@@ -730,14 +765,7 @@ const _generateConfigurablePDF = async (
             theme: layout.tableOptions?.stripedRows ? 'striped' : 'plain',
             styles: { font: fonts.bodyFont, fontSize: fonts.bodySize, cellPadding: layout.tableOptions?.compact ? 2 : 3, textColor: colors.text },
             headStyles: { fillColor: colors.tableHeaderBg, textColor: colors.tableHeaderText, fontStyle: 'bold', halign: (layout.tableHeaderAlign || 'left'), ...(layout.borderRadius ? { minCellHeight: 8 } : {}) },
-            columnStyles: {
-                0: { cellWidth: 10, halign: 'center' }, // S.No
-                // Last column is always Amount
-                [tableHead.length - 1]: { halign: 'right', cellWidth: cw.amount || 'auto' },
-                // Second to last is Rate (if visible) or Quantity
-                [tableHead.length - 2]: { halign: 'right', cellWidth: hideRate ? (cw.qty || 'auto') : (cw.rate || 'auto') },
-                ...(!hideRate && !hideQty ? { [tableHead.length - 3]: { halign: 'center', cellWidth: (cw.qty || 'auto') } } : {})
-            },
+            columnStyles: columnStyles,
             margin: { left: engine.margin, right: engine.margin },
         });
 
@@ -1217,6 +1245,102 @@ export const generateImagesToPDF = (images: string[], fileName: string) => {
             doc.text(`Error loading image #${index + 1}`, 10, 10);
         }
     });
+
+    return doc;
+};
+
+export const generateBulkInvoicePdf = async (
+    sales: Sale[],
+    customers: Customer[],
+    profile: ProfileData | null,
+    templateConfig?: InvoiceTemplateConfig,
+    customFonts?: CustomFont[]
+) => {
+    if (sales.length === 0) return null;
+
+    // Create Main Doc
+    const configToUse: InvoiceTemplateConfig = templateConfig || {
+        id: 'default',
+        currencySymbol: 'Rs.',
+        dateFormat: 'DD/MM/YYYY',
+        colors: { primary: '#000', secondary: '#555', text: '#000', tableHeaderBg: '#f3f4f6', tableHeaderText: '#000', bannerBg: '#eee', bannerText: '#000', footerBg: '#fff', footerText: '#000', borderColor: '#eee', alternateRowBg: '#f9fafb' },
+        fonts: { titleFont: 'helvetica', bodyFont: 'helvetica', headerSize: 20, bodySize: 10 },
+        layout: { margin: 10, logoSize: 20, headerStyle: 'standard', logoPosition: 'center', headerAlignment: 'center', footerStyle: 'standard', showWatermark: false, watermarkOpacity: 0.1, tableOptions: { hideQty: false, hideRate: false, stripedRows: false, bordered: false, compact: false }, elementSpacing: {} },
+        content: { titleText: 'INVOICE', labels: defaultLabels, showQr: true, showTerms: true, showSignature: true, termsText: '', footerText: '', showBusinessDetails: true, showCustomerDetails: true, signatureText: '', showAmountInWords: true, showStatusStamp: true, showTaxBreakdown: false, showGst: true, qrType: 'INVOICE_ID', bankDetails: '' }
+    };
+
+    const paperSize = configToUse.layout.paperSize || 'a4';
+    const doc = new jsPDF({ format: paperSize });
+
+    if (customFonts) registerCustomFonts(doc, customFonts);
+
+    let isFirst = true;
+
+    for (const sale of sales) {
+        const customer = customers.find(c => c.id === sale.customerId);
+        if (!customer) continue;
+
+        const currencySymbol = configToUse.currencySymbol || 'Rs.';
+        const labels = { ...defaultLabels, ...configToUse.content.labels };
+        const paid = (sale.payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
+        const due = Number(sale.totalAmount) - paid;
+
+        const data: GenericDocumentData = {
+            id: sale.id,
+            date: new Date(sale.date).toISOString(),
+            recipient: {
+                label: labels.billedTo,
+                name: customer.name,
+                address: customer.address,
+                contact: customer.phone
+            },
+            sender: {
+                label: "From",
+                idLabel: labels.invoiceNo
+            },
+            items: sale.items.map(i => ({
+                name: i.productName,
+                quantity: i.quantity,
+                rate: Number(i.price),
+                amount: Number(i.price) * Number(i.quantity),
+                hsn: i.hsn,
+                mrp: i.mrp
+            })),
+            totals: [],
+            qrString: sale.id,
+            grandTotalNumeric: Number(sale.totalAmount)
+        };
+
+        const subTotal = sale.items.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
+
+        if (sale.discount > 0 || sale.gstAmount > 0) {
+            data.totals.push({ label: labels.subtotal, value: formatCurrency(subTotal, currencySymbol) });
+            if (configToUse.content.showGst !== false && sale.gstAmount > 0) {
+                data.totals.push({ label: labels.gst, value: formatCurrency(Number(sale.gstAmount), currencySymbol) });
+            }
+            if (sale.discount > 0) data.totals.push({ label: labels.discount, value: `-${formatCurrency(Number(sale.discount), currencySymbol)}` });
+        }
+
+        data.totals.push({ label: labels.grandTotal, value: formatCurrency(Number(sale.totalAmount), currencySymbol), isBold: true, size: 11 });
+        if (paid > 0) data.totals.push({ label: labels.paid, value: formatCurrency(paid, currencySymbol) });
+        if (due > 0.01) {
+            data.totals.push({ label: labels.balance, value: formatCurrency(due, currencySymbol), isBold: true, size: 10 });
+        }
+
+        // If it's the first sale, we use the doc as is (which has 1 blank page from init).
+        // BUT _generateConfigurablePDF ADDS a page if existingDoc is passed.
+        // So for the FIRST one, we pass existingDoc, it adds page 2.
+        // We delete page 1 at the end.
+        await _generateConfigurablePDF(data, profile, configToUse, customFonts, undefined, doc);
+        isFirst = false;
+    }
+
+    // New jsPDF() creates 1 blank page. _generateConfigurablePDF adds a page for each call.
+    // So if we have 3 sales, we have Page 1 (Blank), Page 2, Page 3, Page 4.
+    // We always delete Page 1.
+    if (doc.getNumberOfPages() > 1) {
+        doc.deletePage(1);
+    }
 
     return doc;
 };

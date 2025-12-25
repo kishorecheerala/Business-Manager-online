@@ -22,6 +22,8 @@ const HelpModal = lazyImport(() => import('./HelpModal'));
 const UniversalSearch = lazyImport(() => import('./UniversalSearch'));
 const DeveloperToolsModal = lazyImport(() => import('./DeveloperToolsModal'));
 const CloudDebugModal = lazyImport(() => import('./CloudDebugModal'));
+
+import { useHotkeys } from '../hooks/useHotkeys';
 const ProfileModal = lazyImport(() => import('./ProfileModal'));
 const NavCustomizerModal = lazyImport(() => import('./NavCustomizerModal'));
 const ChangeLogModal = lazyImport(() => import('./ChangeLogModal'));
@@ -71,6 +73,11 @@ const AppLayout: React.FC<AppLayoutProps> = ({
         const timer = setInterval(() => setCurrentDateTime(new Date()), 1000);
         return () => clearInterval(timer);
     }, []);
+
+    // Global Search Shortcut (Cmd+K)
+    useHotkeys('k', () => {
+        setIsSearchOpen(true);
+    }, { ctrl: true });
 
     const getTimeBasedGreeting = () => {
         const hour = currentDateTime.getHours();

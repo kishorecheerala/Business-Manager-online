@@ -33,9 +33,9 @@ const dummySale = {
     id: 'INV-2023-001',
     customerId: 'CUST-001',
     items: [
-        { productId: 'P1', productName: 'Premium Silk Saree - Kanchipuram', quantity: 2, price: 4500, gstPercent: 5 },
-        { productId: 'P2', productName: 'Cotton Kurti', quantity: 5, price: 850, gstPercent: 5 },
-        { productId: 'P3', productName: 'Designer Blouse - Gold', quantity: 3, price: 1200, gstPercent: 12 }
+        { productId: 'P1', productName: 'Premium Silk Saree - Kanchipuram', quantity: 2, price: 4500, gstPercent: 5, hsn: '5208', mrp: 5000 },
+        { productId: 'P2', productName: 'Cotton Kurti', quantity: 5, price: 850, gstPercent: 5, hsn: '6204', mrp: 1200 },
+        { productId: 'P3', productName: 'Designer Blouse - Gold', quantity: 3, price: 1200, gstPercent: 12, hsn: '6206', mrp: 1800 }
     ],
     discount: 500,
     gstAmount: 1250,
@@ -553,6 +553,24 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
     const [previewSaleId, setPreviewSaleId] = useState<string>('DUMMY');
     const [gridSettings, setGridSettings] = useState({ enabled: false, sizeMm: 10, opacity: 0.2 });
 
+    // Derive the preview data (Enrich with HSN/MRP if Real Sale)
+    const previewData = useMemo(() => {
+        if (previewSaleId === 'DUMMY') return dummySale;
+        const s = state.sales.find(x => x.id === previewSaleId);
+        if (!s) return dummySale; // Fallback
+
+        // Enrich items with Product details (HSN, MRP)
+        const enrichedItems = s.items.map(i => {
+            const p = state.products.find(prod => prod.id === i.productId);
+            return {
+                ...i,
+                hsn: p?.hsn,
+                mrp: p?.mrp || p?.salePrice // Fallback to Sale Price if MRP not set
+            };
+        });
+        return { ...s, items: enrichedItems };
+    }, [previewSaleId, state.sales, state.products]);
+
     const [showColorPicker, setShowColorPicker] = useState(false);
     const [activeColorKey, setActiveColorKey] = useState<keyof InvoiceTemplateConfig['colors'] | null>(null);
     const [reportScenario, setReportScenario] = useState<ReportScenarioKey>('SALES_REPORT');
@@ -628,7 +646,7 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
             headerAlignment: 'center' as const,
             showWatermark: false,
             watermarkOpacity: 0.1,
-            tableOptions: { hideQty: false, hideRate: false, stripedRows: false, bordered: false, compact: false }
+            tableOptions: { hideQty: false, hideRate: false, stripedRows: false, bordered: false, compact: false, showHSN: false, showMRP: false }
         };
 
         const srcLayout = (baseConfig.layout || {}) as any;
@@ -1809,6 +1827,14 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
                                         </button>
                                     </div>
                                     <div className="flex gap-2">
+                                        <button onClick={() => handleConfigChange('layout', 'tableOptions', { ...localConfig.layout.tableOptions, showHSN: !localConfig.layout.tableOptions.showHSN })} className={`flex-1 py-1.5 text-xs border rounded ${localConfig.layout.tableOptions.showHSN ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'border-slate-200 text-slate-400'}`}>
+                                            HSN Code
+                                        </button>
+                                        <button onClick={() => handleConfigChange('layout', 'tableOptions', { ...localConfig.layout.tableOptions, showMRP: !localConfig.layout.tableOptions.showMRP })} className={`flex-1 py-1.5 text-xs border rounded ${localConfig.layout.tableOptions.showMRP ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'border-slate-200 text-slate-400'}`}>
+                                            MRP
+                                        </button>
+                                    </div>
+                                    <div className="flex gap-2">
                                         <button onClick={() => handleConfigChange('layout', 'tableOptions', { ...localConfig.layout.tableOptions, compact: !localConfig.layout.tableOptions.compact })} className={`flex-1 py-1.5 text-xs border rounded ${localConfig.layout.tableOptions.compact ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'border-slate-200 text-slate-400'}`}>
                                             Compact Padding
                                         </button>
@@ -2433,7 +2459,7 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
                     isDraftMode={isDraftMode}
                     onLayoutUpdate={handleBatchLayoutChange}
                     gridSettings={gridSettings}
-                    realSale={previewSaleId === 'DUMMY' ? null : (state.sales.find(s => s.id === previewSaleId) || null)}
+                    realSale={previewData}
                 />
             </main>
         </div>

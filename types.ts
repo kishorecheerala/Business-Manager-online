@@ -110,6 +110,8 @@ export interface Product {
   wholesalePrice?: number; // New: Wholesale Price
   gstPercent: number;
   unit?: string; // New: Unit of Measurement (Pcs, Kg, Mtr, etc.)
+  hsn?: string; // New: HSN/SAC Code
+  mrp?: number; // New: Maximum Retail Price
   image?: string; // Base64 encoded image (Main)
   updatedAt?: string; // ISO 8601 Timestamp for Smart Sync
   additionalImages?: string[]; // New: Multiple images
@@ -121,6 +123,8 @@ export interface SaleItem {
   productName: string;
   quantity: number;
   price: number;
+  hsn?: string; // New: Snapshot of HSN
+  mrp?: number; // New: Snapshot of MRP
 }
 
 export interface Sale {
@@ -358,6 +362,8 @@ export interface InvoiceTemplateConfig {
       hideRate: boolean;
       stripedRows: boolean;
       bordered?: boolean; // New: Table Border
+      showHSN?: boolean; // New: HSN Column
+      showMRP?: boolean; // New: MRP Column
       compact?: boolean; // New: Compact Padding
     };
     tableHeaderAlign?: 'left' | 'center' | 'right';
