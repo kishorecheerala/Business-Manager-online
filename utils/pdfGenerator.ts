@@ -29,6 +29,8 @@ const registerCustomFonts = (doc: jsPDF, fonts: CustomFont[]) => {
             doc.addFileToVFS(`${font.name}.ttf`, fontData);
             doc.addFont(`${font.name}.ttf`, font.name, 'normal');
             doc.addFont(`${font.name}.ttf`, font.name, 'bold');
+            doc.addFont(`${font.name}.ttf`, font.name, 'italic'); // Alias for safety
+            doc.addFont(`${font.name}.ttf`, font.name, 'bolditalic'); // Alias for safety
         } catch (e) {
             console.warn(`Failed to register font ${font.name}`, e);
         }
@@ -43,25 +45,29 @@ const getImageType = (dataUrl: string): string => {
 };
 
 const formatDate = (dateStr: string, format: string = 'DD/MM/YYYY'): string => {
-    const d = new Date(dateStr);
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-    const hours = String(d.getHours()).padStart(2, '0');
-    const minutes = String(d.getMinutes()).padStart(2, '0');
+    try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return dateStr;
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        const hours = String(d.getHours()).padStart(2, '0');
+        const minutes = String(d.getMinutes()).padStart(2, '0');
 
-    if (format === 'MM/DD/YYYY') return `${month}/${day}/${year}`;
-    if (format === 'YYYY-MM-DD') return `${year}-${month}-${day}`;
-    return `${day}/${month}/${year}, ${hours}:${minutes}`;
+        if (format === 'MM/DD/YYYY') return `${month}/${day}/${year}`;
+        if (format === 'YYYY-MM-DD') return `${year}-${month}-${day}`;
+        return `${day}/${month}/${year}`;
+    } catch (e) { return dateStr; }
 };
 
 const formatCurrency = (amount: number, symbol: string = 'Rs.', fontName: string = 'helvetica'): string => {
     const standardFonts = ['helvetica', 'times', 'courier'];
     let displaySymbol = symbol;
+    // Basic font fallback for currency symbols
     if (symbol === '₹' && standardFonts.includes(fontName.toLowerCase())) {
         displaySymbol = 'Rs.';
     }
-    return `${displaySymbol} ${amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+    return `${displaySymbol} ${Number(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
 const getQrCodeBase64 = async (data: string): Promise<string> => {
@@ -80,15 +86,16 @@ const getQrCodeBase64 = async (data: string): Promise<string> => {
     }
 };
 
-const numberToWords = (n: number): string => {
+const numberToWords = (n: number | undefined | null): string => {
+    if (n === undefined || n === null || isNaN(n)) return "";
     const num = Math.round(n);
-    if (num === 0) return "Zero";
+    if (num === 0) return "Zero Only";
 
     const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
     const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
 
     const inWords = (num: number): string => {
-        if ((num = num.toString() as any).length > 9) return 'overflow';
+        if ((num = num.toString() as any).length > 9) return 'Too Large';
         const n: any = ('000000000' + num).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/);
         if (!n) return "";
         let str = '';
@@ -99,8 +106,11 @@ const numberToWords = (n: number): string => {
         str += (n[5] != 0) ? ((str != '') ? 'and ' : '') + (a[Number(n[5])] || b[n[5][0]] + ' ' + a[n[5][1]]) : '';
         return str;
     };
-    return inWords(num).trim() + " Only";
+    const result = inWords(num).trim();
+    return result ? result + " Only" : "";
 };
+
+
 
 // --- Thermal Receipt Generator (80mm Standard) ---
 export const generateThermalInvoicePDF = async (sale: Sale, customer: Customer, profile: ProfileData | null, templateConfig?: InvoiceTemplateConfig, customFonts?: CustomFont[]) => {
@@ -289,8 +299,14 @@ export const generateThermalInvoicePDF = async (sale: Sale, customer: Customer, 
         const addTotalRow = (label: string, value: string, bold: boolean = false, fontSize: number = 9) => {
             doc.setFont(bodyFont, bold ? 'bold' : 'normal');
             doc.setFontSize(fontSize);
-            doc.text(label, widthFull - margin - 25, y, { align: 'right' });
+
+            // Align Value Right
             doc.text(value, widthFull - margin, y, { align: 'right' });
+
+            // Dynamic Label Alignment
+            const valWidth = doc.getTextWidth(value);
+            // Align Label Right, to the left of value with some padding (2mm)
+            doc.text(label, widthFull - margin - valWidth - 2, y, { align: 'right' });
             y += 5;
         };
 
@@ -502,6 +518,7 @@ const _generateConfigurablePDF = async (
         const isAbsoluteLogo = layout.logoPosX !== undefined && layout.logoPosY !== undefined;
         const hasLogo = !!logoUrl && layout.logoSize > 5;
 
+        // Alignment Logic Fix: Calculate available width
         let textY = engine.currentY();
         let textAlign: 'left' | 'center' | 'right' = 'left';
         let renderedLogoHeight = 0;
@@ -523,25 +540,32 @@ const _generateConfigurablePDF = async (
             } catch (e) { renderedLogoHeight = layout.logoSize; }
         }
 
+        // Layout Strategy for Header Content
+        let availableTextWidth = engine.pageWidth - (engine.margin * 2);
+
         if (!isAbsoluteLogo) {
             if (layout.logoPosition === 'center') {
                 logoX = (engine.pageWidth - layout.logoSize) / 2;
                 if (hasLogo) textY = logoY + renderedLogoHeight + (layout.elementSpacing?.logoBottom ?? 5);
                 textAlign = 'center';
                 textX = engine.pageWidth / 2;
+                // Center alignment usually has full width below logo
             } else if (layout.logoPosition === 'right') {
                 logoX = engine.pageWidth - engine.margin - layout.logoSize;
                 textAlign = 'left';
                 textX = engine.margin;
                 textY += 5;
-            } else {
+                if (hasLogo) availableTextWidth -= (layout.logoSize + 5); // Subtract logo space
+            } else { // Left Logo
                 logoX = engine.margin;
                 textAlign = 'right';
+                // Move text to align right edge
                 textX = engine.pageWidth - engine.margin;
                 textY += 5;
+                if (hasLogo) availableTextWidth -= (layout.logoSize + 5);
             }
         } else {
-            // If logo is absolute, text alignment depends on headerAlignment
+            // Absolute Logo: Text alignment depends on headerAlignment
             if (layout.headerAlignment === 'center') { textAlign = 'center'; textX = engine.pageWidth / 2; }
             else if (layout.headerAlignment === 'right') { textAlign = 'right'; textX = engine.pageWidth - engine.margin; }
             else { textAlign = 'left'; textX = engine.margin; }
@@ -553,7 +577,7 @@ const _generateConfigurablePDF = async (
         }
 
         // Render Business Text
-        engine.setY(textY); // Sync engine cursor for text
+        engine.setY(textY);
         if (profile) {
             // Organization Name
             engine.addText(profile.name, textX, {
@@ -565,8 +589,8 @@ const _generateConfigurablePDF = async (
             });
             engine.addY(layout.elementSpacing?.titleBottom ?? 2);
 
-            // Address
-            const addr = engine.splitText(profile.address, 90);
+            // Address - Smart Wrapping
+            const addr = engine.splitText(profile.address, availableTextWidth);
             engine.addText(addr, textX, {
                 align: textAlign,
                 font: fonts.bodyFont,
@@ -577,7 +601,8 @@ const _generateConfigurablePDF = async (
 
             // Contact
             const contact = [profile.phone && `Ph: ${profile.phone}`, profile.gstNumber && `GST: ${profile.gstNumber}`].filter(Boolean).join(' | ');
-            engine.addText(contact, textX, {
+            const contactLines = engine.splitText(contact, availableTextWidth);
+            engine.addText(contactLines, textX, {
                 align: textAlign,
                 font: fonts.bodyFont,
                 fontSize: fonts.bodySize,
@@ -588,7 +613,7 @@ const _generateConfigurablePDF = async (
         // Finalize Header Height
         const contentEnd = engine.currentY() + 5;
         const logoEnd = (hasLogo && !isAbsoluteLogo) ? logoY + renderedLogoHeight + 5 : 0;
-        engine.setY(Math.max(contentEnd, logoEnd)); // Ensure we start below everything
+        engine.setY(Math.max(contentEnd, logoEnd));
 
         // Line Seperator
         if (!isBanner && layout.headerStyle !== 'minimal') {
@@ -706,20 +731,41 @@ const _generateConfigurablePDF = async (
             styles: { font: fonts.bodyFont, fontSize: fonts.bodySize, cellPadding: layout.tableOptions?.compact ? 2 : 3, textColor: colors.text },
             headStyles: { fillColor: colors.tableHeaderBg, textColor: colors.tableHeaderText, fontStyle: 'bold', halign: (layout.tableHeaderAlign || 'left'), ...(layout.borderRadius ? { minCellHeight: 8 } : {}) },
             columnStyles: {
-                0: { cellWidth: 10, halign: 'center' },
-                [tableHead.length - 1]: { halign: 'right', cellWidth: (cw.amount || 35) },
-                [tableHead.length - 2]: { halign: 'right', cellWidth: hideRate ? (cw.qty || 15) : (cw.rate || 20) },
+                0: { cellWidth: 10, halign: 'center' }, // S.No
+                // Last column is always Amount
+                [tableHead.length - 1]: { halign: 'right', cellWidth: cw.amount || 'auto' },
+                // Second to last is Rate (if visible) or Quantity
+                [tableHead.length - 2]: { halign: 'right', cellWidth: hideRate ? (cw.qty || 'auto') : (cw.rate || 'auto') },
+                ...(!hideRate && !hideQty ? { [tableHead.length - 3]: { halign: 'center', cellWidth: (cw.qty || 'auto') } } : {})
             },
-            margin: { left: engine.margin, right: engine.margin }
+            margin: { left: engine.margin, right: engine.margin },
         });
 
         // Update engine cursor
-        const endY = (doc as any).lastAutoTable.finalY + 5;
+        const lastTable = (doc as any).lastAutoTable;
+        const endY = lastTable.finalY + 5;
         engine.setY(endY);
+
+        // Capture final column widths directly from the finished table state
+        if (lastTable && lastTable.columns && lastTable.columns.length > 0) {
+            const columns = lastTable.columns;
+            const amountCol = columns[columns.length - 1]; // Last column is Amount
+            if (amountCol) {
+                (engine as any).amountColWidth = amountCol.width;
+            }
+        }
     };
 
     const renderTotals = () => {
         const totalsX = engine.pageWidth - engine.margin;
+
+        // Dynamic alignment
+        // Use captured width or smart fallback (though capture should work now)
+        const amountColWidth = (engine as any).amountColWidth || 30;
+
+        // Align label to the left of the Amount column, matching table padding
+        // If table padding is 3, we use 3. Using 2.5 as a safe generic visual match.
+        const labelX = totalsX - amountColWidth - 3;
 
         // Check space
         const requiredHeight = data.totals.length * 8;
@@ -728,7 +774,7 @@ const _generateConfigurablePDF = async (
         data.totals.forEach((t) => {
             engine.addText(
                 t.label,
-                totalsX - 40,
+                labelX,
                 { align: 'right', font: fonts.bodyFont, fontStyle: t.isBold ? 'bold' : 'normal', fontSize: t.size || fonts.bodySize, color: t.color || colors.text }
             );
             // We manually drew the label, reset Y to draw value on same line
@@ -749,16 +795,21 @@ const _generateConfigurablePDF = async (
             engine.checkPageBreak(25);
 
             engine.addText("Amount in words:", engine.margin, {
-                font: fonts.bodyFont, fontStyle: 'italic', fontSize: fonts.bodySize - 1, color: colors.secondary
+                font: fonts.bodyFont, fontStyle: 'bold', fontSize: fonts.bodySize - 1, color: colors.secondary
             });
 
-            const words = numberToWords(data.grandTotalNumeric);
-            const splitWords = engine.splitText(words, engine.pageWidth - (engine.margin * 2));
-
-            engine.addText(splitWords, engine.margin, {
-                font: fonts.bodyFont, fontStyle: 'bold', fontSize: fonts.bodySize, color: colors.text
-            });
-            engine.addY(5);
+            try {
+                const words = numberToWords(data.grandTotalNumeric);
+                if (words && words !== 'Zero Only') {
+                    const splitWords = engine.splitText(words, engine.pageWidth - (engine.margin * 2));
+                    engine.addText(splitWords, engine.margin, {
+                        font: fonts.bodyFont, fontStyle: 'normal', fontSize: fonts.bodySize, color: colors.text
+                    });
+                    engine.addY(5);
+                }
+            } catch (e) {
+                // Ignore fallback
+            }
         }
     };
 
@@ -795,31 +846,51 @@ const _generateConfigurablePDF = async (
     };
 
     const renderSignature = () => {
-        if (content.showSignature) {
+        if (content.showSignature || content.showSecondarySignature) {
             // Check huge space to prevent signature being cut
             engine.checkPageBreak(50);
 
-            const sigX = engine.pageWidth - engine.margin;
-            // Push to bottom if plenty of space, else flow naturally
-            if (engine.pageHeight - engine.currentY() > 60) {
-                engine.setY(Math.max(engine.currentY(), engine.pageHeight - 50));
+            const sigY = engine.currentY();
+            const pageWidth = engine.pageWidth;
+            const margin = engine.margin;
+
+            // Helper to render one signature
+            const drawSig = (isSecondary: boolean, xPos: number, align: 'left' | 'right') => {
+                const img = isSecondary ? content.secondarySignatureImage : content.signatureImage;
+                const text = isSecondary ? (content.secondarySignatureText || "Receiver's Signature") : (content.signatureText || "Authorized Signatory");
+
+                if (img) {
+                    try {
+                        const sigProps = doc.getImageProperties(img);
+                        const sigRatio = sigProps.width / sigProps.height;
+                        const w = 40;
+                        const h = w / sigRatio;
+                        // For Right alignment, xPos is the right edge
+                        const drawX = align === 'right' ? xPos - w : xPos;
+                        doc.addImage(img, getImageType(img), drawX, sigY, w, h);
+                    } catch (e) { }
+                } else {
+                    const drawX = align === 'right' ? xPos - 40 : xPos;
+                    doc.text("___________________", drawX + (align === 'right' ? 40 : 0), sigY + 20, { align: align });
+                }
+
+                doc.setFontSize(10);
+                // Text below
+                const textY = sigY + (img ? 35 : 25);
+                doc.text(text, xPos, textY, { align: align });
+            };
+
+            // Render Primary (Right)
+            if (content.showSignature) {
+                drawSig(false, pageWidth - margin, 'right');
             }
 
-            if (content.signatureImage) {
-                try {
-                    const sigProps = doc.getImageProperties(content.signatureImage);
-                    const sigRatio = sigProps.width / sigProps.height;
-                    const w = 40;
-                    const h = w / sigRatio;
-                    doc.addImage(content.signatureImage, getImageType(content.signatureImage), sigX - w, engine.currentY(), w, h);
-                    engine.addY(h);
-                } catch (e) { }
-            } else {
-                engine.addY(20);
-                doc.text("___________________", sigX, engine.currentY(), { align: 'right' });
+            // Render Secondary (Left)
+            if (content.showSecondarySignature) {
+                drawSig(true, margin, 'left');
             }
-            engine.addY(5);
-            engine.addText(content.signatureText || "Authorized Signatory", sigX, { align: 'right', fontSize: 10 });
+
+            engine.addY(40); // Advance cursor
         }
     };
 
@@ -943,7 +1014,7 @@ const _generateConfigurablePDF = async (
         }
     }
 
-    // Status Stamp
+    // Status Stamp or Watermark
     if (content.showStatusStamp && data.balanceDue !== undefined) {
         const stampText = data.balanceDue <= 0.01 ? "PAID" : "DUE";
         const color = data.balanceDue <= 0.01 ? "#10b981" : "#ef4444";
@@ -954,6 +1025,18 @@ const _generateConfigurablePDF = async (
         doc.setGState(new (doc as any).GState({ opacity: 0.3 }));
         doc.text(stampText, engine.pageWidth / 2, engine.pageHeight / 2, { align: 'center', angle: 45 });
         doc.restoreGraphicsState();
+    } else if (layout.showWatermark) {
+        // Custom Watermark or Doc Type Default
+        const text = layout.watermarkText || data.watermarkText || (content.showStatusStamp ? 'PAID' : '');
+        if (text) {
+            doc.setTextColor(colors.primary);
+            doc.setFontSize(50);
+            doc.setFont(fonts.titleFont, 'bold');
+            doc.saveGraphicsState();
+            doc.setGState(new (doc as any).GState({ opacity: layout.watermarkOpacity || 0.1 }));
+            doc.text(text, engine.pageWidth / 2, engine.pageHeight / 2, { align: 'center', angle: 45 });
+            doc.restoreGraphicsState();
+        }
     }
 
     return doc;
@@ -965,7 +1048,7 @@ export const generateA4InvoicePdf = async (sale: Sale, customer: Customer, profi
         colors: { primary: '#0d9488', secondary: '#333333', text: '#000000', tableHeaderBg: '#0d9488', tableHeaderText: '#ffffff', bannerBg: '#0d9488', bannerText: '#ffffff', footerBg: '#f3f4f6', footerText: '#374151', borderColor: '#e5e7eb', alternateRowBg: '#f9fafb' },
         fonts: { headerSize: 22, bodySize: 10, titleFont: 'helvetica', bodyFont: 'helvetica' },
         layout: { margin: 10, logoSize: 25, logoPosition: 'center', logoOffsetX: 0, logoOffsetY: 0, headerAlignment: 'center', headerStyle: 'standard', footerStyle: 'standard', showWatermark: false, watermarkOpacity: 0.1, qrPosition: 'details-right', tableOptions: { hideQty: false, hideRate: false, stripedRows: false, bordered: false, compact: false }, elementSpacing: { logoBottom: 5, titleBottom: 2, addressBottom: 1, headerBottom: 5 } },
-        content: { titleText: 'TAX INVOICE', labels: defaultLabels, showQr: true, showTerms: true, showSignature: true, termsText: '', footerText: '', showBusinessDetails: true, showCustomerDetails: true, signatureText: '', showAmountInWords: true, showStatusStamp: false, showTaxBreakdown: false, showGst: true, qrType: 'INVOICE_ID', bankDetails: '' }
+        content: { titleText: 'TAX INVOICE', labels: defaultLabels, showQr: true, showTerms: true, showSignature: true, termsText: '', footerText: 'Thank you for your business', showBusinessDetails: true, showCustomerDetails: true, signatureText: '', showAmountInWords: true, showStatusStamp: true, showTaxBreakdown: false, showGst: true, qrType: 'INVOICE_ID', bankDetails: '' }
     };
     const config = templateConfig || defaultConfig;
     const labels = { ...defaultLabels, ...config.content.labels };
@@ -1082,7 +1165,14 @@ export const generateGenericReportPDF = async (title: string, subtitle: string, 
         summary.forEach(s => {
             doc.setFont(fonts.bodyFont, 'bold');
             doc.setTextColor(s.color || colors.text);
-            doc.text(`${s.label}: ${s.value}`, pageWidth - margin, y, { align: 'right' });
+
+            const valStr = `${s.value}`;
+            doc.text(valStr, pageWidth - margin, y, { align: 'right' });
+
+            const vWidth = doc.getTextWidth(valStr);
+            // Align label to left of value
+            doc.text(`${s.label}`, pageWidth - margin - vWidth - 3, y, { align: 'right' });
+
             addY(6);
         });
     }

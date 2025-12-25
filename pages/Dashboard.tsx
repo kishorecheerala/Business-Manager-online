@@ -745,34 +745,47 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                     </p>
                 )}
 
-                {dashboardConfig.showLogo && (dashboardConfig.useCustomLogo ? dashboardConfig.customLogo : profile?.logo) && (
-                    <div
-                        className={`mb-4 relative group transition-all duration-300
-                            h-[var(--logo-h-mobile)] md:h-[var(--logo-h-desktop)]
-                            ${dashboardConfig.logoFillMobile ? 'w-full' : 'w-auto'}
-                            ${dashboardConfig.logoFillDesktop ? 'md:w-full' : 'md:w-auto'}
-                        `}
-                        style={{
-                            '--logo-h-mobile': `${(dashboardConfig.logoSizeMobile || dashboardConfig.logoSize || 1) * 5}rem`,
-                            '--logo-h-desktop': `${(dashboardConfig.logoSizeDesktop || dashboardConfig.logoSize || 1) * 5}rem`,
-                            '--logo-pos-mobile': `${dashboardConfig.logoPositionMobile?.x ?? 50}% ${dashboardConfig.logoPositionMobile?.y ?? 50}%`,
-                            '--logo-pos-desktop': `${dashboardConfig.logoPositionDesktop?.x ?? 50}% ${dashboardConfig.logoPositionDesktop?.y ?? 50}%`,
-                        } as React.CSSProperties}
-                    >
-                        <div className={`relative h-full w-full overflow-hidden rounded-xl shadow-2xl border-2 border-white/50 dark:border-slate-600/50 bg-white/90 dark:bg-slate-800/90 p-1`}>
-                            <img
-                                src={dashboardConfig.useCustomLogo ? dashboardConfig.customLogo : profile?.logo}
-                                alt="Dashboard Logo"
-                                className={`relative w-full h-full transition-all duration-300 animate-divine-breath
-                                    ${dashboardConfig.logoFillMobile ? 'object-cover' : 'object-contain'}
-                                    md:${dashboardConfig.logoFillDesktop ? 'object-cover' : 'object-contain'}
-                                    object-[var(--logo-pos-mobile)] md:object-[var(--logo-pos-desktop)]
-                                `}
-                            />
-
-
+                {dashboardConfig.showLogo && (
+                    (dashboardConfig.useCustomLogo ? dashboardConfig.customLogo : profile?.logo) ? (
+                        <div
+                            className={`mb-4 relative group transition-all duration-300
+                                h-[var(--logo-h-mobile)] md:h-[var(--logo-h-desktop)]
+                                ${dashboardConfig.logoFillMobile ? 'w-full' : 'w-auto'}
+                                ${dashboardConfig.logoFillDesktop ? 'md:w-full' : 'md:w-auto'}
+                            `}
+                            style={{
+                                '--logo-h-mobile': `${(dashboardConfig.logoSizeMobile || dashboardConfig.logoSize || 1) * 5}rem`,
+                                '--logo-h-desktop': `${(dashboardConfig.logoSizeDesktop || dashboardConfig.logoSize || 1) * 5}rem`,
+                                '--logo-pos-mobile': `${dashboardConfig.logoPositionMobile?.x ?? 50}% ${dashboardConfig.logoPositionMobile?.y ?? 50}%`,
+                                '--logo-pos-desktop': `${dashboardConfig.logoPositionDesktop?.x ?? 50}% ${dashboardConfig.logoPositionDesktop?.y ?? 50}%`,
+                            } as React.CSSProperties}
+                        >
+                            <div className={`relative h-full w-full overflow-hidden rounded-xl shadow-2xl border-2 border-white/50 dark:border-slate-600/50 bg-white/90 dark:bg-slate-800/90 p-1`}>
+                                <img
+                                    src={dashboardConfig.useCustomLogo ? dashboardConfig.customLogo : profile?.logo}
+                                    alt="Dashboard Logo"
+                                    className={`relative w-full h-full transition-all duration-300 animate-divine-breath
+                                        ${dashboardConfig.logoFillMobile ? 'object-cover' : 'object-contain'}
+                                        md:${dashboardConfig.logoFillDesktop ? 'object-cover' : 'object-contain'}
+                                        object-[var(--logo-pos-mobile)] md:object-[var(--logo-pos-desktop)]
+                                    `}
+                                />
+                            </div>
                         </div>
-                    </div>
+                    ) : (
+                        <div
+                            onClick={() => setCurrentPage('SETTINGS' as Page)}
+                            className="mb-6 w-full max-w-md mx-auto h-40 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl flex flex-col items-center justify-center p-4 bg-gray-50 dark:bg-slate-800/50 cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors group"
+                        >
+                            <div className="bg-white dark:bg-slate-700 p-3 rounded-full mb-3 shadow-sm group-hover:scale-110 transition-transform">
+                                <Upload className="w-6 h-6 text-gray-400 dark:text-gray-500" />
+                            </div>
+                            <p className="text-sm font-medium text-gray-600 dark:text-gray-300 text-center">
+                                Upload your logo or custom image<br />to show up here
+                            </p>
+                            <p className="text-xs text-gray-400 mt-2 group-hover:text-primary transition-colors">Click to Configure</p>
+                        </div>
+                    )
                 )}
 
                 <h1 className="text-3xl font-bold text-primary drop-shadow-sm">{dashboardConfig.titleText}</h1>

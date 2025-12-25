@@ -16,7 +16,10 @@ import Dropdown from '../components/Dropdown';
 import { ReportConfig, ReportField } from '../types';
 import { ReportEngine } from '../utils/reporting/ReportEngine';
 import { EXTENDED_PREBUILT_REPORTS, REPORT_CATEGORIES } from '../utils/reporting/ReportTemplates';
+
 import { ExportEngine } from '../utils/reporting/ExportEngine';
+import ModernDateInput from '../components/ModernDateInput';
+import { getLocalDateString } from '../utils/dateUtils';
 
 // Colors for charts
 const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#a05195', '#d45087', '#f95d6a', '#ff7c43'];
@@ -58,6 +61,69 @@ const ReportsPageV2: React.FC = () => {
     const [selectedReport, setSelectedReport] = useState<ReportConfig | null>(null);
     const [activeCategory, setActiveCategory] = useState('All');
 
+    // --- Date Filter State ---
+    const [duration, setDuration] = useState('this_month');
+    const [customStart, setCustomStart] = useState(getLocalDateString());
+    const [customEnd, setCustomEnd] = useState(getLocalDateString());
+    const [isStartCalendarOpen, setIsStartCalendarOpen] = useState(false);
+    const [isEndCalendarOpen, setIsEndCalendarOpen] = useState(false);
+
+    const dateRange = useMemo(() => {
+        const now = new Date();
+        let start = new Date();
+        let end = new Date();
+        end.setHours(23, 59, 59, 999);
+        start.setHours(0, 0, 0, 0);
+
+        switch (duration) {
+            case 'today':
+                break;
+            case 'yesterday':
+                start.setDate(now.getDate() - 1);
+                end.setDate(now.getDate() - 1);
+                end.setHours(23, 59, 59, 999);
+                start.setHours(0, 0, 0, 0);
+                break;
+            case 'this_week':
+                const day = now.getDay() || 7;
+                start.setDate(now.getDate() - day + 1);
+                break;
+            case 'last_7':
+                start.setDate(now.getDate() - 7);
+                break;
+            case 'this_month':
+                start = new Date(now.getFullYear(), now.getMonth(), 1);
+                end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+                break;
+            case 'last_month':
+                start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+                break;
+            case 'this_year':
+                start = new Date(now.getFullYear(), 0, 1);
+                end = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+                break;
+            case 'custom':
+                const [sy, sm, sd] = customStart.split('-').map(Number);
+                start = new Date(sy, sm - 1, sd, 0, 0, 0, 0);
+                const [ey, em, ed] = customEnd.split('-').map(Number);
+                end = new Date(ey, em - 1, ed, 23, 59, 59, 999);
+                break;
+        }
+        return { start, end };
+    }, [duration, customStart, customEnd]);
+
+    const durationOptions = [
+        { value: 'today', label: 'Today' },
+        { value: 'yesterday', label: 'Yesterday' },
+        { value: 'this_week', label: 'This Week' },
+        { value: 'last_7', label: 'Last 7 Days' },
+        { value: 'this_month', label: 'This Month' },
+        { value: 'last_month', label: 'Last Month' },
+        { value: 'this_year', label: 'This Year' },
+        { value: 'custom', label: 'Custom Period' },
+    ];
+
     // Builder State
     const [builderConfig, setBuilderConfig] = useState<Partial<ReportConfig>>({
         title: 'New Report',
@@ -71,12 +137,25 @@ const ReportsPageV2: React.FC = () => {
     const reportData = useMemo(() => {
         if (!selectedReport) return [];
         try {
-            return ReportEngine.process(state, selectedReport);
+            // Apply Global Date Filter if applicable
+            const config = { ...selectedReport };
+
+            if (['sales', 'purchases', 'expenses'].includes(config.dataSource)) {
+                const dateFilter: any = {
+                    id: 'dateVal', // ReportEngine.flattenItem creates this
+                    operator: 'between',
+                    value: [dateRange.start.getTime(), dateRange.end.getTime()]
+                };
+                // Prepend filter to ensure it runs
+                config.filters = [dateFilter, ...(config.filters || [])];
+            }
+
+            return ReportEngine.process(state, config);
         } catch (e) {
             console.error(e);
             return [];
         }
-    }, [state, selectedReport]);
+    }, [state, selectedReport, dateRange]);
 
     const filteredTemplates = useMemo(() => {
         if (activeCategory === 'All') return EXTENDED_PREBUILT_REPORTS;
@@ -321,25 +400,64 @@ const ReportsPageV2: React.FC = () => {
     return (
         <div className="space-y-6 max-w-7xl mx-auto p-4 pb-20">
             {/* Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold flex items-center gap-2 dark:text-white">
-                        <TrendingUp className="text-violet-500" />
-                        Enterprise Reporting
-                    </h1>
-                    <p className="text-gray-500 text-sm">Business Intelligence & Analytics Studio</p>
+            <div className="flex flex-col gap-4">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                        <h1 className="text-2xl font-bold flex items-center gap-2 dark:text-white">
+                            <TrendingUp className="text-violet-500" />
+                            Enterprise Reporting
+                        </h1>
+                        <p className="text-gray-500 text-sm">Business Intelligence & Analytics Studio</p>
+                    </div>
+                    {viewMode === 'list' && (
+                        <Button onClick={handleCreateNew} className="bg-violet-600 text-white">
+                            <Plus size={18} className="mr-2" />
+                            Create Custom Report
+                        </Button>
+                    )}
+                    {viewMode !== 'list' && (
+                        <Button onClick={() => setViewMode('list')} variant="secondary">
+                            Back to Reports
+                        </Button>
+                    )}
                 </div>
-                {viewMode === 'list' && (
-                    <Button onClick={handleCreateNew} className="bg-violet-600 text-white">
-                        <Plus size={18} className="mr-2" />
-                        Create Custom Report
-                    </Button>
-                )}
-                {viewMode !== 'list' && (
-                    <Button onClick={() => setViewMode('list')} variant="secondary">
-                        Back to Reports
-                    </Button>
-                )}
+
+                {/* Date Picker Toolbar (Global) */}
+                <div className="flex justify-end animate-fade-in">
+                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 bg-white dark:bg-slate-800 p-1 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 w-full sm:w-auto">
+                        <div className="flex items-center gap-1.5 px-2 w-full sm:w-auto mb-2 sm:mb-0">
+                            <CalendarIcon size={16} className="text-gray-400 shrink-0" />
+                            <Dropdown
+                                options={durationOptions}
+                                value={duration}
+                                onChange={setDuration}
+                                className="w-full sm:w-36"
+                            />
+                        </div>
+                        {duration === 'custom' && (
+                            <>
+                                <div className="hidden sm:block h-4 w-px bg-gray-300 dark:bg-slate-600 mx-1"></div>
+                                <div className="flex items-center gap-2 px-2 w-full sm:w-auto border-t sm:border-t-0 pt-2 sm:pt-0 dark:border-slate-700">
+                                    <ModernDateInput
+                                        value={customStart}
+                                        onChange={(e) => setCustomStart(e.target.value)}
+                                        isOpen={isStartCalendarOpen}
+                                        onToggle={setIsStartCalendarOpen}
+                                        containerClassName="flex-1 sm:flex-none sm:w-40"
+                                    />
+                                    <span className="text-gray-400 shrink-0">-</span>
+                                    <ModernDateInput
+                                        value={customEnd}
+                                        onChange={(e) => setCustomEnd(e.target.value)}
+                                        isOpen={isEndCalendarOpen}
+                                        onToggle={setIsEndCalendarOpen}
+                                        containerClassName="flex-1 sm:flex-none sm:w-40"
+                                    />
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
             </div>
 
             {/* LIST VIEW */}

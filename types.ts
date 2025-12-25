@@ -340,6 +340,7 @@ export interface InvoiceTemplateConfig {
     footerStyle?: 'standard' | 'banner'; // New: Footer Style
     showWatermark: boolean;
     watermarkOpacity: number; // 0.1 to 1.0
+    watermarkText?: string; // New: Custom watermark text
     columnWidths?: { qty?: number; rate?: number; amount?: number; }; // Custom column widths
     tablePadding?: number;
     borderRadius?: number;
@@ -376,6 +377,9 @@ export interface InvoiceTemplateConfig {
     showSignature?: boolean;
     signatureText?: string;
     signatureImage?: string; // Base64 signature image
+    showSecondarySignature?: boolean; // New: Second signature
+    secondarySignatureText?: string; // New
+    secondarySignatureImage?: string; // New Base64
     showAmountInWords?: boolean; // New: Show amount in words
     showStatusStamp?: boolean; // New: Show PAID/DUE stamp
     showTaxBreakdown?: boolean; // New: Show Tax Breakdown Table

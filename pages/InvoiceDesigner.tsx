@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Save, RotateCcw, RotateCw, Type, Layout, Palette, FileText, Edit3, ChevronDown, Upload, Trash2, Wand2, Grid, QrCode, Printer, Eye, ArrowLeft, CheckSquare, Square, Type as TypeIcon, AlignLeft, AlignCenter, AlignRight, Move, GripVertical, Layers, ArrowUp, ArrowDown, Table, Monitor, Loader2, ZoomIn, ZoomOut, ExternalLink, Columns, Download, FileJson, Image as ImageIcon, Plus, Landmark, Calendar, Coins, Zap, MoveHorizontal, MoveVertical, ArrowRight as ArrowRightIcon, Circle } from 'lucide-react';
+import { Save, RotateCcw, RotateCw, Type, Layout, Palette, FileText, Edit3, ChevronDown, Upload, Trash2, Wand2, Grid, QrCode, Printer, Eye, ArrowLeft, CheckSquare, Square, Type as TypeIcon, AlignLeft, AlignCenter, AlignRight, Move, GripVertical, Layers, ArrowUp, ArrowDown, Table, Monitor, Loader2, ZoomIn, ZoomOut, ExternalLink, Columns, Download, FileJson, Image as ImageIcon, Plus, Landmark, Calendar, Coins, Zap, MoveHorizontal, MoveVertical, ArrowRight as ArrowRightIcon, Circle, Share2, Copy, RefreshCw } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { InvoiceTemplateConfig, DocumentType, InvoiceLabels, CustomFont, ProfileData, Page, CustomSection } from '../types';
 import Button from '../components/Button';
 import ColorPickerModal from '../components/ColorPickerModal';
 import Dropdown from '../components/Dropdown';
+import WhatsAppIcon from '../components/WhatsAppIcon';
 import { generateA4InvoicePdf, generateEstimatePDF, generateDebitNotePDF, generateReceiptPDF, generateGenericReportPDF } from '../utils/pdfGenerator';
-import { generateDownloadFilename } from '../utils/formatUtils';
+import { generateDownloadFilename, formatCurrency } from '../utils/formatUtils';
 import { compressImage } from '../utils/imageUtils';
 import * as pdfjsLib from 'pdfjs-dist';
 import { useDialog } from '../context/DialogContext';
@@ -41,6 +42,22 @@ const dummySale = {
     totalAmount: 16350,
     date: new Date().toISOString(),
     payments: [{ id: 'PAY-1', amount: 5000, date: new Date().toISOString(), method: 'UPI' as const }]
+};
+
+const defaultLabels = {
+    billedTo: "Billed To",
+    invoiceNo: "Invoice No",
+    date: "Date",
+    item: "Item",
+    qty: "Qty",
+    rate: "Rate",
+    amount: "Amount",
+    subtotal: "Subtotal",
+    discount: "Discount",
+    gst: "GST",
+    grandTotal: "Grand Total",
+    paid: "Paid",
+    balance: "Balance"
 };
 
 // --- Report Dummy Data Scenarios ---
@@ -98,15 +115,15 @@ const PRESETS: Record<string, any> = {
         layout: {
             logoPosition: 'left', logoOffsetX: 0, logoOffsetY: 0, headerAlignment: 'right', headerStyle: 'minimal', margin: 10, logoSize: 25, showWatermark: false, watermarkOpacity: 0.1,
             tableOptions: { hideQty: false, hideRate: false, stripedRows: true, bordered: false, compact: false },
-            sectionOrdering: ['header', 'title', 'details', 'table', 'totals', 'terms', 'signature', 'footer'],
+            sectionOrdering: ['header', 'title', 'details', 'table', 'totals', 'words', 'terms', 'signature', 'footer'],
             uppercaseHeadings: true,
-            columnWidths: { qty: 15, rate: 20, amount: 35 },
+            columnWidths: {},
             tablePadding: 3,
             borderRadius: 4,
             spacing: 1.0,
             elementSpacing: { logoBottom: 5, titleBottom: 2, addressBottom: 1, headerBottom: 5 }
         } as any,
-        content: { showAmountInWords: true }
+        content: { showAmountInWords: true, showStatusStamp: true, footerText: 'Thank you for your business' }
     },
     'Corporate': {
         colors: { primary: '#1e40af', secondary: '#475569', text: '#1e293b', tableHeaderBg: '#1e40af', tableHeaderText: '#ffffff', bannerBg: '#1e40af', bannerText: '#ffffff' },
@@ -114,15 +131,15 @@ const PRESETS: Record<string, any> = {
         layout: {
             logoPosition: 'center', logoOffsetX: 0, logoOffsetY: 0, headerAlignment: 'center', headerStyle: 'banner', margin: 15, logoSize: 30, showWatermark: true, watermarkOpacity: 0.05,
             tableOptions: { hideQty: false, hideRate: false, stripedRows: false, bordered: true, compact: false },
-            sectionOrdering: ['header', 'title', 'details', 'table', 'totals', 'terms', 'signature', 'footer'],
+            sectionOrdering: ['header', 'title', 'details', 'table', 'totals', 'words', 'terms', 'signature', 'footer'],
             uppercaseHeadings: true,
-            columnWidths: { qty: 15, rate: 20, amount: 35 },
+            columnWidths: {},
             tablePadding: 4,
             borderRadius: 0,
             spacing: 1.1,
             elementSpacing: { logoBottom: 8, titleBottom: 4, addressBottom: 2, headerBottom: 8 }
         } as any,
-        content: { showAmountInWords: true }
+        content: { showAmountInWords: true, showStatusStamp: true, footerText: 'Thank you for your business' }
     },
     'Minimal': {
         colors: { primary: '#000000', secondary: '#52525b', text: '#27272a', tableHeaderBg: '#ffffff', tableHeaderText: '#000000', borderColor: '#d4d4d8' },
@@ -130,15 +147,15 @@ const PRESETS: Record<string, any> = {
         layout: {
             logoPosition: 'right', logoOffsetX: 0, logoOffsetY: 0, headerAlignment: 'left', headerStyle: 'minimal', margin: 12, logoSize: 20, showWatermark: false, watermarkOpacity: 0.1,
             tableOptions: { hideQty: false, hideRate: false, stripedRows: false, bordered: false, compact: true },
-            sectionOrdering: ['header', 'details', 'title', 'table', 'totals', 'footer'],
+            sectionOrdering: ['header', 'details', 'title', 'table', 'totals', 'words', 'footer'],
             uppercaseHeadings: false,
-            columnWidths: { qty: 10, rate: 20, amount: 35 },
+            columnWidths: {},
             tablePadding: 2,
             borderRadius: 0,
             spacing: 0.9,
             elementSpacing: { logoBottom: 3, titleBottom: 1, addressBottom: 1, headerBottom: 3 }
         } as any,
-        content: { showAmountInWords: true }
+        content: { showAmountInWords: true, showStatusStamp: true, footerText: 'Thank you for your business' }
     },
     'Bold': {
         colors: { primary: '#dc2626', secondary: '#1f2937', text: '#111827', tableHeaderBg: '#dc2626', tableHeaderText: '#ffffff', bannerBg: '#dc2626', bannerText: '#ffffff' },
@@ -146,15 +163,111 @@ const PRESETS: Record<string, any> = {
         layout: {
             logoPosition: 'left', logoOffsetX: 0, logoOffsetY: 0, headerAlignment: 'left', headerStyle: 'banner', margin: 10, logoSize: 35, showWatermark: true, watermarkOpacity: 0.15,
             tableOptions: { hideQty: false, hideRate: false, stripedRows: true, bordered: true, compact: false },
-            sectionOrdering: ['header', 'title', 'details', 'table', 'totals', 'signature', 'footer'],
+            sectionOrdering: ['header', 'title', 'details', 'table', 'totals', 'words', 'signature', 'footer'],
             uppercaseHeadings: true,
-            columnWidths: { qty: 15, rate: 20, amount: 35 },
+            columnWidths: {},
             tablePadding: 4,
             borderRadius: 8,
             spacing: 1.0,
             elementSpacing: { logoBottom: 5, titleBottom: 2, addressBottom: 1, headerBottom: 5 }
         } as any,
-        content: { showStatusStamp: true, showAmountInWords: true }
+        content: { showStatusStamp: true, showAmountInWords: true, footerText: 'Thank you for your business' }
+    },
+    'Classic': {
+        colors: { primary: '#2c3e50', secondary: '#7f8c8d', text: '#2c3e50', tableHeaderBg: '#ecf0f1', tableHeaderText: '#2c3e50', borderColor: '#bdc3c7' },
+        fonts: { titleFont: 'times', bodyFont: 'times', headerSize: 26, bodySize: 11 },
+        layout: {
+            logoPosition: 'center', headerAlignment: 'center', headerStyle: 'standard', margin: 15, logoSize: 28, showWatermark: false,
+            tableOptions: { hideQty: false, hideRate: false, stripedRows: false, bordered: true, compact: false },
+            sectionOrdering: ['header', 'title', 'details', 'table', 'totals', 'words', 'terms', 'signature', 'footer'],
+            uppercaseHeadings: true,
+            columnWidths: {},
+            tablePadding: 3,
+            borderRadius: 0,
+            spacing: 1.1,
+            elementSpacing: { logoBottom: 6, titleBottom: 3, addressBottom: 2, headerBottom: 6 }
+        } as any,
+        content: { showAmountInWords: true, showStatusStamp: true, footerText: 'Thank you for your business' }
+    },
+    'Creative': {
+        colors: { primary: '#8b5cf6', secondary: '#a78bfa', text: '#4c1d95', tableHeaderBg: '#f5f3ff', tableHeaderText: '#5b21b6', borderColor: '#ddd6fe', alternateRowBg: '#fcfaff' },
+        fonts: { titleFont: 'helvetica', bodyFont: 'helvetica', headerSize: 28, bodySize: 10 },
+        layout: {
+            logoPosition: 'right', headerAlignment: 'left', headerStyle: 'minimal', margin: 12, logoSize: 32, showWatermark: true, watermarkOpacity: 0.08,
+            tableOptions: { hideQty: false, hideRate: false, stripedRows: true, bordered: false, compact: false },
+            sectionOrdering: ['header', 'title', 'details', 'table', 'totals', 'words', 'footer', 'signature'],
+            uppercaseHeadings: false,
+            columnWidths: {},
+            tablePadding: 4,
+            borderRadius: 12,
+            spacing: 1.2,
+            elementSpacing: { logoBottom: 4, titleBottom: 2, addressBottom: 1, headerBottom: 4 }
+        } as any,
+        content: { showAmountInWords: true, showStatusStamp: true, footerText: 'Thank you for your business' }
+    },
+    'Compact': {
+        colors: { primary: '#111827', secondary: '#374151', text: '#1f2937', tableHeaderBg: '#e5e7eb', tableHeaderText: '#000000', borderColor: '#9ca3af' },
+        fonts: { titleFont: 'helvetica', bodyFont: 'helvetica', headerSize: 18, bodySize: 9 },
+        layout: {
+            logoPosition: 'left', headerAlignment: 'right', headerStyle: 'standard', margin: 8, logoSize: 20, showWatermark: false,
+            tableOptions: { hideQty: false, hideRate: false, stripedRows: false, bordered: true, compact: true },
+            sectionOrdering: ['header', 'title', 'details', 'table', 'totals', 'words', 'footer'],
+            uppercaseHeadings: true,
+            columnWidths: {},
+            tablePadding: 2,
+            borderRadius: 2,
+            spacing: 0.9,
+            elementSpacing: { logoBottom: 2, titleBottom: 1, addressBottom: 0, headerBottom: 2 }
+        } as any,
+        content: { showAmountInWords: true, showStatusStamp: true, footerText: 'Thank you for your business' }
+    },
+    'Elegant': {
+        colors: { primary: '#b4975a', secondary: '#5e503f', text: '#231f20', tableHeaderBg: '#231f20', tableHeaderText: '#b4975a', borderColor: '#e5e5e5' },
+        fonts: { titleFont: 'times', bodyFont: 'times', headerSize: 24, bodySize: 10 },
+        layout: {
+            logoPosition: 'left', headerAlignment: 'right', headerStyle: 'minimal', margin: 15, logoSize: 30, showWatermark: true, watermarkOpacity: 0.05,
+            tableOptions: { hideQty: false, hideRate: false, stripedRows: false, bordered: false, compact: false },
+            sectionOrdering: ['header', 'details', 'title', 'table', 'totals', 'words', 'signature', 'terms', 'footer'],
+            uppercaseHeadings: true,
+            columnWidths: {},
+            tablePadding: 3,
+            borderRadius: 0,
+            spacing: 1.2,
+            elementSpacing: { logoBottom: 5, titleBottom: 3, addressBottom: 2, headerBottom: 8 }
+        } as any,
+        content: { showAmountInWords: true, showStatusStamp: true, footerText: 'Thank you for your business' }
+    },
+    'Tech': {
+        colors: { primary: '#0ea5e9', secondary: '#334155', text: '#0f172a', tableHeaderBg: '#0f172a', tableHeaderText: '#0ea5e9', borderColor: '#cbd5e1', alternateRowBg: '#f1f5f9' },
+        fonts: { titleFont: 'courier', bodyFont: 'courier', headerSize: 22, bodySize: 10 },
+        layout: {
+            logoPosition: 'right', headerAlignment: 'left', headerStyle: 'standard', margin: 10, logoSize: 24, showWatermark: false,
+            tableOptions: { hideQty: false, hideRate: false, stripedRows: true, bordered: true, compact: true },
+            sectionOrdering: ['header', 'title', 'details', 'table', 'totals', 'words', 'footer'],
+            uppercaseHeadings: true,
+            columnWidths: {},
+            tablePadding: 2,
+            borderRadius: 4,
+            spacing: 1.0,
+            elementSpacing: { logoBottom: 3, titleBottom: 2, addressBottom: 1, headerBottom: 4 }
+        } as any,
+        content: { showAmountInWords: true, showStatusStamp: true, footerText: 'Thank you for your business' }
+    },
+    'Retail': {
+        colors: { primary: '#ea580c', secondary: '#431407', text: '#292524', tableHeaderBg: '#ea580c', tableHeaderText: '#ffffff', borderColor: '#fdba74' },
+        fonts: { titleFont: 'helvetica', bodyFont: 'helvetica', headerSize: 28, bodySize: 11 },
+        layout: {
+            logoPosition: 'center', headerAlignment: 'center', headerStyle: 'banner', margin: 12, logoSize: 35, showWatermark: true, watermarkOpacity: 0.1,
+            tableOptions: { hideQty: false, hideRate: false, stripedRows: true, bordered: true, compact: false },
+            sectionOrdering: ['header', 'title', 'details', 'table', 'totals', 'words', 'signature', 'footer'],
+            uppercaseHeadings: true,
+            columnWidths: {},
+            tablePadding: 4,
+            borderRadius: 6,
+            spacing: 1.0,
+            elementSpacing: { logoBottom: 4, titleBottom: 2, addressBottom: 1, headerBottom: 5 }
+        } as any,
+        content: { showAmountInWords: true, showStatusStamp: true, footerText: 'Thank you for your business' }
     }
 };
 
@@ -167,7 +280,9 @@ const PDFCanvasPreview: React.FC<{
     reportScenario?: ReportScenarioKey;
     isDraftMode: boolean;
     onLayoutUpdate?: (updates: Partial<InvoiceTemplateConfig['layout']>) => void;
-}> = ({ config, profile, docType, customFonts, reportScenario = 'SALES_REPORT', isDraftMode, onLayoutUpdate }) => {
+    gridSettings: { enabled: boolean; sizeMm: number; opacity: number };
+    realSale?: any; // Sale object or null
+}> = ({ config, profile, docType, customFonts, reportScenario = 'SALES_REPORT', isDraftMode, onLayoutUpdate, gridSettings, realSale = null }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const [loading, setLoading] = useState(true);
@@ -194,11 +309,12 @@ const PDFCanvasPreview: React.FC<{
 
             try {
                 let doc;
+                const saleData = realSale || dummySale;
                 switch (docType) {
-                    case 'INVOICE': doc = await generateA4InvoicePdf(dummySale, dummyCustomer, profile, debouncedConfig, customFonts); break;
-                    case 'ESTIMATE': doc = await generateEstimatePDF(dummySale as any, dummyCustomer, profile, debouncedConfig, customFonts); break;
-                    case 'DEBIT_NOTE': doc = await generateDebitNotePDF(dummySale as any, dummyCustomer as any, profile, debouncedConfig, customFonts); break;
-                    case 'RECEIPT': doc = await generateReceiptPDF(dummySale, dummyCustomer, profile, debouncedConfig, customFonts); break;
+                    case 'INVOICE': doc = await generateA4InvoicePdf(saleData, dummyCustomer, profile, debouncedConfig, customFonts); break;
+                    case 'ESTIMATE': doc = await generateEstimatePDF(saleData as any, dummyCustomer, profile, debouncedConfig, customFonts); break;
+                    case 'DEBIT_NOTE': doc = await generateDebitNotePDF(saleData as any, dummyCustomer as any, profile, debouncedConfig, customFonts); break;
+                    case 'RECEIPT': doc = await generateReceiptPDF(saleData, dummyCustomer, profile, debouncedConfig, customFonts); break;
                     case 'REPORT':
                         const scenario = REPORT_SCENARIOS[reportScenario];
                         doc = await generateGenericReportPDF(
@@ -250,13 +366,39 @@ const PDFCanvasPreview: React.FC<{
                     await renderTaskRef.current.cancel();
                 }
 
-                const renderContext = {
-                    canvasContext: context!,
-                    viewport: viewport,
-                };
-
-                renderTaskRef.current = page.render(renderContext as any);
+                renderTaskRef.current = page.render({ canvasContext: context, viewport: viewport } as any);
                 await renderTaskRef.current.promise;
+
+                // Draw Grid Overlay
+                if (gridSettings?.enabled) {
+                    const ctx = context;
+                    if (ctx) {
+                        const width = canvas.width;
+                        const height = canvas.height;
+                        const mmToPx = viewport.scale * (96 / 25.4); // approx px per mm
+                        const gridSize = (gridSettings.sizeMm || 10) * mmToPx;
+
+                        ctx.save();
+                        ctx.strokeStyle = `rgba(0, 100, 255, ${gridSettings.opacity || 0.2})`;
+                        ctx.lineWidth = 1;
+
+                        // Vertical lines
+                        for (let x = 0; x <= width; x += gridSize) {
+                            ctx.beginPath();
+                            ctx.moveTo(x, 0);
+                            ctx.lineTo(x, height);
+                            ctx.stroke();
+                        }
+                        // Horizontal lines
+                        for (let y = 0; y <= height; y += gridSize) {
+                            ctx.beginPath();
+                            ctx.moveTo(0, y);
+                            ctx.lineTo(width, y);
+                            ctx.stroke();
+                        }
+                        ctx.restore();
+                    }
+                }
 
                 // Calculate mm to px scale
                 // A4 width is 210mm. If formatted differently, adjust.
@@ -405,7 +547,12 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
     const { showConfirm } = useDialog();
 
     const [docType, setDocType] = useState<DocumentType>('INVOICE');
-    const [activeTab, setActiveTab] = useState<'layout' | 'content' | 'branding' | 'fonts'>('layout');
+    const [activeTab, setActiveTab] = useState<'layout' | 'content' | 'branding' | 'fonts' | 'templates'>('layout');
+
+    // Improved State for Customization
+    const [previewSaleId, setPreviewSaleId] = useState<string>('DUMMY');
+    const [gridSettings, setGridSettings] = useState({ enabled: false, sizeMm: 10, opacity: 0.2 });
+
     const [showColorPicker, setShowColorPicker] = useState(false);
     const [activeColorKey, setActiveColorKey] = useState<keyof InvoiceTemplateConfig['colors'] | null>(null);
     const [reportScenario, setReportScenario] = useState<ReportScenarioKey>('SALES_REPORT');
@@ -486,19 +633,48 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
 
         const srcLayout = (baseConfig.layout || {}) as any;
 
+        // Migration: Ensure 'words' is in sectionOrdering if it's missing (always ensure it for the new default)
+        let safeSectionOrdering = srcLayout.sectionOrdering || ['header', 'title', 'details', 'table', 'totals', 'words', 'signature', 'footer'];
+        if (!safeSectionOrdering.includes('words')) {
+            // Insert it after totals, or before footer if totals missing
+            const insertIdx = safeSectionOrdering.indexOf('totals');
+            if (insertIdx !== -1) {
+                safeSectionOrdering = [...safeSectionOrdering.slice(0, insertIdx + 1), 'words', ...safeSectionOrdering.slice(insertIdx + 1)];
+            } else {
+                safeSectionOrdering.push('words');
+            }
+        }
+
+        // Check if this is a "legacy" config (has explicit fixed column widths) so we can auto-migrate flags
+        const hasLegacyColumns = srcLayout.columnWidths && Object.keys(srcLayout.columnWidths).length > 0;
+        const forceEnableDefaults = hasLegacyColumns; // If it was legacy, user likely wants the "new defaults" now
+
         const config = {
             ...baseConfig,
+            id: baseConfig.id || 'default',
+            currencySymbol: baseConfig.currencySymbol || 'Rs.',
+            dateFormat: baseConfig.dateFormat || 'DD/MM/YYYY',
+            colors: { ...PRESETS['Modern'].colors, ...baseConfig.colors },
+            fonts: { ...PRESETS['Modern'].fonts, ...baseConfig.fonts },
             layout: {
                 ...defaults,
                 ...srcLayout,
-                sectionOrdering: srcLayout.sectionOrdering || ['header', 'title', 'details', 'table', 'totals', 'terms', 'signature', 'footer'],
-                columnWidths: srcLayout.columnWidths || { qty: 15, rate: 20, amount: 35 },
+                sectionOrdering: safeSectionOrdering,
+                columnWidths: {}, // Force dynamic width as per user request
                 tablePadding: srcLayout.tablePadding || 3,
                 borderRadius: srcLayout.borderRadius ?? 4,
                 uppercaseHeadings: srcLayout.uppercaseHeadings ?? true,
                 spacing: srcLayout.spacing ?? 1.0,
                 elementSpacing: srcLayout.elementSpacing || { logoBottom: 5, titleBottom: 2, addressBottom: 1, headerBottom: 5 },
                 qrOverlaySize: srcLayout.qrOverlaySize || 20, // Default size
+            },
+            content: {
+                ...PRESETS['Modern'].content,
+                ...baseConfig.content,
+                showAmountInWords: true,
+                showStatusStamp: true,
+                footerText: baseConfig.content?.footerText || 'Thank you for your business',
+                labels: { ...defaultLabels, ...(baseConfig.content?.labels || {}) }
             }
         };
 
@@ -552,6 +728,67 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
 
     const handleRedo = () => {
         if (historyIndex < history.length - 1) setHistoryIndex(historyIndex + 1);
+    };
+
+    // --- Template Library Logic ---
+    const [savedTemplates, setSavedTemplates] = useState<any[]>(() => {
+        try {
+            return JSON.parse(localStorage.getItem('savedInvoiceTemplates') || '[]');
+        } catch (e) { return []; }
+    });
+    const [newTemplateName, setNewTemplateName] = useState('');
+
+    const handleSaveTemplate = () => {
+        if (!newTemplateName.trim()) {
+            showToast("Please enter a template name", "error");
+            return;
+        }
+        const template = {
+            id: Date.now().toString(),
+            name: newTemplateName.trim(),
+            config: localConfig,
+            docType: docType,
+            date: new Date().toISOString()
+        };
+        const updated = [...savedTemplates, template];
+        setSavedTemplates(updated);
+        localStorage.setItem('savedInvoiceTemplates', JSON.stringify(updated));
+        setNewTemplateName('');
+        showToast("Template saved successfully!", "success");
+    };
+
+    const handleLoadTemplate = (template: any) => {
+        if (template.docType !== docType) {
+            if (!window.confirm(`This template is for ${template.docType}. Switch document type?`)) return;
+            setDocType(template.docType);
+        }
+        setLocalConfig(template.config);
+        configRef.current = template.config;
+        pushToHistory(template.config);
+        showToast(`Loaded template: ${template.name}`, "success");
+    };
+
+    const handleDeleteTemplate = (id: string) => {
+        if (!window.confirm("Delete this template?")) return;
+        const updated = savedTemplates.filter(t => t.id !== id);
+        setSavedTemplates(updated);
+        localStorage.setItem('savedInvoiceTemplates', JSON.stringify(updated));
+        showToast("Template deleted", "success");
+    };
+
+    // --- WhatsApp Sharing ---
+    // --- WhatsApp Sharing ---
+    const handleWhatsAppShare = () => {
+        const isReal = previewSaleId !== 'DUMMY';
+        const sale = isReal ? (state.sales.find(s => s.id === previewSaleId) || dummySale) : dummySale;
+        const customerName = isReal
+            ? (state.customers.find(c => c.id === sale.customerId)?.name || "Customer")
+            : dummyCustomer.name;
+
+        const amount = formatCurrency(sale.totalAmount);
+        const text = `Hi ${customerName}, here is your invoice for ${amount}. Please review it.`;
+        const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+        window.open(url, '_blank');
     };
 
     const handleConfigChange = (section: 'layout' | 'content' | 'fonts' | 'colors', key: string, value: any) => {
@@ -989,6 +1226,7 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
                         { id: 'branding', icon: Palette, label: 'Style' },
                         { id: 'content', icon: FileText, label: 'Content' },
                         { id: 'fonts', icon: Type, label: 'Text' },
+                        { id: 'templates', icon: Copy, label: 'Templates' },
                     ].map(tab => (
                         <button
                             key={tab.id}
@@ -1658,6 +1896,17 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
                                     />
                                 </div>
                                 {localConfig.layout.showWatermark && (
+                                    <div className="mt-2 mb-2">
+                                        <input
+                                            type="text"
+                                            value={localConfig.layout.watermarkText || ''}
+                                            onChange={e => handleConfigChange('layout', 'watermarkText', e.target.value)}
+                                            placeholder="e.g. DRAFT, COPY, ORIGINAL"
+                                            className="w-full p-2 text-xs border rounded dark:bg-slate-900 dark:border-slate-700 dark:text-white"
+                                        />
+                                    </div>
+                                )}
+                                {localConfig.layout.showWatermark && (
                                     <div>
                                         <span className="text-[10px] text-slate-500 block mb-1">Opacity</span>
                                         <input
@@ -1850,6 +2099,64 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
                                 </div>
                             </div>
 
+                            {/* Secondary Signature */}
+                            <div className="space-y-3 border-t dark:border-slate-800 pt-4">
+                                <div className="flex justify-between items-center">
+                                    <label className="text-xs font-bold text-slate-500 uppercase block">Secondary Signature</label>
+                                    <input
+                                        type="checkbox"
+                                        checked={localConfig.content.showSecondarySignature || false}
+                                        onChange={e => handleConfigChange('content', 'showSecondarySignature', e.target.checked)}
+                                        className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                                    />
+                                </div>
+                                {localConfig.content.showSecondarySignature && (
+                                    <div className="space-y-3 p-3 bg-gray-50 dark:bg-slate-800 rounded border dark:border-slate-700 animate-slide-down-fade">
+                                        <div>
+                                            <span className="text-[10px] text-slate-500 block mb-1">Label / Name</span>
+                                            <input
+                                                type="text"
+                                                value={localConfig.content.secondarySignatureText || ''}
+                                                onChange={e => handleConfigChange('content', 'secondarySignatureText', e.target.value)}
+                                                placeholder="e.g. Receiver's Signature"
+                                                className="w-full p-2 text-xs border rounded dark:bg-slate-900 dark:border-slate-700 dark:text-white"
+                                            />
+                                        </div>
+                                        <div>
+                                            <span className="text-[10px] text-slate-500 block mb-1">Digital Signature</span>
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 bg-white dark:bg-slate-700 rounded border flex items-center justify-center overflow-hidden">
+                                                        {localConfig.content.secondarySignatureImage ? (
+                                                            <img src={localConfig.content.secondarySignatureImage} alt="Sig" className="w-full h-full object-contain" />
+                                                        ) : <ImageIcon size={16} className="text-gray-400" />}
+                                                    </div>
+                                                    <span className="text-xs text-slate-500">{localConfig.content.secondarySignatureImage ? 'Signature Uploaded' : 'No Signature'}</span>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        type="file" accept="image/*" className="hidden"
+                                                        id="sec-sig-upload"
+                                                        onChange={async (e) => {
+                                                            if (e.target.files?.[0]) {
+                                                                try {
+                                                                    const base64 = await compressImage(e.target.files[0], 300, 0.8);
+                                                                    handleConfigChange('content', 'secondarySignatureImage', base64);
+                                                                } catch (err) { }
+                                                            }
+                                                        }}
+                                                    />
+                                                    <label htmlFor="sec-sig-upload" className="p-1.5 bg-white dark:bg-slate-700 border rounded hover:bg-gray-50 cursor-pointer"><Upload size={14} /></label>
+                                                    {localConfig.content.secondarySignatureImage && (
+                                                        <button onClick={() => handleConfigChange('content', 'secondarySignatureImage', undefined)} className="p-1.5 bg-white dark:bg-slate-700 border rounded hover:bg-red-50 text-red-500"><Trash2 size={14} /></button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
                             <div className="space-y-3 border-t dark:border-slate-800 pt-4">
                                 <label className="text-xs font-bold text-slate-500 uppercase block">Footer Text</label>
                                 <textarea
@@ -1955,6 +2262,59 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
                             </div>
                         </div>
                     )}
+
+
+                    {/* TEMPLATES TAB */}
+                    {activeTab === 'templates' && (
+                        <div className="space-y-6 animate-fade-in-fast">
+                            <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg border border-blue-100 dark:border-blue-900">
+                                <h3 className="text-sm font-bold text-blue-800 dark:text-blue-300 mb-2">Save Current Design</h3>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={newTemplateName}
+                                        onChange={(e) => setNewTemplateName(e.target.value)}
+                                        placeholder="Template Name (e.g. Diwali Sale)"
+                                        className="flex-1 p-2 text-xs border rounded dark:bg-slate-800 dark:border-slate-700"
+                                    />
+                                    <Button onClick={handleSaveTemplate} size="sm">
+                                        <Save size={14} className="mr-1" /> Save
+                                    </Button>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h3 className="text-xs font-bold text-slate-500 uppercase mb-3 block">My Templates</h3>
+                                <div className="space-y-2">
+                                    {savedTemplates.length === 0 ? (
+                                        <p className="text-sm text-gray-400 text-center py-4">No saved templates yet.</p>
+                                    ) : (
+                                        savedTemplates.map(t => (
+                                            <div key={t.id} className="p-3 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg shadow-sm hover:border-indigo-300 transition-colors group">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <div>
+                                                        <h4 className="font-semibold text-sm text-slate-800 dark:text-slate-200">{t.name}</h4>
+                                                        <span className="text-[10px] text-gray-500 bg-gray-100 dark:bg-slate-700 px-1.5 py-0.5 rounded">{t.docType}</span>
+                                                    </div>
+                                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button onClick={() => handleLoadTemplate(t)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="Load">
+                                                            <RefreshCw size={14} />
+                                                        </button>
+                                                        <button onClick={() => handleDeleteTemplate(t.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded" title="Delete">
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <div className="text-[10px] text-gray-400">
+                                                    Saved: {new Date(t.date).toLocaleDateString()}
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Resize Handle */}
@@ -1965,21 +2325,68 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
                 >
                     <div className="w-1 h-8 bg-gray-300 dark:bg-slate-600 rounded-full group-hover:bg-indigo-50 transition-colors"></div>
                 </div>
-            </aside>
+            </aside >
 
             {/* Main Preview Area */}
-            <main className="flex-1 flex flex-col h-full relative bg-gray-100 dark:bg-slate-900/50">
+            < main className="flex-1 flex flex-col h-full relative bg-gray-100 dark:bg-slate-900/50" >
                 {/* Top Action Bar */}
-                <div className="bg-white dark:bg-slate-900 border-b dark:border-slate-800 p-3 flex justify-between items-center shadow-sm z-10 shrink-0">
+                < div className="bg-white dark:bg-slate-900 border-b dark:border-slate-800 p-3 flex justify-between items-center shadow-sm z-10 shrink-0" >
                     <div className="flex gap-2">
                         <Button onClick={() => setCurrentPage('DASHBOARD')} variant="secondary" className="h-8 w-8 p-0 rounded-full flex items-center justify-center" title="Back to Dashboard"><ArrowLeft size={16} /></Button>
                         <span className="text-sm font-semibold text-gray-500 self-center px-2 border-l ml-2">Live Preview</span>
                     </div>
 
                     <div className="flex items-center gap-2">
-                        {/* Draft Mode Toggle for Performance */}
+                        <Button
+                            onClick={handleWhatsAppShare}
+                            variant="secondary"
+                            className="bg-green-50 text-green-600 hover:bg-green-100 border-green-200"
+                        >
+                            <WhatsAppIcon size={18} className="mr-1" /> Share
+                        </Button>
+
+                        {/* Grid Controls */}
                         <div className="flex items-center gap-2 mr-2">
-                            <span className="text-[10px] uppercase font-bold text-gray-500">Draft Mode</span>
+                            <button
+                                onClick={() => setGridSettings(prev => ({ ...prev, enabled: !prev.enabled }))}
+                                className={`p-1.5 rounded-md transition-colors ${gridSettings.enabled ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900 dark:text-indigo-300' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700'}`}
+                                title="Toggle Grid"
+                            >
+                                <Grid size={16} />
+                            </button>
+                            {gridSettings.enabled && (
+                                <select
+                                    value={gridSettings.sizeMm}
+                                    onChange={(e) => setGridSettings(prev => ({ ...prev, sizeMm: parseInt(e.target.value) }))}
+                                    className="h-6 text-[10px] border rounded bg-white dark:bg-slate-800 dark:border-slate-700 w-16 px-1"
+                                >
+                                    <option value={5}>5mm</option>
+                                    <option value={10}>10mm</option>
+                                    <option value={20}>20mm</option>
+                                </select>
+                            )}
+                        </div>
+
+                        {/* Preview Data Selector */}
+                        <div className="flex items-center gap-2 mr-2 border-l pl-3 dark:border-slate-700">
+                            <span className="text-[10px] uppercase font-bold text-gray-500 hidden sm:inline">Preview:</span>
+                            <select
+                                value={previewSaleId}
+                                onChange={(e) => setPreviewSaleId(e.target.value)}
+                                className="h-6 text-[10px] border rounded bg-white dark:bg-slate-800 dark:border-slate-700 max-w-[140px]"
+                            >
+                                <option value="DUMMY">Sample Data</option>
+                                {state.sales.slice(0, 10).map(sale => (
+                                    <option key={sale.id} value={sale.id}>
+                                        {sale.customerName ? sale.customerName.split(' ')[0] : sale.id} ({formatCurrency(sale.totalAmount)})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* Draft Mode Toggle for Performance */}
+                        <div className="flex items-center gap-2 mr-2 border-l pl-3 dark:border-slate-700">
+                            <span className="text-[10px] uppercase font-bold text-gray-500">Fast Preview</span>
                             <div
                                 onClick={() => setIsDraftMode(!isDraftMode)}
                                 className={`w-8 h-4 rounded-full cursor-pointer relative transition-colors ${isDraftMode ? 'bg-green-500' : 'bg-gray-300 dark:bg-slate-600'}`}
@@ -2025,6 +2432,8 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
                     reportScenario={reportScenario}
                     isDraftMode={isDraftMode}
                     onLayoutUpdate={handleBatchLayoutChange}
+                    gridSettings={gridSettings}
+                    realSale={previewSaleId === 'DUMMY' ? null : (state.sales.find(s => s.id === previewSaleId) || null)}
                 />
             </main>
         </div>
