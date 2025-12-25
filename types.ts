@@ -262,6 +262,7 @@ export interface ProfileData {
   address: string;
   gstNumber: string;
   logo?: string; // Base64 encoded logo
+  updatedAt?: string; // ISO 8601 Timestamp for Smart Sync
 }
 
 // --- Invoice Template Configuration ---

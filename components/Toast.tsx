@@ -19,18 +19,13 @@ const Toast: React.FC = () => {
 
   if (!show) return null;
 
-  const bgColors = {
-    success: 'bg-primary text-white',
-    error: 'bg-rose-600 dark:bg-rose-500 text-white',
-    // Using bg-primary allows the color to be manually adjusted via the Theme settings
-    info: 'bg-primary text-white',
+  const toastConfig = {
+    success: { bg: 'bg-primary', iconClass: 'text-white', icon: <CheckCircle className="w-5 h-5 text-white" /> },
+    error: { bg: 'bg-rose-600 dark:bg-rose-500', iconClass: 'text-white', icon: <AlertCircle className="w-5 h-5 text-white" /> },
+    info: { bg: 'bg-primary', iconClass: 'text-white', icon: <Info className="w-5 h-5 text-white" /> },
   };
 
-  const icons = {
-    success: <CheckCircle className="w-5 h-5 text-white" />,
-    error: <AlertCircle className="w-5 h-5 text-white" />,
-    info: <Info className="w-5 h-5 text-white" />,
-  };
+  const currentConfig = toastConfig[type];
 
   // Adjusted top position to top-28 (7rem/112px) to clear the header + greeting banner (approx 104px)
   let positionClasses = 'top-28 left-1/2 -translate-x-1/2';
@@ -42,27 +37,29 @@ const Toast: React.FC = () => {
   return (
     <div className={`fixed ${positionClasses} z-[200] flex items-center justify-center pointer-events-none transition-all duration-300`}>
       <div
-        className={`${bgColors[type]} pointer-events-auto rounded-xl shadow-2xl py-3 px-4 min-w-[280px] max-w-sm flex items-center gap-3 animate-scale-in border border-white/10 relative`}
-        style={{
-          '--toast-opacity': state.uiPreferences?.toastOpacity ?? 0.95,
-          opacity: 'var(--toast-opacity)'
-        } as React.CSSProperties}
+        className="relative overflow-hidden rounded-xl shadow-2xl py-3 px-4 min-w-[280px] max-w-sm animate-scale-in border border-white/10 pointer-events-auto backdrop-blur-md"
       >
-        {/* Content */}
-        <div className="flex items-start gap-3 w-full">
+        {/* Background Layer with Opacity Control */}
+        <div
+          className={`absolute inset-0 ${currentConfig.bg} transition-opacity duration-300`}
+          style={{ opacity: state.uiPreferences?.toastOpacity ?? 0.95 }}
+        ></div>
+
+        {/* Content Layer (Always Opaque) */}
+        <div className="relative z-10 flex items-start gap-3 w-full text-white">
           <div className="shrink-0 mt-0.5">
-            {icons[type]}
+            {currentConfig.icon}
           </div>
           <p className="font-medium text-sm leading-snug drop-shadow-sm pr-6 flex-grow">{message}</p>
-        </div>
 
-        {/* Close Button */}
-        <button
-          onClick={() => dispatch({ type: 'HIDE_TOAST' })}
-          className="absolute right-2 top-2 text-white/70 hover:text-white transition-colors p-1 rounded-full hover:bg-white/20"
-        >
-          <X size={16} />
-        </button>
+          {/* Close Button */}
+          <button
+            onClick={() => dispatch({ type: 'HIDE_TOAST' })}
+            className="absolute -right-2 -top-1 text-white/70 hover:text-white transition-colors p-1 rounded-full hover:bg-white/20"
+          >
+            <X size={16} />
+          </button>
+        </div>
       </div>
     </div>
   );

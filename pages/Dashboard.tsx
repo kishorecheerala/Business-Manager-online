@@ -759,16 +759,19 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                             '--logo-pos-desktop': `${dashboardConfig.logoPositionDesktop?.x ?? 50}% ${dashboardConfig.logoPositionDesktop?.y ?? 50}%`,
                         } as React.CSSProperties}
                     >
-                        <div className="absolute -inset-1 bg-gradient-to-r from-orange-400 to-indigo-400 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
-                        <img
-                            src={dashboardConfig.useCustomLogo ? dashboardConfig.customLogo : profile?.logo}
-                            alt="Dashboard Logo"
-                            className={`relative h-full rounded-xl shadow-lg border-2 border-white dark:border-slate-700 bg-white dark:bg-slate-800 p-1 transition-all duration-300
-                                ${dashboardConfig.logoFillMobile ? 'w-full object-cover' : 'w-auto object-contain'}
-                                md:${dashboardConfig.logoFillDesktop ? 'w-full object-cover' : 'w-auto object-contain'}
-                                object-[var(--logo-pos-mobile)] md:object-[var(--logo-pos-desktop)]
-                            `}
-                        />
+                        <div className={`relative h-full w-full overflow-hidden rounded-xl shadow-2xl border-2 border-white/50 dark:border-slate-600/50 bg-white/90 dark:bg-slate-800/90 p-1`}>
+                            <img
+                                src={dashboardConfig.useCustomLogo ? dashboardConfig.customLogo : profile?.logo}
+                                alt="Dashboard Logo"
+                                className={`relative w-full h-full transition-all duration-300 animate-divine-breath
+                                    ${dashboardConfig.logoFillMobile ? 'object-cover' : 'object-contain'}
+                                    md:${dashboardConfig.logoFillDesktop ? 'object-cover' : 'object-contain'}
+                                    object-[var(--logo-pos-mobile)] md:object-[var(--logo-pos-desktop)]
+                                `}
+                            />
+
+
+                        </div>
                     </div>
                 )}
 

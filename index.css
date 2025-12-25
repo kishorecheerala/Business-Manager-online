@@ -216,7 +216,7 @@ body {
   }
 
   to {
-    opacity: var(--toast-opacity, 1);
+    opacity: 1;
     transform: scale(1) translateY(0);
   }
 }
@@ -240,4 +240,76 @@ body {
 
 .animate-slide-up {
   animation: slideUp 0.5s ease-out forwards;
+}
+
+/* Divine & Alive Animations */
+@keyframes divineFloat {
+
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.animate-divine-float {
+  animation: divineFloat 4s ease-in-out infinite;
+}
+
+@keyframes divineGlow {
+
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(1);
+    filter: blur(8px);
+  }
+
+  50% {
+    opacity: 0.6;
+    transform: scale(1.05);
+    filter: blur(12px);
+  }
+}
+
+.animate-divine-glow {
+  animation: divineGlow 3s ease-in-out infinite;
+}
+
+/* Internal Shimmer for Divine Feel */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-150%) skewX(-15deg);
+  }
+
+  50%,
+  100% {
+    transform: translateX(150%) skewX(-15deg);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 2.5s infinite;
+}
+
+/* Internal Pulse (Breathing) */
+@keyframes divineBreath {
+
+  0%,
+  100% {
+    filter: brightness(1) saturate(1);
+    transform: scale(1);
+  }
+
+  50% {
+    filter: brightness(1.1) saturate(1.2);
+    transform: scale(1.02);
+  }
+}
+
+.animate-divine-breath {
+  animation: divineBreath 4s ease-in-out infinite;
 }

@@ -132,7 +132,7 @@ const handleApiError = async (response: Response, context: string) => {
 
 const splitStateData = (data: any) => {
     const core = JSON.parse(JSON.stringify(data)); // Deep clone
-    const assets: Record<string, any> = { products: {}, expenses: {} };
+    const assets: Record<string, any> = { products: {}, expenses: {}, profile: {} };
     let hasAssets = false;
 
     // Split Product Images
@@ -164,6 +164,20 @@ const splitStateData = (data: any) => {
         });
     }
 
+    // Split Profile Logo
+    if (core.profile && Array.isArray(core.profile)) {
+        core.profile = core.profile.map((p: any) => {
+            if (p.logo) {
+                hasAssets = true;
+                if (!assets.profile) assets.profile = {};
+                assets.profile[p.id] = p.logo;
+                const { logo, ...rest } = p;
+                return rest;
+            }
+            return p;
+        });
+    }
+
     return { core, assets, hasAssets };
 };
 
@@ -185,6 +199,14 @@ const mergeStateData = (core: any, assets: any) => {
             const img = assets.expenses[e.id];
             if (img) return { ...e, receiptImage: img };
             return e;
+        });
+    }
+
+    if (core.profile && assets.profile) {
+        core.profile = core.profile.map((p: any) => {
+            const logo = assets.profile[p.id];
+            if (logo) return { ...p, logo };
+            return p;
         });
     }
 
