@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
     Calculator, TrendingUp, Target, DollarSign, PieChart,
-    ArrowUpRight, ArrowDownRight, RefreshCw, Save, Plus, Trash2, FileText
+    ArrowUpRight, ArrowDownRight, RefreshCw, Save, Plus, Trash2, FileText, Flag, Clock, Calendar, CheckCircle2
 } from 'lucide-react';
 import {
     BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -10,14 +10,14 @@ import {
 import { useAppContext } from '../context/AppContext';
 import Card from '../components/Card';
 import Button from '../components/Button';
-import { Budget, FinancialScenario, ExpenseCategory } from '../types';
+import { Budget, FinancialScenario, ExpenseCategory, FinancialGoal } from '../types';
 import { calculateRevenueForecast } from '../utils/analytics';
 import { formatCurrency, formatNumber } from '../utils/formatUtils';
 import FormattedNumberInput from '../components/FormattedNumberInput';
 
 const FinancialPlanningPage: React.FC = () => {
     const { state, dispatch, showToast } = useAppContext();
-    const [activeTab, setActiveTab] = useState<'budgets' | 'forecasting' | 'scenarios' | 'tax'>('budgets');
+    const [activeTab, setActiveTab] = useState<'budgets' | 'forecasting' | 'scenarios' | 'tax' | 'goals'>('budgets');
 
     // --- Data Prep ---
     const totalRevenue = useMemo(() => state.sales.reduce((sum, s) => sum + s.totalAmount, 0), [state.sales]);
@@ -118,6 +118,40 @@ const FinancialPlanningPage: React.FC = () => {
         return { projectedRevenue, projectedExpense, projectedCOGS, projectedProfit };
     }, [totalRevenue, totalExpenses, state.purchases, scenario]);
 
+    // --- Goals Logic ---
+    const [newGoal, setNewGoal] = useState<Partial<FinancialGoal>>({ category: 'revenue', active: true });
+
+    const handleAddGoal = () => {
+        if (!newGoal.name || !newGoal.targetAmount) {
+            showToast("Goal name and target are required", "error");
+            return;
+        }
+        const goal: FinancialGoal = {
+            id: `goal_${Date.now()}`,
+            name: newGoal.name,
+            targetAmount: Number(newGoal.targetAmount),
+            currentAmount: Number(newGoal.currentAmount || 0),
+            deadline: newGoal.deadline,
+            monthlyContribution: Number(newGoal.monthlyContribution || 0),
+            category: newGoal.category as any,
+            active: true,
+            createdAt: new Date().toISOString()
+        };
+        dispatch({ type: 'ADD_GOAL', payload: goal });
+        showToast("Financial Goal set!", "success");
+        setNewGoal({ category: 'revenue', active: true });
+    };
+
+    const daysSinceFirstSale = useMemo(() => {
+        if (state.sales.length === 0) return 30;
+        const firstSaleDate = new Date(Math.min(...state.sales.map(s => new Date(s.date).getTime())));
+        const diff = (new Date().getTime() - firstSaleDate.getTime()) / (1000 * 3600 * 24);
+        return Math.max(1, Math.ceil(diff));
+    }, [state.sales]);
+
+    const averageDailyRevenue = totalRevenue / daysSinceFirstSale;
+
+
 
     return (
         <div className="space-y-6 max-w-7xl mx-auto p-4 pb-20">
@@ -132,7 +166,7 @@ const FinancialPlanningPage: React.FC = () => {
                 </div>
 
                 <div className="flex bg-gray-100 dark:bg-slate-800 p-1 rounded-lg w-full md:w-fit overflow-x-auto scrollbar-hide">
-                    {(['budgets', 'forecasting', 'scenarios', 'tax'] as const).map(tab => (
+                    {(['budgets', 'forecasting', 'scenarios', 'tax', 'goals'] as const).map(tab => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
@@ -454,6 +488,159 @@ const FinancialPlanningPage: React.FC = () => {
                             </div>
                         </div>
                     </Card>
+                </div>
+            )}
+
+            {/* GOALS TAB */}
+            {activeTab === 'goals' && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
+                    <Card className="lg:col-span-1" title="New Financial Goal">
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-xs font-semibold text-gray-500 uppercase">Goal Name</label>
+                                <input
+                                    type="text"
+                                    className="w-full p-2 mt-1 border rounded dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                                    placeholder="e.g. Save for New Warehouse"
+                                    value={newGoal.name || ''}
+                                    onChange={e => setNewGoal({ ...newGoal, name: e.target.value })}
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-xs font-semibold text-gray-500 uppercase">Target Amount</label>
+                                    <FormattedNumberInput
+                                        className="w-full p-2 mt-1 border rounded dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                                        placeholder="0"
+                                        value={newGoal.targetAmount || ''}
+                                        onChange={e => setNewGoal({ ...newGoal, targetAmount: Number(e.target.value) })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-semibold text-gray-500 uppercase">Initial Amount</label>
+                                    <FormattedNumberInput
+                                        className="w-full p-2 mt-1 border rounded dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                                        placeholder="0"
+                                        value={newGoal.currentAmount || ''}
+                                        onChange={e => setNewGoal({ ...newGoal, currentAmount: Number(e.target.value) })}
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="text-xs font-semibold text-gray-500 uppercase">Deadline (Optional)</label>
+                                <input
+                                    type="date"
+                                    className="w-full p-2 mt-1 border rounded dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                                    value={newGoal.deadline || ''}
+                                    onChange={e => setNewGoal({ ...newGoal, deadline: e.target.value })}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-semibold text-gray-500 uppercase">Category</label>
+                                <select
+                                    className="w-full p-2 mt-1 border rounded dark:bg-slate-800 dark:border-slate-700 dark:text-white font-medium"
+                                    value={newGoal.category}
+                                    onChange={e => setNewGoal({ ...newGoal, category: e.target.value as any })}
+                                >
+                                    <option value="revenue">Revenue Target</option>
+                                    <option value="savings">Profit/Savings Goal</option>
+                                    <option value="expense_limit">Expense Cap</option>
+                                </select>
+                            </div>
+                            <Button className="w-full" onClick={handleAddGoal}>
+                                <Flag size={16} className="mr-2" /> Set Financial Goal
+                            </Button>
+                        </div>
+                    </Card>
+
+                    <div className="lg:col-span-2 space-y-4">
+                        {state.goals.length === 0 ? (
+                            <div className="text-center py-20 bg-gray-50 dark:bg-slate-800/50 rounded-xl border-2 border-dashed border-gray-200 dark:border-slate-700">
+                                <Target size={48} className="mx-auto text-gray-300 mb-4" />
+                                <p className="text-gray-500 font-medium">No active goals yet.</p>
+                                <p className="text-xs text-gray-400 mt-1">Set a target to start tracking your progress.</p>
+                            </div>
+                        ) : (
+                            state.goals.map(goal => {
+                                const progress = (goal.currentAmount / goal.targetAmount) * 100;
+                                const remaining = goal.targetAmount - goal.currentAmount;
+
+                                // Forecasting
+                                let forecastText = "";
+                                if (goal.deadline) {
+                                    const daysLeft = Math.ceil((new Date(goal.deadline).getTime() - new Date().getTime()) / (1000 * 3600 * 24));
+                                    if (daysLeft > 0) {
+                                        const requiredDaily = remaining / daysLeft;
+                                        forecastText = `Requires ${formatCurrency(requiredDaily)} / Day`;
+                                    } else {
+                                        forecastText = "Deadline Passed";
+                                    }
+                                } else if (averageDailyRevenue > 0) {
+                                    const projectedDays = Math.ceil(remaining / (goal.category === 'revenue' ? averageDailyRevenue : (averageDailyRevenue * 0.2))); // Savings approx 20% of revenue
+                                    forecastText = `Estimated completion in ${projectedDays} days`;
+                                }
+
+                                return (
+                                    <Card key={goal.id} className="relative overflow-hidden group">
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div>
+                                                <h3 className="font-bold text-lg dark:text-white capitalize">{goal.name}</h3>
+                                                <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                                                    <Flag size={12} className="text-teal-500" />
+                                                    {goal.category.replace('_', ' ')}
+                                                    {goal.deadline && (
+                                                        <span className="flex items-center gap-1 ml-2">
+                                                            <Calendar size={12} />
+                                                            Due {new Date(goal.deadline).toLocaleDateString()}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => dispatch({ type: 'DELETE_GOAL', payload: goal.id })}
+                                                className="p-2 text-gray-300 hover:text-red-500 transition-colors"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between items-end">
+                                                <div className="text-2xl font-black dark:text-white">
+                                                    {formatCurrency(goal.currentAmount)}
+                                                    <span className="text-sm font-normal text-gray-400 ml-2">/ {formatCurrency(goal.targetAmount)}</span>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="text-lg font-bold text-teal-600 dark:text-teal-400">{progress.toFixed(1)}%</div>
+                                                    <div className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Progress</div>
+                                                </div>
+                                            </div>
+
+                                            <div className="h-3 bg-gray-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                                                <div
+                                                    className="h-full bg-gradient-to-r from-teal-500 to-emerald-400 transition-all duration-1000"
+                                                    style={{ width: `${Math.min(100, progress)}%` }}
+                                                />
+                                            </div>
+
+                                            <div className="flex justify-between items-center text-xs">
+                                                <div className="flex items-center gap-1 text-teal-600 font-semibold bg-teal-50 dark:bg-teal-900/20 px-2 py-1 rounded">
+                                                    <Clock size={12} />
+                                                    {forecastText}
+                                                </div>
+                                                {progress >= 100 && (
+                                                    <div className="flex items-center gap-1 text-emerald-600 font-bold">
+                                                        <CheckCircle2 size={14} />
+                                                        COMPLETED
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </Card>
+                                );
+                            })
+                        )}
+                    </div>
                 </div>
             )}
         </div>

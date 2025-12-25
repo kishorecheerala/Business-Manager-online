@@ -25,6 +25,18 @@ export interface FinancialScenario {
   isActive: boolean; // Is this the currently visualized scenario?
 }
 
+export interface FinancialGoal {
+  id: string;
+  name: string;
+  targetAmount: number;
+  currentAmount: number;
+  deadline?: string; // ISO date
+  monthlyContribution?: number;
+  category: 'revenue' | 'savings' | 'expense_limit';
+  active: boolean;
+  createdAt: string;
+}
+
 
 
 // ... rest
@@ -127,6 +139,12 @@ export interface SaleItem {
   mrp?: number; // New: Snapshot of MRP
 }
 
+export interface RecurringConfig {
+  frequency: 'weekly' | 'monthly' | 'quarterly';
+  nextOccurrence: string; // ISO date
+  active: boolean;
+}
+
 export interface Sale {
   id: string;
   customerId: string;
@@ -139,6 +157,7 @@ export interface Sale {
   loyaltyPointsUsed?: number; // New: Points redeemed
   loyaltyPointsEarned?: number; // New: Points awarded
   updatedAt?: string; // ISO 8601 Timestamp for Smart Sync
+  recurring?: RecurringConfig;
 }
 
 // --- New Types for Sales Management ---
@@ -154,6 +173,7 @@ export interface SaleDraft {
     reference: string;
   };
   editId?: string; // If editing an existing sale
+  recurring?: RecurringConfig;
 }
 
 export interface ParkedSale extends SaleDraft {
@@ -563,6 +583,7 @@ export interface AppState {
   // Financial Planning
   budgets: Budget[];
   financialScenarios: FinancialScenario[];
+  goals: FinancialGoal[];
 
   // UI Preferences
   uiPreferences: AppMetadataUIPreferences;

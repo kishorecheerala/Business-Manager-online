@@ -46,6 +46,9 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         accountId: ''
     });
 
+    const [isRecurring, setIsRecurring] = useState(false);
+    const [frequency, setFrequency] = useState<'weekly' | 'monthly' | 'quarterly'>('monthly');
+
     const [isSelectingProduct, setIsSelectingProduct] = useState(false);
     const [isScanning, setIsScanning] = useState(false);
 
@@ -130,6 +133,9 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         setShowAddPayment(false);
         setPaymentDetails({ amount: '', method: 'CASH', date: getLocalDateString(), reference: '' });
 
+        setIsRecurring(!!sale.recurring?.active);
+        setFrequency(sale.recurring?.frequency || 'monthly');
+
         setActiveTab('form');
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
@@ -204,6 +210,8 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             amount: '', method: 'CASH', reference: '', date: getLocalDateString()
         });
         setStoredPayments([]);
+        setIsRecurring(false);
+        setFrequency('monthly');
         setShowAddPayment(false);
         setSaleToEdit(null);
         if (clearSelection) {
@@ -225,6 +233,8 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         setDiscount('0');
         setSaleDate(getLocalDateString());
         setPaymentDetails({ amount: '', method: 'CASH', date: getLocalDateString(), reference: '' });
+        setIsRecurring(false);
+        setFrequency('monthly');
         setMode('add');
         setSaleToEdit(null);
     };
@@ -236,6 +246,9 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         setDiscount(draft.discount);
         setSaleDate(draft.date);
         setPaymentDetails(draft.paymentDetails);
+
+        setIsRecurring(!!draft.recurring?.active);
+        setFrequency(draft.recurring?.frequency || 'monthly');
 
         if (draft.editId) {
             const sale = state.sales.find(s => s.id === draft.editId);
@@ -482,9 +495,22 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             const saleDateWithTime = new Date(`${saleDate}T${saleCreationDate.toTimeString().split(' ')[0]}`);
             const saleId = `SALE-${saleCreationDate.getFullYear()}${(saleCreationDate.getMonth() + 1).toString().padStart(2, '0')}${saleCreationDate.getDate().toString().padStart(2, '0')}-${saleCreationDate.getHours().toString().padStart(2, '0')}${saleCreationDate.getMinutes().toString().padStart(2, '0')}${saleCreationDate.getSeconds().toString().padStart(2, '0')}`;
 
+            const recurring: any = isRecurring ? {
+                active: true,
+                frequency,
+                nextOccurrence: (() => {
+                    const nextDate = new Date(saleDateWithTime);
+                    if (frequency === 'weekly') nextDate.setDate(nextDate.getDate() + 7);
+                    else if (frequency === 'monthly') nextDate.setMonth(nextDate.getMonth() + 1);
+                    else if (frequency === 'quarterly') nextDate.setMonth(nextDate.getMonth() + 4);
+                    return nextDate.toISOString();
+                })()
+            } : undefined;
+
             const newSale: Sale = {
                 id: saleId, customerId, items, discount: discountAmount, gstAmount, totalAmount,
-                date: saleDateWithTime.toISOString(), payments
+                date: saleDateWithTime.toISOString(), payments,
+                recurring
             };
             dispatch({ type: 'ADD_SALE', payload: newSale });
             items.forEach(item => {
@@ -514,8 +540,23 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                 });
             }
 
+            const recurring: any = isRecurring ? {
+                active: true,
+                frequency,
+                nextOccurrence: (() => {
+                    // If it was already recurring and active, keep the next occurrence unless date changed or frequency changed?
+                    // For simplicity, always recalculate from current sale date
+                    const nextDate = new Date(saleDate);
+                    if (frequency === 'weekly') nextDate.setDate(nextDate.getDate() + 7);
+                    else if (frequency === 'monthly') nextDate.setMonth(nextDate.getMonth() + 1);
+                    else if (frequency === 'quarterly') nextDate.setMonth(nextDate.getMonth() + 4);
+                    return nextDate.toISOString();
+                })()
+            } : undefined;
+
             const updatedSale: Sale = {
-                ...saleToEdit, items, discount: discountAmount, gstAmount, totalAmount, payments: updatedPayments
+                ...saleToEdit, items, discount: discountAmount, gstAmount, totalAmount, payments: updatedPayments,
+                recurring
             };
             dispatch({ type: 'UPDATE_SALE', payload: { oldSale: saleToEdit, updatedSale } });
             dispatch({ type: 'UPDATE_SALE', payload: { oldSale: saleToEdit, updatedSale } });
@@ -798,6 +839,50 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                                     </div>
                                 </div>
                             ))}
+                        </div>
+                    </Card>
+
+                    <Card title="Recurring Schedule" className="bg-primary/5 border-primary/20">
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <Clock className="text-primary" size={20} />
+                                    <div>
+                                        <p className="font-bold text-sm dark:text-white">Make this Recurring</p>
+                                        <p className="text-[10px] text-gray-500">Automatically generate drafts</p>
+                                    </div>
+                                </div>
+                                <input
+                                    type="checkbox"
+                                    checked={isRecurring}
+                                    onChange={(e) => setIsRecurring(e.target.checked)}
+                                    className="w-5 h-5 accent-primary cursor-pointer"
+                                />
+                            </div>
+
+                            {isRecurring && (
+                                <div className="pt-2 border-t border-primary/10 animate-in fade-in slide-in-from-top-2">
+                                    <label className="block text-[10px] uppercase font-bold text-gray-500 dark:text-gray-400 mb-1">Frequency</label>
+                                    <Dropdown
+                                        options={[
+                                            { value: 'weekly', label: 'Weekly' },
+                                            { value: 'monthly', label: 'Monthly' },
+                                            { value: 'quarterly', label: 'Quarterly' }
+                                        ]}
+                                        value={frequency}
+                                        onChange={(val) => setFrequency(val as any)}
+                                    />
+                                    <p className="text-[10px] mt-2 text-primary font-medium italic">
+                                        Next invoice will be drafted on {(() => {
+                                            const nextDate = new Date(saleDate);
+                                            if (frequency === 'weekly') nextDate.setDate(nextDate.getDate() + 7);
+                                            else if (frequency === 'monthly') nextDate.setMonth(nextDate.getMonth() + 1);
+                                            else if (frequency === 'quarterly') nextDate.setMonth(nextDate.getMonth() + 4);
+                                            return nextDate.toLocaleDateString();
+                                        })()}
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     </Card>
 

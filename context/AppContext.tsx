@@ -4,7 +4,7 @@ import {
     AppMetadata, AppMetadataTheme, AppMetadataPin, AppMetadataUIPreferences,
     Notification, ProfileData, InvoiceTemplateConfig, Budget, FinancialScenario,
     AuditLogEntry, SaleDraft, ParkedSale, Page, ExpenseCategory, Theme,
-    GoogleUser, SyncStatus, AppMetadataInvoiceSettings, CustomFont, PurchaseItem, AppMetadataNavOrder, AppMetadataQuickActions, TrashItem, AppState, ToastState, BankAccount, Payment, AppMetadataDashboardConfig
+    GoogleUser, SyncStatus, AppMetadataInvoiceSettings, CustomFont, PurchaseItem, AppMetadataNavOrder, AppMetadataQuickActions, TrashItem, AppState, ToastState, BankAccount, Payment, AppMetadataDashboardConfig, FinancialGoal
 } from '../types';
 import * as db from '../utils/db';
 import { StoreName } from '../utils/db';
@@ -75,6 +75,7 @@ type Action =
     | { type: 'CLEAR_CURRENT_SALE' }
     | { type: 'RESUME_PARKED_SALE'; payload: ParkedSale }
     | { type: 'DELETE_PARKED_SALE'; payload: string }
+    | { type: 'ADD_PARKED_SALES'; payload: ParkedSale[] }
     // Trash Actions
     | { type: 'RESTORE_FROM_TRASH'; payload: TrashItem }
     | { type: 'PERMANENTLY_DELETE_FROM_TRASH'; payload: string }
@@ -89,6 +90,9 @@ type Action =
     | { type: 'ADD_SCENARIO'; payload: FinancialScenario }
     | { type: 'UPDATE_SCENARIO'; payload: FinancialScenario }
     | { type: 'DELETE_SCENARIO'; payload: string }
+    | { type: 'ADD_GOAL'; payload: FinancialGoal }
+    | { type: 'UPDATE_GOAL'; payload: FinancialGoal }
+    | { type: 'DELETE_GOAL'; payload: string }
     | { type: 'LOCK_APP' }
     | { type: 'UNLOCK_APP' }
     | { type: 'UPDATE_SECURITY_CONFIG'; payload: AppMetadataPin['security'] }
@@ -278,7 +282,8 @@ const initialState: AppState = {
     isLocked: false,
     isAuthenticated: false, // Default false, requires auth if accessing protected pages
     protectedPages: [], // Will load from DB
-    bankAccounts: []
+    bankAccounts: [],
+    goals: []
 };
 
 // Logging helper
@@ -1081,10 +1086,11 @@ const appReducer = (state: AppState, action: Action): AppState => {
             safeSetItem('parked_sales', JSON.stringify(filteredDrafts));
             return { ...state, parkedSales: filteredDrafts };
 
-        case 'DELETE_BANK_ACCOUNT':
-            const bankAccountsAfterDelete = state.bankAccounts.filter(acc => acc.id !== action.payload);
-            db.saveCollection('bank_accounts', bankAccountsAfterDelete);
-            return { ...state, bankAccounts: bankAccountsAfterDelete, ...touch };
+        case 'ADD_PARKED_SALES':
+            const mergedDrafts = [...state.parkedSales, ...action.payload];
+            safeSetItem('parked_sales', JSON.stringify(mergedDrafts));
+            return { ...state, parkedSales: mergedDrafts };
+
 
         // Financial Planning Reducers
         case 'ADD_BUDGET':
@@ -1103,6 +1109,22 @@ const appReducer = (state: AppState, action: Action): AppState => {
             const filteredBudgets = state.budgets.filter(b => b.id !== action.payload);
             db.saveCollection('budgets', filteredBudgets);
             return { ...state, budgets: filteredBudgets, ...touch };
+
+        case 'ADD_GOAL':
+            const goalWithDate = { ...action.payload, createdAt: new Date().toISOString() };
+            db.saveCollection('goals', [...state.goals, goalWithDate]);
+            return { ...state, goals: [...state.goals, goalWithDate], ...touch };
+
+        case 'UPDATE_GOAL':
+            const updatedGoal = action.payload;
+            const goalList = state.goals.map(g => g.id === updatedGoal.id ? updatedGoal : g);
+            db.saveCollection('goals', goalList);
+            return { ...state, goals: goalList, ...touch };
+
+        case 'DELETE_GOAL':
+            const remainingGoals = state.goals.filter(g => g.id !== action.payload);
+            db.saveCollection('goals', remainingGoals);
+            return { ...state, goals: remainingGoals, ...touch };
 
         case 'ADD_SCENARIO':
             const newScenario = action.payload;
@@ -1230,6 +1252,58 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         dispatch({ type: 'SHOW_TOAST', payload: { message, type } });
     }, []);
 
+    const checkRecurringSales = useCallback((sales: Sale[]) => {
+        const today = new Date().toISOString().split('T')[0];
+        let hasChanges = false;
+        const updatedSales = [...sales];
+        const newDrafts: ParkedSale[] = [];
+
+        sales.forEach((sale, index) => {
+            if (sale.recurring && sale.recurring.active) {
+                const nextOcc = sale.recurring.nextOccurrence.split('T')[0];
+                if (nextOcc <= today) {
+                    const draft: ParkedSale = {
+                        id: `recurring_draft_${Date.now().toString()}_${sale.id}`,
+                        customerId: sale.customerId,
+                        items: sale.items,
+                        discount: (sale.discount || 0).toString(),
+                        date: new Date().toISOString(),
+                        paymentDetails: {
+                            amount: (sale.totalAmount || 0).toString(),
+                            method: (sale.payments && sale.payments[0]) ? (sale.payments[0].method as any) : 'CASH',
+                            date: new Date().toISOString(),
+                            reference: ''
+                        },
+                        parkedAt: Date.now(),
+                        recurring: { ...sale.recurring, active: false }
+                    };
+                    newDrafts.push(draft);
+
+                    const nextDate = new Date(sale.recurring.nextOccurrence);
+                    if (sale.recurring.frequency === 'weekly') nextDate.setDate(nextDate.getDate() + 7);
+                    else if (sale.recurring.frequency === 'monthly') nextDate.setMonth(nextDate.getMonth() + 1);
+                    else if (sale.recurring.frequency === 'quarterly') nextDate.setMonth(nextDate.getMonth() + 4);
+
+                    updatedSales[index] = {
+                        ...sale,
+                        recurring: {
+                            ...sale.recurring,
+                            nextOccurrence: nextDate.toISOString()
+                        }
+                    };
+                    hasChanges = true;
+                }
+            }
+        });
+
+        if (hasChanges) {
+            db.saveCollection('sales', updatedSales);
+            dispatch({ type: 'SET_STATE', payload: { sales: updatedSales } });
+            dispatch({ type: 'ADD_PARKED_SALES', payload: newDrafts });
+            showToast(`${newDrafts.length} Recurring Invoices generated as drafts!`, "info");
+        }
+    }, [dispatch, showToast]);
+
     useEffect(() => {
         const handleOnline = () => dispatch({ type: 'SET_ONLINE_STATUS', payload: true });
         const handleOffline = () => {
@@ -1270,6 +1344,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 db.getAll('financial_scenarios'),
                 db.getAll('trash'),
                 db.getAll('bank_accounts'),
+                db.getAll('goals'),
             ]);
 
             const timeoutPromise = new Promise((resolve) => {
@@ -1288,7 +1363,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             const [
                 customers, suppliers, products, sales, purchases, returns, expenses, quotes,
                 customFonts, app_metadata, notifications, audit_logs, profile,
-                budget, scenarios, trashData, bankAccountsData
+                budget, scenarios, trashData, bankAccountsData, goalsData
             ] = results as any[];
 
             // Process Metadata
@@ -1331,6 +1406,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
                     budgets: budget as Budget[],
                     financialScenarios: scenarios as FinancialScenario[],
+                    goals: (goalsData as FinancialGoal[]) || [],
 
                     // Metadata Hydration
                     theme: themeMeta?.theme || localDefaults.theme || 'light',
@@ -1362,7 +1438,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // Initial Load
     useEffect(() => {
-        hydrateState();
+        hydrateState().then((data) => {
+            // Check recurring sales after data is loaded
+            // We need to wait for hydrateState to finish
+            db.getAll('sales').then(sales => {
+                checkRecurringSales(sales);
+            });
+        });
     }, [hydrateState]);
 
     // --- SYNC DATA FUNCTION (Moved Up for Scope) ---

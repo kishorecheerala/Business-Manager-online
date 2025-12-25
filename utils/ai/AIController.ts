@@ -7,7 +7,6 @@ export class AIController {
     private static getInfo(state: AppState) {
         return {
             isOnline: state.isOnline,
-            isOnline: state.isOnline,
             apiKey: localStorage.getItem('gemini_api_key') || (import.meta.env.VITE_GEMINI_API_KEY as string) || ''
         };
     }

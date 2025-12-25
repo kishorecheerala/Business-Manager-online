@@ -1,12 +1,12 @@
 
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
-import { Customer, Supplier, Product, Sale, Purchase, Return, Notification, ProfileData, AppMetadata, AuditLogEntry, Expense, Quote, CustomFont, Snapshot, TrashItem, Budget, FinancialScenario, AppState, BankAccount } from '../types';
+import { Customer, Supplier, Product, Sale, Purchase, Return, Notification, ProfileData, AppMetadata, AuditLogEntry, Expense, Quote, CustomFont, Snapshot, TrashItem, Budget, FinancialScenario, AppState, BankAccount, FinancialGoal } from '../types';
 
 const DB_NAME = 'business-manager-db';
-const DB_VERSION = 14; // Bumped for Budgets & Scenarios
+const DB_VERSION = 15; // Bumped for Goals
 
-export type StoreName = 'customers' | 'suppliers' | 'products' | 'sales' | 'purchases' | 'returns' | 'app_metadata' | 'notifications' | 'profile' | 'audit_logs' | 'expenses' | 'quotes' | 'custom_fonts' | 'snapshots' | 'trash' | 'budgets' | 'financial_scenarios' | 'bank_accounts';
-const STORE_NAMES: StoreName[] = ['customers', 'suppliers', 'products', 'sales', 'purchases', 'returns', 'app_metadata', 'notifications', 'profile', 'audit_logs', 'expenses', 'quotes', 'custom_fonts', 'snapshots', 'trash', 'budgets', 'financial_scenarios', 'bank_accounts'];
+export type StoreName = 'customers' | 'suppliers' | 'products' | 'sales' | 'purchases' | 'returns' | 'app_metadata' | 'notifications' | 'profile' | 'audit_logs' | 'expenses' | 'quotes' | 'custom_fonts' | 'snapshots' | 'trash' | 'budgets' | 'financial_scenarios' | 'bank_accounts' | 'goals';
+const STORE_NAMES: StoreName[] = ['customers', 'suppliers', 'products', 'sales', 'purchases', 'returns', 'app_metadata', 'notifications', 'profile', 'audit_logs', 'expenses', 'quotes', 'custom_fonts', 'snapshots', 'trash', 'budgets', 'financial_scenarios', 'bank_accounts', 'goals'];
 
 interface BusinessManagerDB extends DBSchema {
     customers: { key: string; value: Customer; };
@@ -27,6 +27,7 @@ interface BusinessManagerDB extends DBSchema {
     budgets: { key: string; value: Budget; };
     financial_scenarios: { key: string; value: FinancialScenario; };
     bank_accounts: { key: string; value: BankAccount };
+    goals: { key: string; value: FinancialGoal; };
 }
 
 let dbPromise: Promise<IDBPDatabase<BusinessManagerDB>>;
