@@ -1169,7 +1169,7 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
     };
 
     return (
-        <div className="flex h-full bg-gray-50 dark:bg-slate-950 overflow-hidden font-sans relative">
+        <div className="flex flex-col md:flex-row h-full bg-gray-50 dark:bg-slate-950 overflow-hidden font-sans relative">
             <ColorPickerModal
                 isOpen={showColorPicker}
                 onClose={() => setShowColorPicker(false)}
@@ -1183,8 +1183,8 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
 
             <aside
                 ref={sidebarRef}
-                style={{ width: sidebarWidth }}
-                className="relative bg-white dark:bg-slate-900 border-r dark:border-slate-800 flex flex-col h-full shadow-xl z-20 flex-shrink-0 transition-width duration-75 ease-out"
+                style={{ width: typeof window !== 'undefined' && window.innerWidth < 768 ? '100%' : sidebarWidth }}
+                className="relative bg-white dark:bg-slate-900 border-b md:border-b-0 md:border-r dark:border-slate-800 flex flex-col h-full md:h-full max-h-[50vh] md:max-h-none shadow-xl z-20 flex-shrink-0 transition-all duration-75 ease-out"
             >
                 {/* Header */}
                 <div className="p-4 border-b dark:border-slate-800 flex justify-between items-center bg-gray-50 dark:bg-slate-900">
@@ -2345,7 +2345,7 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
 
                 {/* Resize Handle */}
                 <div
-                    className="resize-handle absolute top-0 right-0 w-4 h-full cursor-col-resize z-30 transition-colors flex flex-col justify-center items-center group -mr-2"
+                    className="resize-handle absolute top-0 right-0 w-4 h-full cursor-col-resize z-30 transition-colors hidden md:flex flex-col justify-center items-center group -mr-2"
                     onMouseDown={startResizing}
                     onTouchStart={startResizing}
                 >
@@ -2354,25 +2354,26 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
             </aside >
 
             {/* Main Preview Area */}
-            < main className="flex-1 flex flex-col h-full relative bg-gray-100 dark:bg-slate-900/50" >
+            <main className="flex-1 flex flex-col h-full relative bg-gray-100 dark:bg-slate-900/50 min-w-0">
                 {/* Top Action Bar */}
-                < div className="bg-white dark:bg-slate-900 border-b dark:border-slate-800 p-3 flex justify-between items-center shadow-sm z-10 shrink-0" >
-                    <div className="flex gap-2">
+                <div className="bg-white dark:bg-slate-900 border-b dark:border-slate-800 p-2 md:p-3 flex flex-wrap justify-between items-center shadow-sm z-10 shrink-0 gap-2 md:gap-4">
+                    <div className="flex items-center gap-2">
                         <Button onClick={() => setCurrentPage('DASHBOARD')} variant="secondary" className="h-8 w-8 p-0 rounded-full flex items-center justify-center" title="Back to Dashboard"><ArrowLeft size={16} /></Button>
-                        <span className="text-sm font-semibold text-gray-500 self-center px-2 border-l ml-2">Live Preview</span>
+                        <span className="text-sm font-semibold text-gray-500 self-center px-2 border-l border-gray-200 dark:border-slate-700 hidden sm:inline">Live Preview</span>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center flex-wrap gap-2 md:gap-3 flex-1 justify-end sm:justify-center">
+                        {/* WhatsApp Share */}
                         <Button
                             onClick={handleWhatsAppShare}
                             variant="secondary"
-                            className="bg-green-50 text-green-600 hover:bg-green-100 border-green-200"
+                            className="bg-green-50 text-green-600 hover:bg-green-100 border-green-200 h-8 px-2 md:px-3 text-xs"
                         >
-                            <WhatsAppIcon size={18} className="mr-1" /> Share
+                            <WhatsAppIcon size={16} className="md:mr-1" /> <span className="hidden md:inline">Share</span>
                         </Button>
 
                         {/* Grid Controls */}
-                        <div className="flex items-center gap-2 mr-2">
+                        <div className="flex items-center gap-1.5 border-l border-gray-200 dark:border-slate-700 pl-2">
                             <button
                                 onClick={() => setGridSettings(prev => ({ ...prev, enabled: !prev.enabled }))}
                                 className={`p-1.5 rounded-md transition-colors ${gridSettings.enabled ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900 dark:text-indigo-300' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700'}`}
@@ -2384,7 +2385,7 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
                                 <select
                                     value={gridSettings.sizeMm}
                                     onChange={(e) => setGridSettings(prev => ({ ...prev, sizeMm: parseInt(e.target.value) }))}
-                                    className="h-6 text-[10px] border rounded bg-white dark:bg-slate-800 dark:border-slate-700 w-16 px-1"
+                                    className="h-7 text-[10px] border rounded bg-white dark:bg-slate-800 dark:border-slate-700 w-16 px-1"
                                 >
                                     <option value={5}>5mm</option>
                                     <option value={10}>10mm</option>
@@ -2394,57 +2395,57 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
                         </div>
 
                         {/* Preview Data Selector */}
-                        <div className="flex items-center gap-2 mr-2 border-l pl-3 dark:border-slate-700">
-                            <span className="text-[10px] uppercase font-bold text-gray-500 hidden sm:inline">Preview:</span>
+                        <div className="flex items-center gap-1.5 border-l border-gray-200 dark:border-slate-700 pl-2">
+                            <span className="text-[10px] uppercase font-bold text-gray-400 hidden lg:inline">Data:</span>
                             <select
                                 value={previewSaleId}
                                 onChange={(e) => setPreviewSaleId(e.target.value)}
-                                className="h-6 text-[10px] border rounded bg-white dark:bg-slate-800 dark:border-slate-700 max-w-[140px]"
+                                className="h-7 text-[10px] border rounded bg-white dark:bg-slate-800 dark:border-slate-700 max-w-[100px] md:max-w-[140px]"
                             >
-                                <option value="DUMMY">Sample Data</option>
+                                <option value="DUMMY">Sample</option>
                                 {state.sales.slice(0, 10).map(sale => (
                                     <option key={sale.id} value={sale.id}>
-                                        {sale.customerName ? sale.customerName.split(' ')[0] : sale.id} ({formatCurrency(sale.totalAmount)})
+                                        {sale.customerName ? sale.customerName.split(' ')[0] : sale.id}
                                     </option>
                                 ))}
                             </select>
                         </div>
 
-                        {/* Draft Mode Toggle for Performance */}
-                        <div className="flex items-center gap-2 mr-2 border-l pl-3 dark:border-slate-700">
-                            <span className="text-[10px] uppercase font-bold text-gray-500">Fast Preview</span>
+                        {/* Draft Mode */}
+                        <div className="flex items-center gap-2 border-l border-gray-200 dark:border-slate-700 pl-2">
+                            <span className="text-[10px] uppercase font-bold text-gray-400 hidden xl:inline">Draft:</span>
                             <div
                                 onClick={() => setIsDraftMode(!isDraftMode)}
                                 className={`w-8 h-4 rounded-full cursor-pointer relative transition-colors ${isDraftMode ? 'bg-green-500' : 'bg-gray-300 dark:bg-slate-600'}`}
+                                title="Draft Mode (Faster Preview)"
                             >
                                 <div className={`w-3 h-3 bg-white rounded-full absolute top-0.5 transition-all shadow-sm ${isDraftMode ? 'left-4.5' : 'left-0.5'}`}></div>
                             </div>
                         </div>
 
-                        {/* Add Preview Scenario Toggle if DocType is REPORT */}
+                        {/* Scenario (Report only) */}
                         {docType === 'REPORT' && (
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs text-gray-500 font-bold uppercase">Scenario:</span>
+                            <div className="flex items-center gap-1.5 border-l border-gray-200 dark:border-slate-700 pl-2">
                                 <Dropdown
                                     options={[
-                                        { value: 'SALES_REPORT', label: 'Sales Report' },
-                                        { value: 'CUSTOMER_DUES', label: 'Customer Dues' },
-                                        { value: 'LOW_STOCK', label: 'Low Stock' }
+                                        { value: 'SALES_REPORT', label: 'Sales' },
+                                        { value: 'CUSTOMER_DUES', label: 'Dues' },
+                                        { value: 'LOW_STOCK', label: 'Stock' }
                                     ]}
                                     value={reportScenario}
                                     onChange={val => setReportScenario(val as ReportScenarioKey)}
-                                    className="min-w-[140px]"
+                                    className="min-w-[80px] h-7 text-[10px]"
                                 />
                             </div>
                         )}
                     </div>
 
-                    <div className="flex gap-2">
-                        <Button onClick={handleOpenPdf} variant="secondary" className="h-8 text-xs">
-                            <ExternalLink size={14} className="mr-1.5" /> Open PDF
+                    <div className="flex gap-1.5 ml-auto sm:ml-0">
+                        <Button onClick={handleOpenPdf} variant="secondary" className="h-8 text-xs px-2 md:px-3">
+                            <ExternalLink size={14} className="md:mr-1.5" /> <span className="hidden md:inline">Open PDF</span>
                         </Button>
-                        <Button onClick={handleDownloadTestPdf} className="h-8 text-xs">
-                            <Printer size={14} className="mr-1.5" /> Test Print
+                        <Button onClick={handleDownloadTestPdf} className="h-8 text-xs px-2 md:px-3">
+                            <Printer size={14} className="md:mr-1.5" /> <span className="hidden md:inline">Print</span>
                         </Button>
                     </div>
                 </div>
