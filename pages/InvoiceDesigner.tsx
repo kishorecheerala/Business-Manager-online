@@ -426,8 +426,8 @@ const PDFCanvasPreview: React.FC<{
     }, [debouncedConfig, profile, docType, customFonts, zoomLevel, reportScenario, isDraftMode]);
 
     return (
-        <div className="flex-1 relative h-full flex flex-col overflow-hidden min-h-0">
-            <div className="flex-1 bg-gray-100 dark:bg-slate-900 p-4 md:p-8 overflow-auto flex justify-center items-start" ref={containerRef}>
+        <div className="flex-1 relative flex flex-col min-h-0 bg-gray-100 dark:bg-slate-900 overflow-hidden">
+            <div className="flex-1 p-4 md:p-8 overflow-auto flex justify-center items-start scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-slate-700" ref={containerRef}>
                 {loading && (
                     <div className="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-black/50 z-10 backdrop-blur-sm pointer-events-none">
                         <div className="bg-white dark:bg-slate-800 p-2 rounded-full shadow-lg">
@@ -583,6 +583,9 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
     const [sidebarWidth, setSidebarWidth] = useState(350);
     const sidebarRef = useRef<HTMLDivElement>(null);
     const isResizing = useRef(false);
+
+    // Mobile View State
+    const [mobileActiveView, setMobileActiveView] = useState<'design' | 'preview'>('preview');
 
     // -- DnD & Custom Section State --
     const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
@@ -1181,10 +1184,30 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
                 }}
             />
 
+            {/* Mobile View Toggle */}
+            <div className="md:hidden flex p-2 bg-white dark:bg-slate-900 border-b dark:border-slate-800 shrink-0 sticky top-0 z-[60]">
+                <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-full">
+                    <button
+                        onClick={() => setMobileActiveView('design')}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-bold transition-all ${mobileActiveView === 'design' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500'}`}
+                    >
+                        <Edit3 size={16} /> Design
+                    </button>
+                    <button
+                        onClick={() => setMobileActiveView('preview')}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-bold transition-all ${mobileActiveView === 'preview' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500'}`}
+                    >
+                        <Eye size={16} /> Preview
+                    </button>
+                </div>
+            </div>
+
             <aside
                 ref={sidebarRef}
-                style={{ width: typeof window !== 'undefined' && window.innerWidth < 768 ? '100%' : sidebarWidth }}
-                className="relative bg-white dark:bg-slate-900 border-b md:border-b-0 md:border-r dark:border-slate-800 flex flex-col h-full md:h-full max-h-[50vh] md:max-h-none shadow-xl z-20 flex-shrink-0 transition-all duration-75 ease-out"
+                style={{
+                    width: typeof window !== 'undefined' && window.innerWidth < 768 ? '100%' : sidebarWidth,
+                }}
+                className={`relative bg-white dark:bg-slate-900 border-b md:border-b-0 md:border-r dark:border-slate-800 flex flex-col h-full md:h-full shadow-xl z-20 flex-none md:flex-shrink-0 transition-all duration-75 ease-out ${mobileActiveView === 'preview' ? 'hidden md:flex' : 'flex'} ${typeof window !== 'undefined' && window.innerWidth < 768 ? 'order-2' : ''}`}
             >
                 {/* Header */}
                 <div className="p-4 border-b dark:border-slate-800 flex justify-between items-center bg-gray-50 dark:bg-slate-900">
@@ -2354,22 +2377,22 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
             </aside >
 
             {/* Main Preview Area */}
-            <main className="flex-1 flex flex-col h-full relative bg-gray-100 dark:bg-slate-900/50 min-w-0">
+            <main className={`flex-1 flex flex-col min-w-0 min-h-0 bg-gray-100 dark:bg-slate-900/50 relative overflow-hidden z-10 ${mobileActiveView === 'design' ? 'hidden md:flex' : 'flex'} ${typeof window !== 'undefined' && window.innerWidth < 768 ? 'order-1' : ''}`}>
                 {/* Top Action Bar */}
-                <div className="bg-white dark:bg-slate-900 border-b dark:border-slate-800 p-2 md:p-3 flex flex-wrap justify-between items-center shadow-sm z-10 shrink-0 gap-2 md:gap-4">
-                    <div className="flex items-center gap-2">
-                        <Button onClick={() => setCurrentPage('DASHBOARD')} variant="secondary" className="h-8 w-8 p-0 rounded-full flex items-center justify-center" title="Back to Dashboard"><ArrowLeft size={16} /></Button>
-                        <span className="text-sm font-semibold text-gray-500 self-center px-2 border-l border-gray-200 dark:border-slate-700 hidden sm:inline">Live Preview</span>
+                <div className="bg-white dark:bg-slate-900 border-b dark:border-slate-800 p-1.5 md:p-3 flex items-center justify-between shadow-sm shrink-0 gap-1 md:gap-4">
+                    <div className="flex items-center gap-1 md:gap-2">
+                        <Button onClick={() => setCurrentPage('DASHBOARD')} variant="secondary" className="h-7 w-7 md:h-8 md:w-8 p-0 rounded-full flex items-center justify-center shrink-0" title="Back to Dashboard"><ArrowLeft size={16} /></Button>
+                        <span className="text-[10px] md:text-sm font-semibold text-gray-500 self-center px-2 border-l border-gray-200 dark:border-slate-700 hidden sm:inline">Live Preview</span>
                     </div>
 
-                    <div className="flex items-center flex-wrap gap-2 md:gap-3 flex-1 justify-end sm:justify-center">
+                    <div className="flex items-center gap-2 md:gap-3 flex-1 justify-end min-w-0">
                         {/* WhatsApp Share */}
                         <Button
                             onClick={handleWhatsAppShare}
                             variant="secondary"
-                            className="bg-green-50 text-green-600 hover:bg-green-100 border-green-200 h-8 px-2 md:px-3 text-xs"
+                            className="bg-green-50 text-green-600 hover:bg-green-100 border-green-200 h-7 md:h-8 px-1.5 md:px-3 text-[10px] md:text-xs shrink-0"
                         >
-                            <WhatsAppIcon size={16} className="md:mr-1" /> <span className="hidden md:inline">Share</span>
+                            <WhatsAppIcon size={14} className="md:mr-1" /> <span className="hidden md:inline">Share</span>
                         </Button>
 
                         {/* Grid Controls */}
@@ -2395,17 +2418,17 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
                         </div>
 
                         {/* Preview Data Selector */}
-                        <div className="flex items-center gap-1.5 border-l border-gray-200 dark:border-slate-700 pl-2">
-                            <span className="text-[10px] uppercase font-bold text-gray-400 hidden lg:inline">Data:</span>
+                        <div className="flex items-center gap-1 md:gap-1.5 border-l border-gray-200 dark:border-slate-700 pl-1 md:pl-2 shrink-0">
+                            <span className="text-[9px] uppercase font-bold text-gray-400 hidden lg:inline">Data:</span>
                             <select
                                 value={previewSaleId}
                                 onChange={(e) => setPreviewSaleId(e.target.value)}
-                                className="h-7 text-[10px] border rounded bg-white dark:bg-slate-800 dark:border-slate-700 max-w-[100px] md:max-w-[140px]"
+                                className="h-7 text-[10px] border rounded bg-white dark:bg-slate-800 dark:border-slate-700 max-w-[70px] xs:max-w-[100px] md:max-w-[140px] px-0.5 md:px-1"
                             >
                                 <option value="DUMMY">Sample</option>
                                 {state.sales.slice(0, 10).map(sale => (
                                     <option key={sale.id} value={sale.id}>
-                                        {sale.customerName ? sale.customerName.split(' ')[0] : sale.id}
+                                        {sale.customerName ? sale.customerName.split(' ')[0] : (sale.invoiceNo || sale.id)}
                                     </option>
                                 ))}
                             </select>
@@ -2440,11 +2463,11 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
                         )}
                     </div>
 
-                    <div className="flex gap-1.5 ml-auto sm:ml-0">
-                        <Button onClick={handleOpenPdf} variant="secondary" className="h-8 text-xs px-2 md:px-3">
-                            <ExternalLink size={14} className="md:mr-1.5" /> <span className="hidden md:inline">Open PDF</span>
+                    <div className="flex gap-1 md:gap-1.5 ml-1 md:ml-0 shrink-0">
+                        <Button onClick={handleOpenPdf} variant="secondary" className="h-7 md:h-8 text-[10px] md:text-xs px-1.5 md:px-3">
+                            <ExternalLink size={14} className="md:mr-1.5" /> <span className="hidden md:inline">Open</span>
                         </Button>
-                        <Button onClick={handleDownloadTestPdf} className="h-8 text-xs px-2 md:px-3">
+                        <Button onClick={handleDownloadTestPdf} className="h-7 md:h-8 text-[10px] md:text-xs px-1.5 md:px-3">
                             <Printer size={14} className="md:mr-1.5" /> <span className="hidden md:inline">Print</span>
                         </Button>
                     </div>

@@ -308,7 +308,18 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     };
 
     const handleSaveProduct = () => {
-        if (!editedProduct) return;
+        if (!editedProduct || !selectedProduct) return;
+
+        // If ID changed and it's an existing product (not a new unsaved one)
+        if (editedProduct.id !== selectedProduct.id && state.products.some(p => p.id === selectedProduct.id)) {
+            // Check if new ID already exists
+            if (state.products.some(p => p.id === editedProduct.id)) {
+                showToast("This Product Code already exists. Please use a unique code.", "error");
+                return;
+            }
+            dispatch({ type: 'RENAME_PRODUCT_ID', payload: { oldId: selectedProduct.id, newId: editedProduct.id } });
+        }
+
         dispatch({ type: 'BATCH_UPDATE_PRODUCTS', payload: [editedProduct] });
         setSelectedProduct(editedProduct);
         setIsEditing(false);
@@ -701,14 +712,26 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                     <div className="p-6 space-y-6">
                         {isEditing ? (
                             <div className="space-y-4">
-                                <div>
-                                    <label className="text-xs font-bold text-gray-500 uppercase">Product Name</label>
-                                    <input
-                                        type="text"
-                                        value={editedProduct.name}
-                                        onChange={e => setEditedProduct({ ...editedProduct, name: e.target.value })}
-                                        className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white"
-                                    />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 uppercase">Product Name</label>
+                                        <input
+                                            type="text"
+                                            value={editedProduct.name}
+                                            onChange={e => setEditedProduct({ ...editedProduct, name: e.target.value })}
+                                            className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 uppercase">Product Code (SKU)</label>
+                                        <input
+                                            type="text"
+                                            value={editedProduct.id}
+                                            onChange={e => setEditedProduct({ ...editedProduct, id: e.target.value.toUpperCase().replace(/\s+/g, '-') })}
+                                            className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white font-mono"
+                                            placeholder="e.g. SKU-100"
+                                        />
+                                    </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>

@@ -97,6 +97,7 @@ type Action =
     | { type: 'UNLOCK_APP' }
     | { type: 'UPDATE_SECURITY_CONFIG'; payload: AppMetadataPin['security'] }
     | { type: 'UPDATE_PROTECTED_PAGES'; payload: Page[] }
+    | { type: 'RENAME_PRODUCT_ID'; payload: { oldId: string; newId: string } }
     | { type: 'SET_AUTHENTICATED'; payload: boolean };
 
 // Default Template to prevent crashes
@@ -374,6 +375,67 @@ const appReducer = (state: AppState, action: Action): AppState => {
             });
             db.saveCollection('products', batchUpdatedProducts);
             return { ...state, products: batchUpdatedProducts, ...touch };
+
+        case 'RENAME_PRODUCT_ID': {
+            const { oldId, newId } = action.payload;
+            if (oldId === newId) return state;
+
+            // 1. Update Products
+            const renamedProducts = state.products.map(p =>
+                p.id === oldId ? { ...p, id: newId, updatedAt: new Date().toISOString() } : p
+            );
+            db.saveCollection('products', renamedProducts);
+
+            // 2. Cascade to Sales
+            const updatedSales = state.sales.map(sale => ({
+                ...sale,
+                items: sale.items.map(item =>
+                    item.productId === oldId ? { ...item, productId: newId, updatedAt: new Date().toISOString() } : item
+                )
+            }));
+            db.saveCollection('sales', updatedSales);
+
+            // 3. Cascade to Purchases
+            const updatedPurchases = state.purchases.map(purchase => ({
+                ...purchase,
+                items: purchase.items.map(item =>
+                    item.productId === oldId ? { ...item, productId: newId, updatedAt: new Date().toISOString() } : item
+                )
+            }));
+            db.saveCollection('purchases', updatedPurchases);
+
+            // 4. Cascade to Quotes
+            const updatedQuotes = state.quotes.map(quote => ({
+                ...quote,
+                items: quote.items.map(item =>
+                    item.productId === oldId ? { ...item, productId: newId } : item
+                )
+            }));
+            db.saveCollection('quotes', updatedQuotes);
+
+            // 5. Cascade to Returns
+            const updatedReturns = state.returns.map(ret => ({
+                ...ret,
+                items: ret.items.map(item =>
+                    item.productId === oldId ? { ...item, productId: newId } : item
+                )
+            }));
+            db.saveCollection('returns', updatedReturns);
+
+            newLog = logAction(state, 'Product ID Renamed', `${oldId} -> ${newId}`);
+            db.saveCollection('audit_logs', [newLog, ...state.audit_logs]);
+
+            return {
+                ...state,
+                products: renamedProducts,
+                sales: updatedSales,
+                purchases: updatedPurchases,
+                quotes: updatedQuotes,
+                returns: updatedReturns,
+                audit_logs: [newLog, ...state.audit_logs],
+                ...touch
+            };
+        }
 
         case 'ADD_SALE':
             const newSale = action.payload;
