@@ -1320,6 +1320,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         };
     }, []);
 
+    // 4. Preload Google Identity Services script
+    useEffect(() => {
+        if (state.isOnline) {
+            loadGoogleScript()
+                .then(() => {
+                    if (!tokenClientRef.current) {
+                        tokenClientRef.current = initGoogleAuth(handleGoogleLoginResponse, (err) => {
+                            console.error("Auth Init Error (Preload):", err);
+                            // silent fail for preload
+                        });
+                        console.log("Google Auth initialized via preload.");
+                    }
+                })
+                .catch(err => {
+                    console.error("Preload Google Script failed", err);
+                });
+        }
+    }, [state.isOnline]);
+
 
     const hydrateState = useCallback(async () => {
         try {
@@ -1621,9 +1640,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     const googleSignIn = (options?: { forceConsent?: boolean }) => {
+        // Validation check for online status
+        if (!state.isOnline) {
+            showToast("Internet connection required to sign in.", 'error');
+            return;
+        }
+
         const performSignIn = () => {
             if (!tokenClientRef.current) {
-                showToast("Auth client failed to initialize.", 'error');
+                showToast("Sign-in client is initializing. Please try again in a moment.", 'info');
+                // Try to initialize it now if it didn't happen on mount
+                loadGoogleScript().then(() => {
+                    tokenClientRef.current = initGoogleAuth(handleGoogleLoginResponse, (err) => {
+                        console.error("Auth Init Error:", err);
+                        showToast("Google Auth Error", 'error');
+                    });
+                });
                 return;
             }
 
@@ -1635,23 +1667,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             }
         };
 
-        if (!tokenClientRef.current) {
-            // Load script first
-            loadGoogleScript()
-                .then(() => {
-                    tokenClientRef.current = initGoogleAuth(handleGoogleLoginResponse, (err) => {
-                        console.error("Auth Init Error:", err);
-                        showToast("Google Auth Error", 'error');
-                    });
-                    performSignIn();
-                })
-                .catch(err => {
-                    console.error("Failed to load Google Script", err);
-                    showToast("Failed to load Google Sign-In.", 'error');
-                });
-        } else {
-            performSignIn();
-        }
+        performSignIn();
     };
 
     const googleSignOut = () => {
