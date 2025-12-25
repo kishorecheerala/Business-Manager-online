@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import {
-    Calculator, TrendingUp, Target, DollarSign, PieChart,
-    ArrowUpRight, ArrowDownRight, RefreshCw, Save, Plus, Trash2, FileText, Flag, Clock, Calendar, CheckCircle2
+    Calculator, TrendingUp, Target, DollarSign,
+    ArrowUpRight, ArrowDownRight, RefreshCw, Save, Plus, Trash2, FileText, Flag, Clock, Calendar, CheckCircle2, Edit2
 } from 'lucide-react';
 import {
     BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
-    Tooltip, Legend, ResponsiveContainer, AreaChart, Area, ComposedChart
+    Tooltip, Legend, ResponsiveContainer, AreaChart, Area, ComposedChart,
+    PieChart, Pie, Cell
 } from 'recharts';
 import { useAppContext } from '../context/AppContext';
 import Card from '../components/Card';
@@ -120,25 +121,56 @@ const FinancialPlanningPage: React.FC = () => {
 
     // --- Goals Logic ---
     const [newGoal, setNewGoal] = useState<Partial<FinancialGoal>>({ category: 'revenue', active: true });
+    const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
 
     const handleAddGoal = () => {
         if (!newGoal.name || !newGoal.targetAmount) {
             showToast("Goal name and target are required", "error");
             return;
         }
-        const goal: FinancialGoal = {
-            id: `goal_${Date.now()}`,
-            name: newGoal.name,
-            targetAmount: Number(newGoal.targetAmount),
-            currentAmount: Number(newGoal.currentAmount || 0),
-            deadline: newGoal.deadline,
-            monthlyContribution: Number(newGoal.monthlyContribution || 0),
-            category: newGoal.category as any,
-            active: true,
-            createdAt: new Date().toISOString()
-        };
-        dispatch({ type: 'ADD_GOAL', payload: goal });
-        showToast("Financial Goal set!", "success");
+
+        if (editingGoalId) {
+            const existingGoal = state.goals.find(g => g.id === editingGoalId);
+            if (existingGoal) {
+                const updatedGoal: FinancialGoal = {
+                    ...existingGoal,
+                    name: newGoal.name,
+                    targetAmount: Number(newGoal.targetAmount),
+                    currentAmount: Number(newGoal.currentAmount || 0),
+                    deadline: newGoal.deadline,
+                    category: newGoal.category as any,
+                };
+                dispatch({ type: 'UPDATE_GOAL', payload: updatedGoal });
+                showToast("Goal updated successfully", "success");
+            }
+            setEditingGoalId(null);
+        } else {
+            const goal: FinancialGoal = {
+                id: `goal_${Date.now()}`,
+                name: newGoal.name,
+                targetAmount: Number(newGoal.targetAmount),
+                currentAmount: Number(newGoal.currentAmount || 0),
+                deadline: newGoal.deadline,
+                monthlyContribution: Number(newGoal.monthlyContribution || 0),
+                category: newGoal.category as any,
+                active: true,
+                createdAt: new Date().toISOString()
+            };
+            dispatch({ type: 'ADD_GOAL', payload: goal });
+            showToast("Financial Goal set!", "success");
+        }
+        setNewGoal({ category: 'revenue', active: true });
+    };
+
+    const handleEditGoal = (goal: FinancialGoal) => {
+        setNewGoal(goal);
+        setEditingGoalId(goal.id);
+        // Scroll to form or just let user see it
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const handleCancelEdit = () => {
+        setEditingGoalId(null);
         setNewGoal({ category: 'revenue', active: true });
     };
 
@@ -150,6 +182,50 @@ const FinancialPlanningPage: React.FC = () => {
     }, [state.sales]);
 
     const averageDailyRevenue = totalRevenue / daysSinceFirstSale;
+
+    // --- Analytics Data ---
+    const categoryData = useMemo(() => {
+        const salesByCategory: Record<string, number> = {};
+        state.sales.forEach(sale => {
+            sale.items.forEach(item => {
+                const product = state.products.find(p => p.id === item.productId);
+                const category = product?.category || 'Uncategorized';
+                salesByCategory[category] = (salesByCategory[category] || 0) + (Number(item.quantity) * Number(item.price));
+            });
+        });
+        return Object.entries(salesByCategory).map(([name, value]) => ({ name, value }));
+    }, [state.sales, state.products]);
+
+    const cashFlowData = useMemo(() => {
+        const monthlyData: Record<string, { month: string; revenue: number; expenses: number }> = {};
+        const last6Months = Array.from({ length: 6 }).map((_, i) => {
+            const date = new Date();
+            date.setMonth(date.getMonth() - i);
+            return date.toLocaleString('default', { month: 'short', year: '2-digit' });
+        }).reverse();
+
+        last6Months.forEach(m => {
+            monthlyData[m] = { month: m, revenue: 0, expenses: 0 };
+        });
+
+        state.sales.forEach(sale => {
+            const m = new Date(sale.date).toLocaleString('default', { month: 'short', year: '2-digit' });
+            if (monthlyData[m]) {
+                monthlyData[m].revenue += Number(sale.totalAmount);
+            }
+        });
+
+        state.expenses.forEach(exp => {
+            const m = new Date(exp.date).toLocaleString('default', { month: 'short', year: '2-digit' });
+            if (monthlyData[m]) {
+                monthlyData[m].expenses += exp.amount;
+            }
+        });
+
+        return Object.values(monthlyData);
+    }, [state.sales, state.expenses]);
+
+    const COLORS = ['#0eb39e', '#6366f1', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
 
 
@@ -547,13 +623,76 @@ const FinancialPlanningPage: React.FC = () => {
                                     <option value="expense_limit">Expense Cap</option>
                                 </select>
                             </div>
-                            <Button className="w-full" onClick={handleAddGoal}>
-                                <Flag size={16} className="mr-2" /> Set Financial Goal
-                            </Button>
+                            <div className="flex gap-2">
+                                <Button className="flex-1" onClick={handleAddGoal}>
+                                    {editingGoalId ? <Save size={16} className="mr-2" /> : <Flag size={16} className="mr-2" />}
+                                    {editingGoalId ? 'Update Goal' : 'Set Financial Goal'}
+                                </Button>
+                                {editingGoalId && (
+                                    <Button variant="secondary" onClick={handleCancelEdit}>
+                                        Cancel
+                                    </Button>
+                                )}
+                            </div>
                         </div>
                     </Card>
 
-                    <div className="lg:col-span-2 space-y-4">
+                    <Card className="lg:col-span-1" title="Sales by Category">
+                        <div className="h-64">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={categoryData}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={60}
+                                        outerRadius={80}
+                                        paddingAngle={5}
+                                        dataKey="value"
+                                    >
+                                        {categoryData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip
+                                        formatter={(value: number) => formatCurrency(value)}
+                                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                    />
+                                    <Legend verticalAlign="bottom" height={36} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </Card>
+
+                    <Card className="lg:col-span-1" title="Revenue vs Expenses (6M)">
+                        <div className="h-64">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={cashFlowData}>
+                                    <defs>
+                                        <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#0eb39e" stopOpacity={0.1} />
+                                            <stop offset="95%" stopColor="#0eb39e" stopOpacity={0} />
+                                        </linearGradient>
+                                        <linearGradient id="colorExp" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#ef4444" stopOpacity={0.1} />
+                                            <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                                    <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94A3B8' }} />
+                                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94A3B8' }} hide />
+                                    <Tooltip
+                                        formatter={(value: number) => formatCurrency(value)}
+                                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                    />
+                                    <Area type="monotone" dataKey="revenue" stroke="#0eb39e" fillOpacity={1} fill="url(#colorRev)" strokeWidth={2} />
+                                    <Area type="monotone" dataKey="expenses" stroke="#ef4444" fillOpacity={1} fill="url(#colorExp)" strokeWidth={2} />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </Card>
+
+                    <div className="lg:col-span-3 space-y-4">
                         {state.goals.length === 0 ? (
                             <div className="text-center py-20 bg-gray-50 dark:bg-slate-800/50 rounded-xl border-2 border-dashed border-gray-200 dark:border-slate-700">
                                 <Target size={48} className="mx-auto text-gray-300 mb-4" />
@@ -596,12 +735,22 @@ const FinancialPlanningPage: React.FC = () => {
                                                     )}
                                                 </div>
                                             </div>
-                                            <button
-                                                onClick={() => dispatch({ type: 'DELETE_GOAL', payload: goal.id })}
-                                                className="p-2 text-gray-300 hover:text-red-500 transition-colors"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
+                                            <div className="flex gap-1">
+                                                <button
+                                                    onClick={() => handleEditGoal(goal)}
+                                                    className="p-1.5 text-gray-400 hover:text-primary transition-colors hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg"
+                                                    title="Edit Goal"
+                                                >
+                                                    <Edit2 size={16} />
+                                                </button>
+                                                <button
+                                                    onClick={() => dispatch({ type: 'DELETE_GOAL', payload: goal.id })}
+                                                    className="p-1.5 text-gray-400 hover:text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg"
+                                                    title="Delete Goal"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
                                         </div>
 
                                         <div className="space-y-3">

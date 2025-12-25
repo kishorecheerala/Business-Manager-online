@@ -7,7 +7,7 @@ export class AIController {
     private static getInfo(state: AppState) {
         return {
             isOnline: state.isOnline,
-            apiKey: localStorage.getItem('gemini_api_key') || (import.meta.env.VITE_GEMINI_API_KEY as string) || ''
+            apiKey: localStorage.getItem('gemini_api_key') || ((import.meta as any).env.VITE_GEMINI_API_KEY as string) || ''
         };
     }
 
@@ -22,16 +22,52 @@ export class AIController {
                 const ai = new GoogleGenAI({ apiKey });
 
                 // Context prep
-                const totalSales = state.sales.reduce((sum, s) => sum + Number(s.totalAmount), 0);
+                const now = new Date();
+                const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 3600 * 1000));
+                const sixtyDaysAgo = new Date(now.getTime() - (60 * 24 * 3600 * 1000));
+
+                const currentSales = state.sales.filter(s => new Date(s.date) >= thirtyDaysAgo);
+                const previousSales = state.sales.filter(s => new Date(s.date) >= sixtyDaysAgo && new Date(s.date) < thirtyDaysAgo);
+
+                const currentRevenue = currentSales.reduce((sum, s) => sum + Number(s.totalAmount), 0);
+                const previousRevenue = previousSales.reduce((sum, s) => sum + Number(s.totalAmount), 0);
+                const growth = previousRevenue > 0 ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 : 0;
+
+                const topProducts = state.products
+                    .map(p => {
+                        const unitsSold = state.sales.reduce((sum, s) => {
+                            const item = s.items.find(i => i.productId === p.id);
+                            return sum + (item ? Number(item.quantity) : 0);
+                        }, 0);
+                        return { name: p.name, unitsSold };
+                    })
+                    .sort((a, b) => b.unitsSold - a.unitsSold)
+                    .slice(0, 5);
+
+                const totalExpenses = state.expenses
+                    .filter(e => new Date(e.date) >= thirtyDaysAgo)
+                    .reduce((sum, e) => sum + e.amount, 0);
+
                 const safeLowStock = state.products.filter(p => p.quantity < 5).slice(0, 10).map(p => p.name).join(', ');
 
                 const prompt = `
-                    Analyze this retail business data (JSON only):
-                    - Revenue (30d): ${totalSales}
-                    - Tranasctions: ${state.sales.length}
+                    Analyze this retail business data (Return JSON only):
+                    - Revenue (Last 30d): ${currentRevenue}
+                    - Revenue (Prev 30d): ${previousRevenue}
+                    - Growth: ${growth.toFixed(1)}%
+                    - Total Expenses (30d): ${totalExpenses}
+                    - Top Products: ${JSON.stringify(topProducts)}
                     - Low Stock: ${safeLowStock}
+                    - Transactions (30d): ${currentSales.length}
                     
-                    Return JSON matching: { businessHealthScore: number, healthReason: string, growthAnalysis: string, riskAnalysis: string, strategy: string, actions: [{id, title, description, type, targetId, priority}] }
+                    Return JSON matching: { 
+                      businessHealthScore: number (0-100), 
+                      healthReason: string, 
+                      growthAnalysis: string (Include comparison with prev period), 
+                      riskAnalysis: string, 
+                      strategy: string, 
+                      actions: [{id, title, description, type: 'STOCK'|'CASHFLOW'|'MARKETING', targetId, priority: 1-5}] 
+                    }
                 `;
 
                 const model = ai.models.generateContent({
