@@ -151,6 +151,12 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
         setItems(items.map(item => item.productId === productId ? { ...item, [field]: value } : item));
     };
 
+    const handleItemIdEdit = (index: number, newId: string) => {
+        const newItems = [...items];
+        newItems[index] = { ...newItems[index], productId: newId };
+        setItems(newItems);
+    };
+
     const handleItemRemove = (productId: string) => {
         setItems(items.filter(item => item.productId !== productId));
     };
@@ -534,8 +540,8 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
                     </div>
 
                     <div className="space-y-2">
-                        {items.map(item => (
-                            <div key={item.productId} className="bg-gray-50 dark:bg-slate-700/50 rounded border dark:border-slate-700 overflow-hidden animate-slide-up-fade">
+                        {items.map((item, idx) => (
+                            <div key={idx} className="bg-gray-50 dark:bg-slate-700/50 rounded border dark:border-slate-700 overflow-hidden animate-slide-up-fade">
                                 <div className="p-2 flex justify-between items-start">
                                     <div className="flex-grow">
                                         <Input
@@ -545,7 +551,13 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
                                             className="font-semibold bg-transparent border-none p-0 focus:ring-0 w-full placeholder-gray-400"
                                             placeholder="Product Name"
                                         />
-                                        <p className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">{item.productId}</p>
+                                        <Input
+                                            type="text"
+                                            value={item.productId}
+                                            onChange={e => handleItemIdEdit(idx, e.target.value)}
+                                            className="text-[10px] font-mono bg-transparent border-none p-0 focus:ring-0 w-full text-gray-500 dark:text-gray-400 h-auto"
+                                            placeholder="Product Code"
+                                        />
                                     </div>
                                     <div className="flex gap-2">
                                         <DeleteButton variant="remove" onClick={() => handleItemRemove(item.productId)} />

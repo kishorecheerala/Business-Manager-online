@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@google/genai": "^1.30.0",
+    "@types/react-color": "^3.0.13",
+    "@types/react-router-dom": "^5.3.3",
     "@vitejs/plugin-react": "^4.3.4",
     "framer-motion": "^12.23.26",
     "html5-qrcode": "^2.3.8",
@@ -23,9 +25,11 @@
     "lucide-react": "^0.555.0",
     "pdfjs-dist": "^5.4.449",
     "react": "^19.2.3",
+    "react-color": "^2.19.3",
     "react-dom": "^19.2.3",
     "react-i18next": "^16.4.1",
     "react-native": "^0.83.0",
+    "react-router-dom": "^7.11.0",
     "recharts": "^3.5.1"
   },
   "devDependencies": {

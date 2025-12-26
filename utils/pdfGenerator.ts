@@ -1110,7 +1110,7 @@ export const generateA4InvoicePdf = async (sale: Sale, customer: Customer, profi
         id: sale.id, date: sale.date,
         recipient: { label: labels.billedTo, name: customer.name, address: customer.address },
         sender: { label: 'Invoice Details:', idLabel: labels.invoiceNo },
-        items: sale.items.map(item => ({ name: item.productName, quantity: item.quantity, rate: Number(item.price), amount: Number(item.quantity) * Number(item.price) })),
+        items: sale.items.map(item => ({ name: item.productName, quantity: item.quantity, rate: Number(item.price), amount: Number(item.quantity) * Number(item.price), hsn: item.hsn, mrp: item.mrp })),
         totals, qrString, grandTotalNumeric: Number(sale.totalAmount), balanceDue: dueAmount
     };
     return _generateConfigurablePDF(data, profile, config, customFonts);

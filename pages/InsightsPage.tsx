@@ -376,7 +376,7 @@ const InsightsPage: React.FC<InsightsPageProps> = ({ setCurrentPage }) => {
                         {/* Footer Total */}
                         <div className="p-3 border-t border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-center flex justify-between items-center px-6">
                             <span className="text-xs text-gray-500 flex items-center gap-1">
-                                <Info size={12} /> Click grid items for statements
+                                <Info size={12} /> Click on accounts for statements
                             </span>
                             <p className="text-sm text-gray-600 dark:text-gray-300">
                                 Total: <span className={`font-bold text-base ${netBalance >= 0 ? 'text-gray-800 dark:text-white' : 'text-red-600'}`}>₹{netBalance.toLocaleString('en-IN')}</span>

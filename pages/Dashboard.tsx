@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { IndianRupee, User, AlertTriangle, Download, Upload, ShoppingCart, Package, ShieldCheck, ShieldX, Archive, PackageCheck, TestTube2, Sparkles, TrendingUp, TrendingDown, CalendarClock, Volume2, StopCircle, X, RotateCw, MessageCircle, Share, Award, Wallet, ArrowRight, Phone, UserX, Zap, Activity, Receipt, CalendarRange, CreditCard, Banknote } from 'lucide-react';
+import { IndianRupee, User, AlertTriangle, Download, Upload, ShoppingCart, Package, ShieldCheck, ShieldX, Archive, PackageCheck, TestTube2, Sparkles, TrendingUp, TrendingDown, CalendarClock, Volume2, StopCircle, X, RotateCw, MessageCircle, Share, Award, Wallet, ArrowRight, Phone, UserX, Zap, Activity, Receipt, CalendarRange, CreditCard, Banknote, Info } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import * as db from '../utils/db';
 import Card from '../components/Card';
@@ -34,14 +34,16 @@ const MetricCard: React.FC<{
     textColor: string;
     unit?: string;
     subValue?: string;
+    tooltip?: string;
     onClick?: () => void;
     delay?: number;
-}> = ({ icon: Icon, title, value, color, iconBgColor, textColor, unit = '₹', subValue, onClick, delay }) => (
+}> = ({ icon: Icon, title, value, color, iconBgColor, textColor, unit = '₹', subValue, tooltip, onClick, delay }) => (
     <div
         onClick={onClick}
-        className={`rounded-lg shadow-md p-3 sm:p-4 flex items-center transition-all duration-300 hover:shadow-xl hover:scale-[1.01] ${color} ${onClick ? 'cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-primary/50' : ''} animate-slide-up-fade group`}
+        className={`rounded-lg shadow-md p-3 sm:p-4 flex items-center transition-all duration-300 hover:shadow-xl hover:scale-[1.01] ${color} ${onClick ? 'cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-primary/50' : ''} animate-slide-up-fade group relative`}
         style={{ animationDelay: `${delay || 0}ms` }}
         role={onClick ? 'button' : undefined}
+        title={tooltip}
         tabIndex={onClick ? 0 : undefined}
         onKeyDown={onClick ? (e) => (e.key === 'Enter' || e.key === ' ') && onClick() : undefined}
     >
@@ -49,11 +51,22 @@ const MetricCard: React.FC<{
             <Icon className={`w-5 h-5 sm:w-6 sm:h-6 ${textColor}`} />
         </div>
         <div className="ml-3 sm:ml-4 flex-grow min-w-0">
-            <p className={`font-bold text-sm sm:text-base ${textColor} truncate`}>{title}</p>
+            <div className="flex items-center gap-1">
+                <p className={`font-bold text-sm sm:text-base ${textColor} truncate`}>{title}</p>
+                {tooltip && (
+                    <div className="group/tooltip relative">
+                        <Info size={12} className={`${textColor} opacity-70`} />
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-[10px] rounded shadow-lg whitespace-nowrap opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-10">
+                            {tooltip}
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
+                        </div>
+                    </div>
+                )}
+            </div>
             <p className={`text-lg sm:text-xl font-extrabold ${textColor} break-all mt-0.5`}>{unit}{typeof value === 'number' ? formatNumber(value) : value}</p>
             {subValue && <p className={`text-[10px] sm:text-xs font-medium mt-0.5 opacity-90 ${textColor} truncate`}>{subValue}</p>}
         </div>
-    </div>
+    </div >
 );
 
 
@@ -770,6 +783,8 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                                         object-[var(--logo-pos-mobile)] md:object-[var(--logo-pos-desktop)]
                                     `}
                                 />
+                                {/* Golden Glow Overlay */}
+                                <div className="absolute inset-0 shadow-[inset_0_0_40px_rgba(255,215,0,0.5)] rounded-lg pointer-events-none z-10 mix-blend-screen"></div>
                             </div>
                         </div>
                     ) : (
@@ -873,6 +888,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                     textColor="text-emerald-700 dark:text-emerald-100"
                     onClick={() => setCollectionDetailModalOpen(true)}
                     delay={0}
+                    tooltip="Tap for statement"
                 />
                 <MetricCard
                     icon={Receipt}

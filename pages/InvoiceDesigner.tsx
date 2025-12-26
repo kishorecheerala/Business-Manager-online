@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Save, RotateCcw, RotateCw, Type, Layout, Palette, FileText, Edit3, ChevronDown, Upload, Trash2, Wand2, Grid, QrCode, Printer, Eye, ArrowLeft, CheckSquare, Square, Type as TypeIcon, AlignLeft, AlignCenter, AlignRight, Move, GripVertical, Layers, ArrowUp, ArrowDown, Table, Monitor, Loader2, ZoomIn, ZoomOut, ExternalLink, Columns, Download, FileJson, Image as ImageIcon, Plus, Landmark, Calendar, Coins, Zap, MoveHorizontal, MoveVertical, ArrowRight as ArrowRightIcon, Circle, Share2, Copy, RefreshCw } from 'lucide-react';
+import { Save, RotateCcw, RotateCw, Type, Layout, Palette, FileText, Edit3, ChevronDown, Upload, Trash2, Wand2, Grid, QrCode, Printer, Eye, ArrowLeft, CheckSquare, Square, Type as TypeIcon, AlignLeft, AlignCenter, AlignRight, Move, GripVertical, Layers, ArrowUp, ArrowDown, Table, Monitor, Loader2, ZoomIn, ZoomOut, ExternalLink, Columns, Download, FileJson, Image as ImageIcon, Plus, Landmark, Calendar, Coins, Zap, MoveHorizontal, MoveVertical, ArrowRight as ArrowRightIcon, Circle, Share2, Copy, RefreshCw, X } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { InvoiceTemplateConfig, DocumentType, InvoiceLabels, CustomFont, ProfileData, Page, CustomSection } from '../types';
 import Button from '../components/Button';
@@ -354,7 +354,7 @@ const PDFCanvasPreview: React.FC<{
                     scale = (containerWidth - 40) / baseViewport.width;
                 }
 
-                const finalScale = isDraftMode ? scale * 0.8 : scale * zoomLevel;
+                const finalScale = isDraftMode ? scale * 0.95 : scale * zoomLevel;
                 const viewport = page.getViewport({ scale: finalScale });
 
                 const canvas = canvasRef.current;
@@ -469,7 +469,7 @@ const PDFCanvasPreview: React.FC<{
                         {!loading && !isDraftMode && (
                             <>
                                 {/* Logo Overlay */}
-                                {config.logo && (
+                                {profile?.logo && (
                                     <div
                                         className="absolute border-2 border-dashed border-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20 cursor-move group flex items-center justify-center transition-colors"
                                         style={{
@@ -688,6 +688,7 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
                 spacing: srcLayout.spacing ?? 1.0,
                 elementSpacing: srcLayout.elementSpacing || { logoBottom: 5, titleBottom: 2, addressBottom: 1, headerBottom: 5 },
                 qrOverlaySize: srcLayout.qrOverlaySize || 20, // Default size
+                qrPosition: srcLayout.qrPosition || 'header-right',
             },
             content: {
                 ...PRESETS['Modern'].content,
@@ -795,6 +796,23 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
         setSavedTemplates(updated);
         localStorage.setItem('savedInvoiceTemplates', JSON.stringify(updated));
         showToast("Template deleted", "success");
+    };
+
+    const handleReset = async () => {
+        if (await showConfirm("Are you sure you want to reset all changes to default?", { variant: 'danger' })) {
+            const conf = getInitialConfig(docType);
+            // Reset to 'Modern' layout specifically if it's a hard reset
+            const modernConf = PRESETS['Modern']; // Or re-fetch basic default
+            // Actually getInitialConfig checks `baseConfig` from state.
+            // If we want a CLEAN slate, we might want to ignore state.profile defaults?
+            // For now, reloading getInitialConfig is akin to "Undo All".
+
+            setLocalConfig(conf);
+            configRef.current = conf;
+            setHistory([conf]);
+            setHistoryIndex(0);
+            showToast("Layout reset to defaults.");
+        }
     };
 
     // --- WhatsApp Sharing ---
@@ -1210,10 +1228,10 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
                 className={`relative bg-white dark:bg-slate-900 border-b md:border-b-0 md:border-r dark:border-slate-800 flex flex-col h-full md:h-full shadow-xl z-20 flex-none md:flex-shrink-0 transition-all duration-75 ease-out ${mobileActiveView === 'preview' ? 'hidden md:flex' : 'flex'} ${typeof window !== 'undefined' && window.innerWidth < 768 ? 'order-2' : ''}`}
             >
                 {/* Header */}
-                <div className="p-4 border-b dark:border-slate-800 flex justify-between items-center bg-gray-50 dark:bg-slate-900">
+                <div className="p-4 border-b dark:border-slate-800 flex flex-wrap gap-3 justify-between items-center bg-gray-50 dark:bg-slate-900">
                     <div className="flex items-center gap-2">
                         <button onClick={() => setCurrentPage('DASHBOARD')} className="p-2 rounded-lg hover:bg-white dark:hover:bg-slate-700 text-slate-500 transition-colors mr-1" title="Exit to Dashboard">
-                            <ArrowLeft size={20} />
+                            <X size={20} />
                         </button>
                         <div>
                             <h2 className="font-bold text-sm text-slate-800 dark:text-white">Designer</h2>
@@ -1223,6 +1241,9 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
                         <div className="flex bg-slate-200 dark:bg-slate-800 rounded-lg p-0.5 mr-2">
                             <button onClick={handleUndo} disabled={historyIndex === 0} className="p-1.5 rounded hover:bg-white dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 disabled:opacity-30 transition-all">
                                 <RotateCcw size={14} />
+                            </button>
+                            <button onClick={handleReset} className="p-1.5 rounded hover:bg-white dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 transition-all" title="Reset to Default">
+                                <RefreshCw size={14} />
                             </button>
                             <button onClick={handleRedo} disabled={historyIndex === history.length - 1} className="p-1.5 rounded hover:bg-white dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 disabled:opacity-30 transition-all">
                                 <RotateCw size={14} />
@@ -2326,7 +2347,7 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
                                         placeholder="Template Name (e.g. Diwali Sale)"
                                         className="flex-1 p-2 text-xs border rounded dark:bg-slate-800 dark:border-slate-700"
                                     />
-                                    <Button onClick={handleSaveTemplate} size="sm">
+                                    <Button onClick={handleSaveTemplate} className="py-1 px-3 text-xs h-8">
                                         <Save size={14} className="mr-1" /> Save
                                     </Button>
                                 </div>
@@ -2381,8 +2402,8 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
                 {/* Top Action Bar */}
                 <div className="bg-white dark:bg-slate-900 border-b dark:border-slate-800 p-1.5 md:p-3 flex items-center justify-between shadow-sm shrink-0 gap-1 md:gap-4">
                     <div className="flex items-center gap-1 md:gap-2">
-                        <Button onClick={() => setCurrentPage('DASHBOARD')} variant="secondary" className="h-7 w-7 md:h-8 md:w-8 p-0 rounded-full flex items-center justify-center shrink-0" title="Back to Dashboard"><ArrowLeft size={16} /></Button>
-                        <span className="text-[10px] md:text-sm font-semibold text-gray-500 self-center px-2 border-l border-gray-200 dark:border-slate-700 hidden sm:inline">Live Preview</span>
+                        <Button onClick={() => setCurrentPage('DASHBOARD')} variant="secondary" className="h-7 w-7 md:h-8 md:w-8 p-0 rounded-full flex items-center justify-center shrink-0 border-gray-300 dark:border-slate-600 shadow-sm" title="Back to Dashboard"><X size={18} /></Button>
+                        <span className="text-[10px] md:text-sm font-semibold text-gray-500 self-center px-2 border-l border-gray-200 dark:border-slate-700">Live Preview</span>
                     </div>
 
                     <div className="flex items-center gap-2 md:gap-3 flex-1 justify-end min-w-0">
@@ -2428,15 +2449,14 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
                                 <option value="DUMMY">Sample</option>
                                 {state.sales.slice(0, 10).map(sale => (
                                     <option key={sale.id} value={sale.id}>
-                                        {sale.customerName ? sale.customerName.split(' ')[0] : (sale.invoiceNo || sale.id)}
+                                        {state.customers.find(c => c.id === sale.customerId)?.name?.split(' ')[0] || 'Unknown'} ({sale.id})
                                     </option>
                                 ))}
                             </select>
                         </div>
 
-                        {/* Draft Mode */}
                         <div className="flex items-center gap-2 border-l border-gray-200 dark:border-slate-700 pl-2">
-                            <span className="text-[10px] uppercase font-bold text-gray-400 hidden xl:inline">Draft:</span>
+                            <span className="text-[10px] uppercase font-bold text-gray-400 hidden sm:inline">Draft:</span>
                             <div
                                 onClick={() => setIsDraftMode(!isDraftMode)}
                                 className={`w-8 h-4 rounded-full cursor-pointer relative transition-colors ${isDraftMode ? 'bg-green-500' : 'bg-gray-300 dark:bg-slate-600'}`}
