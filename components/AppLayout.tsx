@@ -110,12 +110,24 @@ const AppLayout: React.FC<AppLayoutProps> = ({
         setIsMenuOpen(false);
     };
 
+    // --- Staff Mode Restricted Pages ---
+    const RESTRICTED_PAGES: Page[] = ['DASHBOARD', 'REPORTS', 'INSIGHTS', 'EXPENSES', 'FINANCIAL_PLANNING', 'INVOICE_DESIGNER', 'SYSTEM_OPTIMIZER'];
+
+    // Verify Staff Mode Access
+    React.useEffect(() => {
+        if (state.isStaffMode && RESTRICTED_PAGES.includes(currentPage)) {
+            showToast("Access Restricted in Staff Mode", 'error');
+            onNavigate('SALES');
+        }
+    }, [state.isStaffMode, currentPage]);
+
     // Prepare Nav Items
     const { mainNavItems, pinnedItems, mobilePinnedItems, mobileMoreItems } = useMemo(() => {
         const order = state.navOrder || [];
 
         const mainNavItems = order
             .filter(id => id !== 'SYSTEM_OPTIMIZER')
+            .filter(id => !state.isStaffMode || !RESTRICTED_PAGES.includes(id as Page))
             .map(id => ({
                 page: id, label: LABEL_MAP[id] || id, icon: ICON_MAP[id]
             }));
@@ -168,8 +180,8 @@ const AppLayout: React.FC<AppLayoutProps> = ({
         return (
             <Suspense fallback={null}>
                 <PinModal
-                    mode="unlock"
-                    storedPin={state.pin}
+                    mode="enter"
+                    correctPin={state.pin}
                     onCorrectPin={handleUnlock}
                     onResetRequest={() => {
                         showConfirm("Resetting passcode will remove all security locks.", { variant: 'danger' }).then(confirmed => {
@@ -210,7 +222,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                     onOpenSecuritySettings={() => setIsSecuritySettingsOpen(true)}
                 />
                 <UniversalSearch isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} onNavigate={onNavigate} />
-                <AskAIModal isOpen={isAskAIOpen} onClose={() => setIsAskAIOpen(false)} onNavigate={onNavigate} />
+                <AskAIModal isOpen={isAskAIOpen} onClose={() => setIsAskAIOpen(false)} />
                 <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
                 <SecuritySettingsModal isOpen={isSecuritySettingsOpen} onClose={() => setIsSecuritySettingsOpen(false)} />
                 <DeveloperToolsModal isOpen={isDevToolsOpen} onClose={() => setIsDevToolsOpen(false)} onOpenCloudDebug={() => setIsCloudDebugOpen(true)} onOpenAPIConfig={() => setIsAPIConfigOpen(true)} />

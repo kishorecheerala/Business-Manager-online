@@ -146,7 +146,7 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
 
     const [isPinModalOpen, setIsPinModalOpen] = useState(false);
     const [pinMode, setPinMode] = useState<'setup' | 'enter'>('enter');
-    const [pinAction, setPinAction] = useState<'DEV_TOOLS' | 'UNLOCK_SESSION'>('DEV_TOOLS'); // Track what triggered the PIN
+    const [pinAction, setPinAction] = useState<'DEV_TOOLS' | 'UNLOCK_SESSION' | 'EXIT_STAFF_MODE' | 'ENABLE_STAFF_MODE'>('DEV_TOOLS'); // Track what triggered the PIN
     const fontInputRef = useRef<HTMLInputElement>(null);
     const [googleFontName, setGoogleFontName] = useState('');
 
@@ -271,11 +271,49 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
         } else if (pinAction === 'UNLOCK_SESSION') {
             dispatch({ type: 'SET_AUTHENTICATED', payload: true });
             showToast('Session Unlocked');
+        } else if (pinAction === 'EXIT_STAFF_MODE') {
+            dispatch({ type: 'TOGGLE_STAFF_MODE', payload: false });
+            showToast('Exited Staff Mode');
+        } else if (pinAction === 'ENABLE_STAFF_MODE') {
+            dispatch({ type: 'TOGGLE_STAFF_MODE', payload: true });
+            showToast('Staff Mode Enabled');
+        }
+    };
+
+    const handleToggleStaffMode = () => {
+        if (state.isStaffMode) {
+            // Turning OFF
+            setPinAction('EXIT_STAFF_MODE');
+            setPinMode('enter');
+            setIsPinModalOpen(true);
+        } else {
+            // Turning ON
+            if (state.pin) {
+                // PIN already set, just enable
+                dispatch({ type: 'TOGGLE_STAFF_MODE', payload: true });
+                showToast('Staff Mode Enabled');
+            } else {
+                // Determine logic: Force PIN setup for safety
+                setPinAction('ENABLE_STAFF_MODE');
+                setPinMode('setup');
+                setIsPinModalOpen(true);
+            }
         }
     };
 
     const handleUnlockSessionClick = () => {
         setPinAction('UNLOCK_SESSION');
+        setPinMode('enter');
+        setIsPinModalOpen(true);
+    };
+
+    const handleExitStaffMode = () => {
+        // Exit Staff Mode
+        setPinAction('UNLOCK_SESSION'); // Re-use unlock session logic or slightly modify handlePinSuccess to handle STAFF_MODE
+        // Wait, I need a new action type for handlePinSuccess or just use UNLOCK_SESSION if it just sets authenticated?
+        // Actually, exiting staff mode should set isStaffMode = false.
+        // Let's add a new pinAction state: 'EXIT_STAFF_MODE'
+        setPinAction('EXIT_STAFF_MODE');
         setPinMode('enter');
         setIsPinModalOpen(true);
     };
@@ -424,6 +462,19 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                                 <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">General</span>
                             </div>
                             <div className="p-2 space-y-1 pb-3">
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handleToggleStaffMode(); }}
+                                    className="menu-item justify-between group"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <Shield className={`w-5 h-5 ${state.isStaffMode ? 'text-green-500' : 'text-gray-400'}`} />
+                                        <span className="text-sm font-medium">Staff Mode</span>
+                                    </div>
+                                    <div className={`relative w-9 h-5 rounded-full transition-colors duration-200 ease-in-out ${state.isStaffMode ? 'bg-green-500' : 'bg-gray-200 dark:bg-slate-700'}`}>
+                                        <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transform transition-transform duration-200 ease-in-out ${state.isStaffMode ? 'translate-x-4' : 'translate-x-0'}`} />
+                                    </div>
+                                </button>
+
                                 <button onClick={() => { onClose(); onProfileClick(); }} className="menu-item">
                                     <User className="w-5 h-5 text-blue-500" />
                                     <span className="flex-grow text-sm font-medium">Business Profile</span>
@@ -460,42 +511,48 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                                     <ChevronRight className="w-4 h-4 text-gray-400" />
                                 </button>
 
-                                <button onClick={() => { onClose(); setIsAuditOpen(true); }} className="menu-item text-amber-500">
-                                    <Activity className="w-5 h-5" />
-                                    <span className="flex-grow text-sm font-medium">Audit Logs</span>
-                                    <ChevronRight className="w-4 h-4 text-gray-400" />
-                                </button>
+                                {!state.isStaffMode && (
+                                    <button onClick={() => { onClose(); setIsAuditOpen(true); }} className="menu-item text-amber-500">
+                                        <Activity className="w-5 h-5" />
+                                        <span className="flex-grow text-sm font-medium">Audit Logs</span>
+                                        <ChevronRight className="w-4 h-4 text-gray-400" />
+                                    </button>
+                                )}
                             </div>
 
-                            {/* 2. Customization Section */}
-                            <div className="px-4 py-2 mt-2">
-                                <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Customization</span>
-                            </div>
-                            <div className="p-2 space-y-1">
-                                <button onClick={() => { onClose(); setIsUISettingsOpen(true); }} className="menu-item">
-                                    <Layout className="w-5 h-5 text-teal-500" />
-                                    <span className="flex-grow text-sm font-medium">UI Preferences</span>
-                                    <ChevronRight className="w-4 h-4 text-gray-400" />
-                                </button>
+                            {/* 2. Customization Section - Hide in Staff Mode */}
+                            {!state.isStaffMode && (
+                                <>
+                                    <div className="px-4 py-2 mt-2">
+                                        <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Customization</span>
+                                    </div>
+                                    <div className="p-2 space-y-1">
+                                        <button onClick={() => { onClose(); setIsUISettingsOpen(true); }} className="menu-item">
+                                            <Layout className="w-5 h-5 text-teal-500" />
+                                            <span className="flex-grow text-sm font-medium">UI Preferences</span>
+                                            <ChevronRight className="w-4 h-4 text-gray-400" />
+                                        </button>
 
-                                <button onClick={() => { onClose(); onOpenNavCustomizer?.(); }} className="menu-item">
-                                    <PenTool className="w-5 h-5 text-purple-500" />
-                                    <span className="flex-grow text-sm font-medium">Customize Navigation</span>
-                                    <ChevronRight className="w-4 h-4 text-gray-400" />
-                                </button>
+                                        <button onClick={() => { onClose(); onOpenNavCustomizer?.(); }} className="menu-item">
+                                            <PenTool className="w-5 h-5 text-purple-500" />
+                                            <span className="flex-grow text-sm font-medium">Customize Navigation</span>
+                                            <ChevronRight className="w-4 h-4 text-gray-400" />
+                                        </button>
 
-                                <button onClick={() => { onClose(); setIsInvoiceSettingsOpen(true); }} className="menu-item">
-                                    <Receipt className="w-5 h-5 text-slate-500" />
-                                    <span className="flex-grow text-sm font-medium">Quick Invoice</span>
-                                    <ChevronRight className="w-4 h-4 text-gray-400" />
-                                </button>
+                                        <button onClick={() => { onClose(); setIsInvoiceSettingsOpen(true); }} className="menu-item">
+                                            <Receipt className="w-5 h-5 text-slate-500" />
+                                            <span className="flex-grow text-sm font-medium">Quick Invoice</span>
+                                            <ChevronRight className="w-4 h-4 text-gray-400" />
+                                        </button>
 
-                                <button onClick={() => { onClose(); onNavigate('INVOICE_DESIGNER'); }} className="menu-item">
-                                    <PenTool className="w-5 h-5 text-pink-500" />
-                                    <span className="flex-grow text-sm font-medium">Invoice Designer</span>
-                                    <ChevronRight className="w-4 h-4 text-gray-400" />
-                                </button>
-                            </div>
+                                        <button onClick={() => { onClose(); onNavigate('INVOICE_DESIGNER'); }} className="menu-item">
+                                            <PenTool className="w-5 h-5 text-pink-500" />
+                                            <span className="flex-grow text-sm font-medium">Invoice Designer</span>
+                                            <ChevronRight className="w-4 h-4 text-gray-400" />
+                                        </button>
+                                    </div>
+                                </>
+                            )}
 
                             <div className="my-2 border-t border-gray-100 dark:border-slate-700 mx-4"></div>
 
@@ -705,40 +762,44 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                                 </div>
                             </div>
 
-                            {/* 4. Admin Section */}
-                            <div className="px-4 py-2 mt-2">
-                                <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Admin</span>
-                            </div>
-                            <div className="p-2 space-y-1">
-                                <button onClick={() => { onClose(); onNavigate('SYSTEM_OPTIMIZER'); }} className="menu-item">
-                                    <Gauge className="w-5 h-5 text-emerald-500" />
-                                    <span className="flex-grow text-sm font-medium">System Optimizer</span>
-                                    <ChevronRight className="w-4 h-4 text-gray-400" />
-                                </button>
+                            {/* 4. Admin Section - Hide in Staff Mode */}
+                            {!state.isStaffMode && (
+                                <>
+                                    <div className="px-4 py-2 mt-2">
+                                        <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Admin</span>
+                                    </div>
+                                    <div className="p-2 space-y-1">
+                                        <button onClick={() => { onClose(); onNavigate('SYSTEM_OPTIMIZER'); }} className="menu-item">
+                                            <Gauge className="w-5 h-5 text-emerald-500" />
+                                            <span className="flex-grow text-sm font-medium">System Optimizer</span>
+                                            <ChevronRight className="w-4 h-4 text-gray-400" />
+                                        </button>
 
-                                <button onClick={() => { onClose(); onNavigate('SQL_ASSISTANT'); }} className="menu-item">
-                                    <Database className="w-5 h-5 text-indigo-500" />
-                                    <span className="flex-grow text-sm font-medium">SQL AI Assistant</span>
-                                    <ChevronRight className="w-4 h-4 text-gray-400" />
-                                </button>
+                                        <button onClick={() => { onClose(); onNavigate('SQL_ASSISTANT'); }} className="menu-item">
+                                            <Database className="w-5 h-5 text-indigo-500" />
+                                            <span className="flex-grow text-sm font-medium">SQL AI Assistant</span>
+                                            <ChevronRight className="w-4 h-4 text-gray-400" />
+                                        </button>
 
-                                <button onClick={() => { onClose(); onOpenAPIConfig(); }} className="menu-item">
-                                    <Cloud className="w-5 h-5 text-sky-500" />
-                                    <span className="flex-grow text-sm font-medium">API Configuration</span>
-                                    <ChevronRight className="w-4 h-4 text-gray-400" />
-                                </button>
-
-
+                                        <button onClick={() => { onClose(); onOpenAPIConfig(); }} className="menu-item">
+                                            <Cloud className="w-5 h-5 text-sky-500" />
+                                            <span className="flex-grow text-sm font-medium">API Configuration</span>
+                                            <ChevronRight className="w-4 h-4 text-gray-400" />
+                                        </button>
 
 
 
-                                <button onClick={handleDevToolsClick} className="menu-item bg-slate-100 dark:bg-slate-700/50 mt-1">
-                                    <Terminal className="w-5 h-5 text-green-600 dark:text-green-400" />
-                                    <span className="flex-grow text-sm font-medium">Developer Tools</span>
-                                    {state.pin && <Shield className="w-3 h-3 text-gray-400" />}
-                                    <ChevronRight className="w-4 h-4 text-gray-400" />
-                                </button>
-                            </div>
+
+
+                                        <button onClick={handleDevToolsClick} className="menu-item bg-slate-100 dark:bg-slate-700/50 mt-1">
+                                            <Terminal className="w-5 h-5 text-green-600 dark:text-green-400" />
+                                            <span className="flex-grow text-sm font-medium">Developer Tools</span>
+                                            {state.pin && <Shield className="w-3 h-3 text-gray-400" />}
+                                            <ChevronRight className="w-4 h-4 text-gray-400" />
+                                        </button>
+                                    </div>
+                                </>
+                            )}
 
 
 
@@ -787,6 +848,16 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                                     {state.isAuthenticated ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
                                     <span className="flex-grow text-sm font-medium">{state.isAuthenticated ? 'Lock Session' : 'Unlock Session'}</span>
                                 </button>
+
+                                {state.isStaffMode && (
+                                    <button
+                                        onClick={handleExitStaffMode}
+                                        className="menu-item text-white bg-red-500 hover:bg-red-600 border border-transparent mt-2 justify-center"
+                                    >
+                                        <LogOut className="w-5 h-5" />
+                                        <span className="font-bold">Exit Staff Mode</span>
+                                    </button>
+                                )}
                             </div>
 
                         </div>

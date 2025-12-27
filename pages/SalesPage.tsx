@@ -19,6 +19,7 @@ import Input from '../components/Input';
 import FormattedNumberInput from '../components/FormattedNumberInput';
 import Dropdown from '../components/Dropdown';
 import MagicOrderModal from '../components/MagicOrderModal';
+import WhatsAppButton from '../components/WhatsAppButton';
 
 interface SalesPageProps {
     setIsDirty: (isDirty: boolean) => void;
@@ -38,9 +39,15 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
     const [discount, setDiscount] = useState(currentSale.discount || '0');
     const [saleDate, setSaleDate] = useState(currentSale.date || getLocalDateString());
 
-    const [paymentDetails, setPaymentDetails] = useState(currentSale.paymentDetails || {
+    const [paymentDetails, setPaymentDetails] = useState<{
+        amount: string;
+        method: 'CASH' | 'UPI' | 'CHEQUE';
+        date: string;
+        reference: string;
+        accountId?: string;
+    }>(currentSale.paymentDetails || {
         amount: '',
-        method: 'CASH' as 'CASH' | 'UPI' | 'CHEQUE',
+        method: 'CASH',
         date: getLocalDateString(),
         reference: '',
         accountId: ''
@@ -1140,10 +1147,19 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                             isOpen={isMagicModalOpen}
                             onClose={() => setIsMagicModalOpen(false)}
                             products={state.products}
-                            onOrderParsed={(parsedItems, customerName) => {
-                                const existingProductIds = items.map(i => i.productId);
-                                const newItems = parsedItems.filter(i => !existingProductIds.includes(i.productId));
-                                setItems([...items, ...newItems]);
+                            onItemsParsed={(parsedItems: any, customerName?: string) => {
+                                // Merge logic
+                                const newItems = [...items];
+                                parsedItems.forEach((pItem: any) => {
+                                    const existing = newItems.find(i => i.productId === pItem.productId);
+                                    if (existing) {
+                                        existing.quantity += pItem.quantity;
+                                    } else {
+                                        newItems.push(pItem);
+                                    }
+                                });
+                                setItems(newItems);
+                                setIsMagicModalOpen(false);
 
                                 if (customerName) {
                                     // Try to finding customer
@@ -1218,6 +1234,19 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                                                     </p>
                                                 </div>
                                             </div>
+
+                                            {/* Action Bar */}
+                                            {!isSelectionMode && (
+                                                <div className="flex justify-end items-center gap-2 mt-2 pt-2 border-t border-dashed border-gray-200 dark:border-gray-700">
+                                                    <WhatsAppButton
+                                                        mobile={saleCustomer?.phone}
+                                                        message={`Namaste ${saleCustomer?.name || 'Customer'}, here is your invoice ${sale.id} for ${formatCurrency(Number(sale.totalAmount))}. Due: ${formatCurrency(dueAmount)}. Thank you for your business!`}
+                                                        context="invoice"
+                                                        size="sm"
+                                                        label="Share Invoice"
+                                                    />
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 );
@@ -1237,7 +1266,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                                     <Button variant="secondary" onClick={handleBulkPrint} className="h-9 px-3">
                                         <FileText size={16} className="mr-1" /> Print
                                     </Button>
-                                    <DeleteButton variant="delete" onClick={handleBulkDelete} label="Delete" />
+                                    <DeleteButton variant="delete" onClick={handleBulkDelete} />
                                 </div>
                             </div>
                         )

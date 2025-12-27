@@ -25,6 +25,19 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+import { deleteDatabase } from './utils/db';
+
+// Expose emergency reset for console access
+(window as any).emergencyReset = async () => {
+  if (confirm('EMERGENCY RESET: This will delete the internal database to fix startup crashes. All local data will be lost. Continue?')) {
+    console.log('Resetting database...');
+    await deleteDatabase();
+    localStorage.clear();
+    console.log('Database reset complete. Reloading...');
+    window.location.reload();
+  }
+};
+
 // Add global error handler for top-level crashes
 window.onerror = function (message, source, lineno, colno, error) {
   const root = document.getElementById('root');

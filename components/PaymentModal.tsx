@@ -16,7 +16,7 @@ interface PaymentModalProps {
     dueAmount: number;
     paymentDetails: {
         amount: string;
-        method: 'CASH' | 'UPI' | 'CHEQUE';
+        method: 'CASH' | 'UPI' | 'CHEQUE' | 'RETURN_CREDIT';
         date: string;
         reference: string;
         accountId?: string;

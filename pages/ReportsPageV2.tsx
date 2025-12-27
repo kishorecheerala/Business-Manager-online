@@ -20,6 +20,7 @@ import { EXTENDED_PREBUILT_REPORTS, REPORT_CATEGORIES } from '../utils/reporting
 import { ExportEngine } from '../utils/reporting/ExportEngine';
 import ModernDateInput from '../components/ModernDateInput';
 import { getLocalDateString } from '../utils/dateUtils';
+import { formatDate } from '../utils/formatUtils';
 
 // Colors for charts
 const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#a05195', '#d45087', '#f95d6a', '#ff7c43'];
@@ -204,14 +205,22 @@ const ReportsPageV2: React.FC = () => {
         if (!selectedReport || reportData.length === 0) return <div className="p-10 text-center text-gray-500">No data available</div>;
 
         const dataKey = selectedReport.fields.find(f => f.type === 'number' || f.type === 'currency')?.id || 'value';
-        const labelKey = selectedReport.groupBy || selectedReport.fields.find(f => f.type === 'string')?.id || 'name';
+        const labelKey = selectedReport.groupBy || selectedReport.fields.find(f => f.type === 'string' || f.type === 'date')?.id || 'name';
+
+        // Determine if label is a date
+        const isDateLabel = selectedReport.fields.find(f => f.id === labelKey)?.type === 'date' || labelKey === 'date' || labelKey.includes('Date');
+
+        const formatLabel = (val: any) => {
+            if (isDateLabel) return formatDate(val);
+            return val;
+        };
 
         // Custom Tooltip
         const CustomTooltip = ({ active, payload, label }: any) => {
             if (active && payload && payload.length) {
                 return (
                     <div className="bg-white dark:bg-slate-800 p-3 border dark:border-slate-700 shadow-lg rounded-lg">
-                        <p className="font-bold mb-1">{label}</p>
+                        <p className="font-bold mb-1">{formatLabel(label)}</p>
                         {payload.map((p: any, idx: number) => (
                             <p key={idx} style={{ color: p.color }} className="text-sm">
                                 {p.name}: {typeof p.value === 'number' ? p.value.toLocaleString() : p.value}
@@ -234,7 +243,7 @@ const ReportsPageV2: React.FC = () => {
                     <ResponsiveContainer width="100%" height={400}>
                         <BarChart {...CommonProps}>
                             <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                            <XAxis dataKey={labelKey} />
+                            <XAxis dataKey={labelKey} tickFormatter={formatLabel} />
                             <YAxis />
                             <Tooltip content={<CustomTooltip />} />
                             <Legend />
@@ -251,7 +260,7 @@ const ReportsPageV2: React.FC = () => {
                     <ResponsiveContainer width="100%" height={400}>
                         <RechartsLine {...CommonProps}>
                             <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                            <XAxis dataKey={labelKey} />
+                            <XAxis dataKey={labelKey} tickFormatter={formatLabel} />
                             <YAxis />
                             <Tooltip content={<CustomTooltip />} />
                             <Legend />
@@ -264,7 +273,7 @@ const ReportsPageV2: React.FC = () => {
                     <ResponsiveContainer width="100%" height={400}>
                         <AreaChart {...CommonProps}>
                             <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                            <XAxis dataKey={labelKey} />
+                            <XAxis dataKey={labelKey} tickFormatter={formatLabel} />
                             <YAxis />
                             <Tooltip content={<CustomTooltip />} />
                             <Legend />
@@ -384,7 +393,7 @@ const ReportsPageV2: React.FC = () => {
                                         {selectedReport.fields.map(f => (
                                             <td key={f.id} className="p-3">
                                                 {f.type === 'currency' ? `₹${Number(row[f.id] || 0).toLocaleString()}` :
-                                                    f.type === 'date' ? new Date(row[f.id]).toLocaleDateString() :
+                                                    f.type === 'date' ? formatDate(row[f.id]) :
                                                         row[f.id]}
                                             </td>
                                         ))}

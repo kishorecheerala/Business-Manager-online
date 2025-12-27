@@ -608,6 +608,8 @@ export interface AppState {
   isLocked: boolean; // Legacy Global Lock
   isAuthenticated: boolean; // New Session Auth State
   protectedPages: Page[]; // Pages requiring auth
+  isStaffMode: boolean; // Staff Mode Flag
+
 
   // Sales Management State
   currentSale: SaleDraft;

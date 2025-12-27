@@ -98,7 +98,9 @@ type Action =
     | { type: 'UPDATE_SECURITY_CONFIG'; payload: AppMetadataPin['security'] }
     | { type: 'UPDATE_PROTECTED_PAGES'; payload: Page[] }
     | { type: 'RENAME_PRODUCT_ID'; payload: { oldId: string; newId: string } }
-    | { type: 'SET_AUTHENTICATED'; payload: boolean };
+    | { type: 'RENAME_PRODUCT_ID'; payload: { oldId: string; newId: string } }
+    | { type: 'SET_AUTHENTICATED'; payload: boolean }
+    | { type: 'TOGGLE_STAFF_MODE'; payload: boolean };
 
 // Default Template to prevent crashes
 const DEFAULT_TEMPLATE: InvoiceTemplateConfig = {
@@ -284,7 +286,8 @@ const initialState: AppState = {
     isAuthenticated: false, // Default false, requires auth if accessing protected pages
     protectedPages: [], // Will load from DB
     bankAccounts: [],
-    goals: []
+    goals: [],
+    isStaffMode: false
 };
 
 // Logging helper
@@ -322,6 +325,9 @@ const appReducer = (state: AppState, action: Action): AppState => {
     switch (action.type) {
         case 'SET_STATE':
             return { ...state, ...action.payload };
+
+        case 'TOGGLE_STAFF_MODE':
+            return { ...state, isStaffMode: action.payload, ...touch };
 
         case 'ADD_CUSTOMER':
             const newCustomer = { ...action.payload, updatedAt: new Date().toISOString() };
@@ -1256,6 +1262,9 @@ export const AppContext = createContext<{
     googleSignIn: (options?: { forceConsent?: boolean }) => void;
     googleSignOut: () => void;
     syncData: () => Promise<void>;
+    unlockApp: () => void;
+    lockApp: () => void;
+    updateSecurity: (config: AppMetadataPin['security']) => void;
 } | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {

@@ -132,7 +132,7 @@ const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({ isOpen, onClo
         });
 
         if (confirmed) {
-            await db.clearDatabase();
+            await db.deleteDatabase(); // Use robust delete that handles corruption
             localStorage.clear();
             window.location.reload();
         }

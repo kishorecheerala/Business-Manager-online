@@ -5,7 +5,7 @@ import { InvoiceTemplateConfig, DocumentType, InvoiceLabels, CustomFont, Profile
 import Button from '../components/Button';
 import ColorPickerModal from '../components/ColorPickerModal';
 import Dropdown from '../components/Dropdown';
-import WhatsAppIcon from '../components/WhatsAppIcon';
+import WhatsAppButton from '../components/WhatsAppButton';
 import { generateA4InvoicePdf, generateEstimatePDF, generateDebitNotePDF, generateReceiptPDF, generateGenericReportPDF } from '../utils/pdfGenerator';
 import { generateDownloadFilename, formatCurrency } from '../utils/formatUtils';
 import { compressImage } from '../utils/imageUtils';
@@ -571,6 +571,13 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
         return { ...s, items: enrichedItems };
     }, [previewSaleId, state.sales, state.products]);
 
+    const previewCustomer = useMemo(() => {
+        if (previewSaleId === 'DUMMY') return dummyCustomer;
+        const s = state.sales.find(x => x.id === previewSaleId);
+        if (!s) return dummyCustomer;
+        return state.customers.find(c => c.id === s.customerId) || dummyCustomer;
+    }, [previewSaleId, state.sales, state.customers]);
+
     const [showColorPicker, setShowColorPicker] = useState(false);
     const [activeColorKey, setActiveColorKey] = useState<keyof InvoiceTemplateConfig['colors'] | null>(null);
     const [reportScenario, setReportScenario] = useState<ReportScenarioKey>('SALES_REPORT');
@@ -816,19 +823,7 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
     };
 
     // --- WhatsApp Sharing ---
-    // --- WhatsApp Sharing ---
-    const handleWhatsAppShare = () => {
-        const isReal = previewSaleId !== 'DUMMY';
-        const sale = isReal ? (state.sales.find(s => s.id === previewSaleId) || dummySale) : dummySale;
-        const customerName = isReal
-            ? (state.customers.find(c => c.id === sale.customerId)?.name || "Customer")
-            : dummyCustomer.name;
 
-        const amount = formatCurrency(sale.totalAmount);
-        const text = `Hi ${customerName}, here is your invoice for ${amount}. Please review it.`;
-        const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
-        window.open(url, '_blank');
-    };
 
     const handleConfigChange = (section: 'layout' | 'content' | 'fonts' | 'colors', key: string, value: any) => {
         const current = configRef.current;
@@ -2408,13 +2403,13 @@ const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurren
 
                     <div className="flex items-center gap-2 md:gap-3 flex-1 justify-end min-w-0">
                         {/* WhatsApp Share */}
-                        <Button
-                            onClick={handleWhatsAppShare}
-                            variant="secondary"
+                        <WhatsAppButton
+                            mobile={previewCustomer.phone}
+                            message={`Hi ${previewCustomer.name}, here is your invoice for ${formatCurrency(Number(previewData.totalAmount))}. Please review it.`}
+                            context="invoice"
                             className="bg-green-50 text-green-600 hover:bg-green-100 border-green-200 h-7 md:h-8 px-1.5 md:px-3 text-[10px] md:text-xs shrink-0"
-                        >
-                            <WhatsAppIcon size={14} className="md:mr-1" /> <span className="hidden md:inline">Share</span>
-                        </Button>
+                            label="Share"
+                        />
 
                         {/* Grid Controls */}
                         <div className="flex items-center gap-1.5 border-l border-gray-200 dark:border-slate-700 pl-2">

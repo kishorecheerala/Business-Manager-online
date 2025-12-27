@@ -18,19 +18,8 @@ import Input from '../components/Input';
 import ModernDateInput from '../components/ModernDateInput';
 import FormattedNumberInput from '../components/FormattedNumberInput';
 
-// Custom WhatsApp Icon Component
-const WhatsAppIcon = ({ size = 24, className = "" }: { size?: number, className?: string }) => (
-    <svg
-        width={size}
-        height={size}
-        viewBox="0 0 24 24"
-        fill="currentColor"
-        className={className}
-        xmlns="http://www.w3.org/2000/svg"
-    >
-        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.008-.57-.008-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
-    </svg>
-);
+import WhatsAppButton from '../components/WhatsAppButton';
+
 
 // --- Customer Segmentation Helper ---
 // Customer Segmentation Removed as per user request
@@ -90,7 +79,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
     const [paymentModalState, setPaymentModalState] = useState<{ isOpen: boolean, saleId: string | null }>({ isOpen: false, saleId: null });
     const [paymentDetails, setPaymentDetails] = useState({
         amount: '',
-        method: 'CASH' as 'CASH' | 'UPI' | 'CHEQUE',
+        method: 'CASH' as 'CASH' | 'UPI' | 'CHEQUE' | 'RETURN_CREDIT',
         date: getLocalDateString(),
         reference: '',
         accountId: ''
@@ -483,6 +472,15 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
         const customerSales = state.sales.filter(s => s.customerId === selectedCustomer.id);
         const customerReturns = state.returns.filter(r => r.type === 'CUSTOMER' && r.partyId === selectedCustomer.id);
 
+        const totalDue = customerSales.reduce((acc, sale) => {
+            const amountPaid = sale.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+            const relatedReturns = state.returns?.filter(r => r.referenceId === sale.id) || [];
+            const totalReturned = relatedReturns.reduce((sum, r) => sum + Number(r.amount), 0);
+            const netPayable = Number(sale.totalAmount) - totalReturned;
+            const due = netPayable - amountPaid;
+            return acc + (due > 0.01 ? due : 0);
+        }, 0);
+
         const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
             setEditedCustomer({ ...editedCustomer, [e.target.name]: e.target.value });
         };
@@ -606,13 +604,13 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                                         >
                                             <Phone size={14} /> Call
                                         </a>
-                                        <a
-                                            href={`https://wa.me/${selectedCustomer.phone.replace(/\D/g, '')}`}
-                                            target="_blank"
-                                            className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors text-sm font-medium dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-300"
-                                        >
-                                            <WhatsAppIcon size={14} /> WhatsApp
-                                        </a>
+                                        <WhatsAppButton
+                                            mobile={selectedCustomer.phone}
+                                            message={`Hi ${selectedCustomer.name}, how can we help you today?`}
+                                            context="generic"
+                                            className="bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-300 px-3 py-1.5 h-auto text-sm font-medium"
+                                            label="WhatsApp"
+                                        />
                                         <a
                                             href={`https://www.truecaller.com/search/in/${selectedCustomer.phone.replace(/\D/g, '')}`}
                                             target="_blank"
@@ -654,6 +652,13 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                                 <Share2 size={16} className="mr-1 sm:mr-2 flex-shrink-0" />
                                 <span className="text-center leading-tight">Share Dues</span>
                             </Button>
+                            <WhatsAppButton
+                                mobile={selectedCustomer.phone}
+                                message={`Namaste ${selectedCustomer.name}, your total outstanding due is ${formatCurrency(totalDue)}. Please plan to pay this at your earliest convenience. Thank you.`}
+                                context="reminder"
+                                className="h-full px-2"
+                                label="Send Reminder"
+                            />
                             <Button onClick={() => setIsOpeningBalanceModalOpen(true)} variant="secondary" className="col-span-2 bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100">
                                 <Wallet size={16} className="mr-2" /> Add Opening Balance
                             </Button>

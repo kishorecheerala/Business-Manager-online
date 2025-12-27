@@ -1,5 +1,5 @@
 
-import { openDB, DBSchema, IDBPDatabase } from 'idb';
+import { openDB, deleteDB, DBSchema, IDBPDatabase } from 'idb';
 import { Customer, Supplier, Product, Sale, Purchase, Return, Notification, ProfileData, AppMetadata, AuditLogEntry, Expense, Quote, CustomFont, Snapshot, TrashItem, Budget, FinancialScenario, AppState, BankAccount, FinancialGoal } from '../types';
 
 const DB_NAME = 'business-manager-db';
@@ -28,6 +28,23 @@ interface BusinessManagerDB extends DBSchema {
     financial_scenarios: { key: string; value: FinancialScenario; };
     bank_accounts: { key: string; value: BankAccount };
     goals: { key: string; value: FinancialGoal; };
+}
+
+/**
+ * Completely deletes the database without trying to open it first.
+ * Useful for recovering from 'Internal error opening backing store' loops.
+ */
+export async function deleteDatabase(): Promise<void> {
+    try {
+        // Close any existing connection if possible
+        if (dbPromise) {
+            const db = await dbPromise.catch(() => null);
+            db?.close();
+        }
+    } catch (e) { /* ignore */ }
+
+    // Nuke it
+    await deleteDB(DB_NAME);
 }
 
 let dbPromise: Promise<IDBPDatabase<BusinessManagerDB>>;

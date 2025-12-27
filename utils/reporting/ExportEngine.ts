@@ -1,8 +1,8 @@
 
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { formatCurrency, formatDate, generateDownloadFilename } from '../formatUtils';
 import { ReportConfig } from '../../types';
-import { generateDownloadFilename } from '../formatUtils';
 
 export class ExportEngine {
 
@@ -14,10 +14,29 @@ export class ExportEngine {
 
         const rows = data.map(row =>
             keys.map(k => {
+                const f = config.fields.find(field => field.id === k);
                 const val = row[k];
-                // basic sanitization
+
                 if (val === null || val === undefined) return '';
-                return `"${String(val).replace(/"/g, '""')}"`;
+
+                let formattedVal = val;
+                if (f?.type === 'date') {
+                    formattedVal = formatDate(val);
+                } else if (f?.type === 'currency') {
+                    // For CSV, maybe we want raw numbers? Ideally yes, but usually users want what they see.
+                    // If we want raw numbers for Excel calculation, we should just stringify number.
+                    // But if we want pretty reports, we format.
+                    // Let's stick to stringify number for currency in CSV so it's computable, 
+                    // BUT date strictly needs formatting.
+                    // Actually, let's format it if it's strictly for display reports.
+                    // However, standard practice for CSV is keeping numbers as numbers.
+                    // Let's kept currency as number/string but date formatted.
+                    formattedVal = val;
+                }
+
+                // Actually, let's treat date as special.
+
+                return `"${String(formattedVal).replace(/"/g, '""')}"`;
             }).join(',')
         );
 

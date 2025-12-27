@@ -23,10 +23,74 @@ interface ReportsPageProps {
 
 const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
     const { state, dispatch, showToast } = useAppContext();
-    const [activeTab, setActiveTab] = useState<'customer' | 'supplier' | 'stock'>('customer');
+    const [activeTab, setActiveTab] = useState<'customer' | 'supplier' | 'stock' | 'tax'>('customer');
     const [isExporting, setIsExporting] = useState(false);
 
-    // --- Customer Filters ---
+    // --- GST Reports Logic ---
+    const [gstMonth, setGstMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
+
+    // Filter sales for GST
+    const gstData = useMemo(() => {
+        const [year, month] = gstMonth.split('-');
+        const filteredSales = state.sales.filter(s => {
+            const date = new Date(s.date);
+            return date.getFullYear() === parseInt(year) && date.getMonth() + 1 === parseInt(month);
+        });
+
+        // Use Service to categorize
+        // We import it dynamically or assume it's available. We need to import it at top.
+        // For now, let's just inline the categorization calls or lazily load if better, 
+        // but robust way is standard import.
+
+        // We need to import GSTExportService. I'll add the import in a separate step or just assume it's there.
+        // Wait, I can't add import here. I will just implement the logic here for now or fix imports later.
+
+        // Let's implement active logic here first.
+        const b2b: Sale[] = [];
+        const b2c: Sale[] = [];
+
+        filteredSales.forEach(sale => {
+            const customer = state.customers.find(c => c.id === sale.customerId);
+            // Basic check: If reference matches typical GSTIN length (15)
+            if (customer && customer.reference && customer.reference.length === 15) {
+                b2b.push(sale);
+            } else {
+                b2c.push(sale);
+            }
+        });
+
+        const totalTax = filteredSales.reduce((sum, s) => sum + s.gstAmount, 0);
+        const totalValue = filteredSales.reduce((sum, s) => sum + s.totalAmount, 0);
+
+        return { b2b, b2c, totalTax, totalValue, all: filteredSales };
+    }, [state.sales, state.customers, gstMonth]);
+
+    const handleExportGSTR1_B2B = async () => {
+        // Dynamic Import to avoid top-level circular dep if any
+        const { GSTExportService } = await import('../utils/gstExportService');
+        const csv = GSTExportService.generateB2BCSV(gstData.b2b, state.customers);
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `GSTR1_B2B_${gstMonth}.csv`;
+        link.click();
+        showToast("B2B Report Downloaded");
+    };
+
+    const handleExportSalesRegister = async () => {
+        const { GSTExportService } = await import('../utils/gstExportService');
+        const csv = GSTExportService.generateSalesRegisterCSV(gstData.all, state.customers);
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `Sales_Register_${gstMonth}.csv`;
+        link.click();
+        showToast("Sales Register Downloaded");
+    };
+
+    // ... (rest of filtering logic)
     const [areaFilter, setAreaFilter] = useState('all');
     const [duesAgeFilter, setDuesAgeFilter] = useState('all');
     const [customDuesAge, setCustomDuesAge] = useState('');
@@ -485,6 +549,12 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                     >
                         <AlertTriangle size={16} /> Inventory Reports
                     </button>
+                    <button
+                        onClick={() => setActiveTab('tax')}
+                        className={`py-2 px-1 border-b-2 font-semibold flex items-center gap-2 ${activeTab === 'tax' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-gray-500'}`}
+                    >
+                        <FileSpreadsheet size={16} /> Tax / GST
+                    </button>
                 </nav>
             </div>
 
@@ -708,6 +778,71 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                                     {lowStockItems.length === 0 && <tr><td colSpan={3} className="px-4 py-3 text-center text-gray-500">Stock is healthy (No items &lt; 5).</td></tr>}
                                 </tbody>
                             </table>
+                        </div>
+                    </Card>
+                </div>
+            )}
+
+            {activeTab === 'tax' && (
+                <div className="animate-fade-in-fast space-y-6">
+                    <Card title="GST Filing Period">
+                        <div className="flex items-end gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Select Month</label>
+                                <input
+                                    type="month"
+                                    value={gstMonth}
+                                    onChange={(e) => setGstMonth(e.target.value)}
+                                    className="p-2 border rounded-lg dark:bg-slate-700 dark:border-slate-600 dark:text-white"
+                                />
+                            </div>
+                            <div className="pb-2 text-sm text-gray-500">
+                                Showing data for: <span className="font-bold text-gray-800 dark:text-gray-200">{new Date(gstMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}</span>
+                            </div>
+                        </div>
+                    </Card>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="p-4 bg-white dark:bg-slate-800 rounded-lg shadow border border-indigo-100 dark:border-slate-700">
+                            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Tax Liability</h3>
+                            <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-1">₹{gstData.totalTax.toLocaleString('en-IN')}</p>
+                            <p className="text-xs text-gray-400 mt-2">IGST + CGST + SGST</p>
+                        </div>
+                        <div className="p-4 bg-white dark:bg-slate-800 rounded-lg shadow border border-blue-100 dark:border-slate-700">
+                            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">B2B Invoices</h3>
+                            <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">{gstData.b2b.length}</p>
+                            <p className="text-xs text-gray-400 mt-2">Registered Customers</p>
+                        </div>
+                        <div className="p-4 bg-white dark:bg-slate-800 rounded-lg shadow border border-green-100 dark:border-slate-700">
+                            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Sales Value</h3>
+                            <p className="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">₹{gstData.totalValue.toLocaleString('en-IN')}</p>
+                            <p className="text-xs text-gray-400 mt-2">Taxable + Tax</p>
+                        </div>
+                    </div>
+
+                    <Card title="GSTR-1 Actions">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="p-4 border rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                <h4 className="font-bold flex items-center gap-2 mb-2">
+                                    <FileSpreadsheet className="text-green-600" size={20} />
+                                    B2B CSV (GSTR-1)
+                                </h4>
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Export list of invoices for registered customers (with GSTIN) in GSTR-1 format.</p>
+                                <Button onClick={handleExportGSTR1_B2B} disabled={gstData.b2b.length === 0}>
+                                    Download B2B CSV
+                                </Button>
+                            </div>
+
+                            <div className="p-4 border rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                <h4 className="font-bold flex items-center gap-2 mb-2">
+                                    <FileSpreadsheet className="text-blue-600" size={20} />
+                                    Sales Register
+                                </h4>
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Export comprehensive list of all monthly sales with tax breakdown for auditor.</p>
+                                <Button onClick={handleExportSalesRegister} disabled={gstData.all.length === 0}>
+                                    Download Full Register
+                                </Button>
+                            </div>
                         </div>
                     </Card>
                 </div>
