@@ -82,7 +82,7 @@ export type Action =
     | { type: 'ADD_PARKED_SALES'; payload: ParkedSale[] }
     // Trash Actions
     | { type: 'MOVE_TO_TRASH'; payload: TrashItem }
-    | { type: 'RESTORE_FROM_TRASH'; payload: string }
+    | { type: 'RESTORE_FROM_TRASH'; payload: TrashItem }
     | { type: 'PERMANENTLY_DELETE_FROM_TRASH'; payload: string }
     | { type: 'EMPTY_TRASH' }
     | { type: 'RESTORE_SNAPSHOT'; payload: Partial<AppState> }
@@ -350,33 +350,33 @@ const appReducer = (state: AppState, action: Action): AppState => {
                 updatedAt: new Date().toISOString()
             };
             const metaWithoutStaffMode = state.app_metadata.filter(m => m.id !== 'staffMode');
-            db.saveCollection('app_metadata', [...metaWithoutStaffMode, staffModeMeta]);
+            db.upsertItem('app_metadata', staffModeMeta); // Optimized
             return { ...state, isStaffMode: action.payload, app_metadata: [...metaWithoutStaffMode, staffModeMeta], ...touch };
 
         case 'ADD_CUSTOMER':
             const newCustomer = { ...action.payload, updatedAt: new Date().toISOString() };
-            db.saveCollection('customers', [newCustomer, ...state.customers]);
+            db.upsertItem('customers', newCustomer); // Optimized
             newLog = logAction(state, 'Customer Added', newCustomer.name);
-            db.saveCollection('audit_logs', [newLog, ...state.audit_logs]);
+            db.upsertItem('audit_logs', newLog); // Optimized
             return { ...state, customers: [newCustomer, ...state.customers], audit_logs: [newLog, ...state.audit_logs], ...touch };
 
         case 'UPDATE_CUSTOMER':
             const updatedCustomer: Customer = { ...action.payload, updatedAt: new Date().toISOString() };
             const updatedCustomers = state.customers.map(c => c.id === updatedCustomer.id ? updatedCustomer : c);
-            db.saveCollection('customers', updatedCustomers);
+            db.upsertItem('customers', updatedCustomer); // Optimized
             newLog = logAction(state, 'Updated Customer', `ID: ${updatedCustomer.id} `);
-            db.saveCollection('audit_logs', [newLog, ...state.audit_logs]);
+            db.upsertItem('audit_logs', newLog); // Optimized
             return { ...state, customers: updatedCustomers, audit_logs: [newLog, ...state.audit_logs], ...touch };
 
         case 'ADD_SUPPLIER':
             const newSupplier = { ...action.payload, updatedAt: new Date().toISOString() };
-            db.saveCollection('suppliers', [newSupplier, ...state.suppliers]);
+            db.upsertItem('suppliers', newSupplier); // Optimized
             return { ...state, suppliers: [newSupplier, ...state.suppliers], ...touch };
 
         case 'UPDATE_SUPPLIER':
             const updatedSupplier = { ...action.payload, updatedAt: new Date().toISOString() };
             const updatedSuppliers = state.suppliers.map(s => s.id === updatedSupplier.id ? updatedSupplier : s);
-            db.saveCollection('suppliers', updatedSuppliers);
+            db.upsertItem('suppliers', updatedSupplier); // Optimized
             return { ...state, suppliers: updatedSuppliers, ...touch };
 
         case 'ADD_PRODUCT':
@@ -384,26 +384,40 @@ const appReducer = (state: AppState, action: Action): AppState => {
             const existingProductIndex = state.products.findIndex(p => p.id === newProduct.id);
             let productsList;
             if (existingProductIndex >= 0) {
-                productsList = state.products.map((p, i) => i === existingProductIndex ? { ...p, quantity: p.quantity + newProduct.quantity, updatedAt: new Date().toISOString() } : p);
+                // If it exists, we are updating it.
+                const existing = state.products[existingProductIndex];
+                const updatedProduct = { ...existing, quantity: existing.quantity + newProduct.quantity, updatedAt: new Date().toISOString() };
+                productsList = state.products.map((p, i) => i === existingProductIndex ? updatedProduct : p);
+                db.upsertItem('products', updatedProduct); // Optimized
             } else {
                 productsList = [...state.products, newProduct];
+                db.upsertItem('products', newProduct); // Optimized
             }
-            db.saveCollection('products', productsList);
             return { ...state, products: productsList, ...touch };
 
         case 'UPDATE_PRODUCT_STOCK':
+            const prodToUpdate = state.products.find(p => p.id === action.payload.productId);
+            if (!prodToUpdate) return state;
+
+            const updatedStockProduct = { ...prodToUpdate, quantity: prodToUpdate.quantity + action.payload.change, updatedAt: new Date().toISOString() };
             const updatedStockProducts = state.products.map(p =>
-                p.id === action.payload.productId ? { ...p, quantity: p.quantity + action.payload.change, updatedAt: new Date().toISOString() } : p
+                p.id === action.payload.productId ? updatedStockProduct : p
             );
-            db.saveCollection('products', updatedStockProducts);
+            db.upsertItem('products', updatedStockProduct); // Optimized
             return { ...state, products: updatedStockProducts, ...touch };
 
         case 'BATCH_UPDATE_PRODUCTS':
+            const productsToUpdateBatch: Product[] = [];
             const batchUpdatedProducts = state.products.map(p => {
                 const update = action.payload.find(u => u.id === p.id);
-                return update ? { ...update, updatedAt: new Date().toISOString() } : p;
+                if (update) {
+                    const up = { ...update, updatedAt: new Date().toISOString() };
+                    productsToUpdateBatch.push(up);
+                    return up;
+                }
+                return p;
             });
-            db.saveCollection('products', batchUpdatedProducts);
+            if (productsToUpdateBatch.length > 0) db.upsertMany('products', productsToUpdateBatch); // Optimized
             return { ...state, products: batchUpdatedProducts, ...touch };
 
         case 'RENAME_PRODUCT_ID': {
@@ -471,16 +485,15 @@ const appReducer = (state: AppState, action: Action): AppState => {
             const newSale = action.payload;
 
             let customersAfterSale = [...state.customers];
-            const saleCustomerIdx = state.customers.findIndex(c => c.id === newSale.customerId);
+            // Point update logic removed or commented out in original? 
+            // The original logic just saved customers without changing them.
+            // We'll skip saving customers if they aren't changed.
 
-            if (saleCustomerIdx >= 0) {
-                // No points updates
-            }
+            db.upsertItem('sales', newSale); // Optimized
+            // db.saveCollection('customers', customersAfterSale); // Removed redundant save
 
-            db.saveCollection('sales', [...state.sales, newSale]);
-            db.saveCollection('customers', customersAfterSale);
             newLog = logAction(state, 'New Sale', `ID: ${newSale.id}, Amt: ${newSale.totalAmount} `);
-            db.saveCollection('audit_logs', [newLog, ...state.audit_logs]);
+            db.upsertItem('audit_logs', newLog); // Optimized
             return { ...state, sales: [...state.sales, newSale], customers: customersAfterSale, audit_logs: [newLog, ...state.audit_logs], ...touch };
 
         case 'UPDATE_SALE':
@@ -495,19 +508,24 @@ const appReducer = (state: AppState, action: Action): AppState => {
                 stockMap[item.productId] = (stockMap[item.productId] || 0) - item.quantity;
             });
 
+            // Only update products that changed
+            const productsToUpdateSale: Product[] = [];
             const adjustedProducts = state.products.map(p => {
-                if (stockMap[p.id] !== undefined) {
-                    return { ...p, quantity: p.quantity + stockMap[p.id], updatedAt: new Date().toISOString() };
+                if (stockMap[p.id] !== undefined && stockMap[p.id] !== 0) {
+                    const up = { ...p, quantity: p.quantity + stockMap[p.id], updatedAt: new Date().toISOString() };
+                    productsToUpdateSale.push(up);
+                    return up;
                 }
                 return p;
             });
 
             const updatedSalesList = state.sales.map(s => s.id === updatedSale.id ? { ...updatedSale, updatedAt: new Date().toISOString() } : s);
 
-            db.saveCollection('sales', updatedSalesList);
-            db.saveCollection('products', adjustedProducts);
+            db.upsertItem('sales', { ...updatedSale, updatedAt: new Date().toISOString() }); // Optimized
+            if (productsToUpdateSale.length > 0) db.upsertMany('products', productsToUpdateSale); // Optimized
+
             newLog = logAction(state, 'Updated Sale', `ID: ${updatedSale.id} `);
-            db.saveCollection('audit_logs', [newLog, ...state.audit_logs]);
+            db.upsertItem('audit_logs', newLog); // Optimized
 
             return { ...state, sales: updatedSalesList, products: adjustedProducts, audit_logs: [newLog, ...state.audit_logs], ...touch };
 
@@ -516,12 +534,17 @@ const appReducer = (state: AppState, action: Action): AppState => {
             if (!saleToDelete) return state;
 
             // Restore Stock
+            const productsToUpdateDelete: Product[] = [];
             const restoredProducts = state.products.map(p => {
                 const item = saleToDelete.items.find(i => i.productId === p.id);
-                return item ? { ...p, quantity: p.quantity + item.quantity, updatedAt: new Date().toISOString() } : p;
+                if (item) {
+                    const up = { ...p, quantity: p.quantity + item.quantity, updatedAt: new Date().toISOString() };
+                    productsToUpdateDelete.push(up);
+                    return up;
+                }
+                return p;
             });
 
-            // No loyalty points to revert, so customer state remains unchanged for now
             const customersAfterDelete = state.customers;
 
             // Create Trash Item
@@ -533,12 +556,12 @@ const appReducer = (state: AppState, action: Action): AppState => {
             };
 
             db.addToTrash(trashSale);
-            db.deleteFromStore('sales', saleToDelete.id);
-            db.saveCollection('products', restoredProducts);
-            db.saveCollection('customers', customersAfterDelete);
+            db.deleteFromStore('sales', saleToDelete.id); // Optimized
+            if (productsToUpdateDelete.length > 0) db.upsertMany('products', productsToUpdateDelete); // Optimized
+            // db.saveCollection('customers', customersAfterDelete); // Redundant
 
             newLog = logAction(state, 'Deleted Sale', `ID: ${action.payload} `);
-            db.saveCollection('audit_logs', [newLog, ...state.audit_logs]);
+            db.upsertItem('audit_logs', newLog); // Optimized
 
             return {
                 ...state,
@@ -552,14 +575,23 @@ const appReducer = (state: AppState, action: Action): AppState => {
         }
 
         case 'ADD_PAYMENT_TO_SALE':
+            // Logic: we need to find the specific sale and just update that.
+            const targetSaleForPayment = state.sales.find(s => s.id === action.payload.saleId);
+            if (!targetSaleForPayment) return state; // Safety
+
+            const updatedSaleWithPayment = {
+                ...targetSaleForPayment,
+                payments: [...(targetSaleForPayment.payments || []), action.payload.payment],
+                updatedAt: new Date().toISOString()
+            };
+
             const salesWithPayment = state.sales.map(s =>
-                s.id === action.payload.saleId
-                    ? { ...s, payments: [...(s.payments || []), action.payload.payment], updatedAt: new Date().toISOString() }
-                    : s
+                s.id === action.payload.saleId ? updatedSaleWithPayment : s
             );
-            db.saveCollection('sales', salesWithPayment);
+
+            db.upsertItem('sales', updatedSaleWithPayment); // Optimized
             newLog = logAction(state, 'Payment Added', `Sale ID: ${action.payload.saleId}, Amount: ${action.payload.payment.amount} `);
-            db.saveCollection('audit_logs', [newLog, ...state.audit_logs]);
+            db.upsertItem('audit_logs', newLog); // Optimized
             return { ...state, sales: salesWithPayment, audit_logs: [newLog, ...state.audit_logs], ...touch };
 
         case 'UPDATE_PAYMENT_IN_SALE': {
@@ -576,10 +608,12 @@ const appReducer = (state: AppState, action: Action): AppState => {
 
         case 'ADD_PURCHASE':
             const newPurchase = { ...action.payload, updatedAt: new Date().toISOString() };
+            const productsToUpsertPurchase: Product[] = [];
+
             const prodsAfterPurchase = state.products.map(p => {
                 const item = newPurchase.items.find(i => i.productId === p.id);
                 if (item) {
-                    return {
+                    const up = {
                         ...p,
                         quantity: p.quantity + item.quantity,
                         purchasePrice: item.price,
@@ -587,13 +621,16 @@ const appReducer = (state: AppState, action: Action): AppState => {
                         gstPercent: item.gstPercent,
                         updatedAt: new Date().toISOString()
                     };
+                    productsToUpsertPurchase.push(up);
+                    return up;
                 }
                 return p;
             });
 
+            // Handle new products created during purchase
             newPurchase.items.forEach(item => {
                 if (!state.products.find(p => p.id === item.productId)) {
-                    prodsAfterPurchase.push({
+                    const newProd = {
                         id: item.productId,
                         name: item.productName,
                         quantity: item.quantity,
@@ -601,14 +638,17 @@ const appReducer = (state: AppState, action: Action): AppState => {
                         salePrice: item.saleValue,
                         gstPercent: item.gstPercent,
                         updatedAt: new Date().toISOString()
-                    });
+                    };
+                    prodsAfterPurchase.push(newProd);
+                    productsToUpsertPurchase.push(newProd);
                 }
             });
 
-            db.saveCollection('purchases', [newPurchase, ...state.purchases]);
-            db.saveCollection('products', prodsAfterPurchase);
+            db.upsertItem('purchases', newPurchase); // Optimized
+            if (productsToUpsertPurchase.length > 0) db.upsertMany('products', productsToUpsertPurchase); // Optimized
+
             newLog = logAction(state, 'New Purchase', `ID: ${newPurchase.id}, Amt: ${newPurchase.totalAmount} `);
-            db.saveCollection('audit_logs', [newLog, ...state.audit_logs]);
+            db.upsertItem('audit_logs', newLog); // Optimized
 
             return {
                 ...state,
@@ -622,7 +662,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
             const { updatedPurchase } = action.payload;
             const updatedPurchaseWithTime = { ...updatedPurchase, updatedAt: new Date().toISOString() };
             const updatedPurchasesList = state.purchases.map(p => p.id === updatedPurchaseWithTime.id ? updatedPurchaseWithTime : p);
-            db.saveCollection('purchases', updatedPurchasesList);
+            db.upsertItem('purchases', updatedPurchaseWithTime); // Optimized
             return { ...state, purchases: updatedPurchasesList, ...touch };
 
         case 'DELETE_PURCHASE': {
@@ -630,9 +670,15 @@ const appReducer = (state: AppState, action: Action): AppState => {
             if (!purchaseToDelete) return state;
 
             // Reduce Stock
+            const affectedProducts: Product[] = [];
             const reducedProducts = state.products.map(p => {
                 const item = purchaseToDelete.items.find(i => i.productId === p.id);
-                return item ? { ...p, quantity: Math.max(0, p.quantity - item.quantity), updatedAt: new Date().toISOString() } : p;
+                if (item) {
+                    const up = { ...p, quantity: Math.max(0, p.quantity - item.quantity), updatedAt: new Date().toISOString() };
+                    affectedProducts.push(up);
+                    return up;
+                }
+                return p;
             });
 
             // Trash Logic
@@ -644,11 +690,11 @@ const appReducer = (state: AppState, action: Action): AppState => {
             };
 
             db.addToTrash(trashPurchase);
-            db.deleteFromStore('purchases', purchaseToDelete.id);
-            db.saveCollection('products', reducedProducts);
+            db.deleteFromStore('purchases', purchaseToDelete.id); // Optimized
+            if (affectedProducts.length > 0) db.upsertMany('products', affectedProducts); // Optimized
 
             newLog = logAction(state, 'Deleted Purchase', `ID: ${action.payload} `);
-            db.saveCollection('audit_logs', [newLog, ...state.audit_logs]);
+            db.upsertItem('audit_logs', newLog); // Optimized
 
             return {
                 ...state,
@@ -673,30 +719,37 @@ const appReducer = (state: AppState, action: Action): AppState => {
 
         case 'ADD_RETURN':
             const newReturn = { ...action.payload, updatedAt: new Date().toISOString() };
-            let stockAdjProducts = [...state.products];
-            if (newReturn.type === 'CUSTOMER') {
-                stockAdjProducts = state.products.map(p => {
-                    const item = newReturn.items.find(i => i.productId === p.id);
-                    return item ? { ...p, quantity: p.quantity + item.quantity, updatedAt: new Date().toISOString() } : p;
-                });
-            } else {
-                stockAdjProducts = state.products.map(p => {
-                    const item = newReturn.items.find(i => i.productId === p.id);
-                    return item ? { ...p, quantity: Math.max(0, p.quantity - item.quantity), updatedAt: new Date().toISOString() } : p;
-                });
-            }
+            const productsToUpsertReturn: Product[] = [];
 
-            db.saveCollection('returns', [...state.returns, newReturn]);
-            db.saveCollection('products', stockAdjProducts);
+            const stockAdjProducts = state.products.map(p => {
+                let updatedInfo: Partial<Product> | null = null;
+                const item = newReturn.items.find(i => i.productId === p.id);
+
+                if (item) {
+                    if (newReturn.type === 'CUSTOMER') {
+                        updatedInfo = { quantity: p.quantity + item.quantity };
+                    } else {
+                        updatedInfo = { quantity: Math.max(0, p.quantity - item.quantity) };
+                    }
+                    const up = { ...p, ...updatedInfo, updatedAt: new Date().toISOString() };
+                    productsToUpsertReturn.push(up);
+                    return up;
+                }
+                return p;
+            });
+
+            db.upsertItem('returns', newReturn); // Optimized
+            if (productsToUpsertReturn.length > 0) db.upsertMany('products', productsToUpsertReturn); // Optimized
+
             newLog = logAction(state, 'Return Processed', `Type: ${newReturn.type}, ID: ${newReturn.id} `);
-            db.saveCollection('audit_logs', [newLog, ...state.audit_logs]);
+            db.upsertItem('audit_logs', newLog); // Optimized
 
             return { ...state, returns: [...state.returns, newReturn], products: stockAdjProducts, audit_logs: [newLog, ...state.audit_logs], ...touch };
 
         case 'UPDATE_RETURN':
             const updatedReturn = { ...action.payload.updatedReturn, updatedAt: new Date().toISOString() };
             const updatedReturns = state.returns.map(r => r.id === updatedReturn.id ? updatedReturn : r);
-            db.saveCollection('returns', updatedReturns);
+            db.upsertItem('returns', updatedReturn); // Optimized
             return { ...state, returns: updatedReturns, ...touch };
 
         case 'DELETE_RETURN': {
@@ -704,21 +757,24 @@ const appReducer = (state: AppState, action: Action): AppState => {
             if (!returnToDelete) return state;
 
             // Reverse Stock Logic
-            let reversedStockProducts = [...state.products];
-            if (returnToDelete.type === 'CUSTOMER') {
-                // Original: Added to stock. Reversal: Subtract from stock.
-                reversedStockProducts = state.products.map(p => {
-                    const item = returnToDelete.items.find(i => i.productId === p.id);
-                    // Ensure we don't go below 0 if somehow stock is messed up, but logically we just subtract
-                    return item ? { ...p, quantity: Math.max(0, p.quantity - item.quantity), updatedAt: new Date().toISOString() } : p;
-                });
-            } else {
-                // Original: Removed from stock. Reversal: Add to stock.
-                reversedStockProducts = state.products.map(p => {
-                    const item = returnToDelete.items.find(i => i.productId === p.id);
-                    return item ? { ...p, quantity: p.quantity + item.quantity, updatedAt: new Date().toISOString() } : p;
-                });
-            }
+            const productsToUpsertRev: Product[] = [];
+            const reversedStockProducts = state.products.map(p => {
+                const item = returnToDelete.items.find(i => i.productId === p.id);
+                if (item) {
+                    let newQty = p.quantity;
+                    if (returnToDelete.type === 'CUSTOMER') {
+                        // Original: Added. Now: Subtract.
+                        newQty = Math.max(0, p.quantity - item.quantity);
+                    } else {
+                        // Original: Subtracted. Now: Add.
+                        newQty = p.quantity + item.quantity;
+                    }
+                    const up = { ...p, quantity: newQty, updatedAt: new Date().toISOString() };
+                    productsToUpsertRev.push(up);
+                    return up;
+                }
+                return p;
+            });
 
             // Trash Logic
             const trashReturn: TrashItem = {
@@ -729,11 +785,11 @@ const appReducer = (state: AppState, action: Action): AppState => {
             };
 
             db.addToTrash(trashReturn);
-            db.deleteFromStore('returns', returnToDelete.id);
-            db.saveCollection('products', reversedStockProducts);
+            db.deleteFromStore('returns', returnToDelete.id); // Optimized
+            if (productsToUpsertRev.length > 0) db.upsertMany('products', productsToUpsertRev); // Optimized
 
             newLog = logAction(state, 'Deleted Return', `ID: ${action.payload} `);
-            db.saveCollection('audit_logs', [newLog, ...state.audit_logs]);
+            db.upsertItem('audit_logs', newLog); // Optimized
 
             return {
                 ...state,
@@ -748,9 +804,9 @@ const appReducer = (state: AppState, action: Action): AppState => {
         case 'UPDATE_EXPENSE':
             const updatedExpense = { ...action.payload, updatedAt: new Date().toISOString() };
             const updatedExpenses = state.expenses.map(e => e.id === updatedExpense.id ? updatedExpense : e);
-            db.saveCollection('expenses', updatedExpenses);
+            db.upsertItem('expenses', updatedExpense); // Optimized
             newLog = logAction(state, 'Expense Updated', `${updatedExpense.category} - ${updatedExpense.amount} `);
-            db.saveCollection('audit_logs', [newLog, ...state.audit_logs]);
+            db.upsertItem('audit_logs', newLog); // Optimized
             return { ...state, expenses: updatedExpenses, audit_logs: [newLog, ...state.audit_logs], ...touch };
 
         case 'UPDATE_PAYMENT_IN_PURCHASE':
@@ -769,14 +825,14 @@ const appReducer = (state: AppState, action: Action): AppState => {
             };
 
             const allPurchases = state.purchases.map(p => p.id === pId ? updatedPurchaseWithPayment : p);
-            db.saveCollection('purchases', allPurchases);
+            db.upsertItem('purchases', updatedPurchaseWithPayment); // Optimized
             newLog = logAction(state, 'Purchase Payment Updated', `Purch: ${pId}, Amt: ${updatedPurchPayment.amount} `);
-            db.saveCollection('audit_logs', [newLog, ...state.audit_logs]);
+            db.upsertItem('audit_logs', newLog); // Optimized
             return { ...state, purchases: allPurchases, audit_logs: [newLog, ...state.audit_logs], ...touch };
 
         case 'ADD_EXPENSE':
             const newExpense = { ...action.payload, updatedAt: new Date().toISOString() };
-            db.saveCollection('expenses', [...state.expenses, newExpense]);
+            db.upsertItem('expenses', newExpense); // Optimized
             return { ...state, expenses: [...state.expenses, newExpense], ...touch };
 
         case 'DELETE_EXPENSE': {
@@ -791,7 +847,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
             };
 
             db.addToTrash(trashExpense);
-            db.deleteFromStore('expenses', expenseToDelete.id);
+            db.deleteFromStore('expenses', expenseToDelete.id); // Optimized
 
             return {
                 ...state,
@@ -803,13 +859,13 @@ const appReducer = (state: AppState, action: Action): AppState => {
 
         case 'ADD_QUOTE':
             const newQuote = { ...action.payload, updatedAt: new Date().toISOString() };
-            db.saveCollection('quotes', [...state.quotes, newQuote]);
-            return { ...state, quotes: [...state.quotes, newQuote], ...touch };
+            db.upsertItem('quotes', newQuote); // Optimized
+            return { ...state, quotes: [newQuote, ...state.quotes], ...touch };
 
         case 'UPDATE_QUOTE':
             const updatedQuote = { ...action.payload, updatedAt: new Date().toISOString() };
             const updatedQuotes = state.quotes.map(q => q.id === updatedQuote.id ? updatedQuote : q);
-            db.saveCollection('quotes', updatedQuotes);
+            db.upsertItem('quotes', updatedQuote); // Optimized
             return { ...state, quotes: updatedQuotes, ...touch };
 
         case 'DELETE_QUOTE': {
@@ -824,7 +880,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
             };
 
             db.addToTrash(trashQuote);
-            db.deleteFromStore('quotes', quoteToDelete.id);
+            db.deleteFromStore('quotes', quoteToDelete.id); // Optimized
 
             return {
                 ...state,
@@ -840,7 +896,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
             const itemData = trashItem.data;
 
             // Add back to original store
-            db.saveCollection(storeName, [...(state as any)[storeName], itemData]);
+            db.upsertItem(storeName, itemData); // Optimized
 
             // Remove from trash
             db.deleteFromStore('trash', trashItem.id);

@@ -13,7 +13,7 @@ import { useAppContext } from '../context/AppContext';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import Dropdown from '../components/Dropdown';
-import { ReportConfig, ReportField } from '../types';
+import { ReportConfig, ReportField, Page } from '../types';
 import { ReportEngine } from '../utils/reporting/ReportEngine';
 import { EXTENDED_PREBUILT_REPORTS, REPORT_CATEGORIES } from '../utils/reporting/ReportTemplates';
 
@@ -56,7 +56,12 @@ const AVAILABLE_FIELDS: Record<string, ReportField[]> = {
     ]
 };
 
-const ReportsPageV2: React.FC = () => {
+
+interface ReportsPageProps {
+    setCurrentPage: (page: Page) => void;
+}
+
+const ReportsPageV2: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
     const { state, showToast } = useAppContext();
     const [viewMode, setViewMode] = useState<'list' | 'builder' | 'view'>('list');
     const [selectedReport, setSelectedReport] = useState<ReportConfig | null>(null);

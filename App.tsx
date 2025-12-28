@@ -29,7 +29,7 @@ const CustomersPage = React.lazy(() => import('./pages/CustomersPage'));
 const SalesPage = React.lazy(() => import('./pages/SalesPage'));
 const PurchasesPage = React.lazy(() => import('./pages/PurchasesPage'));
 const ProductsPage = React.lazy(() => import('./pages/ProductsPage'));
-const ReportsPage = React.lazy(() => import('./pages/ReportsPage'));
+const ReportsPage = React.lazy(() => import('./pages/ReportsPageV2'));
 const ReturnsPage = React.lazy(() => import('./pages/ReturnsPage'));
 const InsightsPage = React.lazy(() => import('./pages/InsightsPage'));
 const ExpensesPage = React.lazy(() => import('./pages/ExpensesPage'));

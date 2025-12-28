@@ -157,4 +157,10 @@ export interface AppMetadataGoogleUser extends GoogleUser {
     id: 'googleUser';
 }
 
-export type AppMetadata = AppMetadataPin | AppMetadataBackup | AppMetadataRevenueGoal | AppMetadataLastModified | AppMetadataTheme | AppMetadataInvoiceSettings | AppMetadataNavOrder | AppMetadataQuickActions | AppMetadataUIPreferences | AppMetadataDashboardConfig | AppMetadataLastSync | AppMetadataGoogleUser | AppMetadataAutoCleanup;
+export interface AppMetadataStaffMode {
+    id: 'staffMode';
+    value: boolean;
+    updatedAt?: string;
+}
+
+export type AppMetadata = AppMetadataPin | AppMetadataBackup | AppMetadataRevenueGoal | AppMetadataLastModified | AppMetadataTheme | AppMetadataInvoiceSettings | AppMetadataNavOrder | AppMetadataQuickActions | AppMetadataUIPreferences | AppMetadataDashboardConfig | AppMetadataLastSync | AppMetadataGoogleUser | AppMetadataAutoCleanup | AppMetadataStaffMode;
