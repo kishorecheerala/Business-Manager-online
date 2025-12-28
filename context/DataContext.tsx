@@ -118,6 +118,53 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         stateRef.current = state;
     }, [state]);
 
+    const handleAutoCleanup = useCallback(async () => {
+        const { enabled, logsRetentionDays, notificationsRetentionDays, trashRetentionDays } = state.autoCleanupSettings;
+        if (!enabled) return;
+
+        console.log("Auto-Cleanup: Running...");
+        const now = Date.now();
+        const oneDay = 24 * 60 * 60 * 1000;
+
+        // 1. Cleanup Logs
+        const logs = await db.getAll('audit_logs');
+        const logsThreshold = now - (logsRetentionDays * oneDay);
+        const logsToDelete = logs.filter(l => new Date(l.timestamp).getTime() < logsThreshold);
+        if (logsToDelete.length > 0) {
+            for (const log of logsToDelete) await db.deleteFromStore('audit_logs', log.id);
+            dispatch({ type: 'SET_STATE', payload: { audit_logs: state.audit_logs.filter(l => !logsToDelete.find(d => d.id === l.id)) } });
+        }
+
+        // 2. Cleanup Notifications
+        const notifs = await db.getAll('notifications');
+        const notifsThreshold = now - (notificationsRetentionDays * oneDay);
+        const notifsToDelete = notifs.filter(n => new Date(n.createdAt).getTime() < notifsThreshold);
+        if (notifsToDelete.length > 0) {
+            for (const notif of notifsToDelete) await db.deleteFromStore('notifications', notif.id);
+            dispatch({ type: 'SET_STATE', payload: { notifications: state.notifications.filter(n => !notifsToDelete.find(d => d.id === n.id)) } });
+        }
+
+        // 3. Cleanup Trash
+        const trash = await db.getAll('trash');
+        const trashThreshold = now - (trashRetentionDays * oneDay);
+        const trashToDelete = trash.filter(t => new Date(t.deletedAt).getTime() < trashThreshold);
+        if (trashToDelete.length > 0) {
+            for (const item of trashToDelete) await db.deleteFromTrash(item.id);
+            dispatch({ type: 'SET_STATE', payload: { trash: state.trash.filter(t => !trashToDelete.find(d => d.id === t.id)) } });
+        }
+
+        if (logsToDelete.length || notifsToDelete.length || trashToDelete.length) {
+            showToast(`Auto-Cleanup: Removed ${logsToDelete.length} logs, ${notifsToDelete.length} notifications, and ${trashToDelete.length} trash items.`, 'info');
+        }
+    }, [state.autoCleanupSettings, state.audit_logs, state.notifications, state.trash, dispatch, showToast]);
+
+    useEffect(() => {
+        if (!isDbLoaded) return;
+        // Run cleanup 10 seconds after load to avoid taxing the initial load
+        const timer = setTimeout(handleAutoCleanup, 10000);
+        return () => clearTimeout(timer);
+    }, [isDbLoaded, handleAutoCleanup]);
+
     const checkRecurringSales = useCallback((sales: Sale[]) => {
         const today = new Date().toISOString().split('T')[0];
         let hasChanges = false;

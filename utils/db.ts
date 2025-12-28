@@ -3,23 +3,47 @@ import { openDB, deleteDB, DBSchema, IDBPDatabase } from 'idb';
 import { Customer, Supplier, Product, Sale, Purchase, Return, Notification, ProfileData, AppMetadata, AuditLogEntry, Expense, Quote, CustomFont, Snapshot, TrashItem, Budget, FinancialScenario, DataState, BankAccount, FinancialGoal } from '../types';
 
 const DB_NAME = 'business-manager-db';
-const DB_VERSION = 16; // Bumped for sync_metadata
+const DB_VERSION = 17; // Bumped for indices
 
 export type StoreName = 'customers' | 'suppliers' | 'products' | 'sales' | 'purchases' | 'returns' | 'app_metadata' | 'notifications' | 'profile' | 'audit_logs' | 'expenses' | 'quotes' | 'custom_fonts' | 'snapshots' | 'trash' | 'budgets' | 'financial_scenarios' | 'bank_accounts' | 'goals' | 'sync_metadata';
 const STORE_NAMES: StoreName[] = ['customers', 'suppliers', 'products', 'sales', 'purchases', 'returns', 'app_metadata', 'notifications', 'profile', 'audit_logs', 'expenses', 'quotes', 'custom_fonts', 'snapshots', 'trash', 'budgets', 'financial_scenarios', 'bank_accounts', 'goals', 'sync_metadata'];
 
 interface BusinessManagerDB extends DBSchema {
-    customers: { key: string; value: Customer; };
+    customers: {
+        key: string;
+        value: Customer;
+        indexes: { 'name': string; 'phone': string };
+    };
     suppliers: { key: string; value: Supplier; };
-    products: { key: string; value: Product; };
-    sales: { key: string; value: Sale; };
-    purchases: { key: string; value: Purchase; };
+    products: {
+        key: string;
+        value: Product;
+        indexes: { 'name': string; 'category': string; 'barcode': string };
+    };
+    sales: {
+        key: string;
+        value: Sale;
+        indexes: { 'date': string; 'customerId': string };
+    };
+    purchases: {
+        key: string;
+        value: Purchase;
+        indexes: { 'date': string; 'supplierId': string };
+    };
     returns: { key: string; value: Return; };
     app_metadata: { key: string; value: AppMetadata; };
     notifications: { key: string; value: Notification; };
     profile: { key: string; value: ProfileData; };
-    audit_logs: { key: string; value: AuditLogEntry; };
-    expenses: { key: string; value: Expense; };
+    audit_logs: {
+        key: string;
+        value: AuditLogEntry;
+        indexes: { 'timestamp': string };
+    };
+    expenses: {
+        key: string;
+        value: Expense;
+        indexes: { 'date': string; 'category': string };
+    };
     quotes: { key: string; value: Quote; };
     custom_fonts: { key: string; value: CustomFont; };
     snapshots: { key: string; value: Snapshot; };
@@ -59,7 +83,53 @@ function getDb(): Promise<IDBPDatabase<BusinessManagerDB>> {
             upgrade(db, oldVersion) {
                 for (const storeName of STORE_NAMES) {
                     if (!db.objectStoreNames.contains(storeName)) {
-                        db.createObjectStore(storeName, { keyPath: 'id' });
+                        const store = db.createObjectStore(storeName, { keyPath: 'id' });
+
+                        // Add indices for performance
+                        const anyStore = store as any;
+                        if (storeName === 'customers') {
+                            anyStore.createIndex('name', 'name');
+                            anyStore.createIndex('phone', 'phone');
+                        } else if (storeName === 'products') {
+                            anyStore.createIndex('name', 'name');
+                            anyStore.createIndex('category', 'category');
+                            anyStore.createIndex('barcode', 'barcode');
+                        } else if (storeName === 'sales') {
+                            anyStore.createIndex('date', 'date');
+                            anyStore.createIndex('customerId', 'customerId');
+                        } else if (storeName === 'purchases') {
+                            anyStore.createIndex('date', 'date');
+                            anyStore.createIndex('supplierId', 'supplierId');
+                        } else if (storeName === 'audit_logs') {
+                            anyStore.createIndex('timestamp', 'timestamp');
+                        } else if (storeName === 'expenses') {
+                            anyStore.createIndex('date', 'date');
+                            anyStore.createIndex('category', 'category');
+                        }
+                    } else if (oldVersion < 17) {
+                        // Migration for existing stores
+                        const tx = db.transaction(storeName, 'versionchange');
+                        const store = tx.objectStore(storeName) as any;
+
+                        if (storeName === 'customers') {
+                            if (!store.indexNames.contains('name')) store.createIndex('name', 'name');
+                            if (!store.indexNames.contains('phone')) store.createIndex('phone', 'phone');
+                        } else if (storeName === 'products') {
+                            if (!store.indexNames.contains('name')) store.createIndex('name', 'name');
+                            if (!store.indexNames.contains('category')) store.createIndex('category', 'category');
+                            if (!store.indexNames.contains('barcode')) store.createIndex('barcode', 'barcode');
+                        } else if (storeName === 'sales') {
+                            if (!store.indexNames.contains('date')) store.createIndex('date', 'date');
+                            if (!store.indexNames.contains('customerId')) store.createIndex('customerId', 'customerId');
+                        } else if (storeName === 'purchases') {
+                            if (!store.indexNames.contains('date')) store.createIndex('date', 'date');
+                            if (!store.indexNames.contains('supplierId')) store.createIndex('supplierId', 'supplierId');
+                        } else if (storeName === 'audit_logs') {
+                            if (!store.indexNames.contains('timestamp')) store.createIndex('timestamp', 'timestamp');
+                        } else if (storeName === 'expenses') {
+                            if (!store.indexNames.contains('date')) store.createIndex('date', 'date');
+                            if (!store.indexNames.contains('category')) store.createIndex('category', 'category');
+                        }
                     }
                 }
             },
