@@ -17,6 +17,13 @@ const SignInModal: React.FC<SignInModalProps> = ({ isOpen, onClose }) => {
         return () => { document.body.style.overflow = ''; };
     }, [isOpen]);
 
+    // Auto-close on successful sign-in
+    useEffect(() => {
+        if (isOpen && state.googleUser) {
+            onClose();
+        }
+    }, [state.googleUser, isOpen, onClose]);
+
     if (!isOpen) return null;
 
     const handleSignIn = () => {
@@ -25,7 +32,8 @@ const SignInModal: React.FC<SignInModalProps> = ({ isOpen, onClose }) => {
             return;
         }
         googleSignIn();
-        onClose();
+        // Do NOT close immediately. Wait for auth success or user action.
+        // onClose(); 
     };
 
     return createPortal(

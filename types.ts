@@ -505,6 +505,7 @@ export interface AppMetadataDashboardConfig {
   useCustomLogo?: boolean;
   uppercaseGreeting?: boolean;
   greetingColor?: string; // hex color
+  matchThemeColor?: boolean; // New: Match theme color
   greetingFontSize?: 'xs' | 'sm' | 'base' | 'lg' | 'xl' | '2xl';
   updatedAt?: string;
 }

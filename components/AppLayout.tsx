@@ -13,6 +13,7 @@ import { QUICK_ACTION_REGISTRY } from '../utils/quickActions';
 import PinModal from './PinModal'; // Static import for debugging
 
 import { lazyImport } from '../utils/lazyImport';
+import TopBarClock from './TopBarClock';
 
 // Lazy loaded components for the layout
 const MenuPanel = lazyImport(() => import('./MenuPanel'));
@@ -67,10 +68,11 @@ const AppLayout: React.FC<AppLayoutProps> = ({
     const notificationsRef = useRef<HTMLDivElement>(null);
     useOnClickOutside(notificationsRef, () => setIsNotificationsOpen(false));
 
-    // Time state
-    const [currentDateTime, setCurrentDateTime] = React.useState(new Date());
+    // Time calling for greeting only (update every minute is enough)
+    const [greetingHour, setGreetingHour] = useState(new Date().getHours());
+
     React.useEffect(() => {
-        const timer = setInterval(() => setCurrentDateTime(new Date()), 1000);
+        const timer = setInterval(() => setGreetingHour(new Date().getHours()), 60000);
         return () => clearInterval(timer);
     }, []);
 
@@ -80,14 +82,14 @@ const AppLayout: React.FC<AppLayoutProps> = ({
     }, { ctrl: true });
 
     const getTimeBasedGreeting = () => {
-        const hour = currentDateTime.getHours();
+        const hour = greetingHour;
         if (hour < 12) return 'Good Morning';
         if (hour < 17) return 'Good Afternoon';
         return 'Good Evening';
     };
 
     const getGreetingIcon = () => {
-        const hour = currentDateTime.getHours();
+        const hour = greetingHour;
         if (hour >= 6 && hour < 18) {
             return <Sun className="w-4 h-4 text-yellow-300 animate-[spin_10s_linear_infinite]" />;
         }
@@ -129,22 +131,22 @@ const AppLayout: React.FC<AppLayoutProps> = ({
             .filter(id => id !== 'SYSTEM_OPTIMIZER')
             .filter(id => !state.isStaffMode || !RESTRICTED_PAGES.includes(id as Page))
             .map(id => ({
-                page: id, label: LABEL_MAP[id] || id, icon: ICON_MAP[id]
+                page: id, label: LABEL_MAP[id] || id, icon: ICON_MAP[id] || HelpCircle
             }));
 
         const pinnedIds = order.slice(0, 4);
         const menuIds = order.slice(4);
 
         // For Desktop: Show 4 pinned
-        const pinnedItems = pinnedIds.map(id => ({ page: id, label: LABEL_MAP[id] || id, icon: ICON_MAP[id] }));
+        const pinnedItems = pinnedIds.map(id => ({ page: id, label: LABEL_MAP[id] || id, icon: ICON_MAP[id] || HelpCircle }));
 
         // For Mobile: Show 4 pinned in bar (Index 0, 1, 2, 3)
         // The 5th pinned item (Index 4) moves to "More" for mobile
-        const mobilePinnedItems = pinnedIds.slice(0, 4).map(id => ({ page: id, label: LABEL_MAP[id] || id, icon: ICON_MAP[id] }));
+        const mobilePinnedItems = pinnedIds.slice(0, 4).map(id => ({ page: id, label: LABEL_MAP[id] || id, icon: ICON_MAP[id] || HelpCircle }));
 
         // Mobile More includes the 5th pinned item + rest
         const mobileRestIds = [pinnedIds.slice(4), ...menuIds].flat().filter(Boolean);
-        const mobileMoreItems = mobileRestIds.map(id => ({ page: id, label: LABEL_MAP[id] || id, icon: ICON_MAP[id] }));
+        const mobileMoreItems = mobileRestIds.map(id => ({ page: id, label: LABEL_MAP[id] || id, icon: ICON_MAP[id] || HelpCircle }));
 
         return { mainNavItems, pinnedItems, mobilePinnedItems, mobileMoreItems };
     }, [state.navOrder]);
@@ -366,9 +368,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                             <span>{getTimeBasedGreeting()}, <span className="font-bold">{state.profile?.ownerName || 'Owner'}</span></span>
                         </div>
                         <div className="flex-1 text-right opacity-90 truncate pl-2 flex items-center justify-end gap-2">
-                            {!state.isOnline && <span className="text-[10px] font-bold bg-red-500 text-white px-2 py-0.5 rounded sm:hidden">OFFLINE</span>}
-                            <CalendarClock className="w-4 h-4 text-white/80" />
-                            {currentDateTime.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })} {currentDateTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }).toUpperCase()}
+                            <TopBarClock />
                         </div>
                     </div>
                 </header>

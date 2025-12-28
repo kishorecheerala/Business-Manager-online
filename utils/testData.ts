@@ -17,8 +17,8 @@ const daysFromNow = (days: number): string => {
 
 export const testProfile: ProfileData = {
   id: 'userProfile',
-  name: 'My Saree Boutique',
-  ownerName: 'Priya',
+  name: 'Lakshmi Pallavi Sarees',
+  ownerName: 'Eshitha',
   phone: '9876543210',
   address: '123 Silk Road, Weaver Colony, Hyderabad 500081',
   gstNumber: '36ABCDE1234F1Z5',
@@ -121,22 +121,23 @@ const app_metadata: AppMetadata[] = [
   {
     id: 'uiPreferences',
     buttonStyle: 'rounded',
-    cardStyle: 'solid',
+    cardStyle: 'glass',
     toastPosition: 'top-center',
     density: 'comfortable',
-    navStyle: 'docked'
+    navStyle: 'floating'
   },
   {
     id: 'dashboardConfig',
-    greetingText: 'Welcome Back',
+    greetingText: '🕉 Om Namo Venkatesaya 🕉',
     showGreeting: true,
-    showLogo: false,
-    titleText: 'Home',
+    showLogo: true,
+    titleText: 'Business Insights',
     logoSizeMobile: 50,
     logoSizeDesktop: 50,
     logoPositionMobile: { x: 50, y: 50 },
     logoPositionDesktop: { x: 50, y: 50 },
-    uppercaseGreeting: true
+    uppercaseGreeting: false,
+    matchThemeColor: true
   },
   {
     id: 'themeSettings',
@@ -149,9 +150,9 @@ const app_metadata: AppMetadata[] = [
   {
     id: 'navOrder',
     order: [
-      'DASHBOARD', 'CUSTOMERS', 'SALES', 'PURCHASES',
-      'INSIGHTS', 'REPORTS', 'PRODUCTS', 'EXPENSES',
-      'RETURNS', 'QUOTATIONS', 'INVOICE_DESIGNER', 'SYSTEM_OPTIMIZER', 'SQL_ASSISTANT', 'TRASH', 'FINANCIAL_PLANNING', 'SUPPLIERS'
+      'DASHBOARD', 'CUSTOMERS', 'SALES', 'PURCHASES', 'PRODUCTS',
+      'REPORTS', 'EXPENSES', 'RETURNS', 'QUOTATIONS',
+      'INSIGHTS', 'INVOICE_DESIGNER', 'FINANCIAL_PLANNING'
     ]
   },
   {

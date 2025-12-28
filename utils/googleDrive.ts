@@ -61,6 +61,10 @@ export const initGoogleAuth = (callback: (response: any) => void, errorCallback?
             if (err.type === 'popup_closed') {
                 console.warn("Google Sign-In popup closed by user.");
                 return;
+            } else if (err.type === 'popup_failed_to_open') {
+                msg = "Popup Blocked\n\n";
+                msg += "Your browser blocked the Google Sign-In popup.\n";
+                msg += "Please allow popups for this site in your browser settings and try again.";
             } else if (err.type === 'access_denied' || (err.error && err.error === 'access_denied')) {
                 msg += "ACCESS DENIED: TEST USER RESTRICTION\n\n";
                 msg += "Your app is in 'Testing' mode. Only emails listed as 'Test Users' can sign in.\n\n";

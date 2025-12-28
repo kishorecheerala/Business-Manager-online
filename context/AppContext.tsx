@@ -143,7 +143,8 @@ const DEFAULT_DASHBOARD_CONFIG: AppMetadataDashboardConfig = {
     logoSize: 1.0,
     customLogo: '',
     useCustomLogo: false,
-    uppercaseGreeting: true,
+    uppercaseGreeting: false,
+    matchThemeColor: true,
     greetingColor: '',
     greetingFontSize: 'sm',
     logoSizeMobile: 1.0,
@@ -1373,22 +1374,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // 4. Preload Google Identity Services script
     useEffect(() => {
-        if (state.isOnline) {
-            loadGoogleScript()
-                .then(() => {
-                    if (!tokenClientRef.current) {
-                        tokenClientRef.current = initGoogleAuth(handleGoogleLoginResponse, (err) => {
-                            console.error("Auth Init Error (Preload):", err);
-                            // silent fail for preload
-                        });
-                        console.log("Google Auth initialized via preload.");
-                    }
-                })
-                .catch(err => {
-                    console.error("Preload Google Script failed", err);
-                });
-        }
-    }, [state.isOnline]);
+        // Always attempt to preload Google Script on mount
+        loadGoogleScript()
+            .then(() => {
+                if (!tokenClientRef.current) {
+                    tokenClientRef.current = initGoogleAuth(handleGoogleLoginResponse, (err) => {
+                        console.error("Auth Init Error (Preload):", err);
+                        // silent fail for preload
+                    });
+                    console.log("Google Auth initialized via preload.");
+                }
+            })
+            .catch(err => {
+                console.error("Preload Google Script failed", err);
+            });
+    }, []);
 
 
     const hydrateState = useCallback(async () => {
@@ -1455,52 +1455,61 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             // Bank Accounts
             const finalBankAccounts = Array.isArray(bankAccountsData) ? (bankAccountsData as unknown as BankAccount[]) : [];
 
+            // ------------------------------------------------------------------
+            // REFACTOR: Construct the full new state object explicitly
+            // so we can return it to the caller (syncData) immediately.
+            // ------------------------------------------------------------------
+            const newState: AppState = {
+                ...initialState, // Start with defaults
+                customers: customers as Customer[],
+                suppliers: suppliers as Supplier[],
+                products: products as Product[],
+                sales: sales as Sale[],
+                purchases: purchases as Purchase[],
+                returns: returns as Return[],
+                expenses: expenses as Expense[],
+                quotes: quotes as Quote[],
+                notifications: notifications as Notification[],
+                audit_logs: audit_logs as AuditLogEntry[],
+
+                profile: finalProfile,
+
+                trash: trashData as TrashItem[],
+                bankAccounts: finalBankAccounts,
+
+                budgets: budget as Budget[],
+                financialScenarios: scenarios as FinancialScenario[],
+                goals: (goalsData as FinancialGoal[]) || [],
+
+                // Metadata Hydration
+                theme: themeMeta?.theme || localDefaults.theme || 'light',
+                themeColor: themeMeta?.color || localDefaults.themeColor || '#8b5cf6',
+                headerColor: themeMeta?.headerColor || '',
+                themeGradient: themeMeta?.gradient ?? (localDefaults.themeGradient || ''),
+                font: themeMeta?.font || localDefaults.font || 'Inter',
+
+                uiPreferences: uiMeta ? { ...DEFAULT_UI_PREFS, ...uiMeta } : DEFAULT_UI_PREFS,
+                dashboardConfig: dashMeta ? { ...DEFAULT_DASHBOARD_CONFIG, ...dashMeta } : DEFAULT_DASHBOARD_CONFIG,
+                invoiceSettings: invoiceMeta,
+                navOrder: navMeta?.order || DEFAULT_NAV_ORDER,
+                quickActions: qaMeta?.actions || DEFAULT_QUICK_ACTIONS,
+
+                lastSyncTime: localDefaults.lastSyncTime || 0,
+                app_metadata: app_metadata as AppMetadata[],
+                customFonts: customFonts as CustomFont[],
+
+                // Security
+                pin: pinMeta?.security?.enabled ? pinMeta.security.pin : null,
+                isLocked: pinMeta?.security?.enabled || false,
+                protectedPages: pinMeta?.protectedPages || [],
+            };
+
             dispatch({
                 type: 'SET_STATE',
-                payload: {
-                    customers: customers as Customer[],
-                    suppliers: suppliers as Supplier[],
-                    products: products as Product[],
-                    sales: sales as Sale[],
-                    purchases: purchases as Purchase[],
-                    returns: returns as Return[],
-                    expenses: expenses as Expense[],
-                    quotes: quotes as Quote[],
-                    notifications: notifications as Notification[],
-                    audit_logs: audit_logs as AuditLogEntry[],
-
-                    profile: finalProfile,
-
-                    trash: trashData as TrashItem[],
-                    bankAccounts: finalBankAccounts,
-
-                    budgets: budget as Budget[],
-                    financialScenarios: scenarios as FinancialScenario[],
-                    goals: (goalsData as FinancialGoal[]) || [],
-
-                    // Metadata Hydration
-                    theme: themeMeta?.theme || localDefaults.theme || 'light',
-                    themeColor: themeMeta?.color || localDefaults.themeColor || '#8b5cf6',
-                    headerColor: themeMeta?.headerColor || '',
-                    themeGradient: themeMeta?.gradient ?? (localDefaults.themeGradient || ''),
-                    font: themeMeta?.font || localDefaults.font || 'Inter',
-
-                    uiPreferences: uiMeta ? { ...DEFAULT_UI_PREFS, ...uiMeta } : DEFAULT_UI_PREFS,
-                    dashboardConfig: dashMeta ? { ...DEFAULT_DASHBOARD_CONFIG, ...dashMeta } : DEFAULT_DASHBOARD_CONFIG,
-                    invoiceSettings: invoiceMeta,
-                    navOrder: navMeta?.order || DEFAULT_NAV_ORDER,
-                    quickActions: qaMeta?.actions || DEFAULT_QUICK_ACTIONS,
-
-                    lastSyncTime: localDefaults.lastSyncTime || 0,
-                    app_metadata: app_metadata as AppMetadata[],
-                    customFonts: customFonts as CustomFont[],
-
-                    // Security
-                    pin: pinMeta?.security?.enabled ? pinMeta.security.pin : null,
-                    isLocked: pinMeta?.security?.enabled || false,
-                    protectedPages: pinMeta?.protectedPages || [],
-                }
+                payload: newState
             });
+
+            return newState;
         } finally {
             setIsDbLoaded(true);
         }
@@ -1556,18 +1565,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             const cloudData = await DriveService.read(token);
 
             // 2. Merge Strategies
+            let freshState: AppState | undefined;
             if (cloudData) {
                 console.log("Sync: Merging cloud data...");
                 await db.mergeData(cloudData);
 
                 // IMPORTANT: Re-hydrate immediately to reflect incoming changes in UI
-                await hydrateState();
+                // We capture the fresh state directly to avoid race conditions with stateRef
+                freshState = await hydrateState();
             }
 
             // 3. Export & Upload (FROM MEMORY, NOT DB)
             console.log("Sync: Exporting local data (Memory)...");
 
-            const currentState = stateRef.current;
+            // Use fresh state if available (from merge), otherwise fall back to current ref
+            const currentState = freshState || stateRef.current;
+
             const exportPayload: any = {
                 customers: currentState.customers,
                 suppliers: currentState.suppliers,

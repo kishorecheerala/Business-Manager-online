@@ -400,23 +400,39 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                                                 <div className="overflow-hidden min-w-0 flex-1">
                                                     <p className="text-sm font-bold leading-tight break-words text-white drop-shadow-sm">{state.googleUser.name}</p>
                                                     <p className="text-[10px] text-white/80 truncate mb-1">{state.googleUser.email}</p>
-                                                    {state.lastSyncTime && (
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="relative flex h-2 w-2">
-                                                                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${state.syncStatus === 'syncing' ? 'bg-white' : 'bg-green-400'} opacity-75`}></span>
-                                                                <span className={`relative inline-flex rounded-full h-2 w-2 ${state.syncStatus === 'syncing' ? 'bg-white' : 'bg-green-500'}`}></span>
-                                                            </span>
-                                                            <p className="text-[10px] text-white/90 font-medium">
-                                                                {state.syncStatus === 'syncing' ? 'Syncing...' : new Date(state.lastSyncTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
-                                                            </p>
+                                                    <div className="mt-2.5 flex flex-col gap-1.5">
+                                                        <div className="flex items-center gap-3 pl-1">
+                                                            {state.lastSyncTime && (
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="relative flex h-2 w-2">
+                                                                        <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${state.syncStatus === 'syncing' ? 'bg-white' : 'bg-green-400'} opacity-75`}></span>
+                                                                        <span className={`relative inline-flex rounded-full h-2 w-2 ${state.syncStatus === 'syncing' ? 'bg-white' : 'bg-green-500'}`}></span>
+                                                                    </span>
+                                                                    <p className="text-[10px] text-white/90 font-medium">
+                                                                        {state.syncStatus === 'syncing' ? 'Syncing...' : new Date(state.lastSyncTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                                                                    </p>
+                                                                </div>
+                                                            )}
+
+                                                            <div className="h-3 w-[1px] bg-white/30"></div>
+
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); syncData(); }}
+                                                                className="text-[10px] text-white/90 hover:text-white flex items-center gap-1.5 transition-colors font-medium"
+                                                                disabled={state.syncStatus === 'syncing'}
+                                                            >
+                                                                <RefreshCw size={10} className={state.syncStatus === 'syncing' ? 'animate-spin' : ''} />
+                                                                {state.syncStatus === 'syncing' ? 'Syncing...' : 'Sync Now'}
+                                                            </button>
                                                         </div>
-                                                    )}
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); googleSignOut(); onClose(); }}
-                                                        className="mt-2 text-[10px] text-red-200 hover:text-white flex items-center gap-1 transition-colors"
-                                                    >
-                                                        <LogOut size={10} /> Sign Out
-                                                    </button>
+
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); googleSignOut(); onClose(); }}
+                                                            className="text-[10px] text-red-100 hover:text-white flex items-center gap-1.5 transition-colors self-start"
+                                                        >
+                                                            <LogOut size={10} /> Sign Out
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         ) : (
@@ -464,12 +480,10 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                             <div className="p-2 space-y-1 pb-3">
                                 <button
                                     onClick={(e) => { e.stopPropagation(); handleToggleStaffMode(); }}
-                                    className="menu-item justify-between group"
+                                    className="menu-item group"
                                 >
-                                    <div className="flex items-center gap-2">
-                                        <Shield className={`w-5 h-5 ${state.isStaffMode ? 'text-green-500' : 'text-gray-400'}`} />
-                                        <span className="text-sm font-medium">Staff Mode</span>
-                                    </div>
+                                    <Shield className={`w-5 h-5 flex-shrink-0 ${state.isStaffMode ? 'text-green-500' : 'text-gray-400'}`} />
+                                    <span className="flex-grow text-sm font-medium text-left">Staff Mode</span>
                                     <div className={`relative w-9 h-5 rounded-full transition-colors duration-200 ease-in-out ${state.isStaffMode ? 'bg-green-500' : 'bg-gray-200 dark:bg-slate-700'}`}>
                                         <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transform transition-transform duration-200 ease-in-out ${state.isStaffMode ? 'translate-x-4' : 'translate-x-0'}`} />
                                     </div>
@@ -808,15 +822,7 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                             {/* 6. System / Sync Section */}
                             {state.googleUser && (
                                 <div className="px-2 pb-2 space-y-1">
-                                    <button
-                                        onClick={() => { syncData(); onClose(); }}
-                                        className="menu-item text-blue-600 dark:text-blue-400 justify-between group"
-                                    >
-                                        <div className="flex items-center gap-2">
-                                            <RefreshCw className={`w-5 h-5 ${state.syncStatus === 'syncing' ? 'animate-spin' : ''}`} />
-                                            <span className="text-sm font-medium">Sync Now</span>
-                                        </div>
-                                    </button>
+                                    {/* Sync Now Moved to Profile Card */}
 
                                     <button
                                         onClick={() => { onClose(); setIsCloudDebugOpen(true); }}

@@ -5,6 +5,7 @@ import { useAppContext } from '../context/AppContext';
 import { ProfileData } from '../types';
 import Button from './Button';
 
+
 interface OnboardingScreenProps {
     isOpen: boolean;
     onClose: () => void;
@@ -69,9 +70,10 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ isOpen, onClose }) 
             {/* Decorative Background */}
             <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-primary/10 to-transparent pointer-events-none"></div>
 
+
             <div className="w-full max-w-md relative z-10 flex flex-col items-center">
                 <div className="w-24 h-24 bg-white dark:bg-slate-800 rounded-3xl shadow-xl flex items-center justify-center mb-8 border border-gray-100 dark:border-slate-700">
-                    <span className="text-6xl font-bold text-primary select-none">ॐ</span>
+                    <span className="text-6xl font-bold text-primary select-none leading-none mt-4 translate-y-1" style={{ fontFamily: '"Noto Serif Devanagari", serif' }}>{'\u0950'}</span>
                 </div>
 
                 <h1 className="text-3xl font-bold text-slate-800 dark:text-white mb-2 text-center">Saree Business Manager</h1>
@@ -86,7 +88,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ isOpen, onClose }) 
                             <Store className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/50" size={20} />
                             <input
                                 type="text"
-                                placeholder="e.g. Sri Lakshmi Silks"
+                                placeholder="e.g. Lakshmi Pallavi Sarees"
                                 value={businessName}
                                 onChange={(e) => setBusinessName(e.target.value)}
                                 className="w-full h-12 pl-12 pr-4 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800 dark:text-white"
@@ -100,7 +102,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ isOpen, onClose }) 
                             <User className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/50" size={20} />
                             <input
                                 type="text"
-                                placeholder="Your Name"
+                                placeholder="Eshitha or Eshwaraiah"
                                 value={ownerName}
                                 onChange={(e) => setOwnerName(e.target.value)}
                                 className="w-full h-12 pl-12 pr-4 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800 dark:text-white"

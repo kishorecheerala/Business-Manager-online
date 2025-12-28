@@ -417,7 +417,18 @@ const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) =>
                                     {dashConfig?.showGreeting && (
                                         <div className="mb-2">
                                             <p className="text-xs font-semibold text-slate-500 mb-1">Greeting Color</p>
-                                            <div className="flex gap-2 items-center">
+
+                                            <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 cursor-pointer mb-2">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={!!dashConfig?.matchThemeColor}
+                                                    onChange={(e) => setDashConfig({ ...dashConfig, matchThemeColor: e.target.checked })}
+                                                    className="w-3.5 h-3.5 rounded border-gray-300 accent-indigo-600"
+                                                />
+                                                Match Theme Color
+                                            </label>
+
+                                            <div className={`flex gap-2 items-center transition-opacity ${dashConfig?.matchThemeColor ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
                                                 <input
                                                     type="color"
                                                     value={dashConfig.greetingColor || '#ea580c'}

@@ -21,6 +21,7 @@ import SmartAnalystCard from '../components/SmartAnalystCard';
 import QuickMemoCard from '../components/QuickMemoCard';
 import GoalTrackerCard from '../components/GoalTrackerCard';
 import WhatsAppIcon from '../components/WhatsAppIcon';
+import UISettingsModal from '../components/UISettingsModal';
 
 interface DashboardProps {
     setCurrentPage: (page: Page) => void;
@@ -431,7 +432,9 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
     const { showConfirm, showAlert } = useDialog();
     const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
     const [bannerDismissed, setBannerDismissed] = useState(false);
+    const [isUISettingsOpen, setIsUISettingsOpen] = useState(false);
 
+    // Initial greeting update
     useEffect(() => {
         const dismissed = sessionStorage.getItem('pwa_banner_dismissed');
         if (dismissed === 'true') {
@@ -752,8 +755,8 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
             <div className="mb-6 text-center flex flex-col items-center animate-fade-in-down">
                 {dashboardConfig.showGreeting && (
                     <p
-                        className={`font-semibold mb-2 font-serif tracking-widest opacity-90 transition-all ${dashboardConfig.uppercaseGreeting !== false ? 'uppercase' : ''} ${!dashboardConfig.greetingColor ? 'text-orange-600 dark:text-orange-400' : ''} text-${dashboardConfig.greetingFontSize || 'sm'}`}
-                        style={{ color: dashboardConfig.greetingColor || undefined }}
+                        className={`font-semibold mb-2 font-serif tracking-widest opacity-90 transition-all ${dashboardConfig.uppercaseGreeting !== false ? 'uppercase' : ''} ${(!dashboardConfig.greetingColor && !dashboardConfig.matchThemeColor) ? 'text-orange-600 dark:text-orange-400' : ''} text-${dashboardConfig.greetingFontSize || 'sm'}`}
+                        style={{ color: dashboardConfig.matchThemeColor ? state.themeColor : (dashboardConfig.greetingColor || undefined) }}
                     >
                         {dashboardConfig.greetingText}
                     </p>
@@ -762,11 +765,13 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                 {dashboardConfig.showLogo && (
                     (dashboardConfig.useCustomLogo ? dashboardConfig.customLogo : profile?.logo) ? (
                         <div
-                            className={`mb-4 relative group transition-all duration-300
+                            className={`mb-4 relative group transition-all duration-300 cursor-pointer
                                 h-[var(--logo-h-mobile)] md:h-[var(--logo-h-desktop)]
                                 ${dashboardConfig.logoFillMobile ? 'w-full' : 'w-auto'}
                                 ${dashboardConfig.logoFillDesktop ? 'md:w-full' : 'md:w-auto'}
                             `}
+                            onClick={() => setIsUISettingsOpen(true)}
+                            title="Click to Configure Logo"
                             style={{
                                 '--logo-h-mobile': `${(dashboardConfig.logoSizeMobile || dashboardConfig.logoSize || 1) * 5}rem`,
                                 '--logo-h-desktop': `${(dashboardConfig.logoSizeDesktop || dashboardConfig.logoSize || 1) * 5}rem`,
@@ -785,12 +790,15 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                                     `}
                                 />
                                 {/* Golden Glow Overlay */}
-                                <div className="absolute inset-0 shadow-[inset_0_0_40px_rgba(255,215,0,0.5)] rounded-lg pointer-events-none z-10 mix-blend-screen"></div>
+                                <div className="absolute inset-0 shadow-[inset_0_0_40px_rgba(255,215,0,0.5)] rounded-lg pointer-events-none z-10 mix-blend-screen bg-transparent group-hover:bg-black/10 transition-colors"></div>
+                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 pointer-events-none">
+                                    <span className="bg-black/60 text-white text-xs px-2 py-1 rounded backdrop-blur-sm">Configure</span>
+                                </div>
                             </div>
                         </div>
                     ) : (
                         <div
-                            onClick={() => setCurrentPage('SETTINGS' as Page)}
+                            onClick={() => setIsUISettingsOpen(true)}
                             className="mb-6 w-full max-w-md mx-auto h-40 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl flex flex-col items-center justify-center p-4 bg-gray-50 dark:bg-slate-800/50 cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors group"
                         >
                             <div className="bg-white dark:bg-slate-700 p-3 rounded-full mb-3 shadow-sm group-hover:scale-110 transition-transform">
@@ -1093,6 +1101,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                 </div>,
                 document.body
             )}
+            <UISettingsModal isOpen={isUISettingsOpen} onClose={() => setIsUISettingsOpen(false)} />
         </div>
     );
 };

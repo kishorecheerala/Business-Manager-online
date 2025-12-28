@@ -43,11 +43,14 @@ export async function deleteDatabase(): Promise<void> {
         }
     } catch (e) { /* ignore */ }
 
+    // Reset the promise so next call opens a new one
+    dbPromise = undefined;
+
     // Nuke it
     await deleteDB(DB_NAME);
 }
 
-let dbPromise: Promise<IDBPDatabase<BusinessManagerDB>>;
+let dbPromise: Promise<IDBPDatabase<BusinessManagerDB>> | undefined;
 
 function getDb(): Promise<IDBPDatabase<BusinessManagerDB>> {
     if (!dbPromise) {
@@ -59,6 +62,24 @@ function getDb(): Promise<IDBPDatabase<BusinessManagerDB>> {
                     }
                 }
             },
+            blocked() {
+                // The DB is blocked by an older version open elsewhere
+                console.warn('Database blocked: closing connection to allow upgrade.');
+                // We're probably the blocked one, but IDB logic is tricky.
+                // Best to let the user know or reload? 
+                // Typically implies multiple tabs.
+            },
+            blocking() {
+                // Open connection is blocking an upgrade
+                console.warn('Database blocking: closing connection.');
+                dbPromise?.then(db => db.close());
+                dbPromise = undefined;
+            },
+            terminated() {
+                // Connection was forcibly closed
+                console.error('Database connection terminated abnormally.');
+                dbPromise = undefined;
+            }
         });
     }
     return dbPromise;

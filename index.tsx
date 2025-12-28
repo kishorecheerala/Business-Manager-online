@@ -11,19 +11,7 @@ const isAIStudioEnvironment = () => {
   return hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('preview') || hostname.includes('staging') || hostname.includes('ai.studio') || hostname.includes('usercontent.goog') || hostname.includes('webcontainer.io');
 }
 
-// P0 CRITICAL FIX: FORCE UNREGISTER ALL SERVICE WORKERS
-// The previous SW implementation caused production freezes. 
-// We are aggressively removing it to restore stability.
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(function (registrations) {
-    for (let registration of registrations) {
-      console.log('🚨 Emergency Unregistering SW:', registration);
-      registration.unregister();
-    }
-  }).catch(function (err) {
-    console.error('Service Worker unregistration failed: ', err);
-  });
-}
+
 
 import { deleteDatabase } from './utils/db';
 
