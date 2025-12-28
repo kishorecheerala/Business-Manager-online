@@ -12,7 +12,7 @@ import { useDialog } from '../context/DialogContext';
 import PaymentModal from '../components/PaymentModal';
 import AddCustomerModal from '../components/AddCustomerModal';
 import { getLocalDateString } from '../utils/dateUtils';
-import { formatCurrency, formatDate, generateDownloadFilename } from '../utils/formatUtils';
+import { formatCurrency, formatDate, formatDateTime, generateDownloadFilename } from '../utils/formatUtils';
 import LedgerModal from '../components/LedgerModal';
 import Input from '../components/Input';
 import ModernDateInput from '../components/ModernDateInput';
@@ -94,6 +94,11 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
     const [confirmModalState, setConfirmModalState] = useState<{ isOpen: boolean, saleIdToDelete: string | null }>({ isOpen: false, saleIdToDelete: null });
     const [isLedgerOpen, setIsLedgerOpen] = useState(false);
     const [ledgerPartyId, setLedgerPartyId] = useState<string | null>(null);
+
+    // Pagination State
+    const [currentPage, setCurrentPageNum] = useState(1);
+    const [pageSize, setPageSize] = useState(50);
+    const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
 
     const isDirtyRef = useRef(false);
     const actionMenuRef = useRef<HTMLDivElement>(null);
@@ -468,6 +473,39 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
         );
     }, [state.customers, searchTerm]);
 
+    const paginatedCustomers = useMemo(() => {
+        const startIndex = (currentPage - 1) * pageSize;
+        return filteredCustomers.slice(startIndex, startIndex + pageSize);
+    }, [filteredCustomers, currentPage, pageSize]);
+
+    const totalPages = Math.ceil(filteredCustomers.length / pageSize);
+
+    const handleSelectAll = (type: 'page' | 'all') => {
+        if (type === 'page') {
+            const newSelection = new Set(selectedRows);
+            const allInPage = paginatedCustomers.every(c => newSelection.has(c.id));
+            if (allInPage) {
+                paginatedCustomers.forEach(c => newSelection.delete(c.id));
+            } else {
+                paginatedCustomers.forEach(c => newSelection.add(c.id));
+            }
+            setSelectedRows(newSelection);
+        } else {
+            if (selectedRows.size === filteredCustomers.length) {
+                setSelectedRows(new Set());
+            } else {
+                setSelectedRows(new Set(filteredCustomers.map(c => c.id)));
+            }
+        }
+    };
+
+    const toggleRowSelection = (customerId: string) => {
+        const newSelection = new Set(selectedRows);
+        if (newSelection.has(customerId)) newSelection.delete(customerId);
+        else newSelection.add(customerId);
+        setSelectedRows(newSelection);
+    };
+
     if (selectedCustomer && editedCustomer && selectedCustomer.id !== 'ALL_CUSTOMERS') {
         const customerSales = state.sales.filter(s => s.customerId === selectedCustomer.id);
         const customerReturns = state.returns.filter(r => r.type === 'CUSTOMER' && r.partyId === selectedCustomer.id);
@@ -688,7 +726,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                                             <div className="flex justify-between items-start mb-3 border-b dark:border-slate-700 pb-2">
                                                 <div>
                                                     <p className="font-bold text-gray-800 dark:text-gray-200">{sale.id}</p>
-                                                    <p className="text-xs text-gray-600 dark:text-gray-400">{new Date(sale.date).toLocaleString()}</p>
+                                                    <p className="text-xs text-gray-600 dark:text-gray-400">{formatDateTime(sale.date)}</p>
                                                     {totalReturned > 0 && (
                                                         <div className="mt-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded inline-block" title={returnedItemsText}>
                                                             Returns: -{formatCurrency(totalReturned)}
@@ -775,7 +813,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                                                                 {relatedReturns.map((ret, idx) => (
                                                                     <div key={idx} className="bg-amber-50 dark:bg-amber-900/20 p-1.5 rounded border border-amber-100 dark:border-amber-800/50">
                                                                         <div className="flex justify-between text-amber-800 dark:text-amber-400 font-medium">
-                                                                            <span>Return on {new Date(ret.returnDate).toLocaleDateString()}</span>
+                                                                            <span>Return on {formatDate(ret.returnDate)}</span>
                                                                             <span>-{formatCurrency(Number(ret.amount))}</span>
                                                                         </div>
                                                                         <div className="text-amber-600 dark:text-amber-500/80 mt-0.5 pl-1 italic">
@@ -904,71 +942,149 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                     </div>
                 </div>
 
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                    <input
-                        type="text"
-                        placeholder="Search customers by name, phone, or area..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full p-2 pl-10 border rounded-lg dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
-                    />
+                <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                        <input
+                            type="text"
+                            placeholder="Search customers by name, phone, or area..."
+                            value={searchTerm}
+                            onChange={(e) => {
+                                setSearchTerm(e.target.value);
+                                setCurrentPageNum(1);
+                            }}
+                            className="w-full p-2 pl-10 border rounded-lg dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
+                        />
+                    </div>
+                    {filteredCustomers.length > 0 && (
+                        <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-1 rounded-lg border dark:border-slate-700">
+                            <Button
+                                variant="secondary"
+                                onClick={() => handleSelectAll('page')}
+                                className="text-xs py-1"
+                            >
+                                {paginatedCustomers.every(c => selectedRows.has(c.id)) ? 'Deselect Page' : 'Select Page'}
+                            </Button>
+                            <Button
+                                variant="secondary"
+                                onClick={() => handleSelectAll('all')}
+                                className="text-xs py-1"
+                            >
+                                {selectedRows.size === filteredCustomers.length ? 'Deselect All' : `Select All (${filteredCustomers.length})`}
+                            </Button>
+                        </div>
+                    )}
                 </div>
 
                 <div className="space-y-3">
-                    {filteredCustomers.map((customer, index) => {
+                    {paginatedCustomers.map((customer, index) => {
                         const customerSales = state.sales.filter(s => s.customerId === customer.id);
                         const totalPurchase = customerSales.reduce((sum, s) => sum + Number(s.totalAmount), 0);
                         const totalPaid = customerSales.reduce((sum, s) => sum + s.payments.reduce((pSum, p) => pSum + Number(p.amount), 0), 0);
                         const totalDue = totalPurchase - totalPaid;
+                        const isSelected = selectedRows.has(customer.id);
 
                         return (
                             <Card
                                 key={customer.id}
-                                className="cursor-pointer transition-shadow animate-slide-up-fade hover:shadow-lg"
-                                style={{ animationDelay: `${index * 50}ms` }}
+                                className={`cursor-pointer transition-all duration-200 animate-slide-up-fade hover:shadow-lg border-2 ${isSelected ? 'border-primary ring-2 ring-primary/20 bg-primary/5' : 'border-transparent'}`}
+                                style={{ animationDelay: `${index * 30}ms` }}
                                 onClick={() => setSelectedCustomer(customer)}
                             >
                                 <div className="flex justify-between items-start">
-                                    <div className="flex-1 min-w-0">
-                                        <p className="font-bold text-lg text-primary flex items-center gap-2">
-                                            <User size={16} /> {customer.name}
-                                        </p>
-                                        <div className="flex flex-col gap-1 mt-1">
-                                            <a href={`tel:${customer.phone}`} className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2 hover:text-primary transition-colors w-fit" onClick={(e) => e.stopPropagation()}>
-                                                <Phone size={14} /> {customer.phone}
-                                            </a>
-                                            <div className="flex items-center gap-2">
-                                                <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2"><MapPin size={14} /> {customer.area}</p>
-                                                <button
-                                                    onClick={(e) => handleOpenMap(e, customer.address + ', ' + customer.area)}
-                                                    className="p-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded hover:bg-green-200 dark:hover:bg-green-800 transition-colors"
-                                                    title="View on Google Maps"
-                                                >
-                                                    <MapPin size={14} />
-                                                </button>
-                                            </div>
+                                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                                        <div
+                                            onClick={(e) => { e.stopPropagation(); toggleRowSelection(customer.id); }}
+                                            className={`mt-1 h-5 w-5 rounded border-2 flex items-center justify-center transition-colors ${isSelected ? 'bg-primary border-primary' : 'border-gray-300 dark:border-gray-600'}`}
+                                        >
+                                            {isSelected && <BadgeCheck size={14} className="text-white" />}
                                         </div>
-                                        <div className="flex gap-2 mt-2">
-                                            {customer.priceTier === 'WHOLESALE' && (
-                                                <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded border border-purple-200 font-bold">WHOLESALE</span>
-                                            )}
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-bold text-lg text-primary flex items-center gap-2">
+                                                <User size={16} /> {customer.name}
+                                            </p>
+                                            <div className="flex flex-col gap-1 mt-1">
+                                                <a href={`tel:${customer.phone}`} className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2 hover:text-primary transition-colors w-fit" onClick={(e) => e.stopPropagation()}>
+                                                    <Phone size={14} /> {customer.phone}
+                                                </a>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2"><MapPin size={14} /> {customer.area}</p>
+                                                    <button
+                                                        onClick={(e) => handleOpenMap(e, customer.address + ', ' + customer.area)}
+                                                        className="p-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded hover:bg-green-200 dark:hover:bg-green-800 transition-colors"
+                                                        title="View on Google Maps"
+                                                    >
+                                                        <MapPin size={14} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2 mt-2">
+                                                {customer.priceTier === 'WHOLESALE' && (
+                                                    <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded border border-purple-200 font-bold">WHOLESALE</span>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                     <div className="text-right flex-shrink-0 ml-4">
                                         <div className="flex items-center justify-end gap-1 text-green-600 dark:text-green-400">
                                             <ShoppingCart size={14} />
-                                            <span className="font-semibold">₹{totalPurchase.toLocaleString('en-IN')}</span>
+                                            <span className="font-semibold">{formatCurrency(totalPurchase)}</span>
                                         </div>
                                         <div className={`flex items-center justify-end gap-1 ${totalDue > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'}`}>
                                             <IndianRupee size={14} />
-                                            <span className="font-semibold">₹{totalDue.toLocaleString('en-IN')}</span>
+                                            <span className="font-semibold">{formatCurrency(totalDue)}</span>
                                         </div>
                                     </div>
                                 </div>
                             </Card>
                         );
                     })}
+
+                    {totalPages > 1 && (
+                        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-6 p-4 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700">
+                            <div className="text-sm text-gray-500 dark:text-gray-400">
+                                Showing <span className="font-bold text-gray-800 dark:text-gray-200">{(currentPage - 1) * pageSize + 1}</span> to <span className="font-bold text-gray-800 dark:text-gray-200">{Math.min(currentPage * pageSize, filteredCustomers.length)}</span> of <span className="font-bold text-gray-800 dark:text-gray-200">{filteredCustomers.length}</span> customers
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="secondary"
+                                    onClick={() => setCurrentPageNum(p => Math.max(1, p - 1))}
+                                    disabled={currentPage === 1}
+                                    className="px-3"
+                                >
+                                    Previous
+                                </Button>
+                                <div className="flex items-center gap-1 mx-2">
+                                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                        let pageNum = currentPage;
+                                        if (currentPage <= 3) pageNum = i + 1;
+                                        else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
+                                        else pageNum = currentPage - 2 + i;
+
+                                        if (pageNum < 1 || pageNum > totalPages) return null;
+
+                                        return (
+                                            <button
+                                                key={pageNum}
+                                                onClick={() => setCurrentPageNum(pageNum)}
+                                                className={`w-9 h-9 rounded-lg text-sm font-bold transition-all ${currentPage === pageNum ? 'bg-primary text-white shadow-md scale-110' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700'}`}
+                                            >
+                                                {pageNum}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <Button
+                                    variant="secondary"
+                                    onClick={() => setCurrentPageNum(p => Math.min(totalPages, p + 1))}
+                                    disabled={currentPage === totalPages}
+                                    className="px-3"
+                                >
+                                    Next
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </>

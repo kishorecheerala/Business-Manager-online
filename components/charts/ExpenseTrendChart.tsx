@@ -5,6 +5,7 @@ import {
 import { TrendingDown, TrendingUp } from 'lucide-react';
 import Card from '../Card';
 import { Sale, Expense } from '../../types';
+import { formatCurrency } from '../../utils/formatUtils';
 
 interface ExpenseTrendChartProps {
     sales: Sale[];
@@ -80,11 +81,11 @@ const ExpenseTrendChart: React.FC<ExpenseTrendChartProps> = ({ sales, expenses, 
                             axisLine={false}
                             tickLine={false}
                             tick={{ fontSize: 10, fill: '#94a3b8' }}
-                            tickFormatter={(val) => `₹${val / 1000}k`}
+                            tickFormatter={(val) => formatCurrency(val)}
                         />
                         <Tooltip
                             contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                            formatter={(value: number, name: string) => [`₹${value.toLocaleString()}`, name === 'revenue' ? 'Revenue' : 'Expenses']}
+                            formatter={(value: number, name: string) => [formatCurrency(value), name === 'revenue' ? 'Revenue' : 'Expenses']}
                         />
                         <Legend verticalAlign="top" height={36} iconType="circle" />
                         <Line

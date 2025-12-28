@@ -14,6 +14,7 @@ import Button from '../components/Button';
 import { Budget, FinancialScenario, ExpenseCategory, FinancialGoal } from '../types';
 import { calculateRevenueForecast } from '../utils/analytics';
 import { formatCurrency, formatNumber } from '../utils/formatUtils';
+import { getLocalDateString } from '../utils/dateUtils';
 import FormattedNumberInput from '../components/FormattedNumberInput';
 
 const FinancialPlanningPage: React.FC = () => {
@@ -139,6 +140,8 @@ const FinancialPlanningPage: React.FC = () => {
                     currentAmount: Number(newGoal.currentAmount || 0),
                     deadline: newGoal.deadline,
                     category: newGoal.category as any,
+                    isAutomatic: newGoal.isAutomatic,
+                    startDate: newGoal.startDate || new Date().toISOString()
                 };
                 dispatch({ type: 'UPDATE_GOAL', payload: updatedGoal });
                 showToast("Goal updated successfully", "success");
@@ -154,12 +157,14 @@ const FinancialPlanningPage: React.FC = () => {
                 monthlyContribution: Number(newGoal.monthlyContribution || 0),
                 category: newGoal.category as any,
                 active: true,
-                createdAt: new Date().toISOString()
+                createdAt: new Date().toISOString(),
+                isAutomatic: newGoal.isAutomatic || false,
+                startDate: newGoal.startDate || new Date().toISOString()
             };
             dispatch({ type: 'ADD_GOAL', payload: goal });
             showToast("Financial Goal set!", "success");
         }
-        setNewGoal({ category: 'revenue', active: true });
+        setNewGoal({ category: 'revenue', active: true, isAutomatic: false, startDate: getLocalDateString() });
     };
 
     const handleEditGoal = (goal: FinancialGoal) => {
@@ -171,7 +176,7 @@ const FinancialPlanningPage: React.FC = () => {
 
     const handleCancelEdit = () => {
         setEditingGoalId(null);
-        setNewGoal({ category: 'revenue', active: true });
+        setNewGoal({ category: 'revenue', active: true, isAutomatic: false, startDate: getLocalDateString() });
     };
 
     const daysSinceFirstSale = useMemo(() => {
@@ -623,6 +628,30 @@ const FinancialPlanningPage: React.FC = () => {
                                     <option value="expense_limit">Expense Cap</option>
                                 </select>
                             </div>
+                            <div className="flex flex-col gap-4">
+                                <div>
+                                    <label className="text-xs font-semibold text-gray-500 uppercase">Track data from</label>
+                                    <input
+                                        type="date"
+                                        className="w-full p-2 mt-1 border rounded dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                                        value={newGoal.startDate ? newGoal.startDate.split('T')[0] : getLocalDateString()}
+                                        onChange={e => setNewGoal({ ...newGoal, startDate: e.target.value })}
+                                    />
+                                </div>
+                                <div className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-800/50 rounded border dark:border-slate-700">
+                                    <input
+                                        type="checkbox"
+                                        id="auto-goal"
+                                        checked={newGoal.isAutomatic}
+                                        onChange={e => setNewGoal({ ...newGoal, isAutomatic: e.target.checked })}
+                                        className="w-4 h-4 accent-teal-600 rounded"
+                                    />
+                                    <label htmlFor="auto-goal" className="text-sm font-medium text-slate-700 dark:text-slate-300 flex-1 cursor-pointer">
+                                        Auto-calculate progress
+                                        <p className="text-[10px] text-slate-500 font-normal leading-tight">Link this goal to real-time sales and expenses</p>
+                                    </label>
+                                </div>
+                            </div>
                             <div className="flex gap-2">
                                 <Button className="flex-1" onClick={handleAddGoal}>
                                     {editingGoalId ? <Save size={16} className="mr-2" /> : <Flag size={16} className="mr-2" />}
@@ -701,8 +730,50 @@ const FinancialPlanningPage: React.FC = () => {
                             </div>
                         ) : (
                             state.goals.map(goal => {
-                                const progress = (goal.currentAmount / goal.targetAmount) * 100;
-                                const remaining = goal.targetAmount - goal.currentAmount;
+                                let currentProgressValue = goal.currentAmount;
+                                if (goal.isAutomatic) {
+                                    const start = new Date(goal.startDate || goal.createdAt).getTime();
+                                    const end = goal.deadline ? new Date(goal.deadline).getTime() : Infinity;
+
+                                    if (goal.category === 'revenue') {
+                                        currentProgressValue = state.sales
+                                            .filter(s => {
+                                                const d = new Date(s.date).getTime();
+                                                return d >= start && d <= end;
+                                            })
+                                            .reduce((sum, s) => sum + s.totalAmount, 0);
+                                    } else if (goal.category === 'savings') {
+                                        const rev = state.sales
+                                            .filter(s => {
+                                                const d = new Date(s.date).getTime();
+                                                return d >= start && d <= end;
+                                            })
+                                            .reduce((sum, s) => sum + s.totalAmount, 0);
+                                        const exp = state.expenses
+                                            .filter(e => {
+                                                const d = new Date(e.date).getTime();
+                                                return d >= start && d <= end;
+                                            })
+                                            .reduce((sum, e) => sum + e.amount, 0);
+                                        const cogs = state.purchases
+                                            .filter(p => {
+                                                const d = new Date(p.date).getTime();
+                                                return d >= start && d <= end;
+                                            })
+                                            .reduce((sum, p) => sum + p.totalAmount, 0);
+                                        currentProgressValue = Math.max(0, rev - exp - cogs);
+                                    } else if (goal.category === 'expense_limit') {
+                                        currentProgressValue = state.expenses
+                                            .filter(e => {
+                                                const d = new Date(e.date).getTime();
+                                                return d >= start && d <= end;
+                                            })
+                                            .reduce((sum, e) => sum + e.amount, 0);
+                                    }
+                                }
+
+                                const progress = (currentProgressValue / goal.targetAmount) * 100;
+                                const remaining = goal.targetAmount - currentProgressValue;
 
                                 // Forecasting
                                 let forecastText = "";
@@ -756,7 +827,7 @@ const FinancialPlanningPage: React.FC = () => {
                                         <div className="space-y-3">
                                             <div className="flex justify-between items-end">
                                                 <div className="text-2xl font-black dark:text-white">
-                                                    {formatCurrency(goal.currentAmount)}
+                                                    {formatCurrency(currentProgressValue)}
                                                     <span className="text-sm font-normal text-gray-400 ml-2">/ {formatCurrency(goal.targetAmount)}</span>
                                                 </div>
                                                 <div className="text-right">

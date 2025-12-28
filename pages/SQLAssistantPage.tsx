@@ -61,7 +61,7 @@ const SQLAssistantPage: React.FC<SQLAssistantPageProps> = ({ setCurrentPage }) =
                 if (state.expenses.length) alasql.tables.expenses.data = state.expenses.map(e => ({ ...e }));
                 if (state.suppliers.length) alasql.tables.suppliers.data = state.suppliers.map(s => ({ ...s }));
 
-                console.log("SQL Database initialized with app data.");
+                if (state.devMode) console.log("SQL Database initialized with app data.");
             } catch (e) {
                 console.error("Failed to init SQL DB", e);
                 setError("Failed to initialize database engine.");
@@ -145,7 +145,7 @@ const SQLAssistantPage: React.FC<SQLAssistantPageProps> = ({ setCurrentPage }) =
             // But for now, just setting the query is safer and standard for this UI.
 
         } catch (error: any) {
-            console.error(error);
+            if (state.devMode) console.error(error);
             showToast("Failed to generate SQL", 'error');
         } finally {
             setIsGenerating(false);

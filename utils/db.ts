@@ -63,15 +63,10 @@ function getDb(): Promise<IDBPDatabase<BusinessManagerDB>> {
                 }
             },
             blocked() {
-                // The DB is blocked by an older version open elsewhere
-                console.warn('Database blocked: closing connection to allow upgrade.');
-                // We're probably the blocked one, but IDB logic is tricky.
-                // Best to let the user know or reload? 
-                // Typically implies multiple tabs.
+                if ((window as any).devMode) console.warn('Database blocked: closing connection to allow upgrade.');
             },
             blocking() {
-                // Open connection is blocking an upgrade
-                console.warn('Database blocking: closing connection.');
+                if ((window as any).devMode) console.warn('Database blocking: closing connection.');
                 dbPromise?.then(db => db.close());
                 dbPromise = undefined;
             },
@@ -303,4 +298,25 @@ export async function restoreSnapshot(id: string): Promise<void> {
 export async function deleteSnapshot(id: string): Promise<void> {
     const db = await getDb();
     await db.delete('snapshots', id);
+}
+
+export async function getStorageStats() {
+    if (navigator.storage && navigator.storage.estimate) {
+        const { usage, quota } = await navigator.storage.estimate();
+        return {
+            usage: usage || 0,
+            quota: quota || 0,
+            percent: quota ? Math.round((usage || 0) / quota * 100) : 0
+        };
+    }
+    return { usage: 0, quota: 0, percent: 0 };
+}
+
+export async function getDetailedStats() {
+    const db = await getDb();
+    const stats: Record<string, number> = {};
+    for (const storeName of STORE_NAMES) {
+        stats[storeName] = await db.count(storeName);
+    }
+    return stats;
 }

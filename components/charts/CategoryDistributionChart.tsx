@@ -5,6 +5,7 @@ import {
 import { PieChart as PieIcon } from 'lucide-react';
 import Card from '../Card';
 import { Sale, Product } from '../../types';
+import { formatCurrency } from '../../utils/formatUtils';
 
 interface CategoryDistributionChartProps {
     sales: Sale[];
@@ -66,7 +67,7 @@ const CategoryDistributionChart: React.FC<CategoryDistributionChartProps> = ({ s
                             ))}
                         </Pie>
                         <Tooltip
-                            formatter={(value: number) => [`₹${value.toLocaleString()}`, 'Revenue']}
+                            formatter={(value: number) => [formatCurrency(value), 'Revenue']}
                             contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                         />
                     </PieChart>
@@ -80,7 +81,7 @@ const CategoryDistributionChart: React.FC<CategoryDistributionChartProps> = ({ s
                                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
                                 <span className="text-gray-600 dark:text-gray-300 truncate max-w-[120px]">{entry.name}</span>
                             </div>
-                            <span className="font-medium dark:text-gray-200">₹{entry.value.toLocaleString()}</span>
+                            <span className="font-medium dark:text-gray-200">{formatCurrency(entry.value)}</span>
                         </div>
                     ))}
                 </div>

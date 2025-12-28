@@ -3,6 +3,7 @@ import { X, RotateCcw, Trash2, Clock, CheckCircle } from 'lucide-react';
 import Card from './Card';
 import Button from './Button';
 import { useAppContext } from '../context/AppContext';
+import { formatDateTime } from '../utils/formatUtils';
 import { useDialog } from '../context/DialogContext';
 import * as db from '../utils/db';
 import { Snapshot } from '../types';
@@ -95,7 +96,7 @@ const CheckpointsModal: React.FC<CheckpointsModalProps> = ({ isOpen, onClose }) 
                     <div className="min-w-0">
                       <p className="font-bold text-slate-700 dark:text-slate-200 truncate">{snap.name}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400 font-mono mt-0.5">
-                        {new Date(snap.timestamp).toLocaleString()}
+                        {formatDateTime(snap.timestamp)}
                       </p>
                     </div>
                     <div className="flex gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">

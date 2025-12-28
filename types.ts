@@ -35,12 +35,14 @@ export interface FinancialGoal {
   category: 'revenue' | 'savings' | 'expense_limit';
   active: boolean;
   createdAt: string;
+  startDate?: string; // New: When to start tracking from
+  isAutomatic?: boolean; // New: Auto-calculate progress
 }
 
 
 
 // ... rest
-export type Theme = 'light' | 'dark';
+export type Theme = 'light' | 'dark' | 'system';
 
 export interface GoogleUser {
   name: string;
@@ -510,7 +512,25 @@ export interface AppMetadataDashboardConfig {
   updatedAt?: string;
 }
 
-export type AppMetadata = AppMetadataPin | AppMetadataBackup | AppMetadataRevenueGoal | AppMetadataLastModified | AppMetadataTheme | AppMetadataInvoiceSettings | AppMetadataNavOrder | AppMetadataQuickActions | AppMetadataUIPreferences | AppMetadataDashboardConfig;
+export interface AppMetadataLastSync {
+  id: 'lastSyncTime';
+  value: number;
+}
+
+export interface AppMetadataAutoCleanup {
+  id: 'autoCleanupSettings';
+  enabled: boolean;
+  logsRetentionDays: number;
+  notificationsRetentionDays: number;
+  trashRetentionDays: number;
+  updatedAt?: string;
+}
+
+export interface AppMetadataGoogleUser extends GoogleUser {
+  id: 'googleUser';
+}
+
+export type AppMetadata = AppMetadataPin | AppMetadataBackup | AppMetadataRevenueGoal | AppMetadataLastModified | AppMetadataTheme | AppMetadataInvoiceSettings | AppMetadataNavOrder | AppMetadataQuickActions | AppMetadataUIPreferences | AppMetadataDashboardConfig | AppMetadataLastSync | AppMetadataGoogleUser | AppMetadataAutoCleanup;
 
 export interface Snapshot {
   id: string;
@@ -585,6 +605,7 @@ export interface AppState {
 
   // UI Preferences
   uiPreferences: AppMetadataUIPreferences;
+  autoCleanupSettings: AppMetadataAutoCleanup;
 
   toast: ToastState;
   selection: { page: Page; id: string; action?: 'edit' | 'new'; data?: any } | null;
@@ -621,7 +642,7 @@ export interface AppState {
 
 // --- Enterprise Reporting Types ---
 
-export type ReportType = 'TABLE' | 'BAR' | 'LINE' | 'PIE' | 'AREA' | 'SCATTER' | 'COMPOSED' | 'KPI';
+export type ReportType = 'TABLE' | 'BAR' | 'LINE' | 'PIE' | 'AREA' | 'SCATTER' | 'COMPOSED' | 'KPI' | 'FUNNEL' | 'TREEMAP';
 
 export type Aggregation = 'SUM' | 'AVG' | 'COUNT' | 'MIN' | 'MAX' | 'NONE';
 
@@ -643,7 +664,7 @@ export interface ReportConfig {
   id: string;
   title: string;
   description?: string;
-  dataSource: 'sales' | 'purchases' | 'inventory' | 'customers' | 'expenses';
+  dataSource: 'sales' | 'purchases' | 'inventory' | 'customers' | 'expenses' | 'sale_items';
   fields: ReportField[];
   filters: ReportFilter[];
   groupBy?: string; // Field ID to group by

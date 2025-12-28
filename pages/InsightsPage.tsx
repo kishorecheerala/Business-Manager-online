@@ -19,10 +19,11 @@ import TopCustomersChart from '../components/charts/TopCustomersChart';
 import ExpenseTrendChart from '../components/charts/ExpenseTrendChart';
 import GoalTracker from '../components/analytics/GoalTracker';
 import ProfitLossCard from '../components/analytics/ProfitLossCard';
-import { calculateRevenueForecast, calculateCLV, calculateInventoryTurnover } from '../utils/analytics';
+import { calculateRevenueForecast, calculateCLV, calculateInventoryTurnover, calculateLinearRegression } from '../utils/analytics';
 import Dropdown from '../components/Dropdown';
 import ModernDateInput from '../components/ModernDateInput';
 import { getLocalDateString } from '../utils/dateUtils';
+import { formatCurrency, formatNumber, formatDate, formatDateTime } from '../utils/formatUtils';
 import Button from '../components/Button';
 
 interface InsightsPageProps {
@@ -36,7 +37,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
             <div className="bg-white dark:bg-slate-800 p-3 rounded-lg shadow-xl border border-gray-100 dark:border-slate-700">
                 <p className="text-sm font-bold text-gray-700 dark:text-gray-200">{label}</p>
                 <p className="text-sm text-indigo-600 font-medium">
-                    ₹{Number(payload[0].value).toLocaleString()}
+                    {formatCurrency(Number(payload[0].value))}
                 </p>
             </div>
         );
@@ -48,7 +49,7 @@ const InsightsPage: React.FC<InsightsPageProps> = ({ setCurrentPage }) => {
     const { state } = useAppContext();
     const { sales, purchases, products, customers, expenses } = state;
 
-    const forecast = useMemo(() => calculateRevenueForecast(sales), [sales]);
+    const forecast = useMemo(() => calculateLinearRegression(sales), [sales]);
     const clv = useMemo(() => calculateCLV(sales, customers), [sales, customers]);
     const inventory = useMemo(() => calculateInventoryTurnover(sales, products, purchases), [sales, products, purchases]);
 
@@ -195,20 +196,20 @@ const InsightsPage: React.FC<InsightsPageProps> = ({ setCurrentPage }) => {
 
                 if (expense.paymentMethod === 'CASH') {
                     cashNet -= amount;
-                } else if (expense.bankAccountId && bankBalances[expense.bankAccountId] !== undefined) {
-                    bankBalances[expense.bankAccountId] -= amount;
+                } else if (expense.accountId && bankBalances[expense.accountId] !== undefined) {
+                    bankBalances[expense.accountId] -= amount;
                 }
 
-                if (matchesFilter(expense.paymentMethod, expense.bankAccountId)) {
+                if (matchesFilter(expense.paymentMethod, expense.accountId)) {
                     outflow += amount;
                     transactions.push({
                         date: expense.date,
                         type: 'OUT',
-                        description: `${expense.category} - ${expense.description || ''}`,
+                        description: `${expense.category} - ${expense.note || ''}`,
                         amount,
                         category: 'Expense',
                         method: expense.paymentMethod,
-                        accountId: expense.bankAccountId
+                        accountId: expense.accountId
                     });
                 }
             }
@@ -341,7 +342,7 @@ const InsightsPage: React.FC<InsightsPageProps> = ({ setCurrentPage }) => {
                                 <div>
                                     <p className="text-xs font-bold text-gray-700 dark:text-gray-200 group-hover/cash:text-emerald-700 dark:group-hover/cash:text-emerald-400 transition-colors">Cash in Hand</p>
                                     <p className={`text-lg font-bold mt-0.5 ${statementData.cashNet >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-600'}`}>
-                                        ₹{statementData.cashNet.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                                        {formatCurrency(statementData.cashNet)}
                                     </p>
                                 </div>
                             </div>
@@ -366,7 +367,7 @@ const InsightsPage: React.FC<InsightsPageProps> = ({ setCurrentPage }) => {
                                             {account.name}
                                         </p>
                                         <p className={`text-lg font-bold mt-0.5 ${statementData.bankBalances[account.id] >= 0 ? 'text-blue-700 dark:text-blue-400' : 'text-red-600'}`}>
-                                            ₹{(statementData.bankBalances[account.id] || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                                            {formatCurrency(statementData.bankBalances[account.id] || 0)}
                                         </p>
                                     </div>
                                 </div>
@@ -379,7 +380,7 @@ const InsightsPage: React.FC<InsightsPageProps> = ({ setCurrentPage }) => {
                                 <Info size={12} /> Click on accounts for statements
                             </span>
                             <p className="text-sm text-gray-600 dark:text-gray-300">
-                                Total: <span className={`font-bold text-base ${netBalance >= 0 ? 'text-gray-800 dark:text-white' : 'text-red-600'}`}>₹{netBalance.toLocaleString('en-IN')}</span>
+                                Total: <span className={`font-bold text-base ${netBalance >= 0 ? 'text-gray-800 dark:text-white' : 'text-red-600'}`}>{formatCurrency(netBalance)}</span>
                             </p>
                         </div>
                     </Card>
@@ -392,7 +393,7 @@ const InsightsPage: React.FC<InsightsPageProps> = ({ setCurrentPage }) => {
                                 <div>
                                     <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Net Profit (Est.)</p>
                                     <h3 className={`text-2xl font-bold mt-1 ${estimatedProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                        ₹{estimatedProfit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                                        {formatCurrency(estimatedProfit)}
                                     </h3>
                                 </div>
                                 <div className={`p-2 rounded-full ${estimatedProfit >= 0 ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
@@ -433,7 +434,7 @@ const InsightsPage: React.FC<InsightsPageProps> = ({ setCurrentPage }) => {
                             <div>
                                 <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Customer LTV</p>
                                 <h3 className="text-2xl font-bold mt-1 text-purple-600">
-                                    ₹{Math.round(clv.clv).toLocaleString('en-IN')}
+                                    {formatCurrency(clv.clv)}
                                 </h3>
                             </div>
                             <div className="p-2 bg-purple-100 text-purple-600 rounded-full">
@@ -508,7 +509,7 @@ const InsightsPage: React.FC<InsightsPageProps> = ({ setCurrentPage }) => {
                                     <Wallet className="w-5 h-5" /> Account Statement {accountFilter !== 'ALL' && <span className="text-sm font-normal text-gray-500 bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded-full">({accountFilter})</span>}
                                 </h3>
                                 <p className="text-xs text-gray-500">
-                                    {duration === 'custom' ? `${new Date(dateRange.start).toLocaleDateString()} - ${new Date(dateRange.end).toLocaleDateString()}` : duration.replace('_', ' ')}
+                                    {duration === 'custom' ? `${formatDate(dateRange.start)} - ${formatDate(dateRange.end)}` : duration.replace('_', ' ')}
                                 </p>
                             </div>
                             <button onClick={() => setIsStatementModalOpen(false)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors">
@@ -519,16 +520,16 @@ const InsightsPage: React.FC<InsightsPageProps> = ({ setCurrentPage }) => {
                         <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50/50 dark:bg-slate-800/50 border-b dark:border-slate-700">
                             <div className="text-center p-2 bg-emerald-50 dark:bg-emerald-900/10 rounded-lg border border-emerald-100 dark:border-emerald-900/30">
                                 <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase">Total Inflow</p>
-                                <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300">₹{statementData.inflow.toLocaleString()}</p>
+                                <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300">{formatCurrency(statementData.inflow)}</p>
                             </div>
                             <div className="text-center p-2 bg-rose-50 dark:bg-rose-900/10 rounded-lg border border-rose-100 dark:border-rose-900/30">
                                 <p className="text-xs font-bold text-rose-600 dark:text-rose-400 uppercase">Total Outflow</p>
-                                <p className="text-lg font-bold text-rose-700 dark:text-rose-300">₹{statementData.outflow.toLocaleString()}</p>
+                                <p className="text-lg font-bold text-rose-700 dark:text-rose-300">{formatCurrency(statementData.outflow)}</p>
                             </div>
                             <div className="text-center p-2 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-900/30">
                                 <p className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase">Net Balance</p>
                                 <p className={`text-lg font-bold ${statementData.net >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                    {statementData.net >= 0 ? '+' : ''}₹{statementData.net.toLocaleString()}
+                                    {statementData.net >= 0 ? '+' : ''}{formatCurrency(statementData.net)}
                                 </p>
                             </div>
                         </div>
@@ -552,8 +553,8 @@ const InsightsPage: React.FC<InsightsPageProps> = ({ setCurrentPage }) => {
                                         {statementData.transactions.map((tx, idx) => (
                                             <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
                                                 <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
-                                                    {new Date(tx.date).toLocaleDateString()}
-                                                    <div className="text-[10px] opacity-70">{new Date(tx.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                                                    {formatDate(tx.date)}
+                                                    <div className="text-[10px] opacity-70">{formatDateTime(tx.date).split(' ')[1]}</div>
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <div className="font-medium text-gray-800 dark:text-gray-200">{tx.description}</div>
@@ -562,7 +563,7 @@ const InsightsPage: React.FC<InsightsPageProps> = ({ setCurrentPage }) => {
                                                     </span>
                                                 </td>
                                                 <td className={`px-4 py-3 text-right font-bold ${tx.type === 'IN' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                                    {tx.type === 'IN' ? '+' : '-'}₹{tx.amount.toLocaleString()}
+                                                    {tx.type === 'IN' ? '+' : '-'}{formatCurrency(tx.amount)}
                                                 </td>
                                             </tr>
                                         ))}

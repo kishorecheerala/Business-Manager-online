@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Plus, Trash2, Share2, Search, X, IndianRupee, QrCode, Save, Edit, PauseCircle, PlayCircle, Clock, History, ArrowRight, FileText } from 'lucide-react';
+import { Plus, Trash2, Share2, Search, X, IndianRupee, QrCode, Save, Edit, PauseCircle, PlayCircle, Clock, History, ArrowRight, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { Sale, SaleItem, Customer, Product, Payment, ParkedSale } from '../types';
@@ -8,7 +8,7 @@ import Button from '../components/Button';
 import DeleteButton from '../components/DeleteButton';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
 import { getLocalDateString } from '../utils/dateUtils';
-import { formatCurrency, formatDate, generateDownloadFilename } from '../utils/formatUtils';
+import { formatCurrency, formatDate, formatDateTime, generateDownloadFilename } from '../utils/formatUtils';
 import { calculateTotals } from '../utils/calculations';
 import AddCustomerModal from '../components/AddCustomerModal';
 import ProductSearchModal from '../components/ProductSearchModal';
@@ -103,6 +103,10 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             showToast("Selected sales deleted successfully.");
         }
     };
+
+    // --- Pagination State ---
+    const [page, setPage] = useState(1);
+    const pageSize = 50;
 
     const handleBulkPrint = async () => {
         // Placeholder for now
@@ -391,23 +395,29 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         const totalPaid = customerSales.reduce((sum, sale) => {
             return sum + (sale.payments || []).reduce((paySum, payment) => paySum + Number(payment.amount), 0);
         }, 0);
-
         return totalBilled - totalPaid;
     }, [customerId, state.sales]);
 
     // History List Logic
     const filteredHistory = useMemo(() => {
-        const term = historySearch.toLowerCase();
-        return state.sales.filter(s => {
+        const sorted = [...state.sales].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        return sorted.filter(s => {
             const customer = state.customers.find(c => c.id === s.customerId);
-            return (
-                s.id.toLowerCase().includes(term) ||
-                (customer && customer.name.toLowerCase().includes(term)) ||
-                (customer && customer.phone.includes(term))
-            );
-        }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-            .slice(0, 50); // Limit to last 50 for performance
+            const searchStr = `${customer?.name || ''} ${s.id} ${s.totalAmount}`.toLowerCase();
+            return searchStr.includes(historySearch.toLowerCase());
+        });
     }, [state.sales, state.customers, historySearch]);
+
+    const totalPages = Math.ceil(filteredHistory.length / pageSize);
+    const paginatedHistory = useMemo(() => {
+        const start = (page - 1) * pageSize;
+        return filteredHistory.slice(start, start + pageSize);
+    }, [filteredHistory, page, pageSize]);
+
+    // Reset page when search changes
+    useEffect(() => {
+        setPage(1);
+    }, [historySearch]);
 
     // Recent Sales for Bottom Bar
     const recentSales = useMemo(() => {
@@ -443,7 +453,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                         showToast('Invoice text copied to clipboard!');
                     }
                 } catch (err) {
-                    console.warn('Could not copy text to clipboard:', err);
+                    if (state.devMode) console.warn('Could not copy text to clipboard:', err);
                 }
                 await navigator.share({
                     title: `${businessName} Invoice ${sale.id}`,
@@ -454,11 +464,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                 doc.save(filename);
             }
         } catch (error: any) {
-            if (error.name === 'AbortError' || (error.message && error.message.includes('Share canceled'))) {
-                console.debug('Share canceled by user');
-                return;
-            }
-            console.error("PDF generation or sharing failed:", error);
+            if (state.devMode) console.error("PDF generation or sharing failed:", error);
             showToast(`Sale created, but PDF failed: ${error.message}`, 'error');
         }
     };
@@ -536,7 +542,6 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             const updatedSale: Sale = {
                 ...saleToEdit, items, discount: discountAmount, gstAmount, totalAmount, payments: updatedPayments
             };
-            dispatch({ type: 'UPDATE_SALE', payload: { oldSale: saleToEdit, updatedSale } });
             dispatch({ type: 'UPDATE_SALE', payload: { oldSale: saleToEdit, updatedSale } });
             showToast('Sale updated successfully!');
         }
@@ -959,7 +964,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                                         <FormattedNumberInput
                                             value={paymentDetails.amount}
                                             onChange={e => setPaymentDetails({ ...paymentDetails, amount: e.target.value })}
-                                            placeholder={mode === 'add' ? `Total is ₹${calculations.totalAmount.toLocaleString('en-IN')}` : 'Enter amount'}
+                                            placeholder={mode === 'add' ? `Total is ${formatCurrency(calculations.totalAmount)}` : 'Enter amount'}
                                             className="border-2 border-red-300 focus:ring-red-500 focus:border-red-500 dark:border-red-400"
                                         />
                                         <div>
@@ -1089,9 +1094,9 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                                                                 </>
                                                             );
                                                         }
-                                                        return <p className="font-bold text-sm text-primary">₹{sale.totalAmount.toLocaleString('en-IN')}</p>;
+                                                        return <p className="font-bold text-sm text-primary">{formatCurrency(sale.totalAmount)}</p>;
                                                     })()}
-                                                    <p className="text-[10px] text-gray-400">{new Date(sale.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                                    <p className="text-[10px] text-gray-400">{formatDateTime(sale.date).split(', ')[1]}</p>
                                                 </div>
                                             </div>
 
@@ -1174,8 +1179,8 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                     )}
 
                     <div className="space-y-3">
-                        {filteredHistory.length > 0 ? (
-                            filteredHistory.map((sale) => {
+                        {paginatedHistory.length > 0 ? (
+                            paginatedHistory.map((sale) => {
                                 const saleCustomer = state.customers.find((c) => c.id === sale.customerId);
                                 const totalPaid = (sale.payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
                                 const relatedReturns = state.returns?.filter(r => r.referenceId === sale.id) || [];
@@ -1217,7 +1222,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                                                     </p>
                                                     <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-1">
                                                         <Clock size={12} />
-                                                        {new Date(sale.date).toLocaleString('en-IN')}
+                                                        {formatDateTime(sale.date)}
                                                     </p>
                                                     {totalReturned > 0 && (
                                                         <div className="mt-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded inline-block">
@@ -1255,6 +1260,51 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                             <p className="text-center text-gray-500 py-8">No sales found.</p>
                         )}
                     </div>
+
+                    {/* Pagination Controls */}
+                    {totalPages > 1 && (
+                        <div className="flex items-center justify-center gap-2 py-6 border-t dark:border-slate-700 mt-4">
+                            <button
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                disabled={page === 1}
+                                className="p-2 rounded-lg border dark:border-slate-700 disabled:opacity-30 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
+                            >
+                                <ChevronLeft size={20} />
+                            </button>
+
+                            <div className="flex items-center gap-1 mx-2">
+                                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                    let pageNum;
+                                    if (totalPages <= 5) pageNum = i + 1;
+                                    else if (page <= 3) pageNum = i + 1;
+                                    else if (page >= totalPages - 2) pageNum = totalPages - 4 + i;
+                                    else pageNum = page - 2 + i;
+
+                                    if (pageNum < 1 || pageNum > totalPages) return null;
+
+                                    return (
+                                        <button
+                                            key={pageNum}
+                                            onClick={() => setPage(pageNum)}
+                                            className={`w-10 h-10 rounded-lg font-bold transition-all ${page === pageNum
+                                                ? 'bg-primary text-white shadow-lg scale-110'
+                                                : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800'}`}
+                                        >
+                                            {pageNum}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            <button
+                                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                disabled={page === totalPages}
+                                className="p-2 rounded-lg border dark:border-slate-700 disabled:opacity-30 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
+                            >
+                                <ChevronRight size={20} />
+                            </button>
+                        </div>
+                    )}
 
 
                     {/* Bulk Actions Floating Bar */}

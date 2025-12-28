@@ -85,7 +85,7 @@ const App: React.FC = () => {
                 const newUrl = window.location.pathname;
                 window.history.replaceState({}, '', newUrl);
             } catch (e) {
-                console.warn('Could not clean URL history', e);
+                if (state.devMode) console.warn('Could not clean URL history', e);
             }
         }
     }, [dispatch]);
@@ -153,7 +153,7 @@ const App: React.FC = () => {
             try {
                 window.history.pushState(data, title, url);
             } catch (e) {
-                console.debug('History pushState restricted');
+                if (state.devMode) console.debug('History pushState restricted');
             }
         };
 

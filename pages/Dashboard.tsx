@@ -1,12 +1,12 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { IndianRupee, User, AlertTriangle, Download, Upload, ShoppingCart, Package, ShieldCheck, ShieldX, Archive, PackageCheck, TestTube2, Sparkles, TrendingUp, TrendingDown, CalendarClock, Volume2, StopCircle, X, RotateCw, MessageCircle, Share, Award, Wallet, ArrowRight, Phone, UserX, Zap, Activity, Receipt, CalendarRange, CreditCard, Banknote, Info } from 'lucide-react';
+import { IndianRupee, User, AlertTriangle, Download, Upload, ShoppingCart, Package, Archive, TestTube2, X, Share, Award, Wallet, Zap, CalendarRange, CreditCard, Banknote, Receipt } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import * as db from '../utils/db';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import Dropdown from '../components/Dropdown';
-import { Page, Customer, Sale, Purchase, Supplier, Product, Return, AppMetadataBackup, Expense } from '../types';
+import { Page, AppMetadataBackup } from '../types';
 import { testData, testProfile } from '../utils/testData';
 import { useDialog } from '../context/DialogContext';
 import PinModal from '../components/PinModal';
@@ -14,7 +14,7 @@ import CheckpointsModal from '../components/CheckpointsModal';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import ModernDateInput from '../components/ModernDateInput';
 import { getLocalDateString } from '../utils/dateUtils';
-import { formatCurrency, formatNumber, formatDate, generateDownloadFilename } from '../utils/formatUtils';
+import { formatCurrency, formatNumber, formatDate, formatDateTime, generateDownloadFilename } from '../utils/formatUtils';
 import SalesTrendChart from '../components/charts/SalesTrendChart';
 import AIInsightsView from '../components/AIInsightsView';
 import SmartAnalystCard from '../components/SmartAnalystCard';
@@ -23,408 +23,14 @@ import GoalTrackerCard from '../components/GoalTrackerCard';
 import WhatsAppIcon from '../components/WhatsAppIcon';
 import UISettingsModal from '../components/UISettingsModal';
 
+// Shared Components
+import MetricCard from '../components/dashboard/MetricCard';
+import { BackupStatusAlert, OverdueDuesCard, UpcomingPurchaseDuesCard, LowStockCard, TopProductsCard } from '../components/dashboard/PriorityAlerts';
+
 interface DashboardProps {
     setCurrentPage: (page: Page) => void;
 }
 
-const MetricCard: React.FC<{
-    icon: React.ElementType;
-    title: string;
-    value: string | number;
-    color: string;
-    iconBgColor: string;
-    textColor: string;
-    unit?: string;
-    subValue?: string;
-    tooltip?: string;
-    onClick?: () => void;
-    delay?: number;
-}> = ({ icon: Icon, title, value, color, iconBgColor, textColor, unit = '₹', subValue, tooltip, onClick, delay }) => (
-    <div
-        onClick={onClick}
-        className={`rounded-lg shadow-md p-3 sm:p-4 flex items-center transition-all duration-300 hover:shadow-xl hover:scale-[1.01] ${color} ${onClick ? 'cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-primary/50' : ''} animate-slide-up-fade group relative`}
-        style={{ animationDelay: `${delay || 0}ms` }}
-        role={onClick ? 'button' : undefined}
-        title={tooltip}
-        tabIndex={onClick ? 0 : undefined}
-        onKeyDown={onClick ? (e) => (e.key === 'Enter' || e.key === ' ') && onClick() : undefined}
-    >
-        <div className={`p-2 sm:p-3 ${iconBgColor} rounded-full flex-shrink-0 transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6`}>
-            <Icon className={`w-5 h-5 sm:w-6 sm:h-6 ${textColor}`} />
-        </div>
-        <div className="ml-3 sm:ml-4 flex-grow min-w-0">
-            <div className="flex items-center gap-1">
-                <p className={`font-bold text-sm sm:text-base ${textColor} truncate`}>{title}</p>
-                {tooltip && (
-                    <div className="group/tooltip relative">
-                        <Info size={12} className={`${textColor} opacity-70`} />
-                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-[10px] rounded shadow-lg whitespace-nowrap opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-10">
-                            {tooltip}
-                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
-                        </div>
-                    </div>
-                )}
-            </div>
-            <p className={`text-lg sm:text-xl font-extrabold ${textColor} break-all mt-0.5`}>{unit}{typeof value === 'number' ? formatNumber(value) : value}</p>
-            {subValue && <p className={`text-[10px] sm:text-xs font-medium mt-0.5 opacity-90 ${textColor} truncate`}>{subValue}</p>}
-        </div>
-    </div >
-);
-
-
-
-const BackupStatusAlert: React.FC<{ lastBackupDate: string | null, lastSyncTime: number | null }> = ({ lastBackupDate, lastSyncTime }) => {
-    const now = new Date();
-    const todayStr = now.toISOString().slice(0, 10);
-
-    let status: 'no-backup' | 'overdue' | 'safe' = 'no-backup';
-    let diffDays = 0;
-    let backupDate: Date | null = null;
-    let isCloud = false;
-
-    if (lastSyncTime) {
-        const syncD = new Date(lastSyncTime);
-        const syncStr = syncD.toISOString().slice(0, 10);
-        if (syncStr === todayStr) {
-            status = 'safe';
-            backupDate = syncD;
-            isCloud = true;
-        }
-    }
-
-    if (status !== 'safe' && lastBackupDate) {
-        const manualD = new Date(lastBackupDate);
-        const manualStr = manualD.toISOString().slice(0, 10);
-        if (manualStr === todayStr) {
-            status = 'safe';
-            backupDate = manualD;
-            isCloud = false;
-        } else {
-            const latestDate = lastSyncTime ? (manualD > new Date(lastSyncTime) ? manualD : new Date(lastSyncTime)) : manualD;
-            diffDays = Math.floor((now.getTime() - latestDate.getTime()) / (1000 * 60 * 60 * 24));
-            status = 'overdue';
-            backupDate = latestDate;
-        }
-    } else if (status !== 'safe' && lastSyncTime) {
-        const syncD = new Date(lastSyncTime);
-        diffDays = Math.floor((now.getTime() - syncD.getTime()) / (1000 * 60 * 60 * 24));
-        status = 'overdue';
-        backupDate = syncD;
-    }
-
-    const config = {
-        'no-backup': {
-            icon: ShieldX,
-            classes: 'bg-red-50 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-200 dark:border-red-800',
-            iconColor: 'text-red-600 dark:text-red-400',
-            title: 'No Backup Found',
-            message: 'Please create a backup immediately to protect your data.'
-        },
-        'overdue': {
-            icon: ShieldX,
-            classes: 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-200 dark:border-amber-800',
-            iconColor: 'text-amber-600 dark:text-amber-400',
-            title: 'Backup Overdue',
-            message: diffDays > 0 ? `Last backup was ${diffDays} day${diffDays > 1 ? 's' : ''} ago.` : "Last backup was not today."
-        },
-        'safe': {
-            icon: ShieldCheck,
-            classes: 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-200 dark:border-emerald-800',
-            iconColor: 'text-emerald-600 dark:text-emerald-400',
-            title: `Data is Safe ${isCloud ? '(Cloud Sync)' : '(Manual Backup)'}`,
-            message: `Backed up today at ${backupDate?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`
-        }
-    };
-
-    const current = config[status];
-    const Icon = current.icon;
-
-    return (
-        <div className={`flex items-start p-4 rounded-lg border ${current.classes} mb-6 group`}>
-            <Icon className={`w-6 h-6 mr-3 flex-shrink-0 ${current.iconColor} transition-transform group-hover:scale-110`} />
-            <div>
-                <h4 className="font-bold text-sm uppercase tracking-wide mb-1">{current.title}</h4>
-                <p className="text-sm opacity-90">{current.message}</p>
-            </div>
-        </div>
-    );
-};
-
-const OverdueDuesCard: React.FC<{ sales: Sale[]; customers: Customer[]; onNavigate: (customerId: string) => void; }> = ({ sales, customers, onNavigate }) => {
-    const { state } = useAppContext();
-    const businessName = state.profile?.name || 'Our Business';
-
-    const overdueCustomersArray = useMemo(() => {
-        const overdueCustomers: { [key: string]: { customer: Customer; totalOverdue: number; oldestOverdueDate: string } } = {};
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-        sales.forEach(sale => {
-            const saleDate = new Date(sale.date);
-            if (saleDate < thirtyDaysAgo) {
-                const amountPaid = (sale.payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
-                const dueAmount = Number(sale.totalAmount) - amountPaid;
-                if (dueAmount > 0.01) {
-                    const customerId = sale.customerId;
-                    if (!overdueCustomers[customerId]) {
-                        const customer = customers.find(c => c.id === customerId);
-                        if (customer) {
-                            overdueCustomers[customerId] = {
-                                customer: customer,
-                                totalOverdue: 0,
-                                oldestOverdueDate: sale.date
-                            };
-                        }
-                    }
-                    if (overdueCustomers[customerId]) {
-                        overdueCustomers[customerId].totalOverdue += dueAmount;
-                        if (new Date(sale.date) < new Date(overdueCustomers[customerId].oldestOverdueDate)) {
-                            overdueCustomers[customerId].oldestOverdueDate = sale.date;
-                        }
-                    }
-                }
-            }
-        });
-        return Object.values(overdueCustomers);
-    }, [sales, customers]);
-
-    const sendWhatsAppReminder = (e: React.MouseEvent, customer: Customer, totalDue: number) => {
-        e.stopPropagation();
-        const message = `Dear ${customer.name}, your outstanding balance with ${businessName} is ${formatCurrency(totalDue)}. Please clear it at the earliest. Thank you.`;
-        const encodedMessage = encodeURIComponent(message);
-        const cleanPhone = customer.phone.replace(/\D/g, '');
-        const finalPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
-        window.open(`https://wa.me/${finalPhone}?text=${encodedMessage}`, '_blank');
-    };
-
-    if (overdueCustomersArray.length === 0) {
-        return (
-            <Card className="border-l-4 border-green-500 bg-green-50 dark:bg-green-900/20 dark:border-green-600">
-                <div className="flex items-center">
-                    <ShieldCheck className="w-8 h-8 text-green-600 dark:text-green-400 mr-4" />
-                    <div>
-                        <p className="font-bold text-green-800 dark:text-green-200">No Overdue Dues</p>
-                        <p className="text-sm text-green-700 dark:text-green-300">All customer payments older than 30 days are settled.</p>
-                    </div>
-                </div>
-            </Card>
-        );
-    }
-
-    return (
-        <Card className="border-l-4 border-rose-500 bg-rose-50 dark:bg-rose-900/20 dark:border-rose-600">
-            <div className="flex items-center mb-4">
-                <AlertTriangle className="w-6 h-6 text-rose-600 dark:text-rose-400 mr-3" />
-                <h2 className="text-lg font-bold text-rose-800 dark:text-rose-200">Overdue Dues Alert</h2>
-            </div>
-            <p className="text-sm text-rose-700 dark:text-rose-300 mb-4">The following customers have dues from sales older than 30 days.</p>
-            <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
-                {overdueCustomersArray.sort((a, b) => b.totalOverdue - a.totalOverdue).map(({ customer, totalOverdue, oldestOverdueDate }) => (
-                    <div
-                        key={customer.id}
-                        className="p-3 bg-white dark:bg-slate-800 rounded-lg shadow-sm cursor-pointer hover:bg-rose-100 dark:hover:bg-rose-900/30 transition-colors flex justify-between items-center border dark:border-slate-700"
-                        onClick={() => onNavigate(customer.id)}
-                        role="button"
-                        tabIndex={0}
-                    >
-                        <div className="flex items-center gap-3">
-                            <User className="w-6 h-6 text-rose-700 dark:text-rose-400 flex-shrink-0" />
-                            <div>
-                                <p className="font-bold text-rose-900 dark:text-rose-100">{customer.name}</p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">{customer.area}</p>
-                            </div>
-                        </div>
-                        <div className="text-right flex-shrink-0 ml-2">
-                            <p className="font-bold text-lg text-red-600 dark:text-red-400">{formatCurrency(totalOverdue)}</p>
-                            <div className="flex items-center justify-end gap-2">
-                                <p className="text-xs text-gray-500 dark:text-gray-400">{Math.floor((new Date().getTime() - new Date(oldestOverdueDate).getTime()) / (1000 * 60 * 60 * 24))} days old</p>
-                                <button onClick={(e) => sendWhatsAppReminder(e, customer, totalOverdue)} className="bg-green-500 text-white p-1 rounded-full hover:scale-110 transition-transform" title="Send Reminder"><WhatsAppIcon size={14} /></button>
-                            </div>
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </Card>
-    );
-};
-
-const TopProductsCard: React.FC<{ sales: Sale[] }> = ({ sales }) => {
-    const topProducts = useMemo(() => {
-        const productMap: Record<string, { name: string, quantity: number, revenue: number }> = {};
-
-        sales.forEach(sale => {
-            sale.items.forEach(item => {
-                if (!productMap[item.productId]) {
-                    productMap[item.productId] = {
-                        name: item.productName,
-                        quantity: 0,
-                        revenue: 0
-                    };
-                }
-                productMap[item.productId].quantity += item.quantity;
-                productMap[item.productId].revenue += (item.quantity * item.price);
-            });
-        });
-
-        return Object.values(productMap)
-            .sort((a, b) => b.quantity - a.quantity)
-            .slice(0, 3);
-    }, [sales]);
-
-    if (topProducts.length === 0) return null;
-
-    return (
-        <Card className="border-l-4 border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 dark:border-indigo-600">
-            <div className="flex items-center mb-4">
-                <Award className="w-6 h-6 text-indigo-600 dark:text-indigo-400 mr-3" />
-                <h2 className="text-lg font-bold text-indigo-800 dark:text-indigo-200">Top Selling Products</h2>
-            </div>
-            <div className="space-y-3">
-                {topProducts.map((p, idx) => (
-                    <div key={idx} className="flex justify-between items-center p-2 bg-white dark:bg-slate-800 rounded shadow-sm">
-                        <div className="flex items-center gap-3">
-                            <span className="font-bold text-lg text-indigo-300 w-4">{idx + 1}</span>
-                            <div>
-                                <p className="font-bold text-sm text-gray-800 dark:text-gray-200">{p.name}</p>
-                                <p className="text-xs text-gray-500">{p.quantity} units sold</p>
-                            </div>
-                        </div>
-                        <p className="font-bold text-indigo-600 dark:text-indigo-400">{formatCurrency(p.revenue)}</p>
-                    </div>
-                ))}
-            </div>
-        </Card>
-    );
-};
-
-const UpcomingPurchaseDuesCard: React.FC<{
-    purchases: Purchase[];
-    suppliers: Supplier[];
-    onNavigate: (supplierId: string) => void;
-}> = ({ purchases, suppliers, onNavigate }) => {
-    const upcomingDues = useMemo(() => {
-        const dues: any[] = [];
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const thirtyDaysFromNow = new Date();
-        thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-        thirtyDaysFromNow.setHours(23, 59, 59, 999);
-
-        purchases.forEach(purchase => {
-            const amountPaid = (purchase.payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
-            const dueAmount = Number(purchase.totalAmount) - amountPaid;
-
-            if (dueAmount > 0.01 && purchase.paymentDueDates && purchase.paymentDueDates.length > 0) {
-                const supplier = suppliers.find(s => s.id === purchase.supplierId);
-                if (!supplier) return;
-
-                purchase.paymentDueDates.forEach(dateStr => {
-                    const dueDate = new Date(dateStr + 'T00:00:00');
-                    // Include overdues (past dates) and upcoming up to 30 days
-                    if (dueDate <= thirtyDaysFromNow) {
-                        const timeDiff = dueDate.getTime() - today.getTime();
-                        const daysRemaining = Math.ceil(timeDiff / (1000 * 3600 * 24));
-                        dues.push({ purchaseId: purchase.id, supplier: supplier, totalPurchaseDue: dueAmount, dueDate: dueDate, daysRemaining: daysRemaining });
-                    }
-                });
-            }
-        });
-        return dues.sort((a, b) => a.daysRemaining - b.daysRemaining);
-    }, [purchases, suppliers]);
-
-    if (upcomingDues.length === 0) return (
-        <Card className="border-l-4 border-green-500 bg-green-50 dark:bg-green-900/20 dark:border-green-600">
-            <div className="flex items-center">
-                <PackageCheck className="w-8 h-8 text-green-600 dark:text-green-400 mr-4" />
-                <div>
-                    <p className="font-bold text-green-800 dark:text-green-200">No Upcoming Purchase Dues</p>
-                    <p className="text-sm text-green-700 dark:text-green-300">There are no payment dues to suppliers in the next 30 days.</p>
-                </div>
-            </div>
-        </Card>
-    );
-
-    return (
-        <Card className="border-l-4 border-amber-500 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-600">
-            <div className="flex items-center mb-4">
-                <AlertTriangle className="w-6 h-6 text-amber-600 dark:text-amber-400 mr-3" />
-                <h2 className="text-lg font-bold text-amber-800 dark:text-amber-200">Upcoming Purchase Dues</h2>
-            </div>
-            <p className="text-sm text-amber-700 dark:text-amber-300 mb-4">The following payments to suppliers are due soon or overdue.</p>
-            <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
-                {upcomingDues.map((due) => {
-                    let countdownText = "";
-                    let timeColor = "text-amber-600 dark:text-amber-400";
-
-                    if (due.daysRemaining < 0) {
-                        countdownText = `Overdue by ${Math.abs(due.daysRemaining)} day${Math.abs(due.daysRemaining) !== 1 ? 's' : ''}`;
-                        timeColor = "text-red-600 dark:text-red-400";
-                    } else if (due.daysRemaining === 0) {
-                        countdownText = "Due today";
-                        timeColor = "text-orange-600 dark:text-orange-400";
-                    } else {
-                        countdownText = `Due in ${due.daysRemaining} day${due.daysRemaining !== 1 ? 's' : ''}`;
-                    }
-                    return (
-                        <div key={`${due.purchaseId}-${due.dueDate.toISOString()}`} className="p-3 bg-white dark:bg-slate-800 rounded-lg shadow-sm cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors flex justify-between items-center border dark:border-slate-700" onClick={() => onNavigate(due.supplier.id)}>
-                            <div className="flex items-center gap-3">
-                                <Package className="w-6 h-6 text-amber-700 dark:text-amber-400 flex-shrink-0" />
-                                <div>
-                                    <p className="font-bold text-amber-900 dark:text-amber-100">{due.supplier.name}</p>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400">Inv: {due.purchaseId}</p>
-                                </div>
-                            </div>
-                            <div className="text-right flex-shrink-0 ml-2">
-                                <p className={`font-bold text-lg ${timeColor}`}>{countdownText}</p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">Date: {due.dueDate.toLocaleDateString()}</p>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-        </Card>
-    );
-};
-
-const LowStockCard: React.FC<{ products: Product[]; onNavigate: (id: string) => void; }> = ({ products, onNavigate }) => {
-    const lowStockProducts = useMemo(() => {
-        return products.filter(p => p.quantity < 5).sort((a, b) => a.quantity - b.quantity);
-    }, [products]);
-
-    if (lowStockProducts.length === 0) return (
-        <Card className="border-l-4 border-green-500 bg-green-50 dark:bg-green-900/20 dark:border-green-600">
-            <div className="flex items-center">
-                <PackageCheck className="w-8 h-8 text-green-600 dark:text-green-400 mr-4" />
-                <div>
-                    <p className="font-bold text-green-800 dark:text-green-200">Stock Healthy</p>
-                    <p className="text-sm text-green-700 dark:text-green-300">All products have sufficient stock levels (5+).</p>
-                </div>
-            </div>
-        </Card>
-    );
-
-    return (
-        <Card className="border-l-4 border-orange-500 bg-orange-50 dark:bg-orange-900/20 dark:border-orange-600">
-            <div className="flex items-center mb-4">
-                <AlertTriangle className="w-6 h-6 text-orange-600 dark:text-orange-400 mr-3" />
-                <h2 className="text-lg font-bold text-orange-800 dark:text-orange-200">Low Stock Alert</h2>
-            </div>
-            <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
-                {lowStockProducts.map(product => (
-                    <div key={product.id} className="p-2 bg-white dark:bg-slate-800 rounded shadow-sm flex justify-between items-center cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors border dark:border-slate-700" onClick={() => onNavigate(product.id)}>
-                        <div>
-                            <p className="font-semibold text-sm dark:text-slate-200">{product.name}</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">ID: {product.id}</p>
-                        </div>
-                        <span className="font-bold text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30 px-2 py-1 rounded text-xs">
-                            {product.quantity} left
-                        </span>
-                    </div>
-                ))}
-            </div>
-        </Card>
-    );
-};
 
 const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
     const { state, dispatch, showToast } = useAppContext();
@@ -656,7 +262,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
             dispatch({ type: 'SET_LAST_BACKUP_DATE', payload: new Date().toISOString() });
             showToast("Backup downloaded successfully!", 'success');
         } catch (e) {
-            console.error("Backup failed", e);
+            if (state.devMode) console.error("Backup failed", e);
             showToast("Backup failed!", 'error');
         } finally {
             setIsGeneratingReport(false);
@@ -664,13 +270,13 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
     };
 
     const handleCreateCheckpoint = async () => {
-        const name = prompt("Enter a name for this checkpoint:", `Backup ${new Date().toLocaleTimeString()}`);
+        const name = prompt("Enter a name for this checkpoint:", `Backup ${formatDateTime(new Date()).split(', ')[1]}`);
         if (name) {
             try {
                 await db.createSnapshot(name);
                 showToast("Checkpoint created successfully.", 'success');
             } catch (e) {
-                console.error(e);
+                if (state.devMode) console.error(e);
                 showToast("Failed to create checkpoint.", 'error');
             }
         }
@@ -721,7 +327,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                 await db.saveCollection('profile', [testProfile]);
                 window.location.reload();
             } catch (error) {
-                console.error("Failed to load test data:", error);
+                if (state.devMode) console.error("Failed to load test data:", error);
                 showToast("Failed to load test data.", 'info');
             }
         }
@@ -988,8 +594,17 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <OverdueDuesCard sales={sales} customers={customers} onNavigate={(id) => handleNavigate('CUSTOMERS', id)} />
-                <UpcomingPurchaseDuesCard purchases={purchases} suppliers={suppliers} onNavigate={(id) => handleNavigate('PURCHASES', id)} />
+                <OverdueDuesCard
+                    sales={sales}
+                    customers={customers}
+                    onNavigate={(id) => handleNavigate('CUSTOMERS', id)}
+                    businessName={profile?.name || 'Our Business'}
+                />
+                <UpcomingPurchaseDuesCard
+                    purchases={purchases}
+                    suppliers={suppliers}
+                    onNavigate={(id) => handleNavigate('PURCHASES', id)}
+                />
             </div>
 
             <div className="mb-6 w-full">
@@ -1054,7 +669,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                                     <Wallet className="w-5 h-5" /> Collection Breakdown
                                 </h3>
                                 <p className="text-xs text-emerald-600 dark:text-emerald-400">
-                                    {duration === 'custom' ? `${new Date(dateRange.start).toLocaleDateString()} - ${new Date(dateRange.end).toLocaleDateString()}` : duration.replace('_', ' ')}
+                                    {duration === 'custom' ? `${formatDate(dateRange.start)} - ${formatDate(dateRange.end)}` : duration.replace('_', ' ')}
                                 </p>
                             </div>
                             <button onClick={() => setCollectionDetailModalOpen(false)} className="p-2 rounded-full hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors text-emerald-700 dark:text-emerald-300">
@@ -1070,7 +685,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                                             {item.method === 'UPI' ? <Zap size={14} className="text-amber-500" /> : item.method === 'CHEQUE' ? <CreditCard size={14} className="text-blue-500" /> : <Banknote size={14} className="text-green-500" />}
                                             <span className="text-xs font-bold text-slate-500 uppercase">{item.method}</span>
                                         </div>
-                                        <span className="text-lg font-bold text-slate-800 dark:text-white">₹{item.amount.toLocaleString('en-IN')}</span>
+                                        <span className="text-lg font-bold text-slate-800 dark:text-white">{formatCurrency(item.amount)}</span>
                                     </div>
                                 ))}
                             </div>
@@ -1083,10 +698,10 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                                             <div key={idx} className="flex justify-between items-center p-2.5 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
                                                 <div className="min-w-0">
                                                     <p className="font-semibold text-sm text-slate-700 dark:text-slate-200 truncate">{tx.customer}</p>
-                                                    <p className="text-[10px] text-slate-500">{new Date(tx.date).toLocaleDateString()} • {new Date(tx.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                                    <p className="text-[10px] text-slate-500">{formatDateTime(tx.date)}</p>
                                                 </div>
                                                 <div className="text-right">
-                                                    <p className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">+₹{tx.amount.toLocaleString()}</p>
+                                                    <p className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">+{formatCurrency(tx.amount)}</p>
                                                     <span className="text-[10px] bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded text-slate-500">{tx.method}</span>
                                                 </div>
                                             </div>

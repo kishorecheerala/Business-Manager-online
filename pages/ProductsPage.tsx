@@ -18,6 +18,8 @@ import ImageCropperModal from '../components/ImageCropperModal';
 import { GoogleGenAI } from "@google/genai";
 import StockAdjustmentModal from '../components/StockAdjustmentModal';
 import ProductHistoryModal from '../components/ProductHistoryModal';
+import BatchPriceModal from '../components/BatchPriceModal';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface ProductsPageProps {
     setIsDirty: (isDirty: boolean) => void;
@@ -110,6 +112,13 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     const [detailSplitRatio, setDetailSplitRatio] = useState(0.75); // 75% for image default
     const [isResizing, setIsResizing] = useState(false);
     const detailContainerRef = useRef<HTMLDivElement>(null);
+
+    // Pagination State
+    const [page, setPage] = useState(1);
+    const pageSize = 50;
+
+    // Modals
+    const [isBatchPriceModalOpen, setIsBatchPriceModalOpen] = useState(false);
 
     // Share Selection Mode
     const [isShareSelectMode, setIsShareSelectMode] = useState(false);
@@ -209,6 +218,19 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
         );
     }, [state.products, searchTerm]);
 
+    // Paginated Products
+    const paginatedProducts = useMemo(() => {
+        const start = (page - 1) * pageSize;
+        return filteredProducts.slice(start, start + pageSize);
+    }, [filteredProducts, page, pageSize]);
+
+    const totalPages = Math.ceil(filteredProducts.length / pageSize);
+
+    // Reset page when search changes
+    useEffect(() => {
+        setPage(1);
+    }, [searchTerm]);
+
     // Inventory Value Calculation
     const inventoryStats = useMemo(() => {
         const totalValue = state.products.reduce((sum, p) => sum + (p.quantity * p.purchasePrice), 0);
@@ -232,6 +254,18 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
         }
     };
 
+    const handleSelectCurrentPage = () => {
+        const newSet = new Set(selectedIds);
+        const allOnPageSelected = paginatedProducts.every(p => newSet.has(p.id));
+
+        if (allOnPageSelected) {
+            paginatedProducts.forEach(p => newSet.delete(p.id));
+        } else {
+            paginatedProducts.forEach(p => newSet.add(p.id));
+        }
+        setSelectedIds(newSet);
+    };
+
     const handleBulkDelete = async () => {
         if (await showConfirm(`Delete ${selectedIds.size} selected products? This cannot be undone.`)) {
             const newProducts = state.products.filter(p => !selectedIds.has(p.id));
@@ -241,6 +275,13 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
             setSelectedIds(new Set());
             setIsSelectionMode(false);
         }
+    };
+
+    const handleBatchPriceUpdate = (updatedProducts: Product[]) => {
+        dispatch({ type: 'BATCH_UPDATE_PRODUCTS', payload: updatedProducts });
+        showToast(`Updated prices for ${updatedProducts.length} products.`);
+        setSelectedIds(new Set());
+        setIsSelectionMode(false);
     };
 
     const handleBulkBarcode = () => {
@@ -472,8 +513,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
 
         setIsGeneratingDesc(true);
         try {
-            // Fix: Cast process.env to any to avoid type errors
-            const apiKey = (process.env as any).API_KEY || localStorage.getItem('gemini_api_key') || '';
+            const apiKey = localStorage.getItem('gemini_api_key') || ((import.meta as any).env.VITE_GEMINI_API_KEY as string) || '';
 
             if (!apiKey) throw new Error("API Key not available");
 
@@ -507,8 +547,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
 
         setIsSuggestingPrice(true);
         try {
-            // Fix: Cast process.env to any to avoid type errors
-            const apiKey = (process.env as any).API_KEY || localStorage.getItem('gemini_api_key') || '';
+            const apiKey = localStorage.getItem('gemini_api_key') || ((import.meta as any).env.VITE_GEMINI_API_KEY as string) || '';
 
             if (!apiKey) throw new Error("API Key not available");
 
@@ -917,6 +956,15 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                 />
             )}
 
+            {isBatchPriceModalOpen && (
+                <BatchPriceModal
+                    isOpen={isBatchPriceModalOpen}
+                    onClose={() => setIsBatchPriceModalOpen(false)}
+                    selectedProducts={state.products.filter(p => selectedIds.has(p.id))}
+                    onApply={handleBatchPriceUpdate}
+                />
+            )}
+
             {isScannerOpen && (
                 <QRScannerModal
                     onClose={() => setIsScannerOpen(false)}
@@ -998,6 +1046,9 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                         <button onClick={handleBulkShare} className="p-2 hover:bg-white/20 rounded-lg transition-colors" title="Share Catalog">
                             <Share2 size={18} />
                         </button>
+                        <button onClick={() => setIsBatchPriceModalOpen(true)} className="p-2 hover:bg-white/20 rounded-lg transition-colors" title="Batch Price Update">
+                            <IndianRupee size={18} />
+                        </button>
                         <button onClick={handleBulkBarcode} className="p-2 hover:bg-white/20 rounded-lg transition-colors" title="Print Barcodes">
                             <Barcode size={18} />
                         </button>
@@ -1050,10 +1101,21 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                 </Button>
             </div>
 
+            {isSelectionMode && filteredProducts.length > pageSize && (
+                <div className="flex gap-2">
+                    <Button variant="secondary" onClick={handleSelectCurrentPage} className="text-xs px-2 py-1">
+                        {paginatedProducts.every(p => selectedIds.has(p.id)) ? 'Deselect Page' : 'Select Current Page'}
+                    </Button>
+                    <Button variant="secondary" onClick={handleSelectAll} className="text-xs px-2 py-1">
+                        {selectedIds.size === filteredProducts.length ? 'Deselect All' : `Select All ${filteredProducts.length}`}
+                    </Button>
+                </div>
+            )}
+
             {/* List View */}
             {viewMode === 'list' && (
-                <div className="space-y-3 pb-20">
-                    {filteredProducts.map((product, index) => (
+                <div className="space-y-3">
+                    {paginatedProducts.map((product, index) => (
                         <div
                             key={product.id}
                             onClick={() => {
@@ -1112,8 +1174,8 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
 
             {/* Grid View */}
             {viewMode === 'grid' && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 pb-20">
-                    {filteredProducts.map((product) => (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {paginatedProducts.map((product) => (
                         <div
                             key={product.id}
                             onClick={() => {
@@ -1193,6 +1255,49 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                         </Button>
                     )}
                 />
+            )}
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 py-8 pb-24 flex-shrink-0">
+                    <button
+                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                        disabled={page === 1}
+                        className="p-2 rounded-lg border dark:border-slate-700 disabled:opacity-30 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
+                    >
+                        <ChevronLeft size={20} />
+                    </button>
+
+                    <div className="flex items-center gap-1 mx-2">
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                            let pageNum;
+                            if (totalPages <= 5) pageNum = i + 1;
+                            else if (page <= 3) pageNum = i + 1;
+                            else if (page >= totalPages - 2) pageNum = totalPages - 4 + i;
+                            else pageNum = page - 2 + i;
+
+                            return (
+                                <button
+                                    key={pageNum}
+                                    onClick={() => setPage(pageNum)}
+                                    className={`w-10 h-10 rounded-lg font-bold transition-all ${page === pageNum
+                                        ? 'bg-primary text-white shadow-lg scale-110'
+                                        : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800'}`}
+                                >
+                                    {pageNum}
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    <button
+                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                        disabled={page === totalPages}
+                        className="p-2 rounded-lg border dark:border-slate-700 disabled:opacity-30 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
+                    >
+                        <ChevronRight size={20} />
+                    </button>
+                </div>
             )}
 
 

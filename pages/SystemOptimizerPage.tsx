@@ -7,6 +7,8 @@ import Button from '../components/Button';
 import { optimizeBase64 } from '../utils/imageUtils';
 import { Product } from '../types';
 import { useDialog } from '../context/DialogContext';
+import { getStorageStats, getDetailedStats } from '../utils/db';
+import FormattedNumberInput from '../components/FormattedNumberInput';
 
 const SystemOptimizerPage: React.FC = () => {
     const { state, dispatch, showToast } = useAppContext();
@@ -21,6 +23,8 @@ const SystemOptimizerPage: React.FC = () => {
         notificationsCount: 0,
         logsCount: 0
     });
+    const [storageStats, setStorageStats] = useState<{ usage: number; quota: number; percent: number } | null>(null);
+    const [detailedStats, setDetailedStats] = useState<Record<string, number>>({});
 
     useEffect(() => {
         // Calculate basic stats
@@ -45,6 +49,16 @@ const SystemOptimizerPage: React.FC = () => {
             logsCount: state.audit_logs.length
         });
     }, [state.products, state.notifications, state.audit_logs]);
+
+    useEffect(() => {
+        const fetchStorage = async () => {
+            const s = await getStorageStats();
+            setStorageStats(s);
+            const d = await getDetailedStats();
+            setDetailedStats(d);
+        };
+        fetchStorage();
+    }, [state.lastLocalUpdate]);
 
     const handleOptimizeImages = async () => {
         if (stats.heavyImages === 0) {
@@ -111,6 +125,14 @@ const SystemOptimizerPage: React.FC = () => {
 
     const handleTogglePerformance = () => {
         dispatch({ type: 'TOGGLE_PERFORMANCE_MODE' });
+    };
+
+    const formatBytes = (bytes: number) => {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
 
     return (
@@ -196,6 +218,101 @@ const SystemOptimizerPage: React.FC = () => {
                         <Button onClick={handleCleanup} variant="secondary" className="w-full text-red-600 hover:bg-red-50 border-red-200 dark:bg-red-900/10 dark:hover:bg-red-900/30">
                             <Trash2 size={16} className="mr-2" /> Clean Old Logs (30+ Days)
                         </Button>
+                    </div>
+                </Card>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Database Size Analysis */}
+                <Card title="Database Size Analysis">
+                    <div className="space-y-4">
+                        {storageStats ? (
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-end">
+                                    <div className="text-sm">
+                                        <p className="text-slate-500 uppercase text-[10px] font-bold tracking-wider">Storage Usage</p>
+                                        <p className="text-lg font-bold text-slate-700 dark:text-white">{formatBytes(storageStats.usage)}</p>
+                                    </div>
+                                    <div className="text-right text-sm">
+                                        <p className="text-slate-500 uppercase text-[10px] font-bold tracking-wider">Total Quota</p>
+                                        <p className="text-slate-600 dark:text-slate-400">{formatBytes(storageStats.quota)}</p>
+                                    </div>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700 overflow-hidden">
+                                    <div
+                                        className={`h-full transition-all duration-500 rounded-full ${storageStats.percent > 80 ? 'bg-red-500' : storageStats.percent > 50 ? 'bg-orange-500' : 'bg-indigo-600'}`}
+                                        style={{ width: `${Math.max(1, storageStats.percent)}%` }}
+                                    ></div>
+                                </div>
+                                <p className="text-[10px] text-center text-slate-400 italic">This is an estimate shared with other sites on this browser.</p>
+
+                                <div className="mt-4 space-y-2 max-h-48 overflow-y-auto pr-1 thin-scrollbar">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2">Collection Record Counts</p>
+                                    {Object.entries(detailedStats).sort((a, b) => b[1] - a[1]).map(([name, count]) => (
+                                        <div key={name} className="flex justify-between items-center text-xs p-2 bg-slate-50 dark:bg-slate-800/50 rounded-md">
+                                            <span className="capitalize">{name.replace('_', ' ')}</span>
+                                            <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{count}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="py-4 text-center text-slate-400">Loading storage info...</div>
+                        )}
+                    </div>
+                </Card>
+
+                {/* Auto-Cleanup Settings */}
+                <Card title="Auto-Cleanup Settings">
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between p-2 bg-indigo-50 dark:bg-indigo-900/10 rounded-lg">
+                            <div className="flex items-center gap-2">
+                                <Zap size={16} className="text-indigo-600" />
+                                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Enable Auto-Cleanup</span>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    className="sr-only peer"
+                                    checked={state.autoCleanupSettings.enabled}
+                                    onChange={(e) => dispatch({ type: 'UPDATE_AUTO_CLEANUP_SETTINGS', payload: { enabled: e.target.checked } })}
+                                />
+                                <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>
+                            </label>
+                        </div>
+
+                        <div className={`space-y-4 transition-opacity duration-300 ${state.autoCleanupSettings.enabled ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Logs Retention (Days)</label>
+                                    <FormattedNumberInput
+                                        value={state.autoCleanupSettings.logsRetentionDays}
+                                        onChange={(val) => dispatch({ type: 'UPDATE_AUTO_CLEANUP_SETTINGS', payload: { logsRetentionDays: Number(val) } })}
+                                        className="w-full text-sm"
+                                        placeholder="30"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Notifications Retention (Days)</label>
+                                    <FormattedNumberInput
+                                        value={state.autoCleanupSettings.notificationsRetentionDays}
+                                        onChange={(val) => dispatch({ type: 'UPDATE_AUTO_CLEANUP_SETTINGS', payload: { notificationsRetentionDays: Number(val) } })}
+                                        className="w-full text-sm"
+                                        placeholder="30"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Trash Retention (Days)</label>
+                                    <FormattedNumberInput
+                                        value={state.autoCleanupSettings.trashRetentionDays}
+                                        onChange={(val) => dispatch({ type: 'UPDATE_AUTO_CLEANUP_SETTINGS', payload: { trashRetentionDays: Number(val) } })}
+                                        className="w-full text-sm"
+                                        placeholder="30"
+                                    />
+                                </div>
+                            </div>
+                            <p className="text-[10px] text-slate-500 italic">Data is automatically cleaned when you open the app.</p>
+                        </div>
                     </div>
                 </Card>
             </div>

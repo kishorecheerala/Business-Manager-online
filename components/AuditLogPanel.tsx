@@ -2,6 +2,7 @@
 import React from 'react';
 import { Activity, User, Calendar, X } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import { formatDateTime } from '../utils/formatUtils';
 import Card from './Card';
 
 interface AuditLogPanelProps {
@@ -37,7 +38,7 @@ const AuditLogPanel: React.FC<AuditLogPanelProps> = ({ isOpen, onClose }) => {
                   <div className="flex items-center gap-2 mt-1 text-[10px] text-gray-400">
                     <span>{log.user}</span>
                     <span>•</span>
-                    <span>{new Date(log.timestamp).toLocaleString()}</span>
+                    <span>{formatDateTime(log.timestamp)}</span>
                   </div>
                 </div>
               </div>

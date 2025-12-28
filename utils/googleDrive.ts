@@ -59,7 +59,7 @@ export const initGoogleAuth = (callback: (response: any) => void, errorCallback?
             if (err.message) msg += `Details: ${err.message}\n\n`;
 
             if (err.type === 'popup_closed') {
-                console.warn("Google Sign-In popup closed by user.");
+                if ((window as any).devMode) console.warn("Google Sign-In popup closed by user.");
                 return;
             } else if (err.type === 'popup_failed_to_open') {
                 msg = "Popup Blocked\n\n";
@@ -98,7 +98,7 @@ const safeJsonParse = async (response: Response) => {
         if (!text || text.trim() === '') return null;
         return JSON.parse(text);
     } catch (e) {
-        console.warn("JSON Parse Error:", e);
+        if ((window as any).devMode) console.warn("JSON Parse Error:", e);
         return null;
     }
 };
@@ -244,7 +244,7 @@ export const getFolderById = async (accessToken: string, folderId: string) => {
 };
 
 export const createFolder = async (accessToken: string) => {
-    console.log("Creating new app folder...");
+    if ((window as any).devMode) console.log("Creating new app folder...");
     const metadata = {
         name: APP_FOLDER_NAME,
         mimeType: 'application/vnd.google-apps.folder',
@@ -277,12 +277,12 @@ export const findFileByName = async (accessToken: string, folderId: string, file
 
         // If duplicates exist, DELETE the older ones to fix "Split Brain"
         if (data.files.length > 1) {
-            console.warn(`[Sync Fix] Found ${data.files.length} duplicates for ${filename}. Keeping newest (${newestFile.id}), deleting others...`);
+            if ((window as any).devMode) console.warn(`[Sync Fix] Found ${data.files.length} duplicates for ${filename}. Keeping newest (${newestFile.id}), deleting others...`);
 
             // Delete older files in background
             const duplicates = data.files.slice(1);
             Promise.all(duplicates.map((file: any) => {
-                console.log(`[Sync Fix] Deleting duplicate: ${file.id}`);
+                if ((window as any).devMode) console.log(`[Sync Fix] Deleting duplicate: ${file.id}`);
                 return fetch(`https://www.googleapis.com/drive/v3/files/${file.id}`, {
                     method: 'DELETE',
                     headers: getHeaders(accessToken)
@@ -357,7 +357,7 @@ export const uploadFile = async (accessToken: string, folderId: string, content:
 };
 
 export const downloadFile = async (accessToken: string, fileId: string) => {
-    console.log(`Downloading file content for ID: ${fileId}`);
+    if ((window as any).devMode) console.log(`Downloading file content for ID: ${fileId}`);
     const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
         headers: { 'Authorization': `Bearer ${accessToken}` },
         cache: 'no-store'
@@ -373,7 +373,7 @@ export const downloadFile = async (accessToken: string, fileId: string) => {
 };
 
 export const deleteFile = async (accessToken: string, fileId: string) => {
-    console.log(`Deleting file: ${fileId}`);
+    if ((window as any).devMode) console.log(`Deleting file: ${fileId}`);
     const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${accessToken}` }
@@ -405,7 +405,7 @@ export const getUserInfo = async (accessToken: string) => {
 // --- High Level Drive Service ---
 
 async function locateDriveConfig(accessToken: string) {
-    console.log("Locating app folder in Drive...");
+    if ((window as any).devMode) console.log("Locating app folder in Drive...");
 
     // Use the unified constant APP_FOLDER_NAME
     const folders = await filesList(accessToken, {
@@ -422,12 +422,12 @@ async function locateDriveConfig(accessToken: string) {
 
         const primaryFolder = folders[0];
         activeFolderId = primaryFolder.id;
-        console.log(`Selected Master Folder: ${primaryFolder.name} (ID: ${activeFolderId})`);
+        if ((window as any).devMode) console.log(`Selected Master Folder: ${primaryFolder.name} (ID: ${activeFolderId})`);
 
         // If there are duplicate folders, we just ignore them for now to avoid complex migration risks.
         // We strict-lock to the OLDEST folder to ensure consistency across devices.
         if (folders.length > 1) {
-            console.warn(`[Sync Warning] Found ${folders.length} app folders. Locked to oldest: ${primaryFolder.id}`);
+            if ((window as any).devMode) console.warn(`[Sync Warning] Found ${folders.length} app folders. Locked to oldest: ${primaryFolder.id}`);
             // Future enhancement: Move files from other folders to this one and delete them.
         }
     } else {

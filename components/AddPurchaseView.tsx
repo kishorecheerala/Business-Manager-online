@@ -12,7 +12,7 @@ import { compressImage } from '../utils/imageUtils';
 import { getLocalDateString } from '../utils/dateUtils';
 import { calculateTotals } from '../utils/calculations';
 import { useHotkeys } from '../hooks/useHotkeys';
-import { generateDownloadFilename } from '../utils/formatUtils';
+import { generateDownloadFilename, formatCurrency } from '../utils/formatUtils';
 import AddSupplierModal from './AddSupplierModal';
 import { GoogleGenAI } from "@google/genai";
 import { generateImagesToPDF } from '../utils/pdfGenerator';
@@ -355,7 +355,7 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
         if (mode === 'add') {
             const paidAmount = parseFloat(paymentDetails.amount) || 0;
             if (paidAmount > calculations.totalAmount + 0.01) {
-                showToast(`Paid amount (₹${paidAmount.toLocaleString('en-IN')}) cannot be greater than the total amount (₹${calculations.totalAmount.toLocaleString('en-IN')}).`, 'error');
+                showToast(`Paid amount (${formatCurrency(paidAmount)}) cannot be greater than the total amount (${formatCurrency(calculations.totalAmount)}).`, 'error');
                 return;
             }
             if (paidAmount > 0) {
@@ -578,7 +578,7 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
                                         <FormattedNumberInput label="GST %" value={item.gstPercent} onChange={e => handleItemUpdate(item.productId, 'gstPercent', parseFloat(e.target.value))} placeholder="GST %" />
                                     </div>
                                     <div className="flex flex-col justify-end">
-                                        <div className="p-1 text-right font-bold dark:text-white">₹{(item.quantity * item.price).toLocaleString()}</div>
+                                        <div className="p-1 text-right font-bold dark:text-white">{formatCurrency(item.quantity * item.price)}</div>
                                     </div>
                                 </div>
                             </div>
@@ -597,7 +597,7 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
                     <div className="space-y-3">
                         <div className="flex justify-between items-center text-gray-700 dark:text-gray-300">
                             <span>Subtotal:</span>
-                            <span>₹{calculations.subTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                            <span>{formatCurrency(calculations.subTotal)}</span>
                         </div>
                         <div className="flex justify-between items-center text-gray-700 dark:text-gray-300">
                             <span>Discount:</span>
@@ -610,7 +610,7 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
                         </div>
                         <div className="flex justify-between items-center text-gray-700 dark:text-gray-300">
                             <span>GST Included:</span>
-                            <span>₹{calculations.gstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                            <span>{formatCurrency(calculations.gstAmount)}</span>
                         </div>
                     </div>
 
@@ -618,7 +618,7 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
                     <div className="text-center">
                         <p className="text-sm text-gray-500 dark:text-gray-400">Grand Total</p>
                         <p className="text-4xl font-bold text-primary">
-                            ₹{calculations.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            {formatCurrency(calculations.totalAmount)}
                         </p>
                     </div>
 
@@ -634,7 +634,7 @@ export const PurchaseForm: React.FC<PurchaseFormProps> = ({
                                         <FormattedNumberInput
                                             value={paymentDetails.amount}
                                             onChange={e => setPaymentDetails({ ...paymentDetails, amount: e.target.value })}
-                                            placeholder={`Total is ₹${calculations.totalAmount.toLocaleString('en-IN')}`}
+                                            placeholder={`Total is ${formatCurrency(calculations.totalAmount)}`}
                                             className="pl-8 border-2 border-green-300 focus:ring-green-500 focus:border-green-500 dark:border-green-800"
                                         />
                                     </div>

@@ -5,6 +5,7 @@ import {
 import { Users, Crown } from 'lucide-react';
 import Card from '../Card';
 import { Sale, Customer } from '../../types';
+import { formatCurrency } from '../../utils/formatUtils';
 
 interface TopCustomersChartProps {
     sales: Sale[];
@@ -64,10 +65,10 @@ const TopCustomersChart: React.FC<TopCustomersChartProps> = ({ sales, customers,
                         />
                         <Tooltip
                             cursor={{ fill: 'transparent' }}
-                            formatter={(value: number) => [`₹${value.toLocaleString()}`, 'Total Spent']}
+                            formatter={(value: number) => [formatCurrency(value), 'Total Spent']}
                             contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                         />
-                        <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={30} label={{ position: 'right', fill: '#64748b', fontSize: 11, formatter: (val: number) => `₹${val.toLocaleString()}` }}>
+                        <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={30} label={{ position: 'right', fill: '#64748b', fontSize: 11, formatter: (val: number) => formatCurrency(val) }}>
                             {data.map((entry, index) => (
                                 <Cell key={`cell-${index}`} fill={index === 0 ? '#f59e0b' : '#6366f1'} />
                             ))}

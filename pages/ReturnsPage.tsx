@@ -10,7 +10,7 @@ import autoTable from 'jspdf-autotable';
 import Dropdown from '../components/Dropdown';
 import ModernDateInput from '../components/ModernDateInput';
 import { generateDebitNotePDF } from '../utils/pdfGenerator';
-import { formatCurrency, generateDownloadFilename } from '../utils/formatUtils';
+import { formatCurrency, formatNumber, formatDate, generateDownloadFilename } from '../utils/formatUtils';
 import { getLocalDateString } from '../utils/dateUtils';
 import FormattedNumberInput from '../components/FormattedNumberInput';
 import DeleteButton from '../components/DeleteButton';
@@ -257,12 +257,12 @@ const ReturnsPage: React.FC<ReturnsPageProps> = ({ setIsDirty }) => {
                         <div>
                             <label className="block text-sm font-medium dark:text-gray-300">Original Invoice</label>
                             <Dropdown
-                                options={invoiceList.map(inv => ({ value: inv.id, label: `${inv.id} - ${new Date(inv.date).toLocaleDateString()}` }))}
+                                options={invoiceList.map(inv => ({ value: inv.id, label: `${inv.id} - ${formatDate(inv.date)}` }))}
                                 value={referenceId}
                                 onChange={(val) => { setReferenceId(val); setReturnedItems({}); }}
                                 placeholder="Select invoice"
                                 searchable={true}
-                                searchablePlaceholder="Search invoices..."
+                                searchPlaceholder="Search invoices..."
                                 icon="search"
                             />
                         </div>
@@ -271,9 +271,9 @@ const ReturnsPage: React.FC<ReturnsPageProps> = ({ setIsDirty }) => {
                     {selectedInvoice && (
                         <>
                             <div className="p-3 bg-primary/5 dark:bg-primary/20 rounded-lg border border-primary/20 dark:border-primary/30 text-sm space-y-1">
-                                <div className="flex justify-between dark:text-gray-300"><span>Invoice Total:</span> <span className="font-semibold dark:text-white">₹{invoiceTotal.toLocaleString('en-IN')}</span></div>
-                                <div className="flex justify-between dark:text-gray-300"><span>Amount Paid:</span> <span className="font-semibold text-green-600 dark:text-green-400">₹{amountPaid.toLocaleString('en-IN')}</span></div>
-                                <div className="flex justify-between dark:text-gray-300"><span>Current Due:</span> <span className="font-semibold text-red-600 dark:text-red-400">₹{currentDue.toLocaleString('en-IN')}</span></div>
+                                <div className="flex justify-between dark:text-gray-300"><span>Invoice Total:</span> <span className="font-semibold dark:text-white">{formatCurrency(invoiceTotal)}</span></div>
+                                <div className="flex justify-between dark:text-gray-300"><span>Amount Paid:</span> <span className="font-semibold text-green-600 dark:text-green-400">{formatCurrency(amountPaid)}</span></div>
+                                <div className="flex justify-between dark:text-gray-300"><span>Current Due:</span> <span className="font-semibold text-red-600 dark:text-red-400">{formatCurrency(currentDue)}</span></div>
                             </div>
 
                             <div>

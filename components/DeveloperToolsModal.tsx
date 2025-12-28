@@ -5,6 +5,7 @@ import { X, Database, Terminal, CloudLightning, Zap, Trash2, RefreshCw, HardDriv
 import Card from './Card';
 import Button from './Button';
 import { useAppContext } from '../context/AppContext';
+import { formatDateTime } from '../utils/formatUtils';
 import * as db from '../utils/db';
 import { testData, testProfile } from '../utils/testData';
 import { useDialog } from '../context/DialogContext';
@@ -139,7 +140,7 @@ const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({ isOpen, onClo
     };
 
     const handleClearLocalStorage = async () => {
-        if (await showConfirm("Clear LocalStorage? This will reset settings but keep data.", { variant: 'warning' })) {
+        if (await showConfirm("Clear LocalStorage? This will reset settings but keep data.", { variant: 'secondary' })) {
             localStorage.clear();
             window.location.reload();
         }
@@ -292,6 +293,8 @@ const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({ isOpen, onClo
         }, 100);
     };
 
+    const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+
     if (!isOpen) return null;
 
     const formatBytes = (bytes: number) => {
@@ -314,8 +317,8 @@ const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({ isOpen, onClo
                     <div className="flex items-center gap-2">
                         <Terminal size={20} className="text-green-400" />
                         <div>
-                            <h2 className="font-bold text-lg leading-none">Developer Tools</h2>
-                            <span className="text-[10px] font-mono text-slate-400">Mode: Enabled</span>
+                            <h2 className="font-bold text-lg leading-none">System Diagnostics & Tools</h2>
+                            <span className="text-[10px] font-mono text-slate-400">Environment: {isProduction ? 'PRODUCTION' : 'DEVELOPMENT'}</span>
                         </div>
                     </div>
                     <button onClick={onClose} className="p-1 hover:bg-white/20 rounded-full transition-colors"><X size={20} /></button>
@@ -325,20 +328,25 @@ const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({ isOpen, onClo
                     {/* Sidebar Nav */}
                     <div className="w-48 bg-slate-100 dark:bg-slate-800 border-r dark:border-slate-700 flex flex-col">
                         <button onClick={() => setActiveTab('general')} className={`p-4 text-left text-sm font-semibold flex items-center gap-2 hover:bg-white dark:hover:bg-slate-700 ${activeTab === 'general' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 border-r-2 border-indigo-600' : 'text-slate-600 dark:text-slate-400'}`}>
-                            <Zap size={16} /> General
+                            <Zap size={16} /> Info
                         </button>
                         <button onClick={() => setActiveTab('state')} className={`p-4 text-left text-sm font-semibold flex items-center gap-2 hover:bg-white dark:hover:bg-slate-700 ${activeTab === 'state' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 border-r-2 border-indigo-600' : 'text-slate-600 dark:text-slate-400'}`}>
-                            <Database size={16} /> State Viewer
+                            <Database size={16} /> State Dump
                         </button>
                         <button onClick={() => setActiveTab('db')} className={`p-4 text-left text-sm font-semibold flex items-center gap-2 hover:bg-white dark:hover:bg-slate-700 ${activeTab === 'db' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 border-r-2 border-indigo-600' : 'text-slate-600 dark:text-slate-400'}`}>
-                            <HardDrive size={16} /> Storage & Snaps
+                            <HardDrive size={16} /> Backup Control
                         </button>
-                        <button onClick={() => setActiveTab('stress')} className={`p-4 text-left text-sm font-semibold flex items-center gap-2 hover:bg-white dark:hover:bg-slate-700 ${activeTab === 'stress' ? 'bg-white dark:bg-slate-700 text-amber-600 dark:text-amber-400 border-r-2 border-amber-600' : 'text-slate-600 dark:text-slate-400'}`}>
-                            <Activity size={16} /> Stress Test
-                        </button>
-                        <button onClick={() => setActiveTab('danger')} className={`p-4 text-left text-sm font-semibold flex items-center gap-2 hover:bg-red-50 dark:hover:bg-red-900/20 ${activeTab === 'danger' ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-r-2 border-red-600' : 'text-slate-600 dark:text-slate-400'}`}>
-                            <AlertTriangle size={16} /> Danger Zone
-                        </button>
+
+                        {!isProduction && (
+                            <>
+                                <button onClick={() => setActiveTab('stress')} className={`p-4 text-left text-sm font-semibold flex items-center gap-2 hover:bg-white dark:hover:bg-slate-700 ${activeTab === 'stress' ? 'bg-white dark:bg-slate-700 text-amber-600 dark:text-amber-400 border-r-2 border-amber-600' : 'text-slate-600 dark:text-slate-400'}`}>
+                                    <Activity size={16} /> Stress Test
+                                </button>
+                                <button onClick={() => setActiveTab('danger')} className={`p-4 text-left text-sm font-semibold flex items-center gap-2 hover:bg-red-50 dark:hover:bg-red-900/20 ${activeTab === 'danger' ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-r-2 border-red-600' : 'text-slate-600 dark:text-slate-400'}`}>
+                                    <AlertTriangle size={16} /> Data Reset
+                                </button>
+                            </>
+                        )}
                     </div>
 
                     {/* Content Area */}
@@ -447,7 +455,7 @@ const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({ isOpen, onClo
                                                         <div key={snap.id} className="p-3 flex justify-between items-center hover:bg-white dark:hover:bg-slate-700/50 transition-colors">
                                                             <div className="min-w-0">
                                                                 <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 truncate">{snap.name}</p>
-                                                                <p className="text-[10px] text-slate-500 font-mono">{new Date(snap.timestamp).toLocaleString()}</p>
+                                                                <p className="text-[10px] text-slate-500 font-mono">{formatDateTime(snap.timestamp)}</p>
                                                             </div>
                                                             <div className="flex gap-2">
                                                                 <Button onClick={() => handleRestoreSnapshot(snap)} variant="secondary" className="h-7 text-xs px-2">

@@ -4,7 +4,7 @@ import {
     AppMetadata, AppMetadataTheme, AppMetadataPin, AppMetadataUIPreferences,
     Notification, ProfileData, InvoiceTemplateConfig, Budget, FinancialScenario,
     AuditLogEntry, SaleDraft, ParkedSale, Page, ExpenseCategory, Theme,
-    GoogleUser, SyncStatus, AppMetadataInvoiceSettings, CustomFont, PurchaseItem, AppMetadataNavOrder, AppMetadataQuickActions, TrashItem, AppState, ToastState, BankAccount, Payment, AppMetadataDashboardConfig, FinancialGoal
+    GoogleUser, SyncStatus, AppMetadataInvoiceSettings, CustomFont, PurchaseItem, AppMetadataNavOrder, AppMetadataQuickActions, TrashItem, AppState, ToastState, BankAccount, Payment, AppMetadataDashboardConfig, FinancialGoal, AppMetadataAutoCleanup
 } from '../types';
 import * as db from '../utils/db';
 import { StoreName } from '../utils/db';
@@ -98,9 +98,9 @@ type Action =
     | { type: 'UPDATE_SECURITY_CONFIG'; payload: AppMetadataPin['security'] }
     | { type: 'UPDATE_PROTECTED_PAGES'; payload: Page[] }
     | { type: 'RENAME_PRODUCT_ID'; payload: { oldId: string; newId: string } }
-    | { type: 'RENAME_PRODUCT_ID'; payload: { oldId: string; newId: string } }
     | { type: 'SET_AUTHENTICATED'; payload: boolean }
-    | { type: 'TOGGLE_STAFF_MODE'; payload: boolean };
+    | { type: 'TOGGLE_STAFF_MODE'; payload: boolean }
+    | { type: 'UPDATE_AUTO_CLEANUP_SETTINGS'; payload: Partial<AppMetadataAutoCleanup> };
 
 // Default Template to prevent crashes
 const DEFAULT_TEMPLATE: InvoiceTemplateConfig = {
@@ -236,6 +236,14 @@ const getLocalStorageState = () => {
 
 const localDefaults = getLocalStorageState();
 
+const initialAutoCleanup: AppMetadataAutoCleanup = {
+    id: 'autoCleanupSettings',
+    enabled: false,
+    logsRetentionDays: 30,
+    notificationsRetentionDays: 30,
+    trashRetentionDays: 30
+};
+
 const initialState: AppState = {
     customers: [],
     suppliers: [],
@@ -283,6 +291,7 @@ const initialState: AppState = {
 
     budgets: [],
     financialScenarios: [],
+    autoCleanupSettings: initialAutoCleanup,
     isLocked: false,
     isAuthenticated: false, // Default false, requires auth if accessing protected pages
     protectedPages: [], // Will load from DB
@@ -429,7 +438,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
             }));
             db.saveCollection('returns', updatedReturns);
 
-            newLog = logAction(state, 'Product ID Renamed', `${oldId} -> ${newId}`);
+            newLog = logAction(state, 'Product ID Renamed', `${oldId} -> ${newId} `);
             db.saveCollection('audit_logs', [newLog, ...state.audit_logs]);
 
             return {
@@ -535,7 +544,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
                     : s
             );
             db.saveCollection('sales', salesWithPayment);
-            newLog = logAction(state, 'Payment Added', `Sale ID: ${action.payload.saleId}, Amount: ${action.payload.payment.amount}`);
+            newLog = logAction(state, 'Payment Added', `Sale ID: ${action.payload.saleId}, Amount: ${action.payload.payment.amount} `);
             db.saveCollection('audit_logs', [newLog, ...state.audit_logs]);
             return { ...state, sales: salesWithPayment, audit_logs: [newLog, ...state.audit_logs], ...touch };
 
@@ -561,6 +570,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
                         quantity: p.quantity + item.quantity,
                         purchasePrice: item.price,
                         salePrice: item.saleValue,
+                        gstPercent: item.gstPercent,
                         updatedAt: new Date().toISOString()
                     };
                 }
@@ -643,7 +653,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
                     : p
             );
             db.saveCollection('purchases', purchasesWithPayment);
-            newLog = logAction(state, 'Payment Added (Purchase)', `Purchase ID: ${action.payload.purchaseId}`);
+            newLog = logAction(state, 'Payment Added (Purchase)', `Purchase ID: ${action.payload.purchaseId} `);
             db.saveCollection('audit_logs', [newLog, ...state.audit_logs]);
             return { ...state, purchases: purchasesWithPayment, audit_logs: [newLog, ...state.audit_logs], ...touch };
 
@@ -708,7 +718,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
             db.deleteFromStore('returns', returnToDelete.id);
             db.saveCollection('products', reversedStockProducts);
 
-            newLog = logAction(state, 'Deleted Return', `ID: ${action.payload}`);
+            newLog = logAction(state, 'Deleted Return', `ID: ${action.payload} `);
             db.saveCollection('audit_logs', [newLog, ...state.audit_logs]);
 
             return {
@@ -725,7 +735,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
             const updatedExpense = { ...action.payload, updatedAt: new Date().toISOString() };
             const updatedExpenses = state.expenses.map(e => e.id === updatedExpense.id ? updatedExpense : e);
             db.saveCollection('expenses', updatedExpenses);
-            newLog = logAction(state, 'Expense Updated', `${updatedExpense.category} - ${updatedExpense.amount}`);
+            newLog = logAction(state, 'Expense Updated', `${updatedExpense.category} - ${updatedExpense.amount} `);
             db.saveCollection('audit_logs', [newLog, ...state.audit_logs]);
             return { ...state, expenses: updatedExpenses, audit_logs: [newLog, ...state.audit_logs], ...touch };
 
@@ -746,7 +756,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
 
             const allPurchases = state.purchases.map(p => p.id === pId ? updatedPurchaseWithPayment : p);
             db.saveCollection('purchases', allPurchases);
-            newLog = logAction(state, 'Purchase Payment Updated', `Purch: ${pId}, Amt: ${updatedPurchPayment.amount}`);
+            newLog = logAction(state, 'Purchase Payment Updated', `Purch: ${pId}, Amt: ${updatedPurchPayment.amount} `);
             db.saveCollection('audit_logs', [newLog, ...state.audit_logs]);
             return { ...state, purchases: allPurchases, audit_logs: [newLog, ...state.audit_logs], ...touch };
 
@@ -999,6 +1009,12 @@ const appReducer = (state: AppState, action: Action): AppState => {
             db.saveCollection('app_metadata', newMeta);
             return { ...state, app_metadata: newMeta };
 
+        case 'UPDATE_AUTO_CLEANUP_SETTINGS':
+            const newCleanupSettings = { ...state.autoCleanupSettings, ...action.payload, updatedAt: new Date().toISOString() };
+            const metaWithoutCleanup = state.app_metadata.filter(m => m.id !== 'autoCleanupSettings');
+            db.saveCollection('app_metadata', [...metaWithoutCleanup, newCleanupSettings]);
+            return { ...state, autoCleanupSettings: newCleanupSettings, app_metadata: [...metaWithoutCleanup, newCleanupSettings], ...touch };
+
         case 'ADD_CUSTOM_FONT':
             const newFonts = [...state.customFonts, action.payload];
             db.saveCollection('custom_fonts', newFonts);
@@ -1052,17 +1068,25 @@ const appReducer = (state: AppState, action: Action): AppState => {
         case 'SET_ONLINE_STATUS':
             return { ...state, isOnline: action.payload };
 
-        case 'CLEANUP_OLD_DATA':
-            const thirtyDaysAgo = new Date();
-            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        case 'CLEANUP_OLD_DATA': {
+            const { enabled, logsRetentionDays, notificationsRetentionDays, trashRetentionDays } = state.autoCleanupSettings;
+            if (!enabled) return state;
 
-            const cleanNotifs = state.notifications.filter(n => new Date(n.createdAt) > thirtyDaysAgo);
-            const cleanLogs = state.audit_logs.filter(l => new Date(l.timestamp) > thirtyDaysAgo);
+            const now = new Date();
+            const logsCutoff = new Date(now.getTime() - logsRetentionDays * 24 * 60 * 60 * 1000);
+            const notifsCutoff = new Date(now.getTime() - notificationsRetentionDays * 24 * 60 * 60 * 1000);
+            const trashCutoff = new Date(now.getTime() - trashRetentionDays * 24 * 60 * 60 * 1000);
 
-            db.saveCollection('notifications', cleanNotifs);
-            db.saveCollection('audit_logs', cleanLogs);
+            const cleanLogs = state.audit_logs.filter(l => new Date(l.timestamp) > logsCutoff);
+            const cleanNotifs = state.notifications.filter(n => new Date(n.createdAt) > notifsCutoff);
+            const cleanTrash = state.trash.filter(t => new Date(t.deletedAt) > trashCutoff);
 
-            return { ...state, notifications: cleanNotifs, audit_logs: cleanLogs };
+            if (cleanLogs.length !== state.audit_logs.length) db.saveCollection('audit_logs', cleanLogs);
+            if (cleanNotifs.length !== state.notifications.length) db.saveCollection('notifications', cleanNotifs);
+            if (cleanTrash.length !== state.trash.length) db.saveCollection('trash', cleanTrash);
+
+            return { ...state, audit_logs: cleanLogs, notifications: cleanNotifs, trash: cleanTrash, ...touch };
+        }
 
         case 'REPLACE_COLLECTION': {
             const { storeName, data } = action.payload;
@@ -1315,7 +1339,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 const nextOcc = sale.recurring.nextOccurrence.split('T')[0];
                 if (nextOcc <= today) {
                     const draft: ParkedSale = {
-                        id: `recurring_draft_${Date.now().toString()}_${sale.id}`,
+                        id: `recurring_draft_${Date.now().toString()}_${sale.id} `,
                         customerId: sale.customerId,
                         items: sale.items,
                         discount: (sale.discount || 0).toString(),
@@ -1382,7 +1406,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                         console.error("Auth Init Error (Preload):", err);
                         // silent fail for preload
                     });
-                    console.log("Google Auth initialized via preload.");
+                    if (state.devMode) console.log("Google Auth initialized via preload.");
                 }
             })
             .catch(err => {
@@ -1445,6 +1469,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             const invoiceMeta = app_metadata.find(m => m.id === 'invoiceSettings') as AppMetadataInvoiceSettings;
             const navMeta = app_metadata.find(m => m.id === 'navOrder') as AppMetadataNavOrder;
             const qaMeta = app_metadata.find(m => m.id === 'quickActions') as AppMetadataQuickActions;
+            const cleanupMeta = app_metadata.find(m => m.id === 'autoCleanupSettings') as AppMetadataAutoCleanup;
 
             // Backup Metadata
             const lastBackupMeta = app_metadata.find(m => m.id === 'lastBackup');
@@ -1502,6 +1527,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 pin: pinMeta?.security?.enabled ? pinMeta.security.pin : null,
                 isLocked: pinMeta?.security?.enabled || false,
                 protectedPages: pinMeta?.protectedPages || [],
+                autoCleanupSettings: cleanupMeta ? { ...initialAutoCleanup, ...cleanupMeta } : initialAutoCleanup
             };
 
             dispatch({
@@ -1542,7 +1568,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (!overrideToken && currentUser?.expiresAt) {
             const fiveMinutes = 5 * 60 * 1000;
             if (Date.now() > currentUser.expiresAt - fiveMinutes) {
-                console.log("Token expiring or expired. Initiating Auto-Refresh...");
+                if (state.devMode) console.log("Token expiring or expired. Initiating Auto-Refresh...");
 
                 // If we have the client, refresh it
                 if (tokenClientRef.current) {
@@ -1561,13 +1587,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         dispatch({ type: 'SET_SYNC_STATUS', payload: 'syncing' });
         try {
             // 1. Read Cloud Data
-            console.log("Sync: Reading cloud data...");
+            if (state.devMode) console.log("Sync: Reading cloud data...");
             const cloudData = await DriveService.read(token);
 
             // 2. Merge Strategies
             let freshState: AppState | undefined;
             if (cloudData) {
-                console.log("Sync: Merging cloud data...");
+                if (state.devMode) console.log("Sync: Merging cloud data...");
                 await db.mergeData(cloudData);
 
                 // IMPORTANT: Re-hydrate immediately to reflect incoming changes in UI
@@ -1576,7 +1602,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             }
 
             // 3. Export & Upload (FROM MEMORY, NOT DB)
-            console.log("Sync: Exporting local data (Memory)...");
+            if (state.devMode) console.log("Sync: Exporting local data (Memory)...");
 
             // Use fresh state if available (from merge), otherwise fall back to current ref
             const currentState = freshState || stateRef.current;
@@ -1600,10 +1626,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 bank_accounts: currentState.bankAccounts
             };
 
-            console.log("Sync: Uploading to cloud...");
+            if (state.devMode) console.log("Sync: Uploading to cloud...");
             const fileId = await DriveService.write(token, exportPayload);
 
-            console.log("Sync: Success!", fileId);
+            if (state.devMode) console.log("Sync: Success!", fileId);
             dispatch({ type: 'SET_SYNC_STATUS', payload: 'success' });
 
             // Explicitly set Sync Time logic
@@ -1636,7 +1662,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     try { localStorage.removeItem('google_user'); } catch (e) { }
                 }
             } else {
-                showToast(`Sync failed: ${error.message || 'Unknown error'}`, 'error');
+                showToast(`Sync failed: ${error.message || 'Unknown error'} `, 'error');
             }
         }
     };
@@ -1647,7 +1673,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (!state.lastLocalUpdate || !state.googleUser?.accessToken) return;
 
         const timeout = setTimeout(() => {
-            console.log("Auto-Sync Triggered...");
+            if (state.devMode) console.log("Auto-Sync Triggered...");
             syncData(); // No need to await here, it's fire-and-forget
         }, 5000); // 5 second debounce
 
@@ -1684,7 +1710,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                         setTimeout(() => hydrateState(), 1500);
                     } else {
                         // No backup, clean start.
-                        showToast(`Welcome, ${user.name}! Setup your profile to start.`, 'success');
+                        showToast(`Welcome, ${user.name} !Setup your profile to start.`, 'success');
                     }
                 } catch (e) {
                     console.error("Restore check failed", e);
@@ -1692,9 +1718,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 }
             } else {
                 // Regular Login - Just Sync
-                showToast(`Welcome back, ${user.name}!`, 'success');
+                showToast(`Welcome back, ${user.name} !`, 'success');
                 setTimeout(() => {
-                    console.log("Triggering Post-Login Sync...");
+                    if (state.devMode) console.log("Triggering Post-Login Sync...");
                     syncData(response.access_token);
                 }, 100);
             }
@@ -1737,7 +1763,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const googleSignOut = () => {
         if ((window as any).google) {
             (window as any).google.accounts.oauth2.revoke(state.googleUser?.accessToken, () => {
-                console.log('Consent revoked');
+                if (state.devMode) console.log('Consent revoked');
             });
         }
         dispatch({ type: 'SET_GOOGLE_USER', payload: null });

@@ -20,6 +20,7 @@ interface DropdownProps {
   icon?: 'chevron' | 'search';
   className?: string;
   triggerClassName?: string;
+  small?: boolean;
 }
 
 const Dropdown: React.FC<DropdownProps> = ({
@@ -32,7 +33,8 @@ const Dropdown: React.FC<DropdownProps> = ({
   searchPlaceholder = 'Search...',
   icon = 'chevron',
   className = '',
-  triggerClassName = ''
+  triggerClassName = '',
+  small = false
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -145,7 +147,7 @@ const Dropdown: React.FC<DropdownProps> = ({
         type="button"
         onClick={handleTriggerClick}
         disabled={disabled}
-        className="w-full p-2.5 border rounded-lg bg-white text-left flex justify-between items-center dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 disabled:opacity-50 disabled:bg-gray-100 dark:disabled:bg-slate-800 transition-colors shadow-sm"
+        className={`w-full ${small ? 'p-1.5' : 'p-2.5'} border rounded-lg bg-white text-left flex justify-between items-center dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 disabled:opacity-50 disabled:bg-gray-100 dark:disabled:bg-slate-800 transition-colors shadow-sm`}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
       >

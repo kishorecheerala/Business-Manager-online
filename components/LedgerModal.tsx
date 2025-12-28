@@ -8,7 +8,7 @@ import Dropdown from './Dropdown';
 import { getLocalDateString } from '../utils/dateUtils';
 import { useAppContext } from '../context/AppContext';
 import { generateGenericReportPDF } from '../utils/pdfGenerator';
-import { generateDownloadFilename } from '../utils/formatUtils';
+import { generateDownloadFilename, formatCurrency, formatNumber, formatDate } from '../utils/formatUtils';
 import { exportReportToSheet } from '../utils/googleSheets';
 
 interface LedgerModalProps {
@@ -268,15 +268,15 @@ const LedgerModal: React.FC<LedgerModalProps> = ({ isOpen, onClose, partyId, par
                 new Date(e.date).toLocaleDateString(),
                 e.id,
                 e.description,
-                e.debit ? e.debit.toLocaleString() : '-',
-                e.credit ? e.credit.toLocaleString() : '-',
-                e.balance.toLocaleString()
+                e.debit ? formatNumber(e.debit) : '-',
+                e.credit ? formatNumber(e.credit) : '-',
+                formatNumber(e.balance)
             ]);
 
             const summary = [
-                { label: 'Total Debit', value: totalDebit.toLocaleString() },
-                { label: 'Total Credit', value: totalCredit.toLocaleString() },
-                { label: 'Closing Balance', value: closingBalance.toLocaleString(), color: closingBalance > 0 ? '#dc2626' : '#16a34a' }
+                { label: 'Total Debit', value: formatNumber(totalDebit) },
+                { label: 'Total Credit', value: formatNumber(totalCredit) },
+                { label: 'Closing Balance', value: formatNumber(closingBalance), color: closingBalance > 0 ? '#dc2626' : '#16a34a' }
             ];
 
             const doc = await generateGenericReportPDF(title, subtitle, headers, rows, summary, state.profile, state.reportTemplate, state.customFonts);
@@ -361,15 +361,15 @@ const LedgerModal: React.FC<LedgerModalProps> = ({ isOpen, onClose, partyId, par
                     <div className="flex gap-4 text-sm">
                         <div className="flex flex-col">
                             <span className="text-xs text-gray-500 dark:text-gray-400">Total Debit</span>
-                            <span className="font-bold text-gray-800 dark:text-gray-200">₹{totalDebit.toLocaleString()}</span>
+                            <span className="font-bold text-gray-800 dark:text-gray-200">{formatCurrency(totalDebit)}</span>
                         </div>
                         <div className="flex flex-col">
                             <span className="text-xs text-gray-500 dark:text-gray-400">Total Credit</span>
-                            <span className="font-bold text-gray-800 dark:text-gray-200">₹{totalCredit.toLocaleString()}</span>
+                            <span className="font-bold text-gray-800 dark:text-gray-200">{formatCurrency(totalCredit)}</span>
                         </div>
                         <div className="flex flex-col">
                             <span className="text-xs text-gray-500 dark:text-gray-400">Closing Bal.</span>
-                            <span className={`font-bold text-lg ${closingBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>₹{closingBalance.toLocaleString()}</span>
+                            <span className={`font-bold text-lg ${closingBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>{formatCurrency(closingBalance)}</span>
                         </div>
                     </div>
 
@@ -432,7 +432,7 @@ const LedgerModal: React.FC<LedgerModalProps> = ({ isOpen, onClose, partyId, par
                             {ledgerData.map((entry, idx) => (
                                 <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
                                     <td className="px-4 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                                        {new Date(entry.date).toLocaleDateString()}
+                                        {formatDate(entry.date)}
                                     </td>
                                     <td className="px-4 py-2 font-mono text-xs text-gray-500 dark:text-gray-500">
                                         {entry.id}
@@ -446,13 +446,13 @@ const LedgerModal: React.FC<LedgerModalProps> = ({ isOpen, onClose, partyId, par
                                         </div>
                                     </td>
                                     <td className="px-4 py-2 text-right font-medium text-gray-700 dark:text-gray-300">
-                                        {entry.debit > 0 ? entry.debit.toLocaleString() : '-'}
+                                        {entry.debit > 0 ? formatNumber(entry.debit) : '-'}
                                     </td>
                                     <td className="px-4 py-2 text-right font-medium text-gray-700 dark:text-gray-300">
-                                        {entry.credit > 0 ? entry.credit.toLocaleString() : '-'}
+                                        {entry.credit > 0 ? formatNumber(entry.credit) : '-'}
                                     </td>
                                     <td className="px-4 py-2 text-right font-bold text-gray-800 dark:text-gray-100 bg-gray-50/50 dark:bg-slate-800/30">
-                                        {entry.balance.toLocaleString()}
+                                        {formatNumber(entry.balance)}
                                     </td>
                                 </tr>
                             ))}

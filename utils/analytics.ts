@@ -35,16 +35,26 @@ export const calculateRevenueForecast = (sales: Sale[], daysToForecast = 7): any
         points.push({ x: index, y: dailyRevenue[key] || 0, date: d });
     });
 
-    // 3. Linear Regression
+    // 3. Weighted Linear Regression (Giving more weight to recent days)
     const n = points.length;
-    const sumX = points.reduce((acc, p) => acc + p.x, 0);
-    const sumY = points.reduce((acc, p) => acc + p.y, 0);
-    const sumXY = points.reduce((acc, p) => acc + (p.x * p.y), 0);
-    const sumXX = points.reduce((acc, p) => acc + (p.x * p.x), 0);
+    let sumW = 0;
+    let sumWX = 0;
+    let sumWY = 0;
+    let sumWXY = 0;
+    let sumWXX = 0;
 
-    const denominator = n * sumXX - sumX * sumX;
-    const slope = denominator === 0 ? 0 : (n * sumXY - sumX * sumY) / denominator;
-    const intercept = denominator === 0 ? (sumY / n) : (sumY - slope * sumX) / n;
+    points.forEach((p, i) => {
+        const weight = 1 + (i / n) * 2; // Weight increases from 1 to 3
+        sumW += weight;
+        sumWX += weight * p.x;
+        sumWY += weight * p.y;
+        sumWXY += weight * p.x * p.y;
+        sumWXX += weight * p.x * p.x;
+    });
+
+    const denominator = sumW * sumWXX - sumWX * sumWX;
+    const slope = denominator === 0 ? 0 : (sumW * sumWXY - sumWX * sumWY) / denominator;
+    const intercept = denominator === 0 ? (sumWY / sumW) : (sumWY - slope * sumWX) / sumW;
 
     // 4. Generate Combined Data (History + Forecast)
     const combinedData = [];

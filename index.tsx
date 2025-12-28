@@ -11,6 +11,9 @@ const isAIStudioEnvironment = () => {
   return hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('preview') || hostname.includes('staging') || hostname.includes('ai.studio') || hostname.includes('usercontent.goog') || hostname.includes('webcontainer.io');
 }
 
+// Global Dev Mode check for utilities
+(window as any).devMode = isAIStudioEnvironment();
+
 
 
 import { deleteDatabase } from './utils/db';

@@ -37,6 +37,25 @@ export const formatDate = (dateInput: string | number | Date | undefined | null)
     }
 };
 
+export const formatDateTime = (dateInput: string | number | Date | undefined | null): string => {
+    if (!dateInput) return '-';
+
+    try {
+        const date = new Date(dateInput);
+        if (isNaN(date.getTime())) return '-';
+
+        return date.toLocaleString('en-GB', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    } catch (e) {
+        return '-';
+    }
+};
+
 export const formatNumber = (num: number | string | undefined | null): string => {
     if (num === undefined || num === null || num === '') return '0';
     const value = Number(num);

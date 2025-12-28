@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { generateDownloadFilename } from '../utils/formatUtils';
+import { formatCurrency, formatNumber, formatDate, formatDateTime, generateDownloadFilename } from '../utils/formatUtils';
 import { Download, XCircle, Users, Package, AlertTriangle, FileSpreadsheet, Loader2, BarChart3, Sparkles } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import Card from '../components/Card';
@@ -115,7 +115,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
         try {
             const url = await exportReportToSheet(
                 state.googleUser.accessToken,
-                `${title} - ${new Date().toLocaleDateString('en-IN')}`,
+                `${title} - ${formatDate(new Date())}`,
                 headers,
                 rows
             );
@@ -161,7 +161,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
             return {
                 ...customer,
                 dueAmount: totalDue,
-                lastPaidDate: lastPaidDate ? lastPaidDate.toLocaleDateString('en-IN') : null,
+                lastPaidDate: lastPaidDate ? formatDate(lastPaidDate) : null,
                 salesWithDue
             };
         });
@@ -190,8 +190,8 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                 "Customer Dues Report",
                 `Filter: Area=${areaFilter}, Age=${duesAgeFilter === 'custom' ? customDuesAge + ' days' : duesAgeFilter}`,
                 ['Customer Name', 'Area', 'Last Paid Date', 'Due Amount'],
-                customerDues.map(c => [c.name, c.area, c.lastPaidDate || 'N/A', `Rs. ${c.dueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`]),
-                [{ label: 'Total Outstanding Due', value: `Rs. ${totalDuesFiltered.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, color: '#dc2626' }],
+                customerDues.map(c => [c.name, c.area, c.lastPaidDate || 'N/A', formatCurrency(c.dueAmount).replace('₹', 'Rs. ')]),
+                [{ label: 'Total Outstanding Due', value: formatCurrency(totalDuesFiltered).replace('₹', 'Rs. '), color: '#dc2626' }],
                 state.profile,
                 state.reportTemplate,
                 state.customFonts
@@ -235,7 +235,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                 const lastSale = customerSales.reduce((latest, sale) => {
                     return new Date(sale.date) > new Date(latest.date) ? sale : latest;
                 });
-                lastPurchaseDate = new Date(lastSale.date).toLocaleDateString('en-IN');
+                lastPurchaseDate = formatDate(lastSale.date);
             }
 
             return { customer, totalPurchased, totalPaid, outstandingDue, lastPurchaseDate };
@@ -253,9 +253,9 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                 customerAccountSummary.map(s => [
                     s.customer.name,
                     s.lastPurchaseDate || 'N/A',
-                    `Rs. ${s.totalPurchased.toLocaleString('en-IN')}`,
-                    `Rs. ${s.totalPaid.toLocaleString('en-IN')}`,
-                    `Rs. ${s.outstandingDue.toLocaleString('en-IN')}`
+                    formatCurrency(s.totalPurchased).replace('₹', 'Rs. '),
+                    formatCurrency(s.totalPaid).replace('₹', 'Rs. '),
+                    formatCurrency(s.outstandingDue).replace('₹', 'Rs. ')
                 ]),
                 [], // No grand totals summary needed here as it's a list
                 state.profile,
@@ -317,13 +317,13 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
 
                 let nextDueDate: string | null = null;
                 if (futureDueDates.length > 0) {
-                    nextDueDate = futureDueDates[0].toLocaleDateString('en-IN');
+                    nextDueDate = formatDate(futureDueDates[0]);
                 } else {
                     const pastDueDates = (purchase.paymentDueDates || [])
                         .map(d => new Date(d))
                         .sort((a, b) => b.getTime() - a.getTime());
                     if (pastDueDates.length > 0) {
-                        nextDueDate = `${pastDueDates[0].toLocaleDateString('en-IN')} (Overdue)`;
+                        nextDueDate = `${formatDate(pastDueDates[0])} (Overdue)`;
                     }
                 }
                 return { ...purchase, supplierName: supplier?.name || 'Unknown', nextDueDate };
@@ -353,9 +353,9 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                     p.supplierName,
                     p.id,
                     p.nextDueDate || 'N/A',
-                    `Rs. ${p.dueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                    formatCurrency(p.dueAmount).replace('₹', 'Rs. ')
                 ]),
-                [{ label: 'Total Payable', value: `Rs. ${totalDue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, color: '#dc2626' }],
+                [{ label: 'Total Payable', value: formatCurrency(totalDue).replace('₹', 'Rs. '), color: '#dc2626' }],
                 state.profile,
                 state.reportTemplate,
                 state.customFonts
@@ -401,9 +401,9 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                 ['Supplier Name', 'Total Purchased', 'Total Paid', 'Outstanding Due'],
                 supplierAccountSummary.map(s => [
                     s.supplier.name,
-                    `Rs. ${s.totalPurchased.toLocaleString('en-IN')}`,
-                    `Rs. ${s.totalPaid.toLocaleString('en-IN')}`,
-                    `Rs. ${s.outstandingDue.toLocaleString('en-IN')}`
+                    formatCurrency(s.totalPurchased).replace('₹', 'Rs. '),
+                    formatCurrency(s.totalPaid).replace('₹', 'Rs. '),
+                    formatCurrency(s.outstandingDue).replace('₹', 'Rs. ')
                 ]),
                 [],
                 state.profile,
@@ -459,7 +459,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                 lowStockItems.map(p => [
                     p.name,
                     p.quantity.toString(),
-                    `Rs. ${p.purchasePrice.toLocaleString('en-IN')}`
+                    formatCurrency(p.purchasePrice).replace('₹', 'Rs. ')
                 ]),
                 [],
                 state.profile,
@@ -633,7 +633,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                                             <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{c.name}</td>
                                             <td className="px-4 py-3">{c.area}</td>
                                             <td className="px-4 py-3">{c.lastPaidDate || '-'}</td>
-                                            <td className="px-4 py-3 text-right font-bold text-red-600 dark:text-red-400">₹{c.dueAmount.toLocaleString('en-IN')}</td>
+                                            <td className="px-4 py-3 text-right font-bold text-red-600 dark:text-red-400">{formatCurrency(c.dueAmount)}</td>
                                         </tr>
                                     ))}
                                     {customerDues.length === 0 && <tr><td colSpan={4} className="px-4 py-3 text-center text-gray-500">No dues found matching filters.</td></tr>}
@@ -662,9 +662,9 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                                     {customerAccountSummary.map(c => (
                                         <tr key={c.customer.id} onClick={() => handleCustomerClick(c.customer.id)} className="bg-white border-b dark:bg-slate-800 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 cursor-pointer">
                                             <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{c.customer.name}</td>
-                                            <td className="px-4 py-3 text-right">₹{c.totalPurchased.toLocaleString('en-IN')}</td>
-                                            <td className="px-4 py-3 text-right text-green-600">₹{c.totalPaid.toLocaleString('en-IN')}</td>
-                                            <td className={`px-4 py-3 text-right font-bold ${c.outstandingDue > 0 ? 'text-red-600' : 'text-gray-600'}`}>₹{c.outstandingDue.toLocaleString('en-IN')}</td>
+                                            <td className="px-4 py-3 text-right">{formatCurrency(c.totalPurchased)}</td>
+                                            <td className="px-4 py-3 text-right text-green-600">{formatCurrency(c.totalPaid)}</td>
+                                            <td className={`px-4 py-3 text-right font-bold ${c.outstandingDue > 0 ? 'text-red-600' : 'text-gray-600'}`}>{formatCurrency(c.outstandingDue)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -713,7 +713,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                                                 <div className="text-xs text-gray-500">Inv: {p.id}</div>
                                                 <div>{p.nextDueDate || 'No Schedule'}</div>
                                             </td>
-                                            <td className="px-4 py-3 text-right font-bold text-red-600 dark:text-red-400">₹{p.dueAmount.toLocaleString('en-IN')}</td>
+                                            <td className="px-4 py-3 text-right font-bold text-red-600 dark:text-red-400">{formatCurrency(p.dueAmount)}</td>
                                         </tr>
                                     ))}
                                     {supplierDues.length === 0 && <tr><td colSpan={3} className="px-4 py-3 text-center text-gray-500">No supplier dues found.</td></tr>}
@@ -742,9 +742,9 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                                     {supplierAccountSummary.map(s => (
                                         <tr key={s.supplier.id} className="bg-white border-b dark:bg-slate-800 dark:border-slate-700">
                                             <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{s.supplier.name}</td>
-                                            <td className="px-4 py-3 text-right">₹{s.totalPurchased.toLocaleString('en-IN')}</td>
-                                            <td className="px-4 py-3 text-right text-green-600">₹{s.totalPaid.toLocaleString('en-IN')}</td>
-                                            <td className={`px-4 py-3 text-right font-bold ${s.outstandingDue > 0 ? 'text-red-600' : 'text-gray-600'}`}>₹{s.outstandingDue.toLocaleString('en-IN')}</td>
+                                            <td className="px-4 py-3 text-right">{formatCurrency(s.totalPurchased)}</td>
+                                            <td className="px-4 py-3 text-right text-green-600">{formatCurrency(s.totalPaid)}</td>
+                                            <td className={`px-4 py-3 text-right font-bold ${s.outstandingDue > 0 ? 'text-red-600' : 'text-gray-600'}`}>{formatCurrency(s.outstandingDue)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -775,7 +775,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                                         <tr key={p.id} className="bg-white border-b dark:bg-slate-800 dark:border-slate-700">
                                             <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{p.name}</td>
                                             <td className="px-4 py-3 text-center font-bold text-red-600">{p.quantity}</td>
-                                            <td className="px-4 py-3 text-right">₹{p.purchasePrice.toLocaleString('en-IN')}</td>
+                                            <td className="px-4 py-3 text-right">{formatCurrency(p.purchasePrice)}</td>
                                         </tr>
                                     ))}
                                     {lowStockItems.length === 0 && <tr><td colSpan={3} className="px-4 py-3 text-center text-gray-500">Stock is healthy (No items &lt; 5).</td></tr>}
@@ -808,7 +808,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="p-4 bg-white dark:bg-slate-800 rounded-lg shadow border border-indigo-100 dark:border-slate-700">
                             <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Tax Liability</h3>
-                            <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-1">₹{gstData.totalTax.toLocaleString('en-IN')}</p>
+                            <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-1">{formatCurrency(gstData.totalTax)}</p>
                             <p className="text-xs text-gray-400 mt-2">IGST + CGST + SGST</p>
                         </div>
                         <div className="p-4 bg-white dark:bg-slate-800 rounded-lg shadow border border-blue-100 dark:border-slate-700">
@@ -818,7 +818,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                         </div>
                         <div className="p-4 bg-white dark:bg-slate-800 rounded-lg shadow border border-green-100 dark:border-slate-700">
                             <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Sales Value</h3>
-                            <p className="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">₹{gstData.totalValue.toLocaleString('en-IN')}</p>
+                            <p className="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">{formatCurrency(gstData.totalValue)}</p>
                             <p className="text-xs text-gray-400 mt-2">Taxable + Tax</p>
                         </div>
                     </div>

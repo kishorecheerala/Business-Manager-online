@@ -1,5 +1,6 @@
 import { AppState, Product, AIResponse, ActionItem, SaleItem } from '../../types';
 import { calculateLinearRegression } from '../analytics';
+import { formatCurrency, formatNumber } from '../formatUtils';
 
 // --- Types ---
 interface OfflineContext {
@@ -49,12 +50,12 @@ export class OfflineIntelligence {
                     : "Needs attention: Low sales, stock issues, or high pending dues.";
 
             const growthAnalysis = regression.growthRate > 0
-                ? `Revenue is trending up by roughly ${(regression.growthRate * 100).toFixed(1)}% this period. Keep pushing top sellers.`
-                : `Revenue is slightly flat or down. Consider running a promotion to boost traffic.`;
+                ? `Revenue is trending up by roughly ${(regression.growthRate * 100).toFixed(1)}% this period.Keep pushing top sellers.`
+                : `Revenue is slightly flat or down.Consider running a promotion to boost traffic.`;
 
             let riskAnalysis = "Operations are stable.";
             if (lowStockProducts.length > 0) riskAnalysis = `Inventory Alert: ${lowStockProducts.length} items are running low.`;
-            if (totalDue > 1000) riskAnalysis += ` Outstanding dues: ₹${totalDue.toLocaleString()}. Collect payments soon.`;
+            if (totalDue > 1000) riskAnalysis += ` Outstanding dues: ${formatCurrency(totalDue)}. Collect payments soon.`;
 
             const strategy = totalDue > (totalRevenue * 0.3)
                 ? "Immediate Focus: Cash Flow. Follow up with customers for pending payments."
@@ -70,8 +71,8 @@ export class OfflineIntelligence {
                 const topLow = lowStockProducts[0];
                 actions.push({
                     id: 'act_restock_' + topLow.id,
-                    title: `Restock ${topLow.name}`,
-                    description: `Only ${topLow.quantity} left. Reorder to prevent stockouts.`,
+                    title: `Restock ${topLow.name} `,
+                    description: `Only ${topLow.quantity} left.Reorder to prevent stockouts.`,
                     type: 'restock',
                     targetId: topLow.id,
                     priority: 'high'
@@ -82,9 +83,9 @@ export class OfflineIntelligence {
             if (totalDue > 0) {
                 actions.push({
                     id: 'act_collect_dues',
-                    title: `Collect Dues (₹${totalDue.toLocaleString()})`,
-                    description: `You have pending payments from customers. Send reminders.`,
-                    type: 'default', // Using default as generic action
+                    title: `Collect Dues (${formatCurrency(totalDue)})`,
+                    description: `You have pending payments from customers.Send reminders.`,
+                    type: 'collect', // Using collect type for dues
                     targetId: 'reports', // Redirect to reports/dues
                     priority: 'high'
                 });
@@ -96,8 +97,8 @@ export class OfflineIntelligence {
                 if (highStock) {
                     actions.push({
                         id: 'act_promo_' + highStock.id,
-                        title: `Promote ${highStock.name}`,
-                        description: `High stock (${highStock.quantity}). Run a discount to clear inventory.`,
+                        title: `Promote ${highStock.name} `,
+                        description: `High stock(${highStock.quantity}).Run a discount to clear inventory.`,
                         type: 'promo',
                         targetId: highStock.id,
                         priority: 'medium'
@@ -132,28 +133,28 @@ export class OfflineIntelligence {
 
         // Base Templates
         let templates = [
-            `🌟 New Arrival! ${product.name} is now available. Get yours for just ₹${product.salePrice}!`,
+            `🌟 New Arrival! ${product.name} is now available.Get yours for just ₹${product.salePrice} !`,
             `✨ Upgrade your experience with ${product.name}. High quality, great price: ₹${product.salePrice}. Visit us today!`,
-            `🔥 Hot Deal! ${product.name} is selling fast. Grab it now for only ₹${product.salePrice}. Limited stock!`,
-            `📢 Exclusive Offer: ${product.name} - The best choice for you. Available now at ₹${product.salePrice}.`
+            `🔥 Hot Deal! ${product.name} is selling fast.Grab it now for only ₹${product.salePrice}. Limited stock!`,
+            `📢 Exclusive Offer: ${product.name} - The best choice for you.Available now at ₹${product.salePrice}.`
         ];
 
         // Category Specific Overrides
         if (category.includes('food') || category.includes('snack') || category.includes('drink')) {
             templates = [
                 `😋 Delicious Deal! Taste the best ${product.name} for only ₹${product.salePrice}. Fresh and tasty!`,
-                `🍔 Craving something good? Grab ${product.name} at a special price of ₹${product.salePrice}.`,
-                `🥤 Thirsty? ${product.name} is the perfect refreshment. Yours for ₹${product.salePrice}.`
+                `🍔 Craving something good ? Grab ${product.name} at a special price of ₹${product.salePrice}.`,
+                `🥤 Thirsty ? ${product.name} is the perfect refreshment.Yours for ₹${product.salePrice}.`
             ];
         } else if (category.includes('cloth') || category.includes('fashion') || category.includes('wear')) {
             templates = [
                 `👗 Style Alert! Look great in ${product.name}. Now available for ₹${product.salePrice}.`,
-                `✨ Fashion Forward: ${product.name} is the perfect addition to your wardrobe. Only ₹${product.salePrice}.`
+                `✨ Fashion Forward: ${product.name} is the perfect addition to your wardrobe.Only ₹${product.salePrice}.`
             ];
         } else if (category.includes('tech') || category.includes('mobile') || category.includes('gadget')) {
             templates = [
-                `📱 Tech Upgrade: Get the ${product.name} for the best performance. Deal Price: ₹${product.salePrice}.`,
-                `⚡ High Performance: ${product.name} is in stock. Boost your productivity for ₹${product.salePrice}.`
+                `📱 Tech Upgrade: Get the ${product.name} for the best performance.Deal Price: ₹${product.salePrice}.`,
+                `⚡ High Performance: ${product.name} is in stock.Boost your productivity for ₹${product.salePrice}.`
             ];
         }
 
@@ -233,7 +234,7 @@ export class OfflineIntelligence {
         // 5. Revenue / Sales
         if (q.includes('sales') || q.includes('revenue') || q.includes('earned') || q.includes('income')) {
             const total = state.sales.reduce((sum, s) => sum + (Number(s.totalAmount) || 0), 0);
-            return `Total revenue found is ₹${total.toLocaleString()} from ${state.sales.length} transactions.`;
+            return `Total revenue found is ${formatCurrency(total)} from ${state.sales.length} transactions.`;
         }
 
         // 6. Counts

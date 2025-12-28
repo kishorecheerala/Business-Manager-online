@@ -20,7 +20,7 @@ import { EXTENDED_PREBUILT_REPORTS, REPORT_CATEGORIES } from '../utils/reporting
 import { ExportEngine } from '../utils/reporting/ExportEngine';
 import ModernDateInput from '../components/ModernDateInput';
 import { getLocalDateString } from '../utils/dateUtils';
-import { formatDate } from '../utils/formatUtils';
+import { formatDate, formatCurrency, formatNumber } from '../utils/formatUtils';
 
 // Colors for charts
 const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#a05195', '#d45087', '#f95d6a', '#ff7c43'];
@@ -223,7 +223,7 @@ const ReportsPageV2: React.FC = () => {
                         <p className="font-bold mb-1">{formatLabel(label)}</p>
                         {payload.map((p: any, idx: number) => (
                             <p key={idx} style={{ color: p.color }} className="text-sm">
-                                {p.name}: {typeof p.value === 'number' ? p.value.toLocaleString() : p.value}
+                                {p.name}: {typeof p.value === 'number' ? formatNumber(p.value) : p.value}
                             </p>
                         ))}
                     </div>
@@ -370,7 +370,7 @@ const ReportsPageV2: React.FC = () => {
                 return (
                     <div className="flex flex-col items-center justify-center h-[300px]">
                         <div className="text-6xl font-bold text-violet-600 mb-2">
-                            {typeof kpiValue === 'number' ? kpiValue.toLocaleString(undefined, { maximumFractionDigits: 0 }) : kpiValue}
+                            {typeof kpiValue === 'number' ? formatNumber(kpiValue) : kpiValue}
                         </div>
                         <div className="text-xl text-gray-500 uppercase tracking-widest">{selectedReport.fields.find(f => f.id === dataKey)?.label}</div>
                     </div>
@@ -392,7 +392,7 @@ const ReportsPageV2: React.FC = () => {
                                     <tr key={i} className="border-t hover:bg-gray-50 dark:border-slate-700 dark:hover:bg-slate-800/50">
                                         {selectedReport.fields.map(f => (
                                             <td key={f.id} className="p-3">
-                                                {f.type === 'currency' ? `₹${Number(row[f.id] || 0).toLocaleString()}` :
+                                                {f.type === 'currency' ? formatCurrency(row[f.id]) :
                                                     f.type === 'date' ? formatDate(row[f.id]) :
                                                         row[f.id]}
                                             </td>

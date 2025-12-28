@@ -5,7 +5,7 @@ const createTemplate = (
     id: string,
     title: string,
     desc: string,
-    source: 'sales' | 'inventory' | 'customers' | 'purchases' | 'expenses',
+    source: 'sales' | 'inventory' | 'customers' | 'purchases' | 'expenses' | 'sale_items',
     type: 'BAR' | 'LINE' | 'PIE' | 'TABLE' | 'AREA' | 'SCATTER' | 'COMPOSED' | 'KPI',
     groupBy: string,
     metricId: string,
@@ -91,4 +91,6 @@ export const EXTENDED_PREBUILT_REPORTS: ReportConfig[] = [
     createTemplate('tax_liability', 'Estimated Tax Liability', 'Net GST Payable', 'sales', 'BAR', 'month', 'taxPayable', 'Tax Due', 'SUM'),
     createTemplate('salary_trend', 'Salary & Wages Trend', 'Labor cost analysis', 'expenses', 'LINE', 'month', 'amount', 'Salaries', 'SUM'), // Filter by cat=Salary
     createTemplate('rent_utilities', 'Rent & Utilities', 'Fixed cost tracking', 'expenses', 'BAR', 'month', 'amount', 'Fixed Costs', 'SUM'),
+    createTemplate('category_profitability_full', 'Profit by Product Category', 'Which categories generate most profit?', 'sale_items', 'BAR', 'category', 'profit', 'Gross Profit', 'SUM'),
+    createTemplate('high_ltv_ranking', 'High-Value Customers (LTV Rank)', 'Top customers by lifetime spend', 'customers', 'BAR', 'name', 'totalSpent', 'Lifetime Spend', 'SUM'),
 ];

@@ -9,7 +9,7 @@ import ModernDateInput from '../components/ModernDateInput';
 import Dropdown from '../components/Dropdown';
 import DeleteButton from '../components/DeleteButton';
 import { generateEstimatePDF } from '../utils/pdfGenerator';
-import { generateDownloadFilename } from '../utils/formatUtils';
+import { formatCurrency, formatNumber, formatDate, generateDownloadFilename } from '../utils/formatUtils';
 import { Html5Qrcode } from 'html5-qrcode';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
 import { useDialog } from '../context/DialogContext';
@@ -242,14 +242,14 @@ const QuotationsPage: React.FC = () => {
                                             <p className="text-xs text-gray-500 font-mono">{quote.id}</p>
                                         </div>
                                         <div className="text-right">
-                                            <p className="font-bold text-lg text-primary">₹{quote.totalAmount.toLocaleString('en-IN')}</p>
+                                            <p className="font-bold text-lg text-primary">{formatCurrency(quote.totalAmount)}</p>
                                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${statusColors[quote.status]}`}>{quote.status}</span>
                                         </div>
                                     </div>
                                     <div className="mt-4 pt-3 border-t dark:border-slate-700 flex justify-between items-center">
                                         <p className="text-xs text-gray-500">
-                                            Created: {new Date(quote.date).toLocaleDateString()}
-                                            {quote.validUntil && ` | Valid Until: ${new Date(quote.validUntil).toLocaleDateString()}`}
+                                            Created: {formatDate(quote.date)}
+                                            {quote.validUntil && ` | Valid Until: ${formatDate(quote.validUntil)}`}
                                         </p>
                                         <div className="flex items-center gap-2">
                                             {quote.status === 'PENDING' && (
@@ -313,7 +313,7 @@ const QuotationsPage: React.FC = () => {
                                 <div className="absolute top-full left-0 w-full mt-1 bg-white dark:bg-slate-800 rounded-md shadow-lg border dark:border-slate-700 z-10 max-h-60 overflow-y-auto">
                                     {filteredProducts.map(p => (
                                         <div key={p.id} onClick={() => handleAddItem(p)} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 cursor-pointer text-sm">
-                                            {p.name} - ₹{p.salePrice}
+                                            {p.name} - {formatCurrency(p.salePrice)}
                                         </div>
                                     ))}
                                 </div>
@@ -336,13 +336,13 @@ const QuotationsPage: React.FC = () => {
 
             <Card title="Totals">
                 <div className="space-y-2">
-                    <div className="flex justify-between"><span>Subtotal:</span> <span>₹{calculations.subTotal.toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span>Subtotal:</span> <span>{formatCurrency(calculations.subTotal)}</span></div>
                     <div className="flex justify-between items-center">
                         <span>Discount:</span>
                         <FormattedNumberInput value={discount} onChange={e => setDiscount(e.target.value)} className="w-24 text-right !p-1.5" />
                     </div>
-                    <div className="flex justify-between"><span>GST:</span> <span>₹{calculations.gstAmount.toLocaleString()}</span></div>
-                    <div className="flex justify-between font-bold text-lg pt-2 border-t mt-2"><span>Grand Total:</span> <span>₹{calculations.totalAmount.toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span>GST:</span> <span>{formatCurrency(calculations.gstAmount)}</span></div>
+                    <div className="flex justify-between font-bold text-lg pt-2 border-t mt-2"><span>Grand Total:</span> <span>{formatCurrency(calculations.totalAmount)}</span></div>
                 </div>
             </Card>
 

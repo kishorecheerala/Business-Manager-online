@@ -1,7 +1,6 @@
-
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { formatCurrency, formatDate, generateDownloadFilename } from '../formatUtils';
+import { formatDate, formatCurrency, formatDateTime, generateDownloadFilename } from '../formatUtils';
 import { ReportConfig } from '../../types';
 
 export class ExportEngine {
@@ -64,7 +63,7 @@ export class ExportEngine {
 
         doc.setFontSize(11);
         doc.setTextColor(100);
-        doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 30);
+        doc.text(`Generated on: ${formatDateTime(new Date())}`, 14, 30);
         if (config.description) {
             doc.text(config.description, 14, 38);
         }
@@ -76,8 +75,8 @@ export class ExportEngine {
             keys.map(k => {
                 const f = config.fields.find(field => field.id === k);
                 const val = row[k];
-                if (f?.type === 'currency') return `Rs.${Number(val || 0).toLocaleString()}`;
-                if (f?.type === 'date') return new Date(val).toLocaleDateString();
+                if (f?.type === 'currency') return formatCurrency(val);
+                if (f?.type === 'date') return formatDate(val);
                 return val;
             })
         );

@@ -81,7 +81,7 @@ export class AIController {
                 return JSON.parse(text);
 
             } catch (e) {
-                console.warn("Online Insight Gen failed, falling back to offline.", e);
+                if (state.devMode) console.warn("Online Insight Gen failed, falling back to offline.", e);
             }
         }
 
@@ -131,7 +131,7 @@ export class AIController {
                 return (res as any).response.text();
 
             } catch (e) {
-                console.warn("Online Chat failed", e);
+                if (state.devMode) console.warn("Online Chat failed", e);
             }
         }
 
@@ -178,7 +178,7 @@ export class AIController {
                 }
 
             } catch (e) {
-                console.warn("Online Order Parse failed", e);
+                if (state.devMode) console.warn("Online Order Parse failed", e);
             }
         }
 
@@ -204,7 +204,7 @@ export class AIController {
                 const res = await model;
                 return (res as any).response.text();
             } catch (e) {
-                console.warn("Online Marketing failed", e);
+                if (state.devMode) console.warn("Online Marketing failed", e);
             }
         }
 
@@ -241,7 +241,7 @@ export class AIController {
                 return sql.replace(/```sql|```/g, '').trim();
 
             } catch (e) {
-                console.warn("Online SQL failed", e);
+                if (state.devMode) console.warn("Online SQL failed", e);
             }
         }
 

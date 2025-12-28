@@ -11,8 +11,8 @@ import NavItem from './NavItem';
 import { ICON_MAP, LABEL_MAP } from '../utils/iconMap';
 import { QUICK_ACTION_REGISTRY } from '../utils/quickActions';
 import PinModal from './PinModal'; // Static import for debugging
-
 import { lazyImport } from '../utils/lazyImport';
+import { formatCurrency, formatNumber, formatDateTime, generateDownloadFilename } from '../utils/formatUtils';
 import TopBarClock from './TopBarClock';
 
 // Lazy loaded components for the layout
@@ -288,7 +288,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                                                         </>
                                                     ) :
                                                         state.syncStatus === 'error' ? 'Failed' :
-                                                            state.lastSyncTime ? new Date(state.lastSyncTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) :
+                                                            state.lastSyncTime ? formatDateTime(state.lastSyncTime).split(', ')[1] :
                                                                 'Not synced'}
                                                 </span>
                                             </div>
@@ -332,7 +332,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                                         setIsCloudDebugOpen(true);
                                     }}
                                     className="relative p-2 hover:bg-white/20 rounded-full transition-colors"
-                                    title={state.lastSyncTime ? `Last Synced: ${new Date(state.lastSyncTime).toLocaleString()}` : "Sync Data"}
+                                    title={state.lastSyncTime ? `Last Synced: ${formatDateTime(state.lastSyncTime)}` : "Sync Data"}
                                 >
                                     {state.syncStatus === 'syncing' ? (
                                         <RefreshCw size={20} className="animate-spin" />

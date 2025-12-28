@@ -5,6 +5,7 @@ import {
 import { Award, Package } from 'lucide-react';
 import Card from '../Card';
 import { Sale } from '../../types';
+import { formatCurrency } from '../../utils/formatUtils';
 
 interface TopProductsChartProps {
     sales: Sale[];
@@ -76,7 +77,7 @@ const TopProductsChart: React.FC<TopProductsChartProps> = ({ sales, className })
                                         <div className="bg-white dark:bg-slate-800 p-2 rounded shadow-lg border dark:border-slate-700">
                                             <p className="text-sm font-bold dark:text-white">{data.fullName}</p>
                                             <p className="text-xs text-gray-500">{data.quantity} units sold</p>
-                                            <p className="text-sm text-indigo-600 font-bold">₹{data.value.toLocaleString()}</p>
+                                            <p className="text-sm text-indigo-600 font-bold">{formatCurrency(data.value)}</p>
                                         </div>
                                     );
                                 }
@@ -87,7 +88,7 @@ const TopProductsChart: React.FC<TopProductsChartProps> = ({ sales, className })
                             dataKey="value"
                             radius={[0, 4, 4, 0]}
                             barSize={30}
-                            label={{ position: 'right', fill: '#64748b', fontSize: 11, formatter: (val: number) => `₹${val.toLocaleString()}` }}
+                            label={{ position: 'right', fill: '#64748b', fontSize: 11, formatter: (val: number) => formatCurrency(val) }}
                         >
                             {data.map((entry, index) => (
                                 <Cell key={`cell-${index}`} fill={index === 0 ? '#6366f1' : '#8b5cf6'} />

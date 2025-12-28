@@ -3,6 +3,7 @@ import { Target, Trophy, Edit2, Check, X, TrendingUp } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Sale } from '../types';
 import { formatCurrency } from '../utils/formatUtils';
+import FormattedNumberInput from './FormattedNumberInput';
 
 interface GoalTrackerCardProps {
     sales: Sale[];
@@ -106,8 +107,7 @@ const GoalTrackerCard: React.FC<GoalTrackerCardProps> = ({ sales }) => {
                 <div className="flex-grow flex flex-col justify-center relative z-10">
                     {isEditing ? (
                         <div className="flex items-center gap-2 animate-fade-in-fast">
-                            <input
-                                type="number"
+                            <FormattedNumberInput
                                 value={tempGoal}
                                 onChange={(e) => setTempGoal(e.target.value)}
                                 className="w-full text-sm p-1.5 border rounded dark:bg-slate-700 dark:border-slate-600 font-mono"
