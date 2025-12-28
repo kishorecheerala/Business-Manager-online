@@ -17,6 +17,8 @@ import SalesTrendChart from '../components/charts/SalesTrendChart';
 import TopProductsChart from '../components/charts/TopProductsChart';
 import TopCustomersChart from '../components/charts/TopCustomersChart';
 import ExpenseTrendChart from '../components/charts/ExpenseTrendChart';
+import SalesHeatmapChart from '../components/charts/SalesHeatmapChart';
+import CustomerGrowthChart from '../components/charts/CustomerGrowthChart';
 import GoalTracker from '../components/analytics/GoalTracker';
 import ProfitLossCard from '../components/analytics/ProfitLossCard';
 import { calculateRevenueForecast, calculateCLV, calculateInventoryTurnover, calculateLinearRegression } from '../utils/analytics';
@@ -486,6 +488,14 @@ const InsightsPage: React.FC<InsightsPageProps> = ({ setCurrentPage }) => {
 
                 <motion.div variants={itemVariants} className="xl:col-span-2">
                     <SalesTrendChart sales={sales} />
+                </motion.div>
+
+                <motion.div variants={itemVariants} className="xl:col-span-1">
+                    <CustomerGrowthChart sales={sales} />
+                </motion.div>
+
+                <motion.div variants={itemVariants} className="col-span-full">
+                    <SalesHeatmapChart sales={sales} />
                 </motion.div>
 
                 {/* Top Customers (Side Panel) */}

@@ -4,7 +4,7 @@ import { AppContext } from '../context/AppContext';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children: React.ReactNode;
-  variant?: 'primary' | 'secondary' | 'danger' | 'info';
+  variant?: 'primary' | 'secondary' | 'danger' | 'info' | 'ghost';
   className?: string;
 }
 
@@ -25,6 +25,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(({ children, variant =
     secondary: 'bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-200 hover:bg-[color-mix(in_srgb,rgb(var(--primary-color)),black_20%)] hover:text-white dark:hover:bg-slate-900 hover:border-[color-mix(in_srgb,rgb(var(--primary-color)),black_20%)] active:bg-[color-mix(in_srgb,rgb(var(--primary-color)),black_40%)] focus:ring-gray-800',
     danger: 'bg-red-500 text-white hover:bg-red-600 active:bg-red-700 focus:ring-red-500',
     info: 'bg-blue-500 text-white hover:bg-blue-600 active:bg-blue-700 focus:ring-blue-500',
+    ghost: 'bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 active:bg-gray-200 dark:active:bg-slate-600 focus:ring-gray-400',
   };
 
   return (

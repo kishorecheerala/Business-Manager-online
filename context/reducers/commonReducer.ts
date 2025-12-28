@@ -140,7 +140,7 @@ export const commonReducer = (state: AppState, action: Action): AppState => {
         case 'SET_SYNC_STATUS': return { ...state, syncStatus: action.payload };
         case 'SET_LAST_SYNC_TIME':
             localStorage.setItem('lastSyncTime', action.payload.toString());
-            return { ...state, lastSyncTime: action.payload, ...touch };
+            return { ...state, lastSyncTime: action.payload };
         case 'SET_LAST_BACKUP_DATE': return { ...state, app_metadata: state.app_metadata }; // DB update handled by helper usually
 
         // --- Custom Fonts ---

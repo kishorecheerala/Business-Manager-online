@@ -1,31 +1,26 @@
-
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Search, Edit, Save, X, Package, IndianRupee, Percent, PackageCheck, Barcode, Printer, Filter, Grid, List, Camera, Image as ImageIcon, Eye, Trash2, QrCode, Boxes, Maximize2, Minimize2, ArrowLeft, CheckSquare, Square, Plus, Clock, AlertTriangle, Share2, MoreHorizontal, LayoutGrid, Check, Wand2, Loader2, Sparkles, MessageCircle, CheckCircle, Copy, Share, GripVertical, GripHorizontal, FileSpreadsheet, TrendingUp, Scale, Settings, History } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Search, List, Grid, QrCode, CheckSquare, AlertTriangle, FileSpreadsheet, Scale, History, Plus, Trash2, Share2, IndianRupee, Barcode } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
-import { Product, PurchaseItem } from '../types';
+import { Product } from '../types';
 import { formatCurrency, generateDownloadFilename } from '../utils/formatUtils';
-import Card from '../components/Card';
 import Button from '../components/Button';
 import BarcodeModal from '../components/BarcodeModal';
 import BatchBarcodeModal from '../components/BatchBarcodeModal';
-import Input from '../components/Input';
-import FormattedNumberInput from '../components/FormattedNumberInput';
-import { compressImage } from '../utils/imageUtils';
-import { Html5Qrcode } from 'html5-qrcode';
-import EmptyState from '../components/EmptyState';
 import { useDialog } from '../context/DialogContext';
-import ImageCropperModal from '../components/ImageCropperModal';
-import { GoogleGenAI } from "@google/genai";
 import StockAdjustmentModal from '../components/StockAdjustmentModal';
 import ProductHistoryModal from '../components/ProductHistoryModal';
 import BatchPriceModal from '../components/BatchPriceModal';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import QRScannerModal from '../components/QRScannerModal';
+
+// Refactored Components
+import ProductList from '../components/products/ProductList';
+import ProductDetailView from '../components/products/ProductDetailView';
 
 interface ProductsPageProps {
     setIsDirty: (isDirty: boolean) => void;
 }
 
-// Helper to convert base64 to File object for sharing
+// Helper for image to file conversion
 const dataURLtoFile = (dataurl: string, filename: string) => {
     const arr = dataurl.split(',');
     const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/png';
@@ -36,57 +31,6 @@ const dataURLtoFile = (dataurl: string, filename: string) => {
         u8arr[n] = bstr.charCodeAt(n);
     }
     return new File([u8arr], filename, { type: mime });
-};
-
-// --- QR Scanner Modal Component ---
-const QRScannerModal: React.FC<{
-    onClose: () => void;
-    onScanned: (decodedText: string) => void;
-}> = ({ onClose, onScanned }) => {
-    const [scanStatus, setScanStatus] = useState<string>("Initializing camera...");
-    const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
-
-    useEffect(() => {
-        html5QrCodeRef.current = new Html5Qrcode("qr-reader-products");
-        setScanStatus("Requesting camera permissions...");
-
-        const qrCodeSuccessCallback = (decodedText: string) => {
-            if (html5QrCodeRef.current?.isScanning) {
-                html5QrCodeRef.current.stop().then(() => {
-                    onScanned(decodedText);
-                }).catch(err => {
-                    console.error("Error stopping scanner", err);
-                    onScanned(decodedText);
-                });
-            }
-        };
-        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-
-        html5QrCodeRef.current.start({ facingMode: "environment" }, config, qrCodeSuccessCallback, undefined)
-            .then(() => setScanStatus("Scanning for QR Code..."))
-            .catch(err => {
-                setScanStatus(`Camera Permission Error. Please allow camera access.`);
-                console.error("Camera start failed.", err);
-            });
-
-        return () => {
-            if (html5QrCodeRef.current?.isScanning) {
-                html5QrCodeRef.current.stop().catch(err => console.error("Cleanup stop scan failed.", err));
-            }
-        };
-    }, [onScanned]);
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-75 backdrop-blur-sm flex flex-col items-center justify-center z-[200] p-4 animate-fade-in-fast">
-            <Card title="Scan Product QR Code" className="w-full max-w-md relative animate-scale-in">
-                <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
-                    <X size={20} />
-                </button>
-                <div id="qr-reader-products" className="w-full mt-4 rounded-lg overflow-hidden border"></div>
-                <p className="text-center text-sm my-2 text-gray-600 dark:text-gray-400">{scanStatus}</p>
-            </Card>
-        </div>
-    );
 };
 
 const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
@@ -104,39 +48,19 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editedProduct, setEditedProduct] = useState<Product | null>(null);
 
-    // History Modal
+    // History & Modals
     const [historyProduct, setHistoryProduct] = useState<Product | null>(null);
     const [isGlobalHistoryOpen, setIsGlobalHistoryOpen] = useState(false);
 
-    // Resizable Split Pane State
-    const [detailSplitRatio, setDetailSplitRatio] = useState(0.75); // 75% for image default
-    const [isResizing, setIsResizing] = useState(false);
-    const detailContainerRef = useRef<HTMLDivElement>(null);
-
-    // Pagination State
-    const [page, setPage] = useState(1);
-    const pageSize = 50;
-
-    // Modals
+    // Feature Modals
     const [isBatchPriceModalOpen, setIsBatchPriceModalOpen] = useState(false);
-
-    // Share Selection Mode
-    const [isShareSelectMode, setIsShareSelectMode] = useState(false);
-    const [selectedShareImages, setSelectedShareImages] = useState<Set<string>>(new Set());
-
-    // Modals
-    const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
     const [isBatchBarcodeModalOpen, setIsBatchBarcodeModalOpen] = useState(false);
     const [isScannerOpen, setIsScannerOpen] = useState(false);
     const [isStockAdjustOpen, setIsStockAdjustOpen] = useState(false);
 
-    const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
-    const [isSuggestingPrice, setIsSuggestingPrice] = useState(false);
-
     const isDirtyRef = useRef(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Initial load from navigation
+    // Initial load from navigation logic
     useEffect(() => {
         if (state.selection && state.selection.page === 'PRODUCTS') {
             const prod = state.products.find(p => p.id === state.selection.id);
@@ -156,56 +80,6 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
         }
     }, [isEditing, setIsDirty]);
 
-    // Split Pane Resizing Logic
-    const startDetailResize = useCallback((e: React.MouseEvent | React.TouchEvent) => {
-        e.preventDefault(); // Prevent text selection
-        setIsResizing(true);
-        document.body.style.userSelect = 'none';
-        document.body.style.cursor = window.innerWidth >= 768 ? 'col-resize' : 'row-resize';
-    }, []);
-
-    const stopDetailResize = useCallback(() => {
-        setIsResizing(false);
-        document.body.style.userSelect = '';
-        document.body.style.cursor = '';
-    }, []);
-
-    const doDetailResize = useCallback((e: MouseEvent | TouchEvent) => {
-        if (!isResizing || !detailContainerRef.current) return;
-
-        const containerRect = detailContainerRef.current.getBoundingClientRect();
-        const isDesktop = window.matchMedia('(min-width: 768px)').matches;
-
-        let newRatio;
-        if (isDesktop) {
-            const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
-            newRatio = (clientX - containerRect.left) / containerRect.width;
-        } else {
-            const clientY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY;
-            newRatio = (clientY - containerRect.top) / containerRect.height;
-        }
-
-        // Clamp to keep both sides visible (min 20%, max 85%)
-        newRatio = Math.max(0.2, Math.min(0.85, newRatio));
-
-        setDetailSplitRatio(newRatio);
-    }, [isResizing]);
-
-    useEffect(() => {
-        if (isResizing) {
-            window.addEventListener('mousemove', doDetailResize);
-            window.addEventListener('touchmove', doDetailResize, { passive: false });
-            window.addEventListener('mouseup', stopDetailResize);
-            window.addEventListener('touchend', stopDetailResize);
-        }
-        return () => {
-            window.removeEventListener('mousemove', doDetailResize);
-            window.removeEventListener('touchmove', doDetailResize);
-            window.removeEventListener('mouseup', stopDetailResize);
-            window.removeEventListener('touchend', stopDetailResize);
-        };
-    }, [isResizing, doDetailResize, stopDetailResize]);
-
     const filteredProducts = useMemo(() => {
         const lowerTerm = searchTerm.toLowerCase();
         if (lowerTerm === 'low_stock') {
@@ -218,20 +92,6 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
         );
     }, [state.products, searchTerm]);
 
-    // Paginated Products
-    const paginatedProducts = useMemo(() => {
-        const start = (page - 1) * pageSize;
-        return filteredProducts.slice(start, start + pageSize);
-    }, [filteredProducts, page, pageSize]);
-
-    const totalPages = Math.ceil(filteredProducts.length / pageSize);
-
-    // Reset page when search changes
-    useEffect(() => {
-        setPage(1);
-    }, [searchTerm]);
-
-    // Inventory Value Calculation
     const inventoryStats = useMemo(() => {
         const totalValue = state.products.reduce((sum, p) => sum + (p.quantity * p.purchasePrice), 0);
         const totalCount = state.products.length;
@@ -243,26 +103,6 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
         const newSet = new Set(selectedIds);
         if (newSet.has(id)) newSet.delete(id);
         else newSet.add(id);
-        setSelectedIds(newSet);
-    };
-
-    const handleSelectAll = () => {
-        if (selectedIds.size === filteredProducts.length) {
-            setSelectedIds(new Set());
-        } else {
-            setSelectedIds(new Set(filteredProducts.map(p => p.id)));
-        }
-    };
-
-    const handleSelectCurrentPage = () => {
-        const newSet = new Set(selectedIds);
-        const allOnPageSelected = paginatedProducts.every(p => newSet.has(p.id));
-
-        if (allOnPageSelected) {
-            paginatedProducts.forEach(p => newSet.delete(p.id));
-        } else {
-            paginatedProducts.forEach(p => newSet.add(p.id));
-        }
         setSelectedIds(newSet);
     };
 
@@ -284,13 +124,8 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
         setIsSelectionMode(false);
     };
 
-    const handleBulkBarcode = () => {
-        if (selectedIds.size > 0) {
-            setIsBatchBarcodeModalOpen(true);
-        }
-    };
-
     const handleExportCSV = () => {
+        // ... (Keep existing export logic)
         const headers = ['ID', 'Name', 'Category', 'Quantity', 'Purchase Price', 'Wholesale Price', 'Sale Price', 'GST %', 'Description'];
         const rows = state.products.map(p =>
             `"${p.id}","${p.name}","${p.category || ''}",${p.quantity},${p.purchasePrice},${p.wholesalePrice || ''},${p.salePrice},${p.gstPercent},"${p.description || ''}"`
@@ -351,9 +186,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     const handleSaveProduct = () => {
         if (!editedProduct || !selectedProduct) return;
 
-        // If ID changed and it's an existing product (not a new unsaved one)
         if (editedProduct.id !== selectedProduct.id && state.products.some(p => p.id === selectedProduct.id)) {
-            // Check if new ID already exists
             if (state.products.some(p => p.id === editedProduct.id)) {
                 showToast("This Product Code already exists. Please use a unique code.", "error");
                 return;
@@ -374,7 +207,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
             ...editedProduct,
             id: newId,
             name: `${editedProduct.name} (Copy)`,
-            quantity: 0 // Reset stock for duplicate
+            quantity: 0
         };
         dispatch({ type: 'ADD_PRODUCT', payload: newProduct });
         setSelectedProduct(newProduct);
@@ -383,561 +216,43 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
         showToast("Product duplicated. Update details and save.");
     };
 
-    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files.length > 0 && editedProduct) {
-            const newImages: string[] = [];
-            const files = e.target.files;
-
-            for (let i = 0; i < files.length; i++) {
-                try {
-                    const file = files[i];
-                    const base64 = await compressImage(file, 800, 0.8);
-                    if (typeof base64 === 'string') {
-                        newImages.push(base64);
-                    }
-                } catch (err: any) {
-                    console.error("Image upload failed", err);
-                }
-            }
-
-            // If primary image is empty, use first new image
-            let updatedProduct = { ...editedProduct };
-
-            if (!updatedProduct.image && newImages.length > 0) {
-                updatedProduct.image = newImages[0];
-                // Add rest to additional
-                if (newImages.length > 1) {
-                    const currentAdditional: string[] = updatedProduct.additionalImages || [];
-                    updatedProduct.additionalImages = [...currentAdditional, ...newImages.slice(1)];
-                }
-            } else {
-                const currentAdditional: string[] = updatedProduct.additionalImages || [];
-                updatedProduct.additionalImages = [...currentAdditional, ...newImages];
-            }
-
-            setEditedProduct(updatedProduct);
-        }
+    const handleAddNewProduct = () => {
+        const newProd: Product = { id: `PROD-${Date.now()}`, name: '', quantity: 0, purchasePrice: 0, salePrice: 0, gstPercent: 0 };
+        setSelectedProduct(newProd);
+        setEditedProduct(newProd);
+        setIsEditing(true);
     };
 
-    const setMainImage = (img: string) => {
-        if (!editedProduct) return;
-        const currentMain = editedProduct.image;
-        const otherImages = editedProduct.additionalImages?.filter(i => i !== img) || [];
-
-        if (currentMain && currentMain !== img) otherImages.push(currentMain);
-
-        setEditedProduct({
-            ...editedProduct,
-            image: img,
-            additionalImages: otherImages
-        });
-    };
-
-    const removeImage = (img: string) => {
-        if (!editedProduct) return;
-        if (editedProduct.image === img) {
-            // Removing main image
-            const nextImage = editedProduct.additionalImages?.[0];
-            setEditedProduct({
-                ...editedProduct,
-                image: nextImage, // might be undefined, which is fine
-                additionalImages: editedProduct.additionalImages?.slice(1) || []
-            });
-        } else {
-            setEditedProduct({
-                ...editedProduct,
-                additionalImages: editedProduct.additionalImages?.filter(i => i !== img)
-            });
-        }
-    };
-
-    const toggleShareSelection = (img: string) => {
-        const newSet = new Set(selectedShareImages);
-        if (newSet.has(img)) newSet.delete(img);
-        else newSet.add(img);
-        setSelectedShareImages(newSet);
-    };
-
-    const handleMultiShare = async () => {
-        if (!editedProduct) return;
-
-        const imagesToShare = selectedShareImages.size > 0
-            ? Array.from(selectedShareImages)
-            : [editedProduct.image].filter(Boolean) as string[];
-
-        if (imagesToShare.length === 0) {
-            showToast("No images to share.", 'error');
-            return;
-        }
-
-        const shareData: any = {
-            title: editedProduct.name,
-            text: `*${editedProduct.name}*\nPrice: ${formatCurrency(editedProduct.salePrice)}\n${editedProduct.description || ''}`,
-        };
-
-        if (navigator.canShare && navigator.share) {
-            try {
-                const files = imagesToShare.map((img, idx) =>
-                    dataURLtoFile(img as string, `prod_${editedProduct.id}_${idx}.jpg`)
-                );
-
-                if (navigator.canShare({ files })) {
-                    shareData.files = files;
-                }
-
-                await navigator.share(shareData);
-                // Exit select mode on success
-                setIsShareSelectMode(false);
-                setSelectedShareImages(new Set());
-            } catch (e: any) {
-                console.warn("Share failed or cancelled", e);
-            }
-        } else {
-            // Desktop/Fallback to Text
-            handleWhatsAppShare(editedProduct);
-        }
-    };
-
-    const handleWhatsAppShare = (product: Product) => {
-        const text = `*${product.name}*\nPrice: ${formatCurrency(product.salePrice)}\n${product.description || ''}`;
-        const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
-        window.open(url, '_blank');
-    };
-
-    // AI Description Generation
-    const handleAIGenerateDescription = async () => {
-        if (!editedProduct || !editedProduct.name) {
-            showToast("Product Name is required to generate description.", 'error');
-            return;
-        }
-
-        setIsGeneratingDesc(true);
-        try {
-            const apiKey = localStorage.getItem('gemini_api_key') || ((import.meta as any).env.VITE_GEMINI_API_KEY as string) || '';
-
-            if (!apiKey) throw new Error("API Key not available");
-
-            const ai = new GoogleGenAI({ apiKey });
-            const prompt = `Write a professional and catchy 2-sentence sales description for a product named "${editedProduct.name}" in category "${editedProduct.category || 'General'}". The description should highlight quality and value. Keep it under 50 words.`;
-
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: prompt
-            });
-
-            const text = response.text;
-            if (text) {
-                setEditedProduct(prev => prev ? ({ ...prev, description: text }) : null);
-                showToast("Description generated!");
-            }
-        } catch (error: any) {
-            console.error("AI Gen Error", error);
-            showToast("Failed to generate description. Check network/API key.", 'error');
-        } finally {
-            setIsGeneratingDesc(false);
-        }
-    };
-
-    // AI Price Suggestion
-    const handleAIGeneratePrice = async () => {
-        if (!editedProduct || !editedProduct.purchasePrice) {
-            showToast("Need a valid Purchase Price to suggest selling price.", 'error');
-            return;
-        }
-
-        setIsSuggestingPrice(true);
-        try {
-            const apiKey = localStorage.getItem('gemini_api_key') || ((import.meta as any).env.VITE_GEMINI_API_KEY as string) || '';
-
-            if (!apiKey) throw new Error("API Key not available");
-
-            const ai = new GoogleGenAI({ apiKey });
-            const prompt = `I bought a product named "${editedProduct.name}" (${editedProduct.category || 'General'}) for ${editedProduct.purchasePrice}. 
-            Suggest a competitive selling price with a 25-45% profit margin range. 
-            Return ONLY the suggested price number (e.g. 500).`;
-
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: prompt
-            });
-
-            const text = response.text;
-            const priceText = text ? text.trim() : '';
-            const suggestedPrice = parseFloat(priceText.replace(/[^0-9.]/g, ''));
-
-            if (!isNaN(suggestedPrice)) {
-                setEditedProduct(prev => prev ? ({ ...prev, salePrice: suggestedPrice }) : null);
-                showToast(`Suggested Price: ${suggestedPrice} (Based on standard margins)`, 'success');
-            } else {
-                throw new Error("AI returned invalid number");
-            }
-        } catch (error: any) {
-            console.error("AI Price Error", error);
-            showToast("Failed to suggest price.", 'error');
-        } finally {
-            setIsSuggestingPrice(false);
-        }
-    };
-
-    // Calculate Margin for display
-    const calculateMargin = (buy: number, sell: number) => {
-        if (!buy || !sell) return 0;
-        return ((sell - buy) / sell) * 100;
-    };
-
-    const marginPercent = editedProduct ? calculateMargin(editedProduct.purchasePrice, editedProduct.salePrice) : 0;
-    const marginColor = marginPercent < 20 ? 'text-red-500' : marginPercent > 40 ? 'text-green-600' : 'text-amber-600';
-
-    // Render Logic for Detail View
-    if (selectedProduct && editedProduct) {
-        return (
-            <div
-                ref={detailContainerRef}
-                className="fixed inset-0 w-full h-full z-[5000] bg-white dark:bg-slate-900 flex flex-col md:flex-row overflow-hidden animate-fade-in-fast"
-            >
-                {isBarcodeModalOpen && (
-                    <BarcodeModal
-                        isOpen={isBarcodeModalOpen}
-                        onClose={() => setIsBarcodeModalOpen(false)}
-                        product={selectedProduct}
-                        businessName={state.profile?.name || ''}
-                    />
-                )}
-                {/* Close Button */}
-                <button
-                    onClick={() => { setSelectedProduct(null); setIsEditing(false); setIsShareSelectMode(false); }}
-                    className="absolute top-4 left-4 z-[5010] p-2 bg-black/30 hover:bg-black/50 backdrop-blur-md text-white rounded-full transition-all shadow-lg"
-                >
-                    <ArrowLeft size={24} />
-                </button>
-
-                {/* Edit / Save Actions */}
-                <div className="absolute top-4 right-4 z-[5010] flex gap-2">
-                    {isEditing ? (
-                        <Button onClick={handleSaveProduct} className="shadow-lg bg-emerald-600 hover:bg-emerald-700 text-white border-none">
-                            <Save size={18} className="mr-2" /> Save
-                        </Button>
-                    ) : (
-                        <button
-                            onClick={() => setIsEditing(true)}
-                            className="p-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-full shadow-lg hover:scale-105 transition-transform"
-                        >
-                            <Edit size={20} />
-                        </button>
-                    )}
-                </div>
-
-                {/* Left Side (Image Gallery) - Resizable */}
-                <div
-                    className={`relative flex flex-col shrink-0 shadow-xl z-10 bg-gray-100 dark:bg-slate-950 ${isResizing ? '' : 'transition-[flex-basis] duration-200 ease-out'}`}
-                    style={{ flexBasis: `${detailSplitRatio * 100}%` }}
-                >
-                    <div className="flex-1 relative w-full h-full flex items-center justify-center p-4 overflow-hidden">
-                        {editedProduct.image ? (
-                            <img
-                                src={editedProduct.image}
-                                alt={editedProduct.name}
-                                className="max-w-full max-h-full object-contain drop-shadow-xl"
-                            />
-                        ) : (
-                            <div className="text-gray-400 flex flex-col items-center">
-                                <ImageIcon size={64} />
-                                <span className="mt-2 text-sm">No Image</span>
-                            </div>
-                        )}
-
-                        {/* Share Overlay */}
-                        {!isEditing && (
-                            <div className="absolute bottom-4 right-4 flex gap-2 z-20">
-                                {isShareSelectMode ? (
-                                    <button
-                                        onClick={handleMultiShare}
-                                        disabled={selectedShareImages.size === 0}
-                                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 disabled:bg-gray-400 text-white rounded-full shadow-lg hover:scale-105 transition-all font-bold text-sm"
-                                    >
-                                        <Share2 size={16} /> Share ({selectedShareImages.size})
-                                    </button>
-                                ) : (
-                                    <>
-                                        <button onClick={() => setIsShareSelectMode(true)} className="p-3 bg-white dark:bg-slate-700 text-gray-700 dark:text-gray-200 rounded-full shadow-lg hover:scale-110 transition-transform border border-gray-200 dark:border-slate-600" title="Select Images">
-                                            <CheckSquare size={20} />
-                                        </button>
-                                        <button onClick={() => handleWhatsAppShare(editedProduct)} className="p-3 bg-green-500 text-white rounded-full shadow-lg hover:scale-110 transition-transform" title="Share Text on WhatsApp">
-                                            <MessageCircle size={20} />
-                                        </button>
-                                        <button onClick={handleMultiShare} className="p-3 bg-blue-600 text-white rounded-full shadow-lg hover:scale-110 transition-transform" title="Share Main Image & Text">
-                                            <Share2 size={20} />
-                                        </button>
-                                    </>
-                                )}
-                            </div>
-                        )}
-
-                        {/* Cancel Selection Mode */}
-                        {isShareSelectMode && (
-                            <button
-                                onClick={() => { setIsShareSelectMode(false); setSelectedShareImages(new Set()); }}
-                                className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/50 text-white px-3 py-1 rounded-full text-xs backdrop-blur-md hover:bg-black/70 transition-colors z-20"
-                            >
-                                Cancel Selection
-                            </button>
-                        )}
-                    </div>
-
-                    {/* Thumbnails */}
-                    <div className="h-20 sm:h-24 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-2 flex gap-2 overflow-x-auto border-t dark:border-slate-800 shrink-0 custom-scrollbar z-20">
-                        {isEditing && (
-                            <div
-                                onClick={() => fileInputRef.current?.click()}
-                                className="w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-lg flex flex-col items-center justify-center text-gray-500 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800"
-                            >
-                                <Camera size={20} />
-                                <span className="text-[10px] mt-1">Add</span>
-                                <input type="file" multiple accept="image/*" ref={fileInputRef} className="hidden" onChange={handleImageUpload} />
-                            </div>
-                        )}
-                        {[editedProduct.image, ...(editedProduct.additionalImages || [])].filter(Boolean).map((img, idx) => {
-                            const isSelected = selectedShareImages.has(img!);
-                            const isMain = editedProduct.image === img;
-                            return (
-                                <div key={idx} className="relative group w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 cursor-pointer transition-transform active:scale-95">
-                                    <img
-                                        src={img}
-                                        className={`w-full h-full object-cover rounded-lg border-2 ${isShareSelectMode
-                                            ? (isSelected ? 'border-blue-500 opacity-100' : 'border-transparent opacity-60 hover:opacity-100')
-                                            : (isMain ? 'border-primary' : 'border-transparent')
-                                            }`}
-                                        onClick={() => isShareSelectMode ? toggleShareSelection(img!) : setMainImage(img!)}
-                                    />
-
-                                    {isShareSelectMode && (
-                                        <div
-                                            className={`absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center border shadow-sm ${isSelected ? 'bg-blue-500 border-blue-500' : 'bg-white/50 border-gray-400'}`}
-                                            onClick={(e) => { e.stopPropagation(); toggleShareSelection(img!); }}
-                                        >
-                                            {isSelected && <Check size={12} className="text-white" />}
-                                        </div>
-                                    )}
-
-                                    {isEditing && (
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); removeImage(img!); }}
-                                            className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        >
-                                            <X size={12} />
-                                        </button>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-
-                {/* Resizer Handle */}
-                <div
-                    className="z-20 flex items-center justify-center bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 active:bg-indigo-100 transition-colors touch-none select-none cursor-row-resize md:cursor-col-resize shrink-0 border-y-4 md:border-y-0 md:border-x-4 border-transparent bg-clip-padding"
-                    style={{ flexBasis: '24px' }}
-                    onMouseDown={startDetailResize}
-                    onTouchStart={startDetailResize}
-                >
-                    <div className="w-12 h-1 md:w-1 md:h-12 bg-slate-300 dark:bg-slate-600 rounded-full" />
-                    <div className="absolute flex items-center justify-center pointer-events-none text-slate-400 opacity-50">
-                        {window.innerWidth >= 768 ? <GripVertical size={16} /> : <GripHorizontal size={16} />}
-                    </div>
-                </div>
-
-                {/* Right Side (Details) - Flex-1 */}
-                <div className="flex-1 min-w-0 min-h-0 bg-white dark:bg-slate-800 flex flex-col border-l dark:border-slate-700 overflow-y-auto">
-                    <div className="p-6 space-y-6">
-                        {isEditing ? (
-                            <div className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase">Product Name</label>
-                                        <input
-                                            type="text"
-                                            value={editedProduct.name}
-                                            onChange={e => setEditedProduct({ ...editedProduct, name: e.target.value })}
-                                            className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase">Product Code (SKU)</label>
-                                        <input
-                                            type="text"
-                                            value={editedProduct.id}
-                                            onChange={e => setEditedProduct({ ...editedProduct, id: e.target.value.toUpperCase().replace(/\s+/g, '-') })}
-                                            className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white font-mono"
-                                            placeholder="e.g. SKU-100"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <div className="flex justify-between items-center mb-1">
-                                            <label className="text-xs font-bold text-gray-500 uppercase">Sale Price</label>
-                                            <button
-                                                onClick={handleAIGeneratePrice}
-                                                disabled={isSuggestingPrice || !editedProduct.purchasePrice}
-                                                className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1 hover:underline disabled:opacity-50"
-                                                title="Suggest price based on purchase cost"
-                                            >
-                                                {isSuggestingPrice ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                                                Magic Price
-                                            </button>
-                                        </div>
-                                        <FormattedNumberInput
-                                            value={editedProduct.salePrice}
-                                            onChange={e => setEditedProduct({ ...editedProduct, salePrice: parseFloat(e.target.value) })}
-                                            className="pl-8 font-bold text-lg" // Larger text
-                                        />
-                                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full mt-1 inline-block ${marginColor === 'text-red-500' ? 'bg-red-50' : marginColor === 'text-green-600' ? 'bg-green-50' : 'bg-amber-50'} ${marginColor}`}>
-                                            Margin: {marginPercent.toFixed(1)}%
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase">Stock Qty</label>
-                                        <FormattedNumberInput
-                                            value={editedProduct.quantity}
-                                            onChange={e => setEditedProduct({ ...editedProduct, quantity: parseFloat(e.target.value) || 0 })}
-                                            className="font-bold"
-                                        />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Wholesale Price</label>
-                                    <div className="relative">
-                                        <IndianRupee size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                                        <FormattedNumberInput
-                                            placeholder="Optional"
-                                            value={editedProduct.wholesalePrice || ''}
-                                            onChange={e => setEditedProduct({ ...editedProduct, wholesalePrice: parseFloat(e.target.value) })}
-                                            className="pl-8 border-indigo-200 dark:border-indigo-800 focus:ring-indigo-500"
-                                        />
-                                    </div>
-                                </div>
-                                <div>
-                                    <div className="flex justify-between items-center mb-1">
-                                        <label className="text-xs font-bold text-gray-500 uppercase">Description</label>
-                                        <button
-                                            onClick={handleAIGenerateDescription}
-                                            disabled={isGeneratingDesc}
-                                            className="text-xs text-indigo-600 dark:text-indigo-400 flex items-center gap-1 hover:underline disabled:opacity-50"
-                                        >
-                                            {isGeneratingDesc ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
-                                            {isGeneratingDesc ? 'Writing...' : 'Magic Write'}
-                                        </button>
-                                    </div>
-                                    <textarea
-                                        rows={4}
-                                        value={editedProduct.description || ''}
-                                        onChange={e => setEditedProduct({ ...editedProduct, description: e.target.value })}
-                                        placeholder="Add product details, material, size..."
-                                        className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white resize-none"
-                                    />
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase">Category</label>
-                                        <input
-                                            type="text"
-                                            value={editedProduct.category || ''}
-                                            onChange={e => setEditedProduct({ ...editedProduct, category: e.target.value })}
-                                            className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase">Purchase Price</label>
-                                        <FormattedNumberInput
-                                            value={editedProduct.purchasePrice}
-                                            onChange={e => setEditedProduct({ ...editedProduct, purchasePrice: parseFloat(e.target.value) || 0 })}
-                                        />
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase">GST %</label>
-                                        <FormattedNumberInput
-                                            value={editedProduct.gstPercent}
-                                            onChange={e => setEditedProduct({ ...editedProduct, gstPercent: parseFloat(e.target.value) || 0 })}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        ) : (
-                            <>
-                                <div>
-                                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight mb-1">{editedProduct.name}</h1>
-                                    <div className="flex items-center gap-2">
-                                        <span className="bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded text-xs font-mono">{editedProduct.id}</span>
-                                        {editedProduct.category && <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 px-2 py-0.5 rounded text-xs font-bold uppercase">{editedProduct.category}</span>}
-                                    </div>
-                                </div>
-
-                                <div className="flex gap-4 p-4 bg-gray-50 dark:bg-slate-700/50 rounded-xl border dark:border-slate-700">
-                                    <div>
-                                        <p className="text-xs text-gray-500 uppercase mb-1">Price</p>
-                                        <p className="text-2xl font-bold text-primary">{formatCurrency(editedProduct.salePrice)}</p>
-                                    </div>
-                                    <div className="w-px bg-gray-300 dark:bg-slate-600"></div>
-                                    <div>
-                                        <p className="text-xs text-gray-500 uppercase mb-1">Stock</p>
-                                        <p className={`text-2xl font-bold ${editedProduct.quantity < 5 ? 'text-red-500' : 'text-gray-700 dark:text-white'}`}>
-                                            {editedProduct.quantity}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div className="prose dark:prose-invert text-sm text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-slate-700/30 p-4 rounded-xl border dark:border-slate-700">
-                                    {editedProduct.description || "No description available."}
-                                </div>
-
-                                <div className="pt-4 border-t dark:border-slate-700">
-                                    <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Actions</h3>
-                                    <div className="flex gap-2 flex-wrap">
-                                        <button onClick={() => setIsBarcodeModalOpen(true)} className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-800 border dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors text-sm font-medium">
-                                            <Barcode size={16} /> Print Barcode
-                                        </button>
-                                        <button onClick={handleDuplicateProduct} className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-800 border dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors text-sm font-medium text-primary">
-                                            <Copy size={16} /> Duplicate
-                                        </button>
-                                        <button
-                                            onClick={() => setHistoryProduct(editedProduct)}
-                                            className="flex items-center gap-2 px-3 py-2 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors text-sm font-medium text-indigo-700 dark:text-indigo-300"
-                                        >
-                                            <History size={16} /> View Flow
-                                        </button>
-                                    </div>
-                                </div>
-                            </>
-                        )}
-                    </div>
-                </div>
-            </div>
-        );
-    }
+    const businessName = state.profile?.name || '';
 
     return (
         <div className="space-y-4 animate-fade-in-fast h-full flex flex-col">
+            {/* Detail View Overlay */}
+            {selectedProduct && editedProduct && (
+                <ProductDetailView
+                    product={selectedProduct}
+                    editedProduct={editedProduct}
+                    setEditedProduct={setEditedProduct}
+                    isEditing={isEditing}
+                    setIsEditing={setIsEditing}
+                    onSave={handleSaveProduct}
+                    onClose={() => { setSelectedProduct(null); setIsEditing(false); }}
+                    showToast={showToast}
+                    businessName={businessName}
+                    onDuplicate={handleDuplicateProduct}
+                    onViewHistory={() => setHistoryProduct(selectedProduct)}
+                />
+            )}
+
             {isStockAdjustOpen && (
                 <StockAdjustmentModal isOpen={isStockAdjustOpen} onClose={() => setIsStockAdjustOpen(false)} />
             )}
 
-            {/* Product History Modal - Handles both single and global */}
             <ProductHistoryModal
                 isOpen={!!historyProduct || isGlobalHistoryOpen}
                 onClose={() => { setHistoryProduct(null); setIsGlobalHistoryOpen(false); }}
                 product={historyProduct || undefined}
             />
-
-            {isBarcodeModalOpen && selectedProduct && (
-                <BarcodeModal
-                    isOpen={isBarcodeModalOpen}
-                    onClose={() => setIsBarcodeModalOpen(false)}
-                    product={selectedProduct}
-                    businessName={state.profile?.name || ''}
-                />
-            )}
 
             {isBatchBarcodeModalOpen && (
                 <BatchBarcodeModal
@@ -951,7 +266,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                         saleValue: p.salePrice,
                         gstPercent: p.gstPercent
                     }))}
-                    businessName={state.profile?.name || ''}
+                    businessName={businessName}
                     title="Bulk Barcode Print"
                 />
             )}
@@ -981,15 +296,12 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                 />
             )}
 
-
-
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 flex-shrink-0">
                 <div className="flex items-center gap-3">
                     <h1 className="text-2xl font-bold text-primary">Products</h1>
                 </div>
 
                 <div className="flex gap-2 w-full sm:w-auto overflow-x-auto">
-                    {/* View Toggle */}
                     <div className="flex bg-gray-100 dark:bg-slate-800 rounded-lg p-1">
                         <button
                             onClick={() => setViewMode('list')}
@@ -1017,19 +329,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                         <FileSpreadsheet size={18} />
                     </Button>
 
-                    <Button onClick={() => {
-                        const newProd: Product = {
-                            id: `PROD-${Date.now()}`,
-                            name: '',
-                            quantity: 0,
-                            purchasePrice: 0,
-                            salePrice: 0,
-                            gstPercent: 0
-                        };
-                        setSelectedProduct(newProd);
-                        setEditedProduct(newProd);
-                        setIsEditing(true);
-                    }}>
+                    <Button onClick={handleAddNewProduct}>
                         <Plus size={18} className="mr-2" /> Add Product
                     </Button>
                 </div>
@@ -1049,7 +349,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                         <button onClick={() => setIsBatchPriceModalOpen(true)} className="p-2 hover:bg-white/20 rounded-lg transition-colors" title="Batch Price Update">
                             <IndianRupee size={18} />
                         </button>
-                        <button onClick={handleBulkBarcode} className="p-2 hover:bg-white/20 rounded-lg transition-colors" title="Print Barcodes">
+                        <button onClick={() => { if (selectedIds.size > 0) setIsBatchBarcodeModalOpen(true) }} className="p-2 hover:bg-white/20 rounded-lg transition-colors" title="Print Barcodes">
                             <Barcode size={18} />
                         </button>
                         <button onClick={handleBulkDelete} className="p-2 hover:bg-red-500 rounded-lg transition-colors" title="Delete">
@@ -1059,7 +359,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                 </div>
             )}
 
-            {/* Inventory Summary (Larger Font on Desktop, Compact on Mobile) */}
+            {/* Inventory Summary */}
             <div className="bg-indigo-50 dark:bg-indigo-900/20 p-2 sm:p-4 rounded-xl border border-indigo-100 dark:border-indigo-800 flex flex-row justify-between items-center text-sm sm:text-lg mb-4 shrink-0 transition-all hover:shadow-md">
                 <div className="flex flex-row gap-3 sm:gap-6 text-left">
                     <div className="whitespace-nowrap">
@@ -1078,7 +378,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                 )}
             </div>
 
-            <div className="flex gap-2 flex-shrink-0">
+            <div className="flex gap-2 flex-shrink-0 mb-4">
                 <div className="relative flex-grow">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
                     <input
@@ -1101,206 +401,20 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                 </Button>
             </div>
 
-            {isSelectionMode && filteredProducts.length > pageSize && (
-                <div className="flex gap-2">
-                    <Button variant="secondary" onClick={handleSelectCurrentPage} className="text-xs px-2 py-1">
-                        {paginatedProducts.every(p => selectedIds.has(p.id)) ? 'Deselect Page' : 'Select Current Page'}
-                    </Button>
-                    <Button variant="secondary" onClick={handleSelectAll} className="text-xs px-2 py-1">
-                        {selectedIds.size === filteredProducts.length ? 'Deselect All' : `Select All ${filteredProducts.length}`}
-                    </Button>
-                </div>
-            )}
-
-            {/* List View */}
-            {viewMode === 'list' && (
-                <div className="space-y-3">
-                    {paginatedProducts.map((product, index) => (
-                        <div
-                            key={product.id}
-                            onClick={() => {
-                                if (isSelectionMode) toggleSelection(product.id);
-                                else {
-                                    setSelectedProduct(product);
-                                    setEditedProduct(product);
-                                }
-                            }}
-                            className={`flex items-center gap-4 p-3 bg-white dark:bg-slate-800 rounded-xl border transition-all cursor-pointer group ${selectedIds.has(product.id)
-                                ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20'
-                                : 'border-transparent hover:border-gray-300 dark:hover:border-slate-600 shadow-sm hover:shadow-md'
-                                }`}
-                        >
-                            {/* Checkbox (Visible in Selection Mode) */}
-                            {isSelectionMode && (
-                                <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${selectedIds.has(product.id) ? 'bg-indigo-500 border-indigo-500' : 'border-gray-400'}`}>
-                                    {selectedIds.has(product.id) && <Check size={12} className="text-white" />}
-                                </div>
-                            )}
-
-                            {/* Image Thumbnail */}
-                            <div className="w-12 h-12 rounded-lg bg-gray-100 dark:bg-slate-700 overflow-hidden flex-shrink-0 relative">
-                                {product.image ? (
-                                    <img src={product.image} alt="" className="w-full h-full object-cover" />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-gray-400">
-                                        <ImageIcon size={20} />
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Details */}
-                            <div className="flex-grow min-w-0">
-                                <h3 className="font-bold text-gray-800 dark:text-white truncate">{product.name}</h3>
-                                <p className="text-xs text-gray-500 font-mono truncate">{product.id}</p>
-                            </div>
-
-                            {/* Price & Stock */}
-                            <div className="text-right flex-shrink-0">
-                                <p className="font-bold text-primary">{formatCurrency(product.salePrice)}</p>
-                                <p className={`text-xs font-medium ${product.quantity < 5 ? 'text-red-500' : 'text-gray-500'}`}>
-                                    {product.quantity} in stock
-                                </p>
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); setHistoryProduct(product); }}
-                                    className="mt-1 text-indigo-600 dark:text-indigo-400 text-xs hover:underline"
-                                >
-                                    History
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
-
-            {/* Grid View */}
-            {viewMode === 'grid' && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                    {paginatedProducts.map((product) => (
-                        <div
-                            key={product.id}
-                            onClick={() => {
-                                if (isSelectionMode) toggleSelection(product.id);
-                                else {
-                                    setSelectedProduct(product);
-                                    setEditedProduct(product);
-                                }
-                            }}
-                            className={`bg-white dark:bg-slate-800 rounded-xl overflow-hidden shadow-sm border transition-all cursor-pointer relative group ${selectedIds.has(product.id)
-                                ? 'ring-2 ring-indigo-500'
-                                : 'hover:shadow-md hover:-translate-y-1'
-                                }`}
-                        >
-                            {/* Selection Overlay */}
-                            {isSelectionMode && (
-                                <div className="absolute top-2 right-2 z-10">
-                                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center bg-white ${selectedIds.has(product.id) ? 'border-indigo-500' : 'border-gray-300'}`}>
-                                        {selectedIds.has(product.id) && <div className="w-3 h-3 bg-indigo-500 rounded-full" />}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* History Button Overlay */}
-                            {!isSelectionMode && (
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); setHistoryProduct(product); }}
-                                    className="absolute top-2 right-2 z-10 p-1.5 bg-white/80 dark:bg-black/50 backdrop-blur-sm rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white hover:text-indigo-600 dark:hover:text-indigo-400 text-gray-600"
-                                    title="View History"
-                                >
-                                    <History size={16} />
-                                </button>
-                            )}
-
-                            {/* Image */}
-                            <div className="aspect-square bg-gray-100 dark:bg-slate-700 relative">
-                                {product.image ? (
-                                    <img src={product.image} alt="" className="w-full h-full object-cover" />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-gray-400">
-                                        <ImageIcon size={32} />
-                                    </div>
-                                )}
-                                {product.quantity < 5 && (
-                                    <div className="absolute bottom-0 left-0 right-0 bg-red-500/90 text-white text-[10px] font-bold text-center py-1">
-                                        LOW STOCK
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Info */}
-                            <div className="p-3">
-                                <h3 className="font-bold text-sm text-gray-800 dark:text-white truncate mb-1">{product.name}</h3>
-                                <div className="flex justify-between items-center">
-                                    <span className="text-primary font-bold text-sm">{formatCurrency(product.salePrice)}</span>
-                                    <span className="text-xs text-gray-500">{product.quantity} left</span>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
-
-            {filteredProducts.length === 0 && (
-                <EmptyState
-                    icon={Package}
-                    title="No Products Found"
-                    description={searchTerm ? "Try adjusting your search terms." : "Start by adding your first product."}
-                    action={!searchTerm && (
-                        <Button onClick={() => {
-                            const newProd: Product = { id: `PROD-${Date.now()}`, name: '', quantity: 0, purchasePrice: 0, salePrice: 0, gstPercent: 0 };
-                            setSelectedProduct(newProd);
-                            setEditedProduct(newProd);
-                            setIsEditing(true);
-                        }}>
-                            Add Product
-                        </Button>
-                    )}
-                />
-            )}
-
-            {/* Pagination Controls */}
-            {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-2 py-8 pb-24 flex-shrink-0">
-                    <button
-                        onClick={() => setPage(p => Math.max(1, p - 1))}
-                        disabled={page === 1}
-                        className="p-2 rounded-lg border dark:border-slate-700 disabled:opacity-30 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
-                    >
-                        <ChevronLeft size={20} />
-                    </button>
-
-                    <div className="flex items-center gap-1 mx-2">
-                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                            let pageNum;
-                            if (totalPages <= 5) pageNum = i + 1;
-                            else if (page <= 3) pageNum = i + 1;
-                            else if (page >= totalPages - 2) pageNum = totalPages - 4 + i;
-                            else pageNum = page - 2 + i;
-
-                            return (
-                                <button
-                                    key={pageNum}
-                                    onClick={() => setPage(pageNum)}
-                                    className={`w-10 h-10 rounded-lg font-bold transition-all ${page === pageNum
-                                        ? 'bg-primary text-white shadow-lg scale-110'
-                                        : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800'}`}
-                                >
-                                    {pageNum}
-                                </button>
-                            );
-                        })}
-                    </div>
-
-                    <button
-                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                        disabled={page === totalPages}
-                        className="p-2 rounded-lg border dark:border-slate-700 disabled:opacity-30 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
-                    >
-                        <ChevronRight size={20} />
-                    </button>
-                </div>
-            )}
-
-
+            <ProductList
+                products={filteredProducts}
+                viewMode={viewMode}
+                isSelectionMode={isSelectionMode}
+                selectedIds={selectedIds}
+                onToggleSelection={toggleSelection}
+                onSelectProduct={(product) => {
+                    setSelectedProduct(product);
+                    setEditedProduct(product);
+                }}
+                onViewHistory={(product) => setHistoryProduct(product)}
+                onAddProduct={handleAddNewProduct}
+                searchTerm={searchTerm}
+            />
         </div>
     );
 };

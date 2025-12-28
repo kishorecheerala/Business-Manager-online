@@ -44,7 +44,9 @@ const FinancialPlanningPage = React.lazy(() => import('./pages/FinancialPlanning
 
 import PinLock from './components/PinLock';
 import PinModal from './components/PinModal';
+
 import CommandPalette from './components/CommandPalette';
+const PerformanceMonitor = React.lazy(() => import('./components/PerformanceMonitor'));
 
 
 import { QUICK_ACTION_REGISTRY, QUICK_ACTION_SHORTCUTS } from './utils/quickActions';
@@ -53,6 +55,8 @@ import { QUICK_ACTION_REGISTRY, QUICK_ACTION_SHORTCUTS } from './utils/quickActi
 const App: React.FC = () => {
     const { state, dispatch, isDbLoaded, showToast, unlockApp } = useAppContext();
     const { showConfirm } = useDialog();
+
+
 
     // --- Routing State ---
     const [currentPage, setCurrentPage] = useState<Page>(() => {
@@ -377,6 +381,9 @@ const App: React.FC = () => {
             onNavigate={handleNavigation}
         >
             <OnboardingScreen isOpen={showOnboarding} onClose={() => setShowOnboarding(false)} />
+            <Suspense fallback={null}>
+                <PerformanceMonitor />
+            </Suspense>
             <Toast />
             <CommandPalette
                 isOpen={isCmdOpen}

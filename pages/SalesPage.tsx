@@ -21,6 +21,11 @@ import Dropdown from '../components/Dropdown';
 import MagicOrderModal from '../components/MagicOrderModal';
 import WhatsAppButton from '../components/WhatsAppButton';
 
+// Refactored Components
+import SalesForm from '../components/sales/SalesForm';
+import SalesHistory from '../components/sales/SalesHistory';
+import ParkedSalesList from '../components/sales/ParkedSalesList';
+
 interface SalesPageProps {
     setIsDirty: (isDirty: boolean) => void;
 }
@@ -53,8 +58,6 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         accountId: ''
     });
 
-    const [dueDate, setDueDate] = useState<string>('');
-
     const [isSelectingProduct, setIsSelectingProduct] = useState(false);
     const [isScanning, setIsScanning] = useState(false);
 
@@ -64,55 +67,8 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
     const [isDraftsOpen, setIsDraftsOpen] = useState(false);
     const [isMagicModalOpen, setIsMagicModalOpen] = useState(false);
 
-
-
-    const [historySearch, setHistorySearch] = useState('');
-
-    // --- Bulk Actions State ---
-    const [isSelectionMode, setIsSelectionMode] = useState(false);
-    const [selectedSaleIds, setSelectedSaleIds] = useState<Set<string>>(new Set());
-
-    const toggleSelectionMode = () => {
-        setIsSelectionMode(!isSelectionMode);
-        setSelectedSaleIds(new Set());
-    };
-
-    const toggleSaleSelection = (saleId: string) => {
-        const newSet = new Set(selectedSaleIds);
-        if (newSet.has(saleId)) {
-            newSet.delete(saleId);
-        } else {
-            newSet.add(saleId);
-        }
-        setSelectedSaleIds(newSet);
-    };
-
-    const handleSelectAll = () => {
-        if (selectedSaleIds.size === filteredHistory.length) {
-            setSelectedSaleIds(new Set());
-        } else {
-            setSelectedSaleIds(new Set(filteredHistory.map(s => s.id)));
-        }
-    };
-
-    const handleBulkDelete = async () => {
-        if (await showConfirm(`Are you sure you want to delete ${selectedSaleIds.size} sales?`, { variant: 'danger' })) {
-            selectedSaleIds.forEach(id => dispatch({ type: 'DELETE_SALE', payload: id }));
-            setSelectedSaleIds(new Set());
-            setIsSelectionMode(false);
-            showToast("Selected sales deleted successfully.");
-        }
-    };
-
-    // --- Pagination State ---
-    const [page, setPage] = useState(1);
-    const pageSize = 50;
-
-    const handleBulkPrint = async () => {
-        // Placeholder for now
-        showToast("Generating Bulk PDF...", 'info');
-        // Logic to specific implementation will be added next
-    };
+    const [storedPayments, setStoredPayments] = useState<Payment[]>([]);
+    const [showAddPayment, setShowAddPayment] = useState(false);
 
     // Sync local form state to global currentSale for navigation guard
     useEffect(() => {
@@ -142,8 +98,6 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         setStoredPayments(sale.payments || []);
         setShowAddPayment(false);
         setPaymentDetails({ amount: '', method: 'CASH', date: getLocalDateString(), reference: '' });
-
-
 
         setActiveTab('form');
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -190,19 +144,15 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         }
     }, [mode, saleToEdit, currentSale.editId, state.sales]);
 
-    const [storedPayments, setStoredPayments] = useState<Payment[]>([]);
-    const [showAddPayment, setShowAddPayment] = useState(false);
-
     useEffect(() => {
         const dateIsDirty = mode === 'add' && saleDate !== getLocalDateString();
-        const formIsDirty = !!customerId || items.length > 0 || discount !== '0' || !!paymentDetails.amount || dateIsDirty; // storedPayments change also dirty?
-        const currentlyDirty = formIsDirty || isAddingCustomer || storedPayments.length > 0; // simplified dirty check
+        const formIsDirty = !!customerId || items.length > 0 || discount !== '0' || !!paymentDetails.amount || dateIsDirty;
+        const currentlyDirty = formIsDirty || isAddingCustomer || storedPayments.length > 0;
         if (currentlyDirty !== isDirtyRef.current) {
             isDirtyRef.current = currentlyDirty;
             setIsDirty(currentlyDirty);
         }
     }, [customerId, items, discount, paymentDetails.amount, isAddingCustomer, setIsDirty, saleDate, mode, storedPayments]);
-
 
     useEffect(() => {
         return () => {
@@ -253,8 +203,6 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         setDiscount(draft.discount);
         setSaleDate(draft.date);
         setPaymentDetails(draft.paymentDetails);
-
-
 
         if (draft.editId) {
             const sale = state.sales.find(s => s.id === draft.editId);
@@ -334,57 +282,12 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         }
     };
 
-    const handleItemChange = (productId: string, field: 'quantity' | 'price', value: string) => {
-        const numValue = parseFloat(value);
-        if (isNaN(numValue) && value !== '') return;
-
-        setItems(prevItems => prevItems.map(item => {
-            if (item.productId === productId) {
-                if (field === 'quantity') {
-                    const product = state.products.find(p => p.id === productId);
-                    const originalQtyInSale = mode === 'edit' ? saleToEdit?.items.find(i => i.productId === productId)?.quantity || 0 : 0;
-                    const availableStock = (Number(product?.quantity) || 0) + originalQtyInSale;
-                    if (numValue > availableStock) {
-                        showToast(`Not enough stock for ${item.productName}. Only ${availableStock} available.`, 'error');
-                        return { ...item, quantity: availableStock };
-                    }
-                }
-                return { ...item, [field]: numValue };
-            }
-            return item;
-        }));
-    };
-
-
-    const handleRemoveItem = (productId: string) => {
-        setItems(items.filter(item => item.productId !== productId));
-    };
-
+    // Calculate totals for submit validation
     const calculations = useMemo(() => {
         return calculateTotals(items, parseFloat(discount) || 0, state.products);
     }, [items, discount, state.products]);
 
-    const selectedCustomer = useMemo(() => customerId ? state.customers.find(c => c.id === customerId) : null, [customerId, state.customers]);
-
-    // --- Last Purchase Information for Selected Customer ---
-    const lastPurchaseInfo = useMemo(() => {
-        if (!customerId) return null;
-        const customerSales = state.sales.filter(s => s.customerId === customerId);
-        if (customerSales.length === 0) return null;
-
-        // Sort by date desc
-        const lastSale = customerSales.reduce((latest, current) => {
-            return new Date(current.date) > new Date(latest.date) ? current : latest;
-        });
-
-        return {
-            date: formatDate(lastSale.date),
-            amount: lastSale.totalAmount
-        };
-    }, [customerId, state.sales]);
-
-
-
+    // Total due for standalone payments
     const customerTotalDue = useMemo(() => {
         if (!customerId) return null;
 
@@ -398,33 +301,6 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
         return totalBilled - totalPaid;
     }, [customerId, state.sales]);
 
-    // History List Logic
-    const filteredHistory = useMemo(() => {
-        const sorted = [...state.sales].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        return sorted.filter(s => {
-            const customer = state.customers.find(c => c.id === s.customerId);
-            const searchStr = `${customer?.name || ''} ${s.id} ${s.totalAmount}`.toLowerCase();
-            return searchStr.includes(historySearch.toLowerCase());
-        });
-    }, [state.sales, state.customers, historySearch]);
-
-    const totalPages = Math.ceil(filteredHistory.length / pageSize);
-    const paginatedHistory = useMemo(() => {
-        const start = (page - 1) * pageSize;
-        return filteredHistory.slice(start, start + pageSize);
-    }, [filteredHistory, page, pageSize]);
-
-    // Reset page when search changes
-    useEffect(() => {
-        setPage(1);
-    }, [historySearch]);
-
-    // Recent Sales for Bottom Bar
-    const recentSales = useMemo(() => {
-        return [...state.sales]
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-            .slice(0, 3);
-    }, [state.sales]);
 
     const handleAddCustomer = (customer: Customer) => {
         dispatch({ type: 'ADD_CUSTOMER', payload: customer });
@@ -441,7 +317,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             const pdfFile = new File([pdfBlob], filename, { type: 'application/pdf' });
             const businessName = state.profile?.name || 'Your Business';
 
-            const subTotal = calculations.subTotal;
+            const subTotal = calculateTotals(sale.items, Number(sale.discount), state.products).subTotal;
             const dueAmountOnSale = Number(sale.totalAmount) - paidAmountOnSale;
 
             const whatsAppText = `Thank you for your purchase from ${businessName}!\n\n*Invoice Summary:*\nInvoice ID: ${sale.id}\nDate: ${formatDate(sale.date)}\n\n*Items:*\n${sale.items.map(i => `- ${i.productName} (x${i.quantity}) - ${formatCurrency(Number(i.price) * Number(i.quantity))}`).join('\n')}\n\nSubtotal: ${formatCurrency(subTotal)}\nGST: ${formatCurrency(Number(sale.gstAmount))}\nDiscount: ${formatCurrency(Number(sale.discount))}\n*Total: ${formatCurrency(Number(sale.totalAmount))}*\nPaid: ${formatCurrency(paidAmountOnSale)}\nDue: ${formatCurrency(dueAmountOnSale)}\n\nHave a blessed day!`;
@@ -493,7 +369,6 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             if (paidAmount > 0) {
                 payments.push({
                     id: `PAY-S-${Date.now()}`, amount: paidAmount, method: paymentDetails.method,
-
                     date: new Date(paymentDetails.date).toISOString(), reference: paymentDetails.reference.trim() || undefined,
                     accountId: paymentDetails.accountId || undefined
                 });
@@ -502,8 +377,6 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             const saleCreationDate = new Date();
             const saleDateWithTime = new Date(`${saleDate}T${saleCreationDate.toTimeString().split(' ')[0]}`);
             const saleId = `SALE-${saleCreationDate.getFullYear()}${(saleCreationDate.getMonth() + 1).toString().padStart(2, '0')}${saleCreationDate.getDate().toString().padStart(2, '0')}-${saleCreationDate.getHours().toString().padStart(2, '0')}${saleCreationDate.getMinutes().toString().padStart(2, '0')}${saleCreationDate.getSeconds().toString().padStart(2, '0')}`;
-
-
 
             const newSale: Sale = {
                 id: saleId, customerId, items, discount: discountAmount, gstAmount, totalAmount,
@@ -536,8 +409,6 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                     accountId: paymentDetails.accountId || undefined
                 });
             }
-
-
 
             const updatedSale: Sale = {
                 ...saleToEdit, items, discount: discountAmount, gstAmount, totalAmount, payments: updatedPayments
@@ -615,11 +486,19 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             if (!confirmed) return;
         }
         loadSaleForEditing(sale);
+        setActiveTab('form'); // Switch to form tab
     };
 
-    const canCreateSale = customerId && items.length > 0 && mode === 'add';
-    const canUpdateSale = customerId && items.length > 0 && mode === 'edit';
-    const canRecordPayment = customerId && items.length === 0 && parseFloat(paymentDetails.amount || '0') > 0 && customerTotalDue != null && customerTotalDue > 0.01 && mode === 'add';
+    const handleBulkDelete = (saleIds: Set<string>) => {
+        showConfirm(`Are you sure you want to delete ${saleIds.size} sales? This cannot be undone.`, { variant: 'danger' })
+            .then(confirmed => {
+                if (confirmed) {
+                    saleIds.forEach(id => dispatch({ type: 'DELETE_SALE', payload: id }));
+                    showToast("Sales deleted successfully.");
+                }
+            });
+    };
+
     const pageTitle = mode === 'edit' ? `Edit Sale: ${saleToEdit?.id}` : 'New Sale / Payment';
 
     return (
@@ -648,40 +527,45 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
 
             {/* Drafts Modal */}
             {isDraftsOpen && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[150] p-4 animate-fade-in-fast backdrop-blur-sm">
-                    <Card title="Parked Sales (Drafts)" className="w-full max-w-md animate-scale-in max-h-[80vh] flex flex-col">
-                        <div className="flex-grow overflow-y-auto pr-1 space-y-3">
-                            {parkedSales.length === 0 ? (
-                                <p className="text-gray-500 text-center py-4">No parked sales.</p>
-                            ) : (
-                                parkedSales.map(draft => {
-                                    const customer = state.customers.find(c => c.id === draft.customerId);
-                                    const total = calculateTotals(draft.items, parseFloat(draft.discount) || 0).totalAmount;
-                                    return (
-                                        <div key={draft.id} className="bg-gray-50 dark:bg-slate-700/50 p-3 rounded-lg flex justify-between items-center border dark:border-slate-600">
-                                            <div>
-                                                <p className="font-bold text-sm dark:text-white">{customer?.name || 'Unknown'}</p>
-                                                <p className="text-xs text-gray-500 flex items-center gap-1">
-                                                    <Clock size={10} /> {formatDate(draft.parkedAt)}
-                                                </p>
-                                                <p className="text-xs font-semibold mt-1">{draft.items.length} items • {formatCurrency(total)}</p>
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <Button onClick={() => handleResumeDraft(draft)} className="h-8 text-xs px-2 bg-emerald-600 hover:bg-emerald-700">
-                                                    <PlayCircle size={14} className="mr-1" /> Resume
-                                                </Button>
-                                                <DeleteButton variant="delete" onClick={() => handleDeleteDraft(draft.id)} />
-                                            </div>
-                                        </div>
-                                    )
-                                })
-                            )}
-                        </div>
-                        <div className="pt-4 mt-2 border-t dark:border-slate-700">
-                            <Button onClick={() => setIsDraftsOpen(false)} variant="secondary" className="w-full">Close</Button>
-                        </div>
-                    </Card>
-                </div>
+                <ParkedSalesList
+                    parkedSales={parkedSales}
+                    customers={state.customers}
+                    products={state.products}
+                    onResume={handleResumeDraft}
+                    onDelete={handleDeleteDraft}
+                    onClose={() => setIsDraftsOpen(false)}
+                />
+            )}
+
+            {isMagicModalOpen && (
+                <MagicOrderModal
+                    isOpen={isMagicModalOpen}
+                    onClose={() => setIsMagicModalOpen(false)}
+                    products={state.products}
+                    onItemsParsed={(parsedItems: any, customerName?: string) => {
+                        // Merge logic
+                        const newItems = [...items];
+                        parsedItems.forEach((pItem: any) => {
+                            const existing = newItems.find(i => i.productId === pItem.productId);
+                            if (existing) {
+                                existing.quantity += pItem.quantity;
+                            } else {
+                                newItems.push(pItem);
+                            }
+                        });
+                        setItems(newItems);
+                        setIsMagicModalOpen(false);
+
+                        if (customerName) {
+                            // Try to finding customer
+                            const found = state.customers.find(c => c.name.toLowerCase().includes(customerName.toLowerCase()));
+                            if (found) {
+                                setCustomerId(found.id);
+                                showToast(`Matched customer: ${found.name}`, 'success');
+                            }
+                        }
+                    }}
+                />
             )}
 
             <div className="flex flex-col gap-4">
@@ -729,599 +613,51 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             </div>
 
             {activeTab === 'form' ? (
-                <>
-                    <Card>
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Customer</label>
-                                <div className="flex gap-2 items-center">
-                                    <div className="w-full">
-                                        <Dropdown
-                                            options={state.customers.map(c => ({
-                                                value: c.id,
-                                                label: `${c.name} - ${c.area}`,
-                                                searchText: `${c.name} ${c.area} ${c.phone}`
-                                            }))}
-                                            value={customerId}
-                                            onChange={(val) => {
-                                                setCustomerId(val);
-                                                // Clear search term not needed as Dropdown handles it internally
-                                            }}
-                                            searchable={true}
-                                            searchPlaceholder="Search by name, area or phone..."
-                                            placeholder="Select a Customer"
-                                            disabled={mode === 'edit' || (mode === 'add' && items.length > 0)}
-                                        />
-                                    </div>
-                                    {mode === 'add' && (
-                                        <Button onClick={() => setIsAddingCustomer(true)} variant="secondary" className="flex-shrink-0">
-                                            <Plus size={16} /> New Customer
-                                        </Button>
-                                    )}
-                                </div>
-                            </div>
-
-                            <ModernDateInput
-                                label="Sale Date"
-                                value={saleDate}
-                                onChange={e => setSaleDate(e.target.value)}
-                                disabled={mode === 'edit'}
-                            />
-
-                            {/* Customer Last Purchase Context */}
-                            {lastPurchaseInfo && mode === 'add' && (
-                                <div className="text-xs text-gray-500 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 p-2 rounded-md border border-blue-100 dark:border-blue-800 flex items-center justify-between">
-                                    <span>Last Order: <strong>{lastPurchaseInfo.date}</strong></span>
-                                    <span>Amount: <strong>{formatCurrency(lastPurchaseInfo.amount)}</strong></span>
-                                </div>
-                            )}
-
-                            {customerId && customerTotalDue !== null && mode === 'add' && (
-                                <div className="p-2 bg-gray-50 dark:bg-slate-700/50 rounded-lg text-center border dark:border-slate-700">
-                                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                                        Selected Customer's Total Outstanding Due:
-                                    </p>
-                                    <p className={`text-xl font-bold ${customerTotalDue > 0.01 ? 'text-red-600' : 'text-green-600'}`}>
-                                        {formatCurrency(customerTotalDue)}
-                                    </p>
-                                </div>
-                            )}
-                        </div>
-                    </Card>
-
-                    <Card title={
-                        <div className="flex items-center justify-between">
-                            <span>Sale Items</span>
-                            {selectedCustomer?.priceTier === 'WHOLESALE' && (
-                                <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded border border-purple-200 font-bold ml-2">
-                                    WHOLESALE ACTIVE
-                                </span>
-                            )}
-                        </div>
-                    }>
-                        <div className="flex flex-col sm:flex-row gap-2">
-                            <Button onClick={() => setIsSelectingProduct(true)} className="w-full sm:w-auto flex-grow" disabled={!customerId}>
-                                <Search size={16} className="mr-2" /> Select Product
-                            </Button>
-                            <Button onClick={() => setIsScanning(true)} variant="secondary" className="w-full sm:w-auto flex-grow" disabled={!customerId}>
-                                <QrCode size={16} className="mr-2" /> Scan Product
-                            </Button>
-                        </div>
-                        <div className="mt-4 space-y-2">
-                            {items.map(item => (
-                                <div key={item.productId} className="p-2 bg-gray-50 dark:bg-slate-700/50 rounded animate-fade-in-fast border dark:border-slate-700">
-                                    <div className="flex justify-between items-start">
-                                        <p className="font-semibold flex-grow">{item.productName}</p>
-                                        <DeleteButton variant="remove" onClick={() => handleRemoveItem(item.productId)} />
-                                    </div>
-                                    <div className="flex items-center gap-2 text-sm mt-1">
-                                        <FormattedNumberInput value={item.quantity} onChange={e => handleItemChange(item.productId, 'quantity', e.target.value)} className="w-20 !p-1 text-center" placeholder="Qty" />
-                                        <span>x</span>
-                                        <FormattedNumberInput value={item.price} onChange={e => handleItemChange(item.productId, 'price', e.target.value)} className="w-24 !p-1 text-center" placeholder="Price" />
-                                        <span>= {formatCurrency(Number(item.quantity) * Number(item.price))}</span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </Card>
-
-
-
-                    <Card title="Transaction Details">
-                        <div className="space-y-6">
-                            {/* Section 1: Calculation Details */}
-                            {/* Section 1: Calculation Details */}
-                            <div className="grid grid-cols-[1fr_auto] gap-3 items-center text-gray-700 dark:text-gray-300">
-                                <span>Subtotal:</span>
-                                <span className="text-right font-medium">{formatCurrency(calculations.subTotal)}</span>
-
-                                <span>Discount:</span>
-                                <div className="flex justify-end">
-                                    <FormattedNumberInput
-                                        value={discount}
-                                        onChange={e => setDiscount(e.target.value)}
-                                        className="w-32 h-8 text-right font-medium"
-                                    />
-                                </div>
-
-                                {mode === 'edit' && (() => {
-                                    const relatedReturns = state.returns?.filter(r => r.referenceId === saleToEdit?.id) || [];
-                                    const totalReturned = relatedReturns.reduce((sum, r) => sum + Number(r.amount), 0);
-                                    if (totalReturned > 0) {
-                                        return (
-                                            <>
-                                                <span className="text-amber-700">Less Returns:</span>
-                                                <span className="text-right font-medium text-amber-700">-{formatCurrency(totalReturned)}</span>
-                                            </>
-                                        );
-                                    }
-                                    return null;
-                                })()}
-
-                                <span>GST Included:</span>
-                                <span className="text-right font-medium">{formatCurrency(calculations.gstAmount)}</span>
-                            </div>
-
-                            {/* Section 2: Grand Total */}
-                            <div className="text-center pt-2 border-t dark:border-slate-700 mt-2">
-                                <p className="text-sm text-gray-500 dark:text-gray-400">Grand Total</p>
-                                <p className="text-3xl font-bold text-primary">
-                                    {formatCurrency(calculations.totalAmount)}
-                                </p>
-                            </div>
-
-                            {/* Section 3: Payment Details */}
-                            <div className="space-y-4 pt-4 border-t dark:border-slate-700">
-                                {mode === 'edit' && storedPayments.length > 0 && (
-                                    <div className="space-y-3 mb-4">
-                                        <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Existing Payments</p>
-                                        {storedPayments.map((payment, index) => (
-                                            <div key={payment.id} className="bg-gray-50 dark:bg-slate-700/50 p-3 rounded-md border border-gray-200 dark:border-slate-600">
-                                                <div className="flex flex-col sm:flex-row gap-3 items-end">
-                                                    <div className="w-full sm:flex-1">
-                                                        <label className="text-[10px] uppercase font-bold text-gray-500 dark:text-gray-400 mb-1 block">Date</label>
-                                                        <Input
-                                                            type="date"
-                                                            value={new Date(payment.date).toISOString().split('T')[0]}
-                                                            onChange={(e) => {
-                                                                const newPayments = [...storedPayments];
-                                                                // preserve time if possible or default to start of day, currently just standardizing to ISO
-                                                                newPayments[index] = { ...payment, date: new Date(e.target.value).toISOString() };
-                                                                setStoredPayments(newPayments);
-                                                            }}
-                                                            className="h-9 text-sm"
-                                                        />
-                                                    </div>
-                                                    <div className="w-full sm:w-28">
-                                                        <label className="text-[10px] uppercase font-bold text-gray-500 dark:text-gray-400 mb-1 block">Amount</label>
-                                                        <FormattedNumberInput
-                                                            value={payment.amount}
-                                                            onChange={(e) => {
-                                                                const newPayments = [...storedPayments];
-                                                                newPayments[index] = { ...payment, amount: parseFloat(e.target.value) || 0 };
-                                                                setStoredPayments(newPayments);
-                                                            }}
-                                                            className="h-9 text-sm font-medium"
-                                                        />
-                                                    </div>
-                                                    <div className="w-full sm:w-32">
-                                                        <label className="text-[10px] uppercase font-bold text-gray-500 dark:text-gray-400 mb-1 block">Method</label>
-                                                        <Dropdown
-                                                            options={[{ value: 'CASH', label: 'Cash' }, { value: 'UPI', label: 'UPI' }, { value: 'CHEQUE', label: 'Cheque' }]}
-                                                            value={payment.method}
-                                                            onChange={(val) => {
-                                                                const newPayments = [...storedPayments];
-                                                                newPayments[index] = { ...payment, method: val as any };
-                                                                setStoredPayments(newPayments);
-                                                            }}
-                                                            className="h-9 text-sm"
-                                                        />
-                                                    </div>
-                                                    <div className="w-full sm:flex-1">
-                                                        <label className="text-[10px] uppercase font-bold text-gray-500 dark:text-gray-400 mb-1 block">Reference</label>
-                                                        <Input
-                                                            type="text"
-                                                            placeholder="Ref / Cheque #"
-                                                            value={payment.reference || ''}
-                                                            onChange={(e) => {
-                                                                const newPayments = [...storedPayments];
-                                                                newPayments[index] = { ...payment, reference: e.target.value };
-                                                                setStoredPayments(newPayments);
-                                                            }}
-                                                            className="h-9 text-sm"
-                                                        />
-                                                    </div>
-                                                    <div className="pb-1">
-                                                        <DeleteButton variant="delete" onClick={() => {
-                                                            const newPayments = storedPayments.filter((_, i) => i !== index);
-                                                            setStoredPayments(newPayments);
-                                                        }} />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-
-                                {mode === 'edit' && !showAddPayment ? (
-                                    <Button
-                                        variant="secondary"
-                                        onClick={() => setShowAddPayment(true)}
-                                        className="w-full dashed border-2"
-                                    >
-                                        + Add New Payment
-                                    </Button>
-                                ) : (
-                                    <div className={`space-y-4 ${mode === 'edit' ? 'bg-gray-50 dark:bg-slate-800 p-3 rounded-lg border dark:border-slate-700' : ''}`}>
-                                        <div className="flex justify-between items-center">
-                                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                                {mode === 'add' ? 'Amount Paid Now' : 'New Payment Amount'}
-                                            </label>
-                                            {mode === 'edit' && (
-                                                <button onClick={() => setShowAddPayment(false)} className="text-xs text-red-500 hover:underline">Cancel</button>
-                                            )}
-                                        </div>
-                                        <FormattedNumberInput
-                                            value={paymentDetails.amount}
-                                            onChange={e => setPaymentDetails({ ...paymentDetails, amount: e.target.value })}
-                                            placeholder={mode === 'add' ? `Total is ${formatCurrency(calculations.totalAmount)}` : 'Enter amount'}
-                                            className="border-2 border-red-300 focus:ring-red-500 focus:border-red-500 dark:border-red-400"
-                                        />
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Payment Method</label>
-                                            <Dropdown
-                                                options={[{ value: 'CASH', label: 'Cash' }, { value: 'UPI', label: 'UPI' }, { value: 'CHEQUE', label: 'Cheque' }]}
-                                                value={paymentDetails.method}
-                                                onChange={(val) => setPaymentDetails({ ...paymentDetails, method: val as any })}
-                                            />
-                                        </div>
-                                        <Input
-                                            label="Reference (Optional)"
-                                            type="text"
-                                            placeholder="e.g. UPI ID"
-                                            value={paymentDetails.reference}
-                                            onChange={e => setPaymentDetails({ ...paymentDetails, reference: e.target.value })}
-                                        />
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </Card>
-
-                    {mode === 'add' && items.length === 0 && customerId && customerTotalDue != null && customerTotalDue > 0.01 && (
-                        <Card title="Record Payment for Dues">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <FormattedNumberInput
-                                    label="Amount Paid"
-                                    value={paymentDetails.amount}
-                                    onChange={e => setPaymentDetails({ ...paymentDetails, amount: e.target.value })}
-                                    placeholder={'Enter amount to pay dues'}
-                                    className="border-2 border-red-300 focus:ring-red-500 focus:border-red-500 dark:border-red-400"
-                                />
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Payment Method</label>
-                                    <Dropdown
-                                        options={[
-                                            { value: 'CASH', label: 'Cash' },
-                                            { value: 'UPI', label: 'UPI' },
-                                            { value: 'CHEQUE', label: 'Cheque' }
-                                        ]}
-                                        value={paymentDetails.method}
-                                        onChange={(val) => setPaymentDetails({ ...paymentDetails, method: val as any })}
-                                    />
-                                </div>
-                            </div>
-                        </Card>
-                    )}
-
-                    <div className="space-y-2">
-                        {canCreateSale ? (
-                            <Button onClick={handleSubmitSale} variant="secondary" className="w-full">
-                                <Share2 className="w-4 h-4 mr-2" />
-                                Create Sale & Share Invoice
-                            </Button>
-                        ) : canUpdateSale ? (
-                            <Button onClick={handleSubmitSale} className="w-full">
-                                <Save className="w-4 h-4 mr-2" />
-                                Save Changes to Sale
-                            </Button>
-                        ) : canRecordPayment ? (
-                            <Button onClick={handleRecordStandalonePayment} className="w-full">
-                                <IndianRupee className="w-4 h-4 mr-2" />
-                                Record Standalone Payment
-                            </Button>
-                        ) : (
-                            <Button className="w-full" disabled>
-                                {customerId ? (items.length === 0 ? 'Enter payment or add items' : 'Complete billing details') : 'Select a customer'}
-                            </Button>
-                        )}
-
-                        <Button
-                            onClick={() => {
-                                const shouldReturnToCustomer = mode === 'edit' && customerId;
-                                // Reset form but don't clear selection yet if we're navigating
-                                resetForm(!shouldReturnToCustomer);
-
-                                if (shouldReturnToCustomer) {
-                                    dispatch({ type: 'SET_SELECTION', payload: { page: 'CUSTOMERS', id: customerId } });
-                                }
-                            }}
-                            variant="secondary"
-                            className="w-full"
-                        >
-                            {mode === 'edit' ? 'Cancel Edit' : 'Clear Form'}
-                        </Button>
-                    </div>
-
-                    {/* Recent Transactions Section */}
-                    {recentSales.length > 0 && (
-                        <div className="mt-8 pt-4 border-t dark:border-slate-700">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                                    <History size={20} /> Recent Sales
-                                </h3>
-                                <span className="text-xs text-gray-500 italic">Tap to edit if you made a mistake</span>
-                            </div>
-                            <div className="space-y-3">
-                                {recentSales.map(sale => {
-                                    const customer = state.customers.find(c => c.id === sale.customerId);
-                                    const itemSummary = sale.items.map(i => `${i.productName} (x${i.quantity})`).join(', ');
-
-                                    return (
-                                        <div
-                                            key={sale.id}
-                                            onClick={() => handleEditFromHistory(sale)}
-                                            className="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col gap-2 cursor-pointer hover:border-primary hover:shadow-md transition-all group"
-                                        >
-                                            <div className="flex justify-between items-start">
-                                                <div>
-                                                    <p className="font-bold text-sm text-gray-800 dark:text-white flex items-center gap-1">
-                                                        {customer?.name || 'Unknown'}
-                                                        <span className="text-[10px] font-normal text-gray-500 bg-gray-100 dark:bg-slate-700 px-1.5 rounded-full">{sale.id.split('-').pop()}</span>
-                                                    </p>
-                                                </div>
-                                                <div className="text-right">
-                                                    {(() => {
-                                                        const relatedReturns = state.returns?.filter(r => r.referenceId === sale.id) || [];
-                                                        const totalReturned = relatedReturns.reduce((sum, r) => sum + Number(r.amount), 0);
-                                                        if (totalReturned > 0) {
-                                                            const net = Number(sale.totalAmount) - totalReturned;
-                                                            return (
-                                                                <>
-                                                                    <p className="font-bold text-sm text-primary">{formatCurrency(net)}</p>
-                                                                    <p className="text-[10px] text-gray-400 line-through">{formatCurrency(Number(sale.totalAmount))}</p>
-                                                                    <span className="text-[9px] text-amber-600 bg-amber-50 px-1 rounded">Ret: -{formatCurrency(totalReturned)}</span>
-                                                                </>
-                                                            );
-                                                        }
-                                                        return <p className="font-bold text-sm text-primary">{formatCurrency(sale.totalAmount)}</p>;
-                                                    })()}
-                                                    <p className="text-[10px] text-gray-400">{formatDateTime(sale.date).split(', ')[1]}</p>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex justify-between items-center pt-2 border-t dark:border-slate-700/50 border-dashed">
-                                                <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1 flex-1 pr-2">
-                                                    {itemSummary}
-                                                </p>
-                                                <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 font-medium opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                                                    <Edit size={12} /> Edit
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
-                </>
+                <SalesForm
+                    mode={mode}
+                    customerId={customerId}
+                    setCustomerId={setCustomerId}
+                    items={items}
+                    setItems={setItems}
+                    discount={discount}
+                    setDiscount={setDiscount}
+                    saleDate={saleDate}
+                    setSaleDate={setSaleDate}
+                    paymentDetails={paymentDetails}
+                    setPaymentDetails={setPaymentDetails}
+                    storedPayments={storedPayments}
+                    setStoredPayments={setStoredPayments}
+                    showAddPayment={showAddPayment}
+                    setShowAddPayment={setShowAddPayment}
+                    customers={state.customers}
+                    products={state.products}
+                    returns={state.returns}
+                    saleToEdit={saleToEdit}
+                    onAddCustomer={() => setIsAddingCustomer(true)}
+                    onSelectProduct={() => setIsSelectingProduct(true)}
+                    onScanProduct={() => setIsScanning(true)}
+                    onSubmitSale={handleSubmitSale}
+                    onRecordPayment={handleRecordStandalonePayment}
+                    onReset={() => resetForm()}
+                    onNavigateCustomer={() => { }} // Navigation logic not explicitly needed as reset handles it
+                />
             ) : (
-                // HISTORY TAB CONTENT
-                <Card className="animate-fade-in-fast h-full flex flex-col">
-                    <div className="relative mb-4 flex gap-2">
-                        <div className="relative flex-grow">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                            <Input
-                                type="text"
-                                placeholder="Search history..."
-                                value={historySearch}
-                                onChange={e => setHistorySearch(e.target.value)}
-                                className="pl-10"
-                            />
-                        </div>
-                        <Button
-                            variant={isSelectionMode ? 'primary' : 'secondary'}
-                            onClick={toggleSelectionMode}
-                            className={`flex-shrink-0 ${isSelectionMode ? 'bg-primary text-white' : ''}`}
-                        >
-                            {isSelectionMode ? 'Cancel' : 'Select'}
-                        </Button>
-                    </div>
-
-                    {isSelectionMode && (
-                        <div className="flex justify-between items-center mb-2 px-1">
-                            <span className="text-sm font-medium">{selectedSaleIds.size} selected</span>
-                            <button onClick={handleSelectAll} className="text-sm text-blue-600 font-medium hover:underline">
-                                {selectedSaleIds.size === filteredHistory.length ? 'Deselect All' : 'Select All'}
-                            </button>
-                        </div>
-                    )}
-
-                    {isMagicModalOpen && (
-                        <MagicOrderModal
-                            isOpen={isMagicModalOpen}
-                            onClose={() => setIsMagicModalOpen(false)}
-                            products={state.products}
-                            onItemsParsed={(parsedItems: any, customerName?: string) => {
-                                // Merge logic
-                                const newItems = [...items];
-                                parsedItems.forEach((pItem: any) => {
-                                    const existing = newItems.find(i => i.productId === pItem.productId);
-                                    if (existing) {
-                                        existing.quantity += pItem.quantity;
-                                    } else {
-                                        newItems.push(pItem);
-                                    }
-                                });
-                                setItems(newItems);
-                                setIsMagicModalOpen(false);
-
-                                if (customerName) {
-                                    // Try to finding customer
-                                    const found = state.customers.find(c => c.name.toLowerCase().includes(customerName.toLowerCase()));
-                                    if (found) {
-                                        setCustomerId(found.id);
-                                        showToast(`Matched customer: ${found.name}`, 'success');
-                                    }
-                                }
-                            }}
-                        />
-                    )}
-
-                    <div className="space-y-3">
-                        {paginatedHistory.length > 0 ? (
-                            paginatedHistory.map((sale) => {
-                                const saleCustomer = state.customers.find((c) => c.id === sale.customerId);
-                                const totalPaid = (sale.payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
-                                const relatedReturns = state.returns?.filter(r => r.referenceId === sale.id) || [];
-                                const totalReturned = relatedReturns.reduce((sum, r) => sum + Number(r.amount), 0);
-                                const netPayable = Number(sale.totalAmount) - totalReturned;
-                                const dueAmount = netPayable - totalPaid;
-                                const isFullyReturned = totalReturned >= Number(sale.totalAmount) - 0.01;
-
-                                return (
-                                    <div
-                                        key={sale.id}
-                                        onClick={() => {
-                                            if (isSelectionMode) {
-                                                toggleSaleSelection(sale.id);
-                                            } else {
-                                                handleEditFromHistory(sale);
-                                            }
-                                        }}
-                                        className={`p-3 rounded-lg border cursor-pointer hover:shadow-md transition-all hover:scale-[1.01] flex gap-3 ${isSelectionMode && selectedSaleIds.has(sale.id)
-                                            ? 'bg-blue-50 border-blue-400 dark:bg-blue-900/20 dark:border-blue-700'
-                                            : 'bg-gradient-to-r from-slate-50 to-blue-50 dark:from-slate-700 dark:to-slate-600/30 border-slate-200 dark:border-slate-600'
-                                            }`}
-                                    >
-                                        {isSelectionMode && (
-                                            <div className="flex items-center justify-center">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedSaleIds.has(sale.id)}
-                                                    onChange={() => { }}
-                                                    className="w-5 h-5 accent-primary rounded cursor-pointer"
-                                                />
-                                            </div>
-                                        )}
-                                        <div className="flex-grow">
-                                            <div className="flex justify-between items-start">
-                                                <div className="flex-grow">
-                                                    <p className="font-semibold text-sm text-slate-900 dark:text-white">
-                                                        {saleCustomer?.name || 'Unknown Customer'}
-                                                    </p>
-                                                    <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-1">
-                                                        <Clock size={12} />
-                                                        {formatDateTime(sale.date)}
-                                                    </p>
-                                                    {totalReturned > 0 && (
-                                                        <div className="mt-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded inline-block">
-                                                            Returns: -{formatCurrency(totalReturned)}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="text-sm font-bold text-slate-900 dark:text-white">
-                                                        {formatCurrency(Number(sale.totalAmount))}
-                                                    </p>
-                                                    <p className={`text-xs font-semibold ${dueAmount > 0.01 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-                                                        {dueAmount > 0.01 ? `Due: ${formatCurrency(dueAmount)}` : (isFullyReturned ? 'Returned' : 'Paid')}
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            {/* Action Bar */}
-                                            {!isSelectionMode && (
-                                                <div className="flex justify-end items-center gap-2 mt-2 pt-2 border-t border-dashed border-gray-200 dark:border-gray-700">
-                                                    <WhatsAppButton
-                                                        mobile={saleCustomer?.phone}
-                                                        message={`Namaste ${saleCustomer?.name || 'Customer'}, here is your invoice ${sale.id} for ${formatCurrency(Number(sale.totalAmount))}. Due: ${formatCurrency(dueAmount)}. Thank you for your business!`}
-                                                        context="invoice"
-                                                        size="sm"
-                                                        label="Share Invoice"
-                                                    />
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                );
-                            })
-                        ) : (
-                            <p className="text-center text-gray-500 py-8">No sales found.</p>
-                        )}
-                    </div>
-
-                    {/* Pagination Controls */}
-                    {totalPages > 1 && (
-                        <div className="flex items-center justify-center gap-2 py-6 border-t dark:border-slate-700 mt-4">
-                            <button
-                                onClick={() => setPage(p => Math.max(1, p - 1))}
-                                disabled={page === 1}
-                                className="p-2 rounded-lg border dark:border-slate-700 disabled:opacity-30 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
-                            >
-                                <ChevronLeft size={20} />
-                            </button>
-
-                            <div className="flex items-center gap-1 mx-2">
-                                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                    let pageNum;
-                                    if (totalPages <= 5) pageNum = i + 1;
-                                    else if (page <= 3) pageNum = i + 1;
-                                    else if (page >= totalPages - 2) pageNum = totalPages - 4 + i;
-                                    else pageNum = page - 2 + i;
-
-                                    if (pageNum < 1 || pageNum > totalPages) return null;
-
-                                    return (
-                                        <button
-                                            key={pageNum}
-                                            onClick={() => setPage(pageNum)}
-                                            className={`w-10 h-10 rounded-lg font-bold transition-all ${page === pageNum
-                                                ? 'bg-primary text-white shadow-lg scale-110'
-                                                : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800'}`}
-                                        >
-                                            {pageNum}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-
-                            <button
-                                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                                disabled={page === totalPages}
-                                className="p-2 rounded-lg border dark:border-slate-700 disabled:opacity-30 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
-                            >
-                                <ChevronRight size={20} />
-                            </button>
-                        </div>
-                    )}
-
-
-                    {/* Bulk Actions Floating Bar */}
-                    {
-                        isSelectionMode && selectedSaleIds.size > 0 && (
-                            <div className="absolute bottom-4 left-4 right-4 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 p-3 flex justify-between items-center animate-slide-up-fade z-20">
-                                <span className="font-bold ml-2">{selectedSaleIds.size} Sales</span>
-                                <div className="flex gap-2">
-                                    <Button variant="secondary" onClick={handleBulkPrint} className="h-9 px-3">
-                                        <FileText size={16} className="mr-1" /> Print
-                                    </Button>
-                                    <DeleteButton variant="delete" onClick={handleBulkDelete} />
-                                </div>
-                            </div>
-                        )
-                    }
-                </Card>
+                <SalesHistory
+                    sales={state.sales}
+                    customers={state.customers}
+                    onEdit={handleEditFromHistory}
+                    onDelete={handleBulkDelete}
+                    onPrint={(sale) => {
+                        const customer = state.customers.find(c => c.id === sale.customerId);
+                        if (customer) {
+                            // Mock paid amount as total for reprinted history unless we calc it, for now simplicity
+                            const paid = (sale.payments || []).reduce((acc, p) => acc + Number(p.amount), 0);
+                            generateAndSharePDF(sale, customer, paid);
+                        } else {
+                            showToast("Customer not found for this sale.", 'error');
+                        }
+                    }}
+                />
             )}
         </div>
     );
