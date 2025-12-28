@@ -81,6 +81,7 @@ export interface AppMetadataTheme {
     headerColor?: string;
     gradient: string;
     font?: string;
+    updatedAt?: string;
 }
 
 export interface AppMetadataInvoiceSettings {
@@ -120,6 +121,7 @@ export interface AppMetadataDashboardConfig {
     id: 'dashboardConfig';
     greetingText: string;
     showGreeting: boolean;
+    showGlow?: boolean;
     showLogo: boolean;
     titleText: string;
     logoSize?: number;

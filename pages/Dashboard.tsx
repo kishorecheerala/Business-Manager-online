@@ -394,7 +394,9 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                                     `}
                                 />
                                 {/* Golden Glow Overlay */}
-                                <div className="absolute inset-0 shadow-[inset_0_0_40px_rgba(255,215,0,0.5)] rounded-lg pointer-events-none z-10 mix-blend-screen bg-transparent"></div>
+                                {(dashboardConfig.showGlow !== false) && (
+                                    <div className="absolute inset-0 shadow-[inset_0_0_40px_rgba(255,215,0,0.5)] rounded-lg pointer-events-none z-10 mix-blend-screen bg-transparent animate-golden-breath"></div>
+                                )}
 
                                 {/* Replace Button in Top-Right */}
                                 <button

@@ -241,7 +241,7 @@ const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) =>
                                 placeholder="Enter Google Font Name (e.g., 'Righteous')"
                                 className="flex-1 p-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm"
                             />
-                            <Button onClick={handleLoadGoogleFont} size="sm" variant="secondary">Load</Button>
+                            <Button onClick={handleLoadGoogleFont} variant="secondary">Load</Button>
                         </div>
                     </section>
 
@@ -478,7 +478,7 @@ const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) =>
                                             {dashConfig.useCustomLogo && (
                                                 <div className="flex gap-2">
                                                     <input type="file" ref={logoInputRef} accept="image/*" className="hidden" onChange={handleCustomLogoUpload} />
-                                                    <Button onClick={() => logoInputRef.current?.click()} size="sm" variant="secondary" className="w-full text-xs">
+                                                    <Button onClick={() => logoInputRef.current?.click()} variant="secondary" className="w-full text-xs">
                                                         {dashConfig.customLogo ? 'Change Image' : 'Upload Image'}
                                                     </Button>
                                                 </div>
@@ -555,6 +555,22 @@ const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) =>
                                                         </label>
                                                     </div>
                                                 )}
+
+                                                {/* Global Glow Toggle */}
+                                                <div className="pt-2 mt-2 border-t border-gray-200 dark:border-slate-600">
+                                                    <label className="flex items-center justify-between text-xs font-semibold cursor-pointer">
+                                                        <span className="flex items-center gap-1.5">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_5px_rgba(251,191,36,1)]"></span>
+                                                            Show Golden Glow
+                                                        </span>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={dashConfig.showGlow !== false}
+                                                            onChange={(e) => setDashConfig({ ...dashConfig, showGlow: e.target.checked })}
+                                                            className="w-4 h-4 rounded border-gray-300 accent-indigo-600"
+                                                        />
+                                                    </label>
+                                                </div>
                                             </div>
 
                                             {/* Preview & Drag Area within the specific tab */}

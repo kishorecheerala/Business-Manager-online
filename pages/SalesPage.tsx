@@ -499,6 +499,16 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             });
     };
 
+    const handlePrintSale = React.useCallback((sale: Sale) => {
+        const customer = state.customers.find(c => c.id === sale.customerId);
+        if (customer) {
+            const paid = (sale.payments || []).reduce((acc, p) => acc + Number(p.amount), 0);
+            generateAndSharePDF(sale, customer, paid);
+        } else {
+            showToast("Customer not found for this sale.", 'error');
+        }
+    }, [state.customers, state.profile, state.invoiceTemplate, state.customFonts, showToast]); // Dependencies for generateAndSharePDF
+
     const pageTitle = mode === 'edit' ? `Edit Sale: ${saleToEdit?.id}` : 'New Sale / Payment';
 
     return (
@@ -647,16 +657,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
                     customers={state.customers}
                     onEdit={handleEditFromHistory}
                     onDelete={handleBulkDelete}
-                    onPrint={(sale) => {
-                        const customer = state.customers.find(c => c.id === sale.customerId);
-                        if (customer) {
-                            // Mock paid amount as total for reprinted history unless we calc it, for now simplicity
-                            const paid = (sale.payments || []).reduce((acc, p) => acc + Number(p.amount), 0);
-                            generateAndSharePDF(sale, customer, paid);
-                        } else {
-                            showToast("Customer not found for this sale.", 'error');
-                        }
-                    }}
+                    onPrint={handlePrintSale}
                 />
             )}
         </div>

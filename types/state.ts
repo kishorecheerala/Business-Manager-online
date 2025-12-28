@@ -4,7 +4,7 @@ import { Sale, Purchase, Return, Expense, Quote, BankAccount, Budget, FinancialS
 import { Notification, AuditLogEntry, ProfileData, AppMetadata, AppMetadataInvoiceSettings, AppMetadataDashboardConfig, AppMetadataUIPreferences, AppMetadataAutoCleanup, GoogleUser } from "./metadata";
 import { InvoiceTemplateConfig } from "./template";
 
-export type Page = 'DASHBOARD' | 'CUSTOMERS' | 'SALES' | 'PURCHASES' | 'SUPPLIERS' | 'REPORTS' | 'RETURNS' | 'PRODUCTS' | 'INSIGHTS' | 'EXPENSES' | 'QUOTATIONS' | 'INVOICE_DESIGNER' | 'SYSTEM_OPTIMIZER' | 'SQL_ASSISTANT' | 'TRASH' | 'FINANCIAL_PLANNING';
+export type Page = 'DASHBOARD' | 'CUSTOMERS' | 'SALES' | 'PURCHASES' | 'SUPPLIERS' | 'REPORTS' | 'RETURNS' | 'PRODUCTS' | 'INSIGHTS' | 'ANALYTICS' | 'EXPENSES' | 'QUOTATIONS' | 'INVOICE_DESIGNER' | 'SYSTEM_OPTIMIZER' | 'SQL_ASSISTANT' | 'TRASH' | 'FINANCIAL_PLANNING';
 
 export type Theme = 'light' | 'dark' | 'system';
 

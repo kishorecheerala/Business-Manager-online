@@ -313,3 +313,19 @@ body {
 .animate-divine-breath {
   animation: divineBreath 4s ease-in-out infinite;
 }
+
+/* Golden Glow Breathing Effect */
+@keyframes goldenBreath {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+}
+
+.animate-golden-breath {
+  animation: goldenBreath 3s ease-in-out infinite;
+}

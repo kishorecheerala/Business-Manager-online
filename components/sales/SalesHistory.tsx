@@ -202,4 +202,4 @@ const SalesHistory: React.FC<SalesHistoryProps> = ({
     );
 };
 
-export default SalesHistory;
+export default React.memo(SalesHistory);

@@ -40,6 +40,7 @@ const SystemOptimizerPage = React.lazy(() => import('./pages/SystemOptimizerPage
 const SQLAssistantPage = React.lazy(() => import('./pages/SQLAssistantPage'));
 const TrashPage = React.lazy(() => import('./pages/TrashPage'));
 const FinancialPlanningPage = React.lazy(() => import('./pages/FinancialPlanningPage'));
+const AnalyticsPage = React.lazy(() => import('./pages/AnalyticsPage'));
 
 
 import PinLock from './components/PinLock';
@@ -427,6 +428,7 @@ const App: React.FC = () => {
                         {currentPage === 'INSIGHTS' && <InsightsPage setCurrentPage={handleNavigation} />}
                         {currentPage === 'EXPENSES' && <ExpensesPage setIsDirty={setIsDirty} />}
                         {currentPage === 'FINANCIAL_PLANNING' && <FinancialPlanningPage />}
+                        {currentPage === 'ANALYTICS' && <AnalyticsPage />}
                         {currentPage === 'QUOTATIONS' && <QuotationsPage />}
                         {currentPage === 'INVOICE_DESIGNER' && <InvoiceDesigner setIsDirty={setIsDirty} setCurrentPage={handleNavigation} />}
                         {currentPage === 'SYSTEM_OPTIMIZER' && <SystemOptimizerPage />}

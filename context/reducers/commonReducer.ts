@@ -1,4 +1,4 @@
-import { AppState, Action, AppMetadata } from '../../types';
+import { AppState, Action, AppMetadata, AppMetadataTheme, AppMetadataUIPreferences, AppMetadataDashboardConfig, AppMetadataInvoiceSettings, AppMetadataNavOrder, AppMetadataQuickActions, AppMetadataAutoCleanup } from '../../types';
 import * as db from '../../utils/db';
 import { logAction } from './helpers';
 
@@ -59,27 +59,104 @@ export const commonReducer = (state: AppState, action: Action): AppState => {
         // --- Theme & UI ---
         case 'SET_THEME':
             localStorage.setItem('theme', action.payload);
-            return { ...state, theme: action.payload, ...touch };
+            const themeMeta: AppMetadataTheme = {
+                id: 'themeSettings',
+                theme: action.payload,
+                color: state.themeColor,
+                gradient: state.themeGradient,
+                font: state.font,
+                headerColor: state.headerColor,
+                updatedAt: new Date().toISOString()
+            };
+            db.upsertItem('app_metadata', themeMeta);
+            return {
+                ...state,
+                theme: action.payload,
+                app_metadata: state.app_metadata.filter(m => m.id !== 'themeSettings').concat(themeMeta),
+                ...touch
+            };
         case 'SET_THEME_COLOR':
             localStorage.setItem('themeColor', action.payload);
-            return { ...state, themeColor: action.payload, ...touch };
+            const colorMeta: AppMetadataTheme = {
+                id: 'themeSettings',
+                theme: state.theme,
+                color: action.payload,
+                gradient: state.themeGradient,
+                font: state.font,
+                headerColor: state.headerColor,
+                updatedAt: new Date().toISOString()
+            };
+            db.upsertItem('app_metadata', colorMeta);
+            return {
+                ...state,
+                themeColor: action.payload,
+                app_metadata: state.app_metadata.filter(m => m.id !== 'themeSettings').concat(colorMeta),
+                ...touch
+            };
         case 'SET_HEADER_COLOR':
-            return { ...state, headerColor: action.payload, ...touch };
+            const headerMeta: AppMetadataTheme = {
+                id: 'themeSettings',
+                theme: state.theme,
+                color: state.themeColor,
+                gradient: state.themeGradient,
+                font: state.font,
+                headerColor: action.payload,
+                updatedAt: new Date().toISOString()
+            };
+            db.upsertItem('app_metadata', headerMeta);
+            return {
+                ...state,
+                headerColor: action.payload,
+                app_metadata: state.app_metadata.filter(m => m.id !== 'themeSettings').concat(headerMeta),
+                ...touch
+            };
         case 'SET_THEME_GRADIENT':
             localStorage.setItem('themeGradient', action.payload);
-            return { ...state, themeGradient: action.payload, ...touch };
+            const gradientMeta: AppMetadataTheme = {
+                id: 'themeSettings',
+                theme: state.theme,
+                color: state.themeColor,
+                gradient: action.payload,
+                font: state.font,
+                headerColor: state.headerColor,
+                updatedAt: new Date().toISOString()
+            };
+            db.upsertItem('app_metadata', gradientMeta);
+            return {
+                ...state,
+                themeGradient: action.payload,
+                app_metadata: state.app_metadata.filter(m => m.id !== 'themeSettings').concat(gradientMeta),
+                ...touch
+            };
         case 'SET_FONT':
             localStorage.setItem('font', action.payload);
-            return { ...state, font: action.payload, ...touch };
+            const fontMeta: AppMetadataTheme = {
+                id: 'themeSettings',
+                theme: state.theme,
+                color: state.themeColor,
+                gradient: state.themeGradient,
+                font: action.payload,
+                headerColor: state.headerColor,
+                updatedAt: new Date().toISOString()
+            };
+            db.upsertItem('app_metadata', fontMeta);
+            return {
+                ...state,
+                font: action.payload,
+                app_metadata: state.app_metadata.filter(m => m.id !== 'themeSettings').concat(fontMeta),
+                ...touch
+            };
         case 'UPDATE_UI_PREFERENCES':
             const newPrefs = { ...state.uiPreferences, ...action.payload };
-            const meta: AppMetadata = { id: 'uiPreferences', value: newPrefs, updatedAt: new Date().toISOString() };
+            // Fix: Spread directly into metadata object, do not wrap in 'value'
+            const meta: AppMetadataUIPreferences = { id: 'uiPreferences', ...newPrefs, updatedAt: new Date().toISOString() };
             const metaList = state.app_metadata.filter(m => m.id !== 'uiPreferences');
             db.upsertItem('app_metadata', meta);
             return { ...state, uiPreferences: newPrefs, app_metadata: [...metaList, meta], ...touch };
         case 'UPDATE_DASHBOARD_CONFIG':
             const newDash = { ...state.dashboardConfig, ...action.payload };
-            const metaDash: AppMetadata = { id: 'dashboardConfig', value: newDash, updatedAt: new Date().toISOString() };
+            // Fix: Spread directly into metadata object
+            const metaDash: AppMetadataDashboardConfig = { id: 'dashboardConfig', ...newDash, updatedAt: new Date().toISOString() };
             const metaListDash = state.app_metadata.filter(m => m.id !== 'dashboardConfig');
             db.upsertItem('app_metadata', metaDash);
             return { ...state, dashboardConfig: newDash, app_metadata: [...metaListDash, metaDash], ...touch };
@@ -161,13 +238,15 @@ export const commonReducer = (state: AppState, action: Action): AppState => {
             return { ...state, [key]: action.payload.config, app_metadata: state.app_metadata.filter(m => m.id !== tmplMeta.id).concat(tmplMeta), ...touch };
 
         case 'UPDATE_INVOICE_SETTINGS':
-            const invSetMeta: AppMetadata = { id: 'invoiceSettings', value: action.payload, updatedAt: new Date().toISOString() };
+            // Fix: Spread payload (AppMetadataInvoiceSettings properties) directly
+            const invSetMeta: AppMetadataInvoiceSettings = { id: 'invoiceSettings', ...action.payload, updatedAt: new Date().toISOString() };
             db.upsertItem('app_metadata', invSetMeta);
             return { ...state, invoiceSettings: action.payload, app_metadata: state.app_metadata.filter(m => m.id !== 'invoiceSettings').concat(invSetMeta), ...touch };
 
         // --- Nav ---
         case 'UPDATE_NAV_ORDER':
-            const navMeta: AppMetadata = { id: 'navOrder', value: action.payload, updatedAt: new Date().toISOString() };
+            // Fix: Use 'order' property as per AppMetadataNavOrder interface
+            const navMeta: AppMetadataNavOrder = { id: 'navOrder', order: action.payload, updatedAt: new Date().toISOString() };
             db.upsertItem('app_metadata', navMeta);
             return { ...state, navOrder: action.payload, app_metadata: state.app_metadata.filter(m => m.id !== 'navOrder').concat(navMeta), ...touch };
         case 'RESET_NAV_ORDER':
@@ -175,7 +254,8 @@ export const commonReducer = (state: AppState, action: Action): AppState => {
             db.deleteFromStore('app_metadata', 'navOrder');
             return { ...state, navOrder: defaultNav, app_metadata: state.app_metadata.filter(m => m.id !== 'navOrder'), ...touch };
         case 'UPDATE_QUICK_ACTIONS':
-            const qaMeta: AppMetadata = { id: 'quickActions', value: action.payload, updatedAt: new Date().toISOString() };
+            // Fix: Use 'actions' property as per AppMetadataQuickActions interface
+            const qaMeta: AppMetadataQuickActions = { id: 'quickActions', actions: action.payload, updatedAt: new Date().toISOString() };
             db.upsertItem('app_metadata', qaMeta);
             return { ...state, quickActions: action.payload, app_metadata: state.app_metadata.filter(m => m.id !== 'quickActions').concat(qaMeta), ...touch };
 
@@ -188,7 +268,7 @@ export const commonReducer = (state: AppState, action: Action): AppState => {
             return state;
 
         case 'UPDATE_AUTO_CLEANUP_SETTINGS':
-            const acsMeta: AppMetadata = { id: 'autoCleanupSettings', value: { ...state.autoCleanupSettings, ...action.payload }, updatedAt: new Date().toISOString() };
+            const acsMeta: AppMetadataAutoCleanup = { id: 'autoCleanupSettings', ...state.autoCleanupSettings, ...action.payload, updatedAt: new Date().toISOString() };
             db.upsertItem('app_metadata', acsMeta);
             return { ...state, autoCleanupSettings: { ...state.autoCleanupSettings, ...action.payload }, app_metadata: state.app_metadata.filter(m => m.id !== 'autoCleanupSettings').concat(acsMeta), ...touch };
 
