@@ -1,8 +1,9 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { User, BarChart2, Activity, LogIn, LogOut, RefreshCw, CloudLightning, Sun, Moon, Palette, Check, Settings, Monitor, Shield, ChevronRight, RotateCcw, BrainCircuit, Terminal, Receipt, FileText, Lock, Unlock, PenTool, Gauge, Cloud, Layout, Download, Sparkles, Smartphone, FileSpreadsheet, Type, PaintBucket, Plus, Trash2, Database, HelpCircle } from 'lucide-react';
 import { Page } from '../types';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
+import { useUI } from '../context/UIContext';
+import { useAuth } from '../context/AuthContext';
 import { useDialog } from '../context/DialogContext';
 import AuditLogPanel from './AuditLogPanel';
 import CloudDebugModal from './CloudDebugModal';
@@ -124,7 +125,9 @@ const getContrastColor = (hexColor: string) => {
 };
 
 const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, onNavigate, onOpenDevTools, onLockApp, onOpenChangeLog, onOpenSignIn, onHelpClick, onOpenAPIConfig, onOpenNavCustomizer, onOpenSecuritySettings }) => {
-    const { state, dispatch, googleSignOut, syncData, showToast } = useAppContext();
+    const { state, dispatch, syncData } = useData();
+    const { uiState, uiDispatch, showToast } = useUI();
+    const { authState, authDispatch, googleSignOut } = useAuth();
     const { showConfirm } = useDialog();
     const { isInstallable, install } = usePWAInstall();
 
@@ -151,41 +154,41 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
     const [googleFontName, setGoogleFontName] = useState('');
 
     const setTheme = (mode: 'light' | 'dark') => {
-        dispatch({ type: 'SET_THEME', payload: mode });
+        uiDispatch({ type: 'SET_THEME', payload: mode });
     };
 
     const resetTheme = () => {
-        dispatch({ type: 'SET_THEME_COLOR', payload: '#8b5cf6' });
+        uiDispatch({ type: 'SET_THEME_COLOR', payload: '#8b5cf6' });
         // Reset to default gradient (Nebula)
-        dispatch({ type: 'SET_THEME_GRADIENT', payload: 'linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%)' });
-        dispatch({ type: 'SET_HEADER_COLOR', payload: '' }); // Clear manual header color
-        dispatch({ type: 'SET_THEME', payload: 'light' });
-        dispatch({ type: 'SET_FONT', payload: 'Inter' });
+        uiDispatch({ type: 'SET_THEME_GRADIENT', payload: 'linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%)' });
+        uiDispatch({ type: 'SET_HEADER_COLOR', payload: '' }); // Clear manual header color
+        uiDispatch({ type: 'SET_THEME', payload: 'light' });
+        uiDispatch({ type: 'SET_FONT', payload: 'Inter' });
     };
 
     const handleColorSelect = (color: ThemeColor) => {
         // Set Accent Color
-        dispatch({ type: 'SET_THEME_COLOR', payload: color.hex });
+        uiDispatch({ type: 'SET_THEME_COLOR', payload: color.hex });
         // Clear Gradient so the solid color takes effect on the header
-        dispatch({ type: 'SET_THEME_GRADIENT', payload: '' });
+        uiDispatch({ type: 'SET_THEME_GRADIENT', payload: '' });
         // Clear specific header color override if any
-        dispatch({ type: 'SET_HEADER_COLOR', payload: '' });
+        uiDispatch({ type: 'SET_HEADER_COLOR', payload: '' });
     };
 
     const handleGradientSelect = (gradient: string) => {
-        dispatch({ type: 'SET_THEME_GRADIENT', payload: gradient });
-        dispatch({ type: 'SET_HEADER_COLOR', payload: '' }); // Clear solid override
+        uiDispatch({ type: 'SET_THEME_GRADIENT', payload: gradient });
+        uiDispatch({ type: 'SET_HEADER_COLOR', payload: '' }); // Clear solid override
 
         // Extract the first hex color from the gradient to set as the primary app color
         // This ensures the "whole app" feels cohesive with the header
         const match = gradient.match(/#(?:[0-9a-fA-F]{3}){1,2}/);
         if (match && match[0]) {
-            dispatch({ type: 'SET_THEME_COLOR', payload: match[0] });
+            uiDispatch({ type: 'SET_THEME_COLOR', payload: match[0] });
         }
     };
 
     const handleFontSelect = (fontName: string) => {
-        dispatch({ type: 'SET_FONT', payload: fontName });
+        uiDispatch({ type: 'SET_FONT', payload: fontName });
     };
 
     const handleLoadGoogleFont = () => {
@@ -205,7 +208,7 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
             data: 'GOOGLE_FONT_REF' // Marker
         };
         dispatch({ type: 'ADD_CUSTOM_FONT', payload: newFont });
-        dispatch({ type: 'SET_FONT', payload: fontName }); // Auto-select
+        uiDispatch({ type: 'SET_FONT', payload: fontName }); // Auto-select
         setGoogleFontName('');
         showToast(`Loaded ${fontName} from Google Fonts!`);
     };
@@ -229,7 +232,7 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                         data: result
                     };
                     dispatch({ type: 'ADD_CUSTOM_FONT', payload: newFont });
-                    dispatch({ type: 'SET_FONT', payload: fontName }); // Auto-select
+                    uiDispatch({ type: 'SET_FONT', payload: fontName }); // Auto-select
                     showToast(`Font "${fontName}" added & selected!`);
                 }
             };
@@ -242,15 +245,15 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
         e.stopPropagation();
         if (await showConfirm("Delete this custom font?", { variant: 'danger' })) {
             dispatch({ type: 'REMOVE_CUSTOM_FONT', payload: id });
-            if (state.font === state.customFonts.find(f => f.id === id)?.name) {
-                dispatch({ type: 'SET_FONT', payload: 'Inter' }); // Reset if active
+            if (uiState.font === state.customFonts.find(f => f.id === id)?.name) {
+                uiDispatch({ type: 'SET_FONT', payload: 'Inter' }); // Reset if active
             }
         }
     };
 
     const handleDevToolsClick = () => {
         setPinAction('DEV_TOOLS');
-        if (state.pin) {
+        if (authState.pin) {
             setPinMode('enter');
         } else {
             setPinMode('setup');
@@ -261,7 +264,7 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
     const handlePinSuccess = (newPin?: string) => {
         if (newPin) {
             // If setup mode, save the pin first
-            dispatch({ type: 'SET_PIN', payload: newPin });
+            authDispatch({ type: 'SET_PIN', payload: newPin });
         }
         setIsPinModalOpen(false);
         onClose(); // Close menu
@@ -269,28 +272,28 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
         if (pinAction === 'DEV_TOOLS') {
             onOpenDevTools();
         } else if (pinAction === 'UNLOCK_SESSION') {
-            dispatch({ type: 'SET_AUTHENTICATED', payload: true });
+            authDispatch({ type: 'SET_AUTHENTICATED', payload: true });
             showToast('Session Unlocked');
         } else if (pinAction === 'EXIT_STAFF_MODE') {
-            dispatch({ type: 'TOGGLE_STAFF_MODE', payload: false });
+            authDispatch({ type: 'SET_STAFF_MODE', payload: false });
             showToast('Exited Staff Mode');
         } else if (pinAction === 'ENABLE_STAFF_MODE') {
-            dispatch({ type: 'TOGGLE_STAFF_MODE', payload: true });
+            authDispatch({ type: 'SET_STAFF_MODE', payload: true });
             showToast('Staff Mode Enabled');
         }
     };
 
     const handleToggleStaffMode = () => {
-        if (state.isStaffMode) {
+        if (authState.isStaffMode) {
             // Turning OFF
             setPinAction('EXIT_STAFF_MODE');
             setPinMode('enter');
             setIsPinModalOpen(true);
         } else {
             // Turning ON
-            if (state.pin) {
+            if (authState.pin) {
                 // PIN already set, just enable
-                dispatch({ type: 'TOGGLE_STAFF_MODE', payload: true });
+                authDispatch({ type: 'SET_STAFF_MODE', payload: true });
                 showToast('Staff Mode Enabled');
             } else {
                 // Determine logic: Force PIN setup for safety
@@ -332,9 +335,9 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
             <ColorPickerModal
                 isOpen={isColorPickerOpen}
                 onClose={() => setIsColorPickerOpen(false)}
-                initialColor={state.themeColor}
+                initialColor={uiState.themeColor}
                 onChange={(color) => {
-                    dispatch({ type: 'SET_THEME_COLOR', payload: color });
+                    uiDispatch({ type: 'SET_THEME_COLOR', payload: color });
                 }}
             />
 
@@ -342,27 +345,27 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
             <ColorPickerModal
                 isOpen={isHeaderColorPickerOpen}
                 onClose={() => setIsHeaderColorPickerOpen(false)}
-                initialColor={state.headerColor || state.themeColor}
+                initialColor={uiState.headerColor || uiState.themeColor}
                 onChange={(color) => {
-                    dispatch({ type: 'SET_HEADER_COLOR', payload: color });
-                    dispatch({ type: 'SET_THEME_GRADIENT', payload: '' }); // Clear gradient to show solid color
+                    uiDispatch({ type: 'SET_HEADER_COLOR', payload: color });
+                    uiDispatch({ type: 'SET_THEME_GRADIENT', payload: '' }); // Clear gradient to show solid color
                 }}
             />
 
             <GradientPickerModal
                 isOpen={isGradientPickerOpen}
                 onClose={() => setIsGradientPickerOpen(false)}
-                initialStartColor={state.themeColor}
+                initialStartColor={uiState.themeColor}
                 onChange={(gradient, startColor) => {
-                    dispatch({ type: 'SET_THEME_COLOR', payload: startColor }); // Sync accent to start
-                    dispatch({ type: 'SET_THEME_GRADIENT', payload: gradient });
-                    dispatch({ type: 'SET_HEADER_COLOR', payload: '' });
+                    uiDispatch({ type: 'SET_THEME_COLOR', payload: startColor }); // Sync accent to start
+                    uiDispatch({ type: 'SET_THEME_GRADIENT', payload: gradient });
+                    uiDispatch({ type: 'SET_HEADER_COLOR', payload: '' });
                 }}
             />
             {isPinModalOpen && (
                 <PinModal
                     mode={pinMode}
-                    correctPin={state.pin}
+                    correctPin={authState.pin}
                     onCorrectPin={() => handlePinSuccess()}
                     onSetPin={(pin) => handlePinSuccess(pin)}
                     onCancel={() => setIsPinModalOpen(false)}
@@ -384,7 +387,7 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
 
                             {/* 1. Profile / Sign In Card - Styled as Gradient Card */}
                             <div className="p-3">
-                                <div className="rounded-xl overflow-hidden shadow-lg relative text-white bg-theme" style={{ background: state.themeGradient || state.headerColor || state.themeColor }}>
+                                <div className="rounded-xl overflow-hidden shadow-lg relative text-white bg-theme" style={{ background: uiState.themeGradient || uiState.headerColor || uiState.themeColor }}>
                                     {/* Decorative background shapes */}
                                     <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/3 blur-xl"></div>
                                     <div className="absolute bottom-0 left-0 w-20 h-20 bg-black/10 rounded-full translate-y-1/3 -translate-x-1/4 blur-xl"></div>
@@ -394,12 +397,12 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                                             {state.profile?.name || 'Business Manager'}
                                         </h3>
 
-                                        {state.googleUser ? (
+                                        {authState.googleUser ? (
                                             <div className="flex items-center gap-3 p-3 bg-white/20 rounded-xl backdrop-blur-md border border-white/30 shadow-inner">
-                                                <img src={state.googleUser.picture} alt="User" className="w-12 h-12 rounded-full border-2 border-white/70 shadow-sm" />
+                                                <img src={authState.googleUser.picture} alt="User" className="w-12 h-12 rounded-full border-2 border-white/70 shadow-sm" />
                                                 <div className="overflow-hidden min-w-0 flex-1">
-                                                    <p className="text-sm font-bold leading-tight break-words text-white drop-shadow-sm">{state.googleUser.name}</p>
-                                                    <p className="text-[10px] text-white/80 truncate mb-1">{state.googleUser.email}</p>
+                                                    <p className="text-sm font-bold leading-tight break-words text-white drop-shadow-sm">{authState.googleUser.name}</p>
+                                                    <p className="text-[10px] text-white/80 truncate mb-1">{authState.googleUser.email}</p>
                                                     <div className="mt-2.5 flex flex-col gap-1.5">
                                                         <div className="flex items-center gap-3 pl-1">
                                                             {state.lastSyncTime && (
@@ -482,10 +485,10 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                                     onClick={(e) => { e.stopPropagation(); handleToggleStaffMode(); }}
                                     className="menu-item group"
                                 >
-                                    <Shield className={`w-5 h-5 flex-shrink-0 ${state.isStaffMode ? 'text-green-500' : 'text-gray-400'}`} />
+                                    <Shield className={`w-5 h-5 flex-shrink-0 ${authState.isStaffMode ? 'text-green-500' : 'text-gray-400'}`} />
                                     <span className="flex-grow text-sm font-medium text-left">Staff Mode</span>
-                                    <div className={`relative w-9 h-5 rounded-full transition-colors duration-200 ease-in-out ${state.isStaffMode ? 'bg-green-500' : 'bg-gray-200 dark:bg-slate-700'}`}>
-                                        <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transform transition-transform duration-200 ease-in-out ${state.isStaffMode ? 'translate-x-4' : 'translate-x-0'}`} />
+                                    <div className={`relative w-9 h-5 rounded-full transition-colors duration-200 ease-in-out ${authState.isStaffMode ? 'bg-green-500' : 'bg-gray-200 dark:bg-slate-700'}`}>
+                                        <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transform transition-transform duration-200 ease-in-out ${authState.isStaffMode ? 'translate-x-4' : 'translate-x-0'}`} />
                                     </div>
                                 </button>
 
@@ -525,7 +528,7 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                                     <ChevronRight className="w-4 h-4 text-gray-400" />
                                 </button>
 
-                                {!state.isStaffMode && (
+                                {!authState.isStaffMode && (
                                     <button onClick={() => { onClose(); setIsAuditOpen(true); }} className="menu-item text-amber-500">
                                         <Activity className="w-5 h-5" />
                                         <span className="flex-grow text-sm font-medium">Audit Logs</span>
@@ -535,7 +538,7 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                             </div>
 
                             {/* 2. Customization Section - Hide in Staff Mode */}
-                            {!state.isStaffMode && (
+                            {!authState.isStaffMode && (
                                 <>
                                     <div className="px-4 py-2 mt-2">
                                         <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Customization</span>
@@ -590,13 +593,13 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                                 <div className="bg-gray-100 dark:bg-slate-700 p-1 rounded-lg flex mb-4 mx-1">
                                     <button
                                         onClick={() => setTheme('light')}
-                                        className={`flex-1 flex items-center justify-center gap-2 py-1.5 rounded-md text-xs font-semibold transition-all ${state.theme === 'light' ? 'bg-white dark:bg-slate-600 text-primary shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
+                                        className={`flex-1 flex items-center justify-center gap-2 py-1.5 rounded-md text-xs font-semibold transition-all ${uiState.theme === 'light' ? 'bg-white dark:bg-slate-600 text-primary shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
                                     >
                                         <Sun size={14} /> Light
                                     </button>
                                     <button
                                         onClick={() => setTheme('dark')}
-                                        className={`flex-1 flex items-center justify-center gap-2 py-1.5 rounded-md text-xs font-semibold transition-all ${state.theme === 'dark' ? 'bg-slate-600 text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
+                                        className={`flex-1 flex items-center justify-center gap-2 py-1.5 rounded-md text-xs font-semibold transition-all ${uiState.theme === 'dark' ? 'bg-slate-600 text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
                                     >
                                         <Moon size={14} /> Dark
                                     </button>
@@ -609,7 +612,7 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                                             <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 mb-2">{group.name} Colors</p>
                                             <div className="flex flex-wrap gap-3">
                                                 {group.colors.map((t) => {
-                                                    const isSelected = state.themeColor.toLowerCase() === t.hex.toLowerCase();
+                                                    const isSelected = uiState.themeColor.toLowerCase() === t.hex.toLowerCase();
 
                                                     return (
                                                         <button
@@ -642,7 +645,7 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                                         <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 mb-2">Gradients</p>
                                         <div className="flex gap-3 overflow-x-auto p-2 custom-scrollbar -mx-1 px-4">
                                             {GRADIENT_PRESETS.map((g) => {
-                                                const isSelected = state.themeGradient === g.value;
+                                                const isSelected = uiState.themeGradient === g.value;
                                                 return (
                                                     <button
                                                         key={g.name}
@@ -677,7 +680,7 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                                                 className="p-2 rounded-lg bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-slate-600 transition-colors"
                                                 onClick={() => { onClose(); setIsColorPickerOpen(true); }}
                                             >
-                                                <div className="w-4 h-4 rounded-full border border-black/10" style={{ background: state.themeColor }}></div>
+                                                <div className="w-4 h-4 rounded-full border border-black/10" style={{ background: uiState.themeColor }}></div>
                                                 <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Accent Color</span>
                                             </button>
 
@@ -739,7 +742,7 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                                                 <button
                                                     key={font.name}
                                                     onClick={() => handleFontSelect(font.name)}
-                                                    className={`px-3 py-1.5 text-xs border rounded-lg transition-all ${(state.font || 'Inter') === font.name
+                                                    className={`px-3 py-1.5 text-xs border rounded-lg transition-all ${(uiState.font || 'Inter') === font.name
                                                         ? 'bg-primary text-white border-primary shadow-sm'
                                                         : 'bg-white dark:bg-slate-700 border-gray-200 dark:border-slate-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50'
                                                         }`}
@@ -754,7 +757,7 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                                                 <div key={font.id} className="relative group">
                                                     <button
                                                         onClick={() => handleFontSelect(font.name)}
-                                                        className={`px-3 py-1.5 text-xs border rounded-lg transition-all pr-6 ${(state.font) === font.name
+                                                        className={`px-3 py-1.5 text-xs border rounded-lg transition-all pr-6 ${(uiState.font) === font.name
                                                             ? 'bg-primary text-white border-primary shadow-sm'
                                                             : 'bg-white dark:bg-slate-700 border-gray-200 dark:border-slate-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50'
                                                             }`}
@@ -777,7 +780,7 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                             </div>
 
                             {/* 4. Admin Section - Hide in Staff Mode */}
-                            {!state.isStaffMode && (
+                            {!authState.isStaffMode && (
                                 <>
                                     <div className="px-4 py-2 mt-2">
                                         <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Admin</span>
@@ -808,7 +811,7 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                                         <button onClick={handleDevToolsClick} className="menu-item bg-slate-100 dark:bg-slate-700/50 mt-1">
                                             <Terminal className="w-5 h-5 text-green-600 dark:text-green-400" />
                                             <span className="flex-grow text-sm font-medium">Developer Tools</span>
-                                            {state.pin && <Shield className="w-3 h-3 text-gray-400" />}
+                                            {authState.pin && <Shield className="w-3 h-3 text-gray-400" />}
                                             <ChevronRight className="w-4 h-4 text-gray-400" />
                                         </button>
                                     </div>
@@ -820,7 +823,7 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                             <div className="my-2 border-t border-gray-100 dark:border-slate-700 mx-4"></div>
 
                             {/* 6. System / Sync Section */}
-                            {state.googleUser && (
+                            {authState.googleUser && (
                                 <div className="px-2 pb-2 space-y-1">
                                     {/* Sync Now Moved to Profile Card */}
 
@@ -837,25 +840,25 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                             <div className="px-2 pb-2 mt-2">
                                 <button
                                     onClick={() => {
-                                        if (state.isAuthenticated) {
+                                        if (authState.isAuthenticated) {
                                             onClose();
                                             // Lock Session
-                                            dispatch({ type: 'SET_AUTHENTICATED', payload: false });
+                                            authDispatch({ type: 'SET_AUTHENTICATED', payload: false });
                                             showToast('Session Locked');
                                         } else {
                                             // Unlock Session
                                             handleUnlockSessionClick();
                                         }
                                     }}
-                                    className={`menu-item ${state.isAuthenticated
+                                    className={`menu-item ${authState.isAuthenticated
                                         ? 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/10 hover:border-rose-200 dark:hover:border-rose-800'
                                         : 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/10 hover:border-emerald-200 dark:hover:border-emerald-800'} border border-transparent`}
                                 >
-                                    {state.isAuthenticated ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
-                                    <span className="flex-grow text-sm font-medium">{state.isAuthenticated ? 'Lock Session' : 'Unlock Session'}</span>
+                                    {authState.isAuthenticated ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
+                                    <span className="flex-grow text-sm font-medium">{authState.isAuthenticated ? 'Lock Session' : 'Unlock Session'}</span>
                                 </button>
 
-                                {state.isStaffMode && (
+                                {authState.isStaffMode && (
                                     <button
                                         onClick={handleExitStaffMode}
                                         className="menu-item text-white bg-red-500 hover:bg-red-600 border border-transparent mt-2 justify-center"

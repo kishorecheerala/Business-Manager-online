@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { CalendarClock, WifiOff } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
 
 const TopBarClock: React.FC = () => {
-    const { state } = useAppContext();
+    const { state } = useData();
     const [currentDateTime, setCurrentDateTime] = useState(new Date());
 
     useEffect(() => {

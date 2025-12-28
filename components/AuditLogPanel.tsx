@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Activity, User, Calendar, X } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
 import { formatDateTime } from '../utils/formatUtils';
 import Card from './Card';
 
@@ -11,7 +11,7 @@ interface AuditLogPanelProps {
 }
 
 const AuditLogPanel: React.FC<AuditLogPanelProps> = ({ isOpen, onClose }) => {
-  const { state } = useAppContext();
+  const { state } = useData();
   const logs = state.audit_logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 50); // Show last 50
 
   if (!isOpen) return null;

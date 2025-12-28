@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { productReducer } from '../../context/reducers/productReducer';
-import { AppState, Product } from '../../types';
+import { DataState, Product } from '../../types';
 import * as db from '../../utils/db'; // We mock this
 
 vi.mock('../../utils/db', () => ({
@@ -11,14 +11,14 @@ vi.mock('../../utils/db', () => ({
     addToTrash: vi.fn()
 }));
 
-const mockState: AppState = {
+const mockState: DataState = {
     products: [{ id: 'p1', name: 'Original', quantity: 10, updatedAt: '' }],
     sales: [{ id: 's1', items: [{ productId: 'p1', quantity: 1 }] }],
     purchases: [{ id: 'pu1', items: [{ productId: 'p1', quantity: 1 }] }],
     quotes: [{ id: 'q1', items: [{ productId: 'p1', quantity: 1 }] }],
     returns: [{ id: 'r1', items: [{ productId: 'p1', quantity: 1 }] }],
     audit_logs: []
-} as unknown as AppState;
+} as unknown as DataState;
 
 describe('productReducer', () => {
     it('should rename product id and cascade to all collections', () => {

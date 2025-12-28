@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, Edit, Save, X, Search, Download, Printer, FileSpreadsheet, Upload, CheckCircle, XCircle, Info, QrCode, Calendar as CalendarIcon, Image as ImageIcon, Share2, MessageCircle, Eye, FileText, Trash2 } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
+import { useUI } from '../context/UIContext';
+import { useAuth } from '../context/AuthContext';
 import { Supplier, Purchase, Payment, Return, Page, Product, PurchaseItem } from '../types';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -26,7 +28,9 @@ interface PurchasesPageProps {
 }
 
 const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPage }) => {
-    const { state, dispatch, showToast } = useAppContext();
+    const { state, dispatch } = useData();
+    const { showToast } = useUI();
+    const { authState } = useAuth();
     const [view, setView] = useState<'list' | 'add_purchase' | 'edit_purchase' | 'add_supplier' | 'edit_supplier'>('list');
     const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
@@ -239,7 +243,7 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
     };
 
     const handleAddToCalendar = async (dateStr: string, supplierName: string, purchaseId: string) => {
-        if (!state.googleUser?.accessToken) {
+        if (!authState.googleUser?.accessToken) {
             showToast("Please sign in to Google to use Calendar integration.", 'info');
             return;
         }
@@ -249,7 +253,7 @@ const PurchasesPage: React.FC<PurchasesPageProps> = ({ setIsDirty, setCurrentPag
             const startTime = new Date(dateStr);
             startTime.setHours(10, 0, 0, 0);
 
-            await createCalendarEvent(state.googleUser.accessToken, {
+            await createCalendarEvent(authState.googleUser.accessToken, {
                 summary: `Payment Due: ${supplierName}`,
                 description: `Purchase ID: ${purchaseId}\nReminder created from Business Manager.`,
                 startTime: startTime.toISOString()

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Copy, Download, Upload, AlertCircle, CheckCircle, Code, HelpCircle, Monitor, Smartphone } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
 import { generateDiagnostics, uploadDiagnostics } from '../utils/adminNotifications';
 import Button from './Button';
 
@@ -17,7 +17,7 @@ const RemoteSupportModal: React.FC<RemoteSupportModalProps> = ({
     supportCode: initialSupportCode,
     troubleshootingSteps = []
 }) => {
-    const { state, showToast } = useAppContext();
+    const { state, showToast } = useData();
     const [supportCode, setSupportCode] = useState(initialSupportCode || '');
     const [diagnostics, setDiagnostics] = useState<any>(null);
     const [isUploading, setIsUploading] = useState(false);

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { StickyNote, Save } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
 
 const QuickMemoCard: React.FC = () => {
-    const { showToast } = useAppContext();
+    const { showToast } = useData();
     const [memo, setMemo] = useState('');
     const [isSaving, setIsSaving] = useState(false);
 

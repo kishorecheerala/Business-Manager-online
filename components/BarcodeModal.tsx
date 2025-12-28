@@ -6,7 +6,8 @@ import Card from './Card';
 import Button from './Button';
 import FormattedNumberInput from './FormattedNumberInput';
 import { X, Download, Printer, LayoutGrid, File } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
+import { useUI } from '../context/UIContext';
 import { useDialog } from '../context/DialogContext';
 import { generateDownloadFilename } from '../utils/formatUtils';
 
@@ -23,7 +24,7 @@ interface BarcodeModalProps {
 }
 
 export const BarcodeModal: React.FC<BarcodeModalProps> = ({ isOpen, product, onClose, businessName }) => {
-  const { showToast } = useAppContext();
+  const { showToast } = useUI();
   const { showConfirm } = useDialog();
   const [numberOfCopies, setNumberOfCopies] = useState(1);
   const [paperType, setPaperType] = useState<'roll' | 'a4'>('roll');

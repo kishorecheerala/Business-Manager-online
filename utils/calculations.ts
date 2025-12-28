@@ -2,12 +2,22 @@
 import { SaleItem, QuoteItem, PurchaseItem, Product } from '../types';
 
 export const calculateTotals = (
-    items: (SaleItem | QuoteItem | PurchaseItem)[], 
-    discount: number, 
-    products: Product[] = []
+    items: (SaleItem | QuoteItem | PurchaseItem)[],
+    discount: number,
+    products: Product[] | Map<string, Product> = []
 ) => {
     let subTotal = 0;
     let gstAmount = 0;
+
+    // Helper to find product from Array or Map
+    const findProduct = (id: string): Product | undefined => {
+        if (Array.isArray(products)) {
+            return products.find(p => p.id === id);
+        } else if (products instanceof Map) {
+            return products.get(id);
+        }
+        return undefined;
+    };
 
     items.forEach(item => {
         const quantity = Number(item.quantity) || 0;
@@ -16,14 +26,14 @@ export const calculateTotals = (
         subTotal += lineTotal;
 
         let gstPercent = 0;
-        
+
         // Determine GST Percent
         if ('gstPercent' in item && typeof (item as PurchaseItem).gstPercent === 'number') {
             // PurchaseItem has own GST percent
             gstPercent = Number((item as PurchaseItem).gstPercent) || 0;
         } else {
             // Sale/Quote Item looks up GST from product catalog
-            const product = products.find(p => p.id === item.productId);
+            const product = findProduct(item.productId);
             gstPercent = product ? Number(product.gstPercent) || 0 : 0;
         }
 
@@ -38,10 +48,10 @@ export const calculateTotals = (
     // Round GST for display consistency (2 decimal places)
     const roundedGstAmount = Math.round(gstAmount * 100) / 100;
 
-    return { 
-        subTotal, 
-        discountAmount: discount, 
-        gstAmount: roundedGstAmount, 
-        totalAmount 
+    return {
+        subTotal,
+        discountAmount: discount,
+        gstAmount: roundedGstAmount,
+        totalAmount
     };
 };

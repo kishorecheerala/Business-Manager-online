@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 // fix: Import Save icon from lucide-react
 import { FileText, Plus, Search, Share2, Trash2, ShoppingCart, QrCode, X, Edit, Calendar, Check, Download, Save } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
+import { useUI } from '../context/UIContext';
 import { Customer, Quote, QuoteItem, Product, Sale, Page } from '../types';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -22,7 +23,8 @@ import QRScannerModal from '../components/QRScannerModal';
 
 
 const QuotationsPage: React.FC = () => {
-    const { state, dispatch, showToast } = useAppContext();
+    const { state, dispatch } = useData();
+    const { showToast } = useUI();
     const { showConfirm } = useDialog();
     const [view, setView] = useState<'list' | 'create' | 'edit'>('list');
     const [editingQuote, setEditingQuote] = useState<Quote | null>(null);

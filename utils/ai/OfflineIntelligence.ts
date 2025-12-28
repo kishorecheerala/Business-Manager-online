@@ -1,17 +1,17 @@
-import { AppState, Product, AIResponse, ActionItem, SaleItem } from '../../types';
+import { DataState, Product, AIResponse, ActionItem, SaleItem } from '../../types';
 import { calculateLinearRegression } from '../analytics';
 import { formatCurrency, formatNumber } from '../formatUtils';
 
 // --- Types ---
 interface OfflineContext {
-    state: AppState;
+    state: DataState;
     fullSchema?: any;
 }
 
 export class OfflineIntelligence {
 
     // 1. Insights Generation (Rule-based)
-    static generateInsights(state: AppState): AIResponse {
+    static generateInsights(state: DataState): AIResponse {
         try {
             const sales = state.sales || [];
             const products = state.products || [];
@@ -162,7 +162,7 @@ export class OfflineIntelligence {
     }
 
     // 3. Chat / Q&A (Keyword Matcher)
-    static chat(query: string, state: AppState): string {
+    static chat(query: string, state: DataState): string {
         const q = query.toLowerCase().trim();
 
         // 1. "Price of [X]" or "Rate of [X]"

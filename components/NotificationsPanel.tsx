@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Bell, ShieldAlert, Clock, Archive, Trash2, Crown, Wrench, AlertTriangle } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
 import Button from './Button';
 import { Page, Notification } from '../types';
 import { useSwipe } from '../hooks/useSwipe';
@@ -165,7 +165,7 @@ const SwipeableNotificationItem: React.FC<{
 };
 
 const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ isOpen, onClose, onNavigate }) => {
-    const { state, dispatch } = useAppContext();
+    const { state, dispatch } = useData();
     const { notifications } = state;
     const [supportModalOpen, setSupportModalOpen] = useState(false);
     const [activeSupportNotification, setActiveSupportNotification] = useState<Notification | null>(null);

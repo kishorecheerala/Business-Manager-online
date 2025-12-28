@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Download, Upload, Info, CheckCircle, XCircle, Users, Package as PackageIcon, Boxes, ShoppingCart } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
+import { useUI } from '../context/UIContext';
 import { StoreName } from '../utils/db';
 import { generateDownloadFilename } from '../utils/formatUtils';
 import { Customer, Supplier, Product, Purchase, PurchaseItem } from '../types';
@@ -64,7 +65,8 @@ interface DataImportModalProps {
 }
 
 export const DataImportModal: React.FC<DataImportModalProps> = ({ isOpen, onClose }) => {
-    const { dispatch, showToast } = useAppContext();
+    const { dispatch } = useData();
+    const { showToast } = useUI();
     const { showConfirm } = useDialog();
     const [activeTab, setActiveTab] = useState<Tab>('customers');
     const [importStatus, setImportStatus] = useState<{ type: 'info' | 'success' | 'error', message: string } | null>(null);

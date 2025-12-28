@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Settings, Zap, Database, Trash2, Image as ImageIcon, CheckCircle, BarChart2, Gauge, AlertTriangle } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import { optimizeBase64 } from '../utils/imageUtils';
@@ -11,7 +11,7 @@ import { getStorageStats, getDetailedStats } from '../utils/db';
 import FormattedNumberInput from '../components/FormattedNumberInput';
 
 const SystemOptimizerPage: React.FC = () => {
-    const { state, dispatch, showToast } = useAppContext();
+    const { state, dispatch, showToast } = useData();
     const { showConfirm } = useDialog();
     const [isOptimizing, setIsOptimizing] = useState(false);
     const [progress, setProgress] = useState(0);

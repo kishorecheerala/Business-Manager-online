@@ -4,7 +4,7 @@ import {
     LineChart, Line, PieChart, Pie, Cell, AreaChart, Area, ComposedChart
 } from 'recharts';
 import { TrendingUp, TrendingDown, DollarSign, Users, Package, Calendar } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
 import Card from '../components/Card';
 import { formatCurrency, formatDate } from '../utils/formatUtils';
 import { Sale, Expense, Product } from '../types';
@@ -12,7 +12,7 @@ import { Sale, Expense, Product } from '../types';
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
 const AnalyticsPage: React.FC = () => {
-    const { state } = useAppContext();
+    const { state } = useData();
     const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year' | 'all'>('month');
 
     // --- Data Processing Helpers ---

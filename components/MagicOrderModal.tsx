@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Wand2, Loader2, ArrowRight, Zap } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
 import { AIController } from '../utils/ai/AIController';
 import Card from './Card';
 import Button from './Button';
@@ -15,7 +15,7 @@ interface MagicOrderModalProps {
 }
 
 const MagicOrderModal: React.FC<MagicOrderModalProps> = ({ isOpen, onClose, products, onItemsParsed }) => {
-    const { state, showToast } = useAppContext();
+    const { state, showToast } = useData();
     const [inputText, setInputText] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
 

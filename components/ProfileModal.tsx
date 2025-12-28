@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Save, Camera, Trash2, Image as ImageIcon, Plus, Building2, CreditCard } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
+import { useUI } from '../context/UIContext';
 import { ProfileData, BankAccount } from '../types';
 import Card from './Card';
 import Button from './Button';
@@ -16,7 +17,8 @@ interface ProfileModalProps {
 }
 
 const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
-  const { state, dispatch, showToast } = useAppContext();
+  const { state, dispatch } = useData();
+  const { showToast } = useUI();
   const [formData, setFormData] = useState<Omit<ProfileData, 'id'>>({
     name: '',
     ownerName: '',

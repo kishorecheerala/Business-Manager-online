@@ -1,5 +1,5 @@
 import React, { ErrorInfo, ReactNode } from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Copy, Download, Share2, Mail, ChevronDown, ChevronUp } from 'lucide-react';
 import Button from './Button';
 import Card from './Card';
 
@@ -39,6 +39,63 @@ class ErrorBoundary extends React.Component<Props, State> {
     this.setState(prev => ({ showDetails: !prev.showDetails }));
   };
 
+  getErrorReport = () => {
+    const { error, errorInfo } = this.state;
+    return `Error: ${error?.message || 'Unknown Error'}
+Timestamp: ${new Date().toISOString()}
+App Version: ${(window as any).APP_VERSION || '1.0.0'}
+URL: ${window.location.href}
+
+Component Stack:
+${errorInfo?.componentStack || 'No stack trace available'}
+    `;
+  };
+
+  handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(this.getErrorReport());
+      alert("Error report copied to clipboard!");
+    } catch (err) {
+      console.error("Failed to copy error report", err);
+    }
+  };
+
+  handleDownload = () => {
+    const report = this.getErrorReport();
+    const blob = new Blob([report], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `error-report-${Date.now()}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Business Manager Error Report',
+          text: this.getErrorReport(),
+        });
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') {
+          console.error("Error sharing report", err);
+        }
+      }
+    } else {
+      this.handleCopy();
+    }
+  };
+
+  handleEmail = () => {
+    const subject = encodeURIComponent(`Error Report: Business Manager (${new Date().toLocaleDateString()})`);
+    const body = encodeURIComponent(this.getErrorReport());
+    window.location.href = `mailto:cheeralakishore@gmail.com?subject=${subject}&body=${body}`;
+  };
+
   render() {
     if (this.state.hasError) {
       return (
@@ -68,14 +125,31 @@ class ErrorBoundary extends React.Component<Props, State> {
             </div>
 
             <div className="flex flex-col gap-2">
-              <Button onClick={this.handleReload} className="w-full justify-center">
+              <Button onClick={this.handleReload} className="w-full justify-center py-2.5">
                 <RefreshCw size={18} className="mr-2" /> Reload Application
               </Button>
+
+              <div className="grid grid-cols-2 gap-2">
+                <Button onClick={this.handleCopy} variant="secondary" className="flex-1 justify-center text-xs">
+                  <Copy size={14} className="mr-1.5" /> Copy Log
+                </Button>
+                <Button onClick={this.handleDownload} variant="secondary" className="flex-1 justify-center text-xs">
+                  <Download size={14} className="mr-1.5" /> Download
+                </Button>
+                <Button onClick={this.handleShare} variant="secondary" className="flex-1 justify-center text-xs">
+                  <Share2 size={14} className="mr-1.5" /> Share
+                </Button>
+                <Button onClick={this.handleEmail} variant="secondary" className="flex-1 justify-center text-xs">
+                  <Mail size={14} className="mr-1.5" /> Email Dev
+                </Button>
+              </div>
+
               {this.state.errorInfo && (
                 <button
                   onClick={this.toggleDetails}
-                  className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 underline"
+                  className="flex items-center justify-center gap-1 text-[11px] text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors py-2"
                 >
+                  {this.state.showDetails ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                   {this.state.showDetails ? 'Hide Technical Details' : 'Show Technical Details'}
                 </button>
               )}

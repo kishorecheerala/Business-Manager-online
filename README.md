@@ -102,7 +102,7 @@ The project is organized into a modular structure:
 ```
 /
 ├── components/         # Reusable UI components (Card, Button, Charts)
-├── context/            # Global state management (AppContext.tsx)
+├── context/            # Global state management (DataContext.tsx, UIContext.tsx, AuthContext.tsx)
 ├── pages/              # Main feature pages (Dashboard, Sales, Invoice Designer, etc.)
 ├── utils/              # Helper functions (PDF generation, Drive Sync, Analytics)
 ├── App.tsx             # Main app component with navigation logic

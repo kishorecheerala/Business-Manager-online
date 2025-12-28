@@ -42,7 +42,7 @@ export interface SaleDraft {
     date: string;
     paymentDetails: {
         amount: string;
-        method: 'CASH' | 'UPI' | 'CHEQUE';
+        method: 'CASH' | 'UPI' | 'CHEQUE' | 'RETURN_CREDIT';
         date: string;
         reference: string;
     };

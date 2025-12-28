@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Database, Play, Terminal, Table as TableIcon, Wand2, AlertCircle, Loader2, Trash2, WifiOff, Layout, History, FileSpreadsheet, ChevronRight, Cloud, HardDrive, RefreshCw, Info, FolderTree } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
+import { useUI } from '../context/UIContext';
+import { useAuth } from '../context/AuthContext';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import { AIController } from '../utils/ai/AIController';
@@ -15,7 +17,9 @@ interface SQLAssistantPageProps {
 declare const alasql: any;
 
 const SQLAssistantPage: React.FC<SQLAssistantPageProps> = ({ setCurrentPage }) => {
-    const { state, showToast } = useAppContext();
+    const { state } = useData();
+    const { showToast } = useUI();
+    const { authState } = useAuth();
     const [query, setQuery] = useState('SELECT * FROM products LIMIT 5');
     const [results, setResults] = useState<any[]>([]);
     const [error, setError] = useState<string | null>(null);
@@ -231,7 +235,7 @@ const SQLAssistantPage: React.FC<SQLAssistantPageProps> = ({ setCurrentPage }) =
                                         Safe in IndexedDB.
                                     </p>
                                 </div>
-                                {state.googleUser ? (
+                                {authState.googleUser ? (
                                     <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-3 rounded-lg">
                                         <div className="flex items-center gap-2 mb-1">
                                             <Cloud size={16} className="text-blue-600" />

@@ -6,7 +6,7 @@ import Card from './Card';
 import Button from './Button';
 import Dropdown from './Dropdown';
 import { getLocalDateString } from '../utils/dateUtils';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
 import { generateGenericReportPDF } from '../utils/pdfGenerator';
 import { generateDownloadFilename, formatCurrency, formatNumber, formatDate } from '../utils/formatUtils';
 import { exportReportToSheet } from '../utils/googleSheets';
@@ -29,7 +29,7 @@ interface LedgerEntry {
 }
 
 const LedgerModal: React.FC<LedgerModalProps> = ({ isOpen, onClose, partyId, partyType }) => {
-    const { state, showToast } = useAppContext();
+    const { state, showToast } = useData();
     const [isExporting, setIsExporting] = useState(false);
 
     // Filters

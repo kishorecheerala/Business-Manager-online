@@ -1,9 +1,9 @@
-import { AppState, ReportConfig, ReportField, ReportFilter } from "../../types";
+import { DataState, ReportConfig, ReportField, ReportFilter } from "../../types";
 
 export class ReportEngine {
     private static _loggedSample = false;
 
-    static async process(state: AppState, config: ReportConfig): Promise<any[]> {
+    static async process(state: DataState, config: ReportConfig): Promise<any[]> {
         let rawData: any[] = [];
 
         // Pre-processing for lookups to avoid O(N^2) complexity
@@ -78,7 +78,7 @@ export class ReportEngine {
         return flattenedData;
     }
 
-    private static flattenItem(item: any, state: AppState, source: string, ctx: { productMap: Map<string, any>, customerMap: Map<string, any>, supplierMap: Map<string, any>, salesByCustomer: Map<string, any[]> }): any {
+    private static flattenItem(item: any, state: DataState, source: string, ctx: { productMap: Map<string, any>, customerMap: Map<string, any>, supplierMap: Map<string, any>, salesByCustomer: Map<string, any[]> }): any {
         // Debug: Log first item to see structure
         if (source === 'sales' && !this._loggedSample) {
             console.log('[DEBUG] Sample sale item:', item);

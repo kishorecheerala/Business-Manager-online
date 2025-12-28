@@ -1,4 +1,4 @@
-import { AppState, Action, Product, SaleDraft, TrashItem } from '../../types';
+import { DataState, Action, Product, SaleDraft, TrashItem } from '../../types';
 import * as db from '../../utils/db';
 import { logAction } from './helpers';
 import { getLocalDateString } from '../../utils/dateUtils';
@@ -17,7 +17,7 @@ const DEFAULT_SALE_DRAFT: SaleDraft = {
     }
 };
 
-export const salesReducer = (state: AppState, action: Action): AppState => {
+export const salesReducer = (state: DataState, action: Action): DataState => {
     let newLog: any;
     const touch = { lastLocalUpdate: Date.now() };
 

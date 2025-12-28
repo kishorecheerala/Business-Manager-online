@@ -1,7 +1,7 @@
 import React, { useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, ArrowUpRight, ArrowDownLeft, Calendar, TrendingUp, User, Package, History, AlertCircle } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
 import { Product } from '../types';
 import Card from './Card';
 import Button from './Button';
@@ -24,7 +24,7 @@ interface HistoryEntry {
 }
 
 const ProductHistoryModal: React.FC<ProductHistoryModalProps> = ({ isOpen, onClose, product }) => {
-    const { state } = useAppContext();
+    const { state } = useData();
 
     useEffect(() => {
         if (isOpen) document.body.style.overflow = 'hidden';

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Search, User, Package, Boxes, ShoppingCart, QrCode, Mic } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
+import { useUI } from '../context/UIContext';
 import { Page } from '../types';
 import { Customer, Supplier, Product, Sale, Purchase } from '../types';
 import QRScannerModal from './QRScannerModal';
@@ -22,7 +23,8 @@ interface UniversalSearchProps {
 }
 
 const UniversalSearch: React.FC<UniversalSearchProps> = ({ isOpen, onClose, onNavigate }) => {
-    const { state, showToast } = useAppContext();
+    const { state } = useData();
+    const { showToast } = useUI();
     const { searchTerm, setSearchTerm, results } = useUniversalSearch(state);
     const [isScanning, setIsScanning] = useState(false);
     const [isListening, setIsListening] = useState(false);

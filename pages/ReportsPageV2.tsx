@@ -9,7 +9,8 @@ import {
     Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     AreaChart, Area, ScatterChart, Scatter, ComposedChart, FunnelChart, Funnel as RechartsFunnel, LabelList, Treemap
 } from 'recharts';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
+import { useUI } from '../context/UIContext';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import Dropdown from '../components/Dropdown';
@@ -62,7 +63,8 @@ interface ReportsPageProps {
 }
 
 const ReportsPageV2: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
-    const { state, showToast } = useAppContext();
+    const { state } = useData();
+    const { showToast } = useUI();
     const [viewMode, setViewMode] = useState<'list' | 'builder' | 'view'>('list');
     const [selectedReport, setSelectedReport] = useState<ReportConfig | null>(null);
     const [activeCategory, setActiveCategory] = useState('All');

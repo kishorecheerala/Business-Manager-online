@@ -1,8 +1,7 @@
-import { Action } from "../AppContext";
-import { AppState, TrashItem } from "../../types";
+import { Action, DataState, TrashItem } from "../../types";
 import * as db from "../../utils/db";
 
-export const trashReducer = (state: AppState, action: Action): AppState => {
+export const trashReducer = (state: DataState, action: Action): DataState => {
     const touch = { lastLocalUpdate: Date.now() };
 
     switch (action.type) {
@@ -16,11 +15,11 @@ export const trashReducer = (state: AppState, action: Action): AppState => {
         }
 
         case 'RESTORE_FROM_TRASH': {
-            const itemToRestore = state.trash.find(t => t.id === action.payload);
+            const itemToRestore = state.trash.find(t => t.id === action.payload.id);
             if (!itemToRestore) return state;
 
-            db.deleteFromTrash(action.payload);
-            return { ...state, trash: state.trash.filter(t => t.id !== action.payload), ...touch };
+            db.deleteFromTrash(action.payload.id);
+            return { ...state, trash: state.trash.filter(t => t.id !== action.payload.id), ...touch };
         }
 
         case 'EMPTY_TRASH': {

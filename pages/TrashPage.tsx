@@ -1,7 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { Trash2, RotateCcw, X, Search, Filter } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
+import { useUI } from '../context/UIContext';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import Input from '../components/Input';
@@ -14,7 +15,8 @@ interface TrashPageProps {
 }
 
 const TrashPage: React.FC<TrashPageProps> = ({ setCurrentPage }) => {
-  const { state, dispatch, showToast } = useAppContext();
+  const { state, dispatch } = useData();
+  const { showToast } = useUI();
   const { showConfirm } = useDialog();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
@@ -61,52 +63,52 @@ const TrashPage: React.FC<TrashPageProps> = ({ setCurrentPage }) => {
     let sub = '';
 
     switch (item.originalStore) {
-        case 'sales':
-            title = `Sale Invoice #${data.id}`;
-            sub = `Total: ₹${data.totalAmount} | Date: ${new Date(data.date).toLocaleDateString()}`;
-            break;
-        case 'purchases':
-            title = `Purchase #${data.id}`;
-            sub = `Total: ₹${data.totalAmount} | Date: ${new Date(data.date).toLocaleDateString()}`;
-            break;
-        case 'expenses':
-            title = `Expense: ${data.category}`;
-            sub = `Amount: ₹${data.amount} | Note: ${data.note || '-'}`;
-            break;
-        case 'quotes':
-            title = `Estimate #${data.id}`;
-            sub = `Total: ₹${data.totalAmount}`;
-            break;
-        case 'customers':
-            title = `Customer: ${data.name}`;
-            sub = `Phone: ${data.phone}`;
-            break;
-        default:
-            title = `${item.originalStore} #${item.id}`;
-            break;
+      case 'sales':
+        title = `Sale Invoice #${data.id}`;
+        sub = `Total: ₹${data.totalAmount} | Date: ${new Date(data.date).toLocaleDateString()}`;
+        break;
+      case 'purchases':
+        title = `Purchase #${data.id}`;
+        sub = `Total: ₹${data.totalAmount} | Date: ${new Date(data.date).toLocaleDateString()}`;
+        break;
+      case 'expenses':
+        title = `Expense: ${data.category}`;
+        sub = `Amount: ₹${data.amount} | Note: ${data.note || '-'}`;
+        break;
+      case 'quotes':
+        title = `Estimate #${data.id}`;
+        sub = `Total: ₹${data.totalAmount}`;
+        break;
+      case 'customers':
+        title = `Customer: ${data.name}`;
+        sub = `Phone: ${data.phone}`;
+        break;
+      default:
+        title = `${item.originalStore} #${item.id}`;
+        break;
     }
 
     return (
-        <div className="flex-grow min-w-0">
-            <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold uppercase bg-gray-100 dark:bg-slate-700 px-1.5 py-0.5 rounded text-gray-500 dark:text-gray-400">
-                    {item.originalStore}
-                </span>
-                <h3 className="font-bold text-gray-800 dark:text-white truncate">{title}</h3>
-            </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{sub}</p>
-            <p className="text-xs text-red-400 mt-1">Deleted: {new Date(item.deletedAt).toLocaleString()}</p>
+      <div className="flex-grow min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-bold uppercase bg-gray-100 dark:bg-slate-700 px-1.5 py-0.5 rounded text-gray-500 dark:text-gray-400">
+            {item.originalStore}
+          </span>
+          <h3 className="font-bold text-gray-800 dark:text-white truncate">{title}</h3>
         </div>
+        <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{sub}</p>
+        <p className="text-xs text-red-400 mt-1">Deleted: {new Date(item.deletedAt).toLocaleString()}</p>
+      </div>
     );
   };
 
   const filterOptions = [
-      { value: 'all', label: 'All Types' },
-      { value: 'sales', label: 'Sales' },
-      { value: 'purchases', label: 'Purchases' },
-      { value: 'expenses', label: 'Expenses' },
-      { value: 'quotes', label: 'Estimates' },
-      { value: 'customers', label: 'Customers' }
+    { value: 'all', label: 'All Types' },
+    { value: 'sales', label: 'Sales' },
+    { value: 'purchases', label: 'Purchases' },
+    { value: 'expenses', label: 'Expenses' },
+    { value: 'quotes', label: 'Estimates' },
+    { value: 'customers', label: 'Customers' }
   ];
 
   return (
@@ -123,52 +125,52 @@ const TrashPage: React.FC<TrashPageProps> = ({ setCurrentPage }) => {
 
       <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border dark:border-slate-700 flex flex-col sm:flex-row gap-4">
         <div className="relative flex-grow">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-            <Input 
-                type="text" 
-                placeholder="Search deleted items..." 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 focus:ring-red-500"
-            />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <Input
+            type="text"
+            placeholder="Search deleted items..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 focus:ring-red-500"
+          />
         </div>
         <div className="relative min-w-[150px]">
-            <Dropdown 
-                options={filterOptions}
-                value={filterType}
-                onChange={setFilterType}
-                icon="chevron"
-            />
+          <Dropdown
+            options={filterOptions}
+            value={filterType}
+            onChange={setFilterType}
+            icon="chevron"
+          />
         </div>
       </div>
 
       {filteredItems.length === 0 ? (
-          <div className="text-center py-12 bg-gray-50 dark:bg-slate-800/50 rounded-xl border-2 border-dashed border-gray-200 dark:border-slate-700">
-              <Trash2 size={48} className="mx-auto text-gray-300 dark:text-slate-600 mb-4" />
-              <p className="text-gray-500 dark:text-gray-400 font-medium">Bin is empty</p>
-              <p className="text-sm text-gray-400">No deleted items found matching your criteria.</p>
-          </div>
+        <div className="text-center py-12 bg-gray-50 dark:bg-slate-800/50 rounded-xl border-2 border-dashed border-gray-200 dark:border-slate-700">
+          <Trash2 size={48} className="mx-auto text-gray-300 dark:text-slate-600 mb-4" />
+          <p className="text-gray-500 dark:text-gray-400 font-medium">Bin is empty</p>
+          <p className="text-sm text-gray-400">No deleted items found matching your criteria.</p>
+        </div>
       ) : (
-          <div className="grid gap-3">
-              {filteredItems.map(item => (
-                  <div key={item.id} className="bg-white dark:bg-slate-800 p-4 rounded-xl border dark:border-slate-700 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 group hover:border-red-200 dark:hover:border-red-900/50 transition-colors">
-                      <div className="flex items-start gap-3 overflow-hidden">
-                          <div className="p-2 bg-gray-100 dark:bg-slate-700 rounded-lg shrink-0 text-gray-500">
-                             <Trash2 size={20} />
-                          </div>
-                          {renderItemDetails(item)}
-                      </div>
-                      <div className="flex gap-2 shrink-0 self-end sm:self-center">
-                          <Button onClick={() => handleRestore(item)} className="h-9 text-xs bg-emerald-600 hover:bg-emerald-700">
-                              <RotateCcw size={14} className="mr-1.5" /> Restore
-                          </Button>
-                          <Button onClick={() => handleDeletePermanently(item.id)} variant="secondary" className="h-9 text-xs text-red-600 hover:bg-red-50 border-red-100">
-                              <X size={14} className="mr-1.5" /> Delete Forever
-                          </Button>
-                      </div>
-                  </div>
-              ))}
-          </div>
+        <div className="grid gap-3">
+          {filteredItems.map(item => (
+            <div key={item.id} className="bg-white dark:bg-slate-800 p-4 rounded-xl border dark:border-slate-700 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 group hover:border-red-200 dark:hover:border-red-900/50 transition-colors">
+              <div className="flex items-start gap-3 overflow-hidden">
+                <div className="p-2 bg-gray-100 dark:bg-slate-700 rounded-lg shrink-0 text-gray-500">
+                  <Trash2 size={20} />
+                </div>
+                {renderItemDetails(item)}
+              </div>
+              <div className="flex gap-2 shrink-0 self-end sm:self-center">
+                <Button onClick={() => handleRestore(item)} className="h-9 text-xs bg-emerald-600 hover:bg-emerald-700">
+                  <RotateCcw size={14} className="mr-1.5" /> Restore
+                </Button>
+                <Button onClick={() => handleDeletePermanently(item.id)} variant="secondary" className="h-9 text-xs text-red-600 hover:bg-red-50 border-red-100">
+                  <X size={14} className="mr-1.5" /> Delete Forever
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { User, Archive, Sparkles, Volume2, StopCircle, ArrowRight, UserX, RotateCw, Loader2, Phone, X, BrainCircuit } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
+import { useUI } from '../context/UIContext';
 import Button from './Button';
 import { Page, Customer, Sale, Purchase, Return, Expense, Product } from '../types';
 import { GoogleGenAI, Modality } from "@google/genai";
@@ -41,7 +42,7 @@ const SmartAnalystCard: React.FC<{
     ownerName: string,
     onNavigate: (page: Page, id: string) => void;
 }> = ({ sales, products, customers, purchases, returns, expenses, ownerName, onNavigate }) => {
-    const { showToast } = useAppContext();
+    const { showToast } = useUI();
     const [detailType, setDetailType] = useState<'deadStock' | 'churn' | null>(null);
     const [aiBriefing, setAiBriefing] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
@@ -128,8 +129,8 @@ const SmartAnalystCard: React.FC<{
                 contents: [{ role: 'user', parts: [{ text: prompt }] }]
             });
 
-            if (response.response.text()) {
-                setAiBriefing(response.response.text());
+            if ((response as any).response.text()) {
+                setAiBriefing((response as any).response.text());
             }
         } catch (error) {
             console.error("AI Error", error);

@@ -5,7 +5,8 @@ import Dropdown from './Dropdown';
 import ModernDateInput from './ModernDateInput';
 import Input from './Input';
 import FormattedNumberInput from './FormattedNumberInput';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
+import { useUI } from '../context/UIContext';
 import { Smartphone } from 'lucide-react';
 
 interface PaymentModalProps {
@@ -37,7 +38,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     type = 'sale',
     title = 'Add Payment'
 }) => {
-    const { state, showToast } = useAppContext();
+    const { state } = useData();
+    const { showToast } = useUI();
 
     if (!isOpen) return null;
 

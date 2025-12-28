@@ -5,7 +5,8 @@ import Button from './Button';
 import Input from './Input';
 import Dropdown from './Dropdown';
 import { Customer } from '../types';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
+import { useUI } from '../context/UIContext';
 import { X, User, Phone, MapPin, LocateFixed } from 'lucide-react';
 
 interface AddCustomerModalProps {
@@ -16,7 +17,7 @@ interface AddCustomerModalProps {
 }
 
 const AddCustomerModal: React.FC<AddCustomerModalProps> = ({ isOpen, onClose, onAdd, existingCustomers }) => {
-    const { showToast } = useAppContext();
+    const { showToast } = useUI();
     const [newCustomer, setNewCustomer] = useState({ id: '', name: '', phone: '', address: '', area: '', reference: '', priceTier: 'RETAIL' as 'RETAIL' | 'WHOLESALE' });
 
     useEffect(() => {

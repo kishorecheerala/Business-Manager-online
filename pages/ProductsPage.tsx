@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, List, Grid, QrCode, CheckSquare, AlertTriangle, FileSpreadsheet, Scale, History, Plus, Trash2, Share2, IndianRupee, Barcode } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
+import { useUI } from '../context/UIContext';
 import { Product } from '../types';
 import { formatCurrency, generateDownloadFilename } from '../utils/formatUtils';
 import Button from '../components/Button';
@@ -11,6 +12,7 @@ import StockAdjustmentModal from '../components/StockAdjustmentModal';
 import ProductHistoryModal from '../components/ProductHistoryModal';
 import BatchPriceModal from '../components/BatchPriceModal';
 import QRScannerModal from '../components/QRScannerModal';
+import { useDataLookups } from '../hooks/useDataLookups';
 
 // Refactored Components
 import ProductList from '../components/products/ProductList';
@@ -34,8 +36,10 @@ const dataURLtoFile = (dataurl: string, filename: string) => {
 };
 
 const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
-    const { state, dispatch, showToast } = useAppContext();
+    const { state, dispatch } = useData();
+    const { showToast } = useUI();
     const { showConfirm } = useDialog();
+    const { getProduct } = useDataLookups();
     const [searchTerm, setSearchTerm] = useState('');
 
     // View Modes
@@ -285,7 +289,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                     onClose={() => setIsScannerOpen(false)}
                     onScanned={(code) => {
                         setIsScannerOpen(false);
-                        const prod = state.products.find(p => p.id === code);
+                        const prod = getProduct(code);
                         if (prod) {
                             setSelectedProduct(prod);
                             setEditedProduct(prod);

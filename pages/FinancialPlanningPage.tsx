@@ -8,7 +8,7 @@ import {
     Tooltip, Legend, ResponsiveContainer, AreaChart, Area, ComposedChart,
     PieChart, Pie, Cell
 } from 'recharts';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import { Budget, FinancialScenario, ExpenseCategory, FinancialGoal } from '../types';
@@ -18,7 +18,7 @@ import { getLocalDateString } from '../utils/dateUtils';
 import FormattedNumberInput from '../components/FormattedNumberInput';
 
 const FinancialPlanningPage: React.FC = () => {
-    const { state, dispatch, showToast } = useAppContext();
+    const { state, dispatch, showToast } = useData();
     const [activeTab, setActiveTab] = useState<'budgets' | 'forecasting' | 'scenarios' | 'tax' | 'goals'>('budgets');
 
     // --- Data Prep ---

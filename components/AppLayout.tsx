@@ -4,7 +4,9 @@ import {
     Plus, X, Settings, ShoppingCart, UserPlus, PackagePlus, Receipt, Undo2, FileText, Package, BarChart2, Layout
 } from 'lucide-react';
 import { Page, AppMetadata } from '../types';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
+import { useUI } from '../context/UIContext';
+import { useAuth } from '../context/AuthContext';
 import { useDialog } from '../context/DialogContext';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
 import NavItem from './NavItem';
@@ -44,7 +46,13 @@ const AppLayout: React.FC<AppLayoutProps> = ({
     currentPage,
     onNavigate
 }) => {
-    const { state, dispatch, syncData, showToast, lockApp } = useAppContext();
+    const { state, dispatch, syncData } = useData();
+    const { uiState, uiDispatch, showToast } = useUI();
+    const { theme, uiPreferences, navOrder, themeColor, themeGradient } = uiState;
+    const { authState, authDispatch, lockApp, unlockApp } = useAuth();
+    const { isAuthenticated, isLocked, pin, isStaffMode, protectedPages, googleUser } = authState;
+    const { isOnline, syncStatus, lastSyncTime } = state; // state contains: isOnline, syncStatus, lastSyncTime, profile, notifications
+
     const { showConfirm } = useDialog();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isSignInModalOpen, setIsSignInModalOpen] = useState(false);
@@ -97,8 +105,8 @@ const AppLayout: React.FC<AppLayoutProps> = ({
     };
 
     const toggleTheme = () => {
-        const newTheme = state.theme === 'light' ? 'dark' : 'light';
-        dispatch({ type: 'SET_THEME', payload: newTheme });
+        const newTheme = theme === 'light' ? 'dark' : 'light';
+        uiDispatch({ type: 'SET_THEME', payload: newTheme });
     };
 
     const handleLockApp = () => {
@@ -120,11 +128,11 @@ const AppLayout: React.FC<AppLayoutProps> = ({
 
     // Prepare Nav Items
     const { mainNavItems, pinnedItems, mobilePinnedItems, mobileMoreItems } = useMemo(() => {
-        const order = state.navOrder || [];
+        const order = navOrder || [];
 
         const mainNavItems = order
             .filter(id => id !== 'SYSTEM_OPTIMIZER')
-            .filter(id => !state.isStaffMode || !RESTRICTED_PAGES.includes(id as Page))
+            .filter(id => !isStaffMode || !RESTRICTED_PAGES.includes(id as Page))
             .map(id => ({
                 page: id, label: LABEL_MAP[id] || id, icon: ICON_MAP[id] || HelpCircle
             }));
@@ -144,14 +152,14 @@ const AppLayout: React.FC<AppLayoutProps> = ({
         const mobileMoreItems = mobileRestIds.map(id => ({ page: id, label: LABEL_MAP[id] || id, icon: ICON_MAP[id] || HelpCircle }));
 
         return { mainNavItems, pinnedItems, mobilePinnedItems, mobileMoreItems };
-    }, [state.navOrder, state.isStaffMode]);
+    }, [navOrder, isStaffMode]);
 
     const mainClass = currentPage === 'INVOICE_DESIGNER'
         ? 'h-[100dvh] overflow-hidden'
         : `min-h-screen pt-[7rem]`;
 
     let navContainerClass = 'bg-theme';
-    if (state.uiPreferences?.navStyle === 'floating') {
+    if (uiPreferences?.navStyle === 'floating') {
         navContainerClass += ' bottom-4 left-4 right-4 rounded-2xl shadow-xl';
     } else {
         navContainerClass += ' bottom-0 left-0 right-0 border-t border-white/20';
@@ -159,33 +167,33 @@ const AppLayout: React.FC<AppLayoutProps> = ({
 
     // --- Security Logic ---
     const isPageProtected = useMemo(() => {
-        return state.protectedPages.includes(currentPage);
-    }, [state.protectedPages, currentPage]);
+        return protectedPages.includes(currentPage);
+    }, [protectedPages, currentPage]);
 
-    const requiresAuth = isPageProtected && !state.isAuthenticated;
-    const showLockScreen = state.isLocked || requiresAuth;
+    const requiresAuth = isPageProtected && !isAuthenticated;
+    const showLockScreen = isLocked || requiresAuth;
 
     const handleUnlock = () => {
-        if (state.isLocked) {
-            dispatch({ type: 'UNLOCK_APP' });
+        if (isLocked) {
+            unlockApp();
         } else {
-            dispatch({ type: 'SET_AUTHENTICATED', payload: true });
+            authDispatch({ type: 'SET_AUTHENTICATED', payload: true });
         }
     };
 
-    if (showLockScreen && state.pin) {
+    if (showLockScreen && pin) {
         return (
             <Suspense fallback={null}>
                 <PinModal
                     mode="enter"
-                    correctPin={state.pin}
+                    correctPin={pin}
                     onCorrectPin={handleUnlock}
                     onResetRequest={() => {
                         showConfirm("Resetting passcode will remove all security locks.", { variant: 'danger' }).then(confirmed => {
                             if (confirmed) {
-                                dispatch({ type: 'SET_PIN', payload: null });
-                                dispatch({ type: 'UNLOCK_APP' });
-                                dispatch({ type: 'SET_AUTHENTICATED', payload: true });
+                                authDispatch({ type: 'SET_PIN', payload: null });
+                                unlockApp();
+                                authDispatch({ type: 'SET_AUTHENTICATED', payload: true });
                             }
                         });
                     }}
@@ -254,27 +262,27 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                                     {state.profile?.name || (state.profile?.ownerName || 'Saree Business Manager')}
                                 </h1>
                                 <div className="flex items-center gap-1.5 mt-0.5 animate-fade-in-fast">
-                                    {state.googleUser ? (
+                                    {googleUser ? (
                                         <>
                                             <span className="text-[10px] sm:text-xs font-medium text-white/95 truncate max-w-[150px] drop-shadow-sm">
-                                                {state.googleUser.name}
+                                                {googleUser.name}
                                             </span>
                                             <div className="relative flex h-2 w-2 shrink-0">
-                                                {state.isOnline && state.syncStatus !== 'error' && (
+                                                {isOnline && syncStatus !== 'error' && (
                                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                                                 )}
-                                                <span className={`relative inline-flex rounded-full h-2 w-2 ${!state.isOnline || state.syncStatus === 'error' ? 'bg-red-500' : 'bg-green-400'} shadow-sm`}></span>
+                                                <span className={`relative inline-flex rounded-full h-2 w-2 ${!isOnline || syncStatus === 'error' ? 'bg-red-500' : 'bg-green-400'} shadow-sm`}></span>
                                             </div>
 
                                             {/* Last Synced Time - Aligned Single Line */}
                                             <div className="flex items-center gap-1.5">
                                                 <span className="hidden sm:inline text-xs font-medium text-white/90">
-                                                    {state.syncStatus === 'syncing' ? 'Status:' :
-                                                        state.syncStatus === 'error' ? 'Status:' :
+                                                    {syncStatus === 'syncing' ? 'Status:' :
+                                                        syncStatus === 'error' ? 'Status:' :
                                                             'Last Synced:'}
                                                 </span>
                                                 <span className="text-[10px] sm:text-xs font-bold text-white drop-shadow-md flex items-center">
-                                                    {state.syncStatus === 'syncing' ? (
+                                                    {syncStatus === 'syncing' ? (
                                                         <>
                                                             Syncing
                                                             <span className="animate-bounce-dot mx-[1px]" style={{ animationDelay: '0s' }}>.</span>
@@ -282,8 +290,8 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                                                             <span className="animate-bounce-dot mx-[1px]" style={{ animationDelay: '0.4s' }}>.</span>
                                                         </>
                                                     ) :
-                                                        state.syncStatus === 'error' ? 'Failed' :
-                                                            state.lastSyncTime ? formatDateTime(state.lastSyncTime).split(', ')[1] :
+                                                        syncStatus === 'error' ? 'Failed' :
+                                                            lastSyncTime ? formatDateTime(lastSyncTime).split(', ')[1] :
                                                                 'Not synced'}
                                                 </span>
                                             </div>
@@ -296,7 +304,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                         </div>
 
                         <div className="flex items-center gap-1 sm:gap-2 z-20">
-                            {!state.isOnline && (
+                            {!isOnline && (
                                 <div className="hidden sm:flex items-center gap-1 px-2 py-1 bg-red-500/20 rounded-full border border-red-400/50 mr-1 animate-pulse">
                                     <WifiOff size={14} className="text-white" />
                                     <span className="text-[10px] font-bold text-white">Offline</span>
@@ -308,7 +316,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                                 className="p-2 hover:bg-white/20 rounded-full transition-colors hidden sm:block"
                                 title="Toggle Theme"
                             >
-                                {state.theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+                                {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
                             </button>
 
                             <div className="flex items-center gap-2">
@@ -316,7 +324,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        if (!state.googleUser) {
+                                        if (!googleUser) {
                                             setIsSignInModalOpen(true);
                                         } else {
                                             syncData();
@@ -334,7 +342,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                                     ) : state.syncStatus === 'error' ? (
                                         <CloudOff size={20} className="text-red-300" />
                                     ) : (
-                                        <Cloud size={20} className={!state.googleUser ? "opacity-70" : ""} />
+                                        <Cloud size={20} className={!googleUser ? "opacity-70" : ""} />
                                     )}
                                 </button>
                             </div>
@@ -396,9 +404,9 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                     {/* Mobile Navigation View */}
                     {/* Mobile Navigation Bar - Now Themed */}
                     <nav
-                        className={`md:hidden fixed z-[40] transition-all duration-500 pb-safe animate-slide-up-fade ${state.uiPreferences?.navStyle === 'floating' ? 'bottom-4 left-4 right-4 rounded-2xl shadow-xl' : 'bottom-0 left-0 right-0 rounded-t-[30px] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] border-t border-white/10'}`}
+                        className={`md:hidden fixed z-[40] transition-all duration-500 pb-safe animate-slide-up-fade ${uiPreferences?.navStyle === 'floating' ? 'bottom-4 left-4 right-4 rounded-2xl shadow-xl' : 'bottom-0 left-0 right-0 rounded-t-[30px] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] border-t border-white/10'}`}
                         style={{
-                            background: state.themeGradient || state.themeColor || (state.theme === 'dark' ? '#0f172a' : '#ffffff'),
+                            background: themeGradient || themeColor || (theme === 'dark' ? '#0f172a' : '#ffffff'),
                             backdropFilter: 'blur(12px)',
                         }}
                     >
@@ -407,7 +415,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                             {mobilePinnedItems.map((item) => {
                                 const Icon = item.icon;
                                 const isActive = currentPage === item.page;
-                                const isThemed = !!(state.themeGradient || state.themeColor);
+                                const isThemed = !!(themeGradient || themeColor);
                                 return (
                                     <div key={item.page} className="flex-1 max-w-[4.5rem]">
                                         <button
@@ -430,7 +438,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                                 <button
                                     onClick={() => setIsMoreMenuOpen(true)}
                                     className={`flex flex-col items-center justify-center w-full pt-2 pb-1 px-1 rounded-xl transition-all duration-300 group ${isMoreMenuOpen ? 'scale-105 font-bold' : 'opacity-80 hover:opacity-100'}`}
-                                    style={{ color: (state.themeGradient || state.themeColor) ? 'white' : undefined }}
+                                    style={{ color: (themeGradient || themeColor) ? 'white' : undefined }}
                                 >
                                     <div className={`p-1 rounded-full mb-0.5 transition-colors ${isMoreMenuOpen ? 'bg-white/20' : ''}`}
                                     >
@@ -445,7 +453,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                                 <button
                                     onClick={() => setIsMobileQuickAddOpen(true)}
                                     className={`flex flex-col items-center justify-center w-full pt-2 pb-1 px-1 rounded-xl transition-all duration-300 group ${isMobileQuickAddOpen ? 'scale-105 font-bold' : 'opacity-80 hover:opacity-100'}`}
-                                    style={{ color: (state.themeGradient || state.themeColor) ? 'white' : undefined }}
+                                    style={{ color: (themeGradient || themeColor) ? 'white' : undefined }}
                                 >
                                     <div className={`p-1 rounded-full mb-0.5 transition-colors ${isMobileQuickAddOpen ? 'bg-white/20' : ''}`}
                                     >
@@ -512,7 +520,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                                             onClick={item.onClick}
                                             className="w-12 h-12 rounded-full shadow-lg shadow-black/20 flex items-center justify-center text-white hover:scale-110 active:scale-95 transition-all text-white border-2 border-white/20"
                                             style={{
-                                                background: state.themeGradient || state.themeColor || '#0f172a'
+                                                background: themeGradient || themeColor || '#0f172a'
                                             }}
                                         >
                                             <item.icon size={20} strokeWidth={2.5} />
@@ -583,7 +591,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                                             onClick={item.onClick}
                                             className="w-12 h-12 rounded-full shadow-lg shadow-black/20 flex items-center justify-center text-white hover:scale-110 active:scale-95 transition-all text-white border-2 border-white/20"
                                             style={{
-                                                background: state.themeGradient || state.themeColor || '#0f172a'
+                                                background: themeGradient || themeColor || '#0f172a'
                                             }}
                                         >
                                             <item.icon size={20} strokeWidth={2.5} />

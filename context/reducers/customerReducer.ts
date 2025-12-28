@@ -1,18 +1,17 @@
-import { Action } from "../AppContext";
-import { AppState, Customer, AuditLogEntry } from "../../types";
+import { Action, DataState, Customer, AuditLogEntry } from "../../types";
 import * as db from "../../utils/db";
 
-export const customerReducer = (state: AppState, action: Action): AppState => {
+export const customerReducer = (state: DataState, action: Action): DataState => {
     const touch = { lastLocalUpdate: Date.now() };
 
     switch (action.type) {
         case 'ADD_CUSTOMER': {
             const newCustomer = { ...action.payload, updatedAt: new Date().toISOString() };
             db.upsertItem('customers', newCustomer);
-            const newLog: AuditLogEntry = {
+            const newLog = {
                 id: `LOG-${Date.now()}`,
                 timestamp: new Date().toISOString(),
-                user: state.googleUser?.email || state.profile?.ownerName || 'User',
+                user: state.profile?.ownerName || 'User',
                 action: 'Customer Added',
                 details: newCustomer.name
             };
@@ -29,10 +28,10 @@ export const customerReducer = (state: AppState, action: Action): AppState => {
             const updatedCustomer: Customer = { ...action.payload, updatedAt: new Date().toISOString() };
             const updatedCustomers = state.customers.map(c => c.id === updatedCustomer.id ? updatedCustomer : c);
             db.upsertItem('customers', updatedCustomer);
-            const newLog: AuditLogEntry = {
+            const newLog = {
                 id: `LOG-${Date.now()}`,
                 timestamp: new Date().toISOString(),
-                user: state.googleUser?.email || state.profile?.ownerName || 'User',
+                user: state.profile?.ownerName || 'User',
                 action: 'Updated Customer',
                 details: `ID: ${updatedCustomer.id}`
             };

@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Undo2, Users, Package, Plus, Share2, Edit, Download, Trash2 } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
+import { useUI } from '../context/UIContext';
 import { useDialog } from '../context/DialogContext';
 import { Return, ReturnItem, Sale, Purchase, Customer, Supplier } from '../types';
 import Card from '../components/Card';
@@ -22,7 +23,8 @@ interface ReturnsPageProps {
 }
 
 const ReturnsPage: React.FC<ReturnsPageProps> = ({ setIsDirty }) => {
-    const { state, dispatch, showToast } = useAppContext();
+    const { state, dispatch } = useData();
+    const { showToast } = useUI();
     const { showConfirm } = useDialog();
     const [returnType, setReturnType] = useState<ReturnType>('CUSTOMER');
     const [partyId, setPartyId] = useState('');

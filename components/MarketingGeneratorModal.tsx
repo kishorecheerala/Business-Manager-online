@@ -4,7 +4,7 @@ import { GoogleGenAI } from "@google/genai";
 import Card from './Card';
 import Button from './Button';
 import { Product } from '../types';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
 import { compressImage } from '../utils/imageUtils';
 import { AIController } from '../utils/ai/AIController';
 
@@ -15,7 +15,7 @@ interface MarketingGeneratorModalProps {
 }
 
 const MarketingGeneratorModal: React.FC<MarketingGeneratorModalProps> = ({ isOpen, onClose, product }) => {
-    const { state, showToast } = useAppContext();
+    const { state, showToast } = useData();
     const [mode, setMode] = useState<'IMAGE' | 'VIDEO' | 'REMIX' | 'TEXT'>('IMAGE');
     const [prompt, setPrompt] = useState(`Professional studio shot of ${product.name}, ${product.category || 'product'}, cinematic lighting, 4k resolution.`);
     const [isGenerating, setIsGenerating] = useState(false);

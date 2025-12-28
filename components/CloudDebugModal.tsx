@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, Download, Folder, FileText, RefreshCw, Terminal, AlertTriangle, LogIn, Settings, Trash2 } from 'lucide-react';
 import Card from './Card';
 import Button from './Button';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
 
 import { debugDriveState, getFolderById, createFolder, deleteFile } from '../utils/googleDrive';
 import { useDialog } from '../context/DialogContext';
@@ -16,7 +16,7 @@ interface CloudDebugModalProps {
 }
 
 const CloudDebugModal: React.FC<CloudDebugModalProps> = ({ isOpen, onClose, onOpenAPIConfig }) => {
-    const { state, dispatch, googleSignIn, showToast } = useAppContext();
+    const { state, dispatch, googleSignIn, showToast } = useData();
     const { showConfirm, showAlert } = useDialog();
     const [logs, setLogs] = useState<string[]>([]);
     const [details, setDetails] = useState<any[]>([]);

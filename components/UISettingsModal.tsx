@@ -4,7 +4,8 @@ import { createPortal } from 'react-dom';
 import { X, Save, Layout, Smartphone, CreditCard, Bell, Maximize2, Minimize2, ArrowUp, ArrowDown, Type, Navigation, Palette, Check } from 'lucide-react';
 import Card from './Card';
 import Button from './Button';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
+import { useUI } from '../context/UIContext';
 import { AppMetadataUIPreferences, AppMetadataDashboardConfig } from '../types';
 import { compressImage } from '../utils/imageUtils';
 
@@ -46,9 +47,10 @@ const gradients = [
 ];
 
 const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) => {
-    const { state, dispatch, showToast } = useAppContext();
-    const [prefs, setPrefs] = useState<AppMetadataUIPreferences>(state.uiPreferences);
-    const [dashConfig, setDashConfig] = useState<AppMetadataDashboardConfig>({ ...state.dashboardConfig });
+    const { state } = useData();
+    const { uiState, uiDispatch, showToast } = useUI();
+    const [prefs, setPrefs] = useState<AppMetadataUIPreferences>(uiState.uiPreferences);
+    const [dashConfig, setDashConfig] = useState<AppMetadataDashboardConfig>({ ...uiState.dashboardConfig });
     const logoInputRef = useRef<HTMLInputElement>(null);
 
     // Drag Logic
@@ -99,20 +101,20 @@ const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) =>
         setIsDragging(false);
         dragStartRef.current = null;
     };
-    const [activeFont, setActiveFont] = useState(state.font || 'Inter');
+    const [activeFont, setActiveFont] = useState(uiState.font || 'Inter');
     const [customFont, setCustomFont] = useState('');
     const [scale, setScale] = useState(100); // Percentage for base font size
     const [radius, setRadius] = useState(0.5); // rem
-    const [themeGradient, setThemeGradient] = useState(state.themeGradient || '');
-    const [themeColor, setThemeColor] = useState(state.themeColor || '#8b5cf6');
+    const [themeGradient, setThemeGradient] = useState(uiState.themeGradient || '');
+    const [themeColor, setThemeColor] = useState(uiState.themeColor || '#8b5cf6');
 
 
 
     useEffect(() => {
         if (isOpen) {
-            setPrefs(state.uiPreferences);
-            setDashConfig(state.dashboardConfig);
-            setActiveFont(state.font || 'Inter');
+            setPrefs(uiState.uiPreferences);
+            setDashConfig(uiState.dashboardConfig);
+            setActiveFont(uiState.font || 'Inter');
 
             // Read persisted visual tweaks
             const savedScale = localStorage.getItem('ui_scale');
@@ -121,10 +123,10 @@ const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) =>
             const savedRadius = localStorage.getItem('ui_radius');
             if (savedRadius) setRadius(Number(savedRadius));
 
-            setThemeGradient(state.themeGradient || '');
-            setThemeColor(state.themeColor || '#8b5cf6');
+            setThemeGradient(uiState.themeGradient || '');
+            setThemeColor(uiState.themeColor || '#8b5cf6');
         }
-    }, [isOpen, state.uiPreferences, state.font, state.dashboardConfig, state.themeGradient, state.themeColor]);
+    }, [isOpen, uiState.uiPreferences, uiState.font, uiState.dashboardConfig, uiState.themeGradient, uiState.themeColor]);
 
     // Live Preview Effect
     useEffect(() => {
@@ -151,12 +153,12 @@ const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) =>
 
 
     const handleSave = () => {
-        dispatch({ type: 'UPDATE_UI_PREFERENCES', payload: prefs });
-        dispatch({ type: 'UPDATE_DASHBOARD_CONFIG', payload: dashConfig });
+        uiDispatch({ type: 'UPDATE_UI_PREFS', payload: prefs });
+        uiDispatch({ type: 'UPDATE_DASHBOARD_CONFIG', payload: dashConfig });
         // Also update standard Theme Metadata for font
-        dispatch({ type: 'SET_FONT', payload: activeFont });
-        dispatch({ type: 'SET_THEME_GRADIENT', payload: themeGradient });
-        dispatch({ type: 'SET_THEME_COLOR', payload: themeColor });
+        uiDispatch({ type: 'SET_FONT', payload: activeFont });
+        uiDispatch({ type: 'SET_THEME_GRADIENT', payload: themeGradient });
+        uiDispatch({ type: 'SET_THEME_COLOR', payload: themeColor });
         localStorage.setItem('themeGradient', themeGradient);
         localStorage.setItem('themeColor', themeColor);
         // Persist Scale/Radius via a metadata update or simply localStorage for now if types not updated

@@ -4,7 +4,9 @@ import { createPortal } from 'react-dom';
 import { X, Database, Terminal, CloudLightning, Zap, Trash2, RefreshCw, HardDrive, Save, AlertTriangle, Bell, Bug, History, RotateCcw, PlusCircle, Server, Activity, Cloud, MessageSquare } from 'lucide-react';
 import Card from './Card';
 import Button from './Button';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
+import { useUI } from '../context/UIContext';
+import { useAuth } from '../context/AuthContext';
 import { formatDateTime } from '../utils/formatUtils';
 import * as db from '../utils/db';
 import { testData, testProfile } from '../utils/testData';
@@ -20,7 +22,9 @@ interface DeveloperToolsModalProps {
 }
 
 const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({ isOpen, onClose, onOpenCloudDebug, onOpenAPIConfig }) => {
-    const { state, dispatch, showToast } = useAppContext();
+    const { state, dispatch } = useData();
+    const { uiState, showToast } = useUI();
+    const { authState } = useAuth();
     const { showConfirm, showPrompt } = useDialog();
     const [activeTab, setActiveTab] = useState<'general' | 'state' | 'db' | 'broadcast' | 'stress' | 'danger'>('general');
     const [storageEstimate, setStorageEstimate] = useState<{ usage: number, quota: number } | null>(null);
@@ -338,7 +342,7 @@ const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({ isOpen, onClo
                             <HardDrive size={16} /> Backup Control
                         </button>
 
-                        {state.googleUser?.email === 'cheeralakishore@gmail.com' && (
+                        {authState.googleUser?.email === 'cheeralakishore@gmail.com' && (
                             <button onClick={() => setActiveTab('broadcast')} className={`p-4 text-left text-sm font-semibold flex items-center gap-2 hover:bg-white dark:hover:bg-slate-700 ${activeTab === 'broadcast' ? 'bg-white dark:bg-slate-700 text-purple-600 dark:text-purple-400 border-r-2 border-purple-600' : 'text-slate-600 dark:text-slate-400'}`}>
                                 <MessageSquare size={16} /> Developer Broadcast
                             </button>
@@ -375,7 +379,7 @@ const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({ isOpen, onClo
                                         <h3 className="text-xs font-bold text-slate-500 uppercase mb-2">App Status</h3>
                                         <div className="space-y-1 text-xs font-mono text-slate-700 dark:text-slate-300">
                                             <p><span className="text-slate-400">Dev Mode:</span> Enabled</p>
-                                            <p><span className="text-slate-400">Theme:</span> {state.theme}</p>
+                                            <p><span className="text-slate-400">Theme:</span> {uiState.theme}</p>
                                             <p><span className="text-slate-400">DB Loaded:</span> Yes</p>
                                             <p><span className="text-slate-400">Sync Status:</span> {state.syncStatus}</p>
                                         </div>

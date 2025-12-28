@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Customer, Supplier, Product, Sale, Purchase, AppState } from '../types';
+import { Customer, Supplier, Product, Sale, Purchase, DataState } from '../types';
 
 interface SearchResults {
     customers: Customer[];
@@ -9,7 +9,7 @@ interface SearchResults {
     purchases: Purchase[];
 }
 
-export const useUniversalSearch = (state: AppState) => {
+export const useUniversalSearch = (state: DataState) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [results, setResults] = useState<SearchResults>({ customers: [], suppliers: [], products: [], sales: [], purchases: [] });
 

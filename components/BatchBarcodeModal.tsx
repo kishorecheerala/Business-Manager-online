@@ -7,7 +7,7 @@ import Button from './Button';
 import FormattedNumberInput from './FormattedNumberInput';
 import { X, Download, Printer } from 'lucide-react';
 import { PurchaseItem } from '../types';
-import { useAppContext } from '../context/AppContext';
+import { useUI } from '../context/UIContext';
 import { generateDownloadFilename } from '../utils/formatUtils';
 
 interface BatchBarcodeModalProps {
@@ -66,7 +66,7 @@ const generateLabelCanvas = (product: { id: string, name: string, salePrice: num
 };
 
 const BatchBarcodeModal: React.FC<BatchBarcodeModalProps> = ({ isOpen, purchaseItems, onClose, businessName, title }) => {
-    const { showToast } = useAppContext();
+    const { showToast } = useUI();
     const [quantities, setQuantities] = useState<{ [key: string]: string }>({});
     const printIframeRef = useRef<HTMLIFrameElement | null>(null);
 

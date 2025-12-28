@@ -9,7 +9,7 @@ import {
 import { StoreName } from '../utils/db'; // We need StoreName for REPLACE_COLLECTION
 
 export type Action =
-    | { type: 'SET_STATE'; payload: Partial<any> } // Using any for AppState to avoid circular dep, or we can separate AppState
+    | { type: 'SET_STATE'; payload: Partial<any> } // Using any for DataState to avoid circular dep, or we can separate DataState
     | { type: 'ADD_CUSTOMER'; payload: Customer }
     | { type: 'UPDATE_CUSTOMER'; payload: Customer }
     | { type: 'ADD_SUPPLIER'; payload: Supplier }
@@ -81,7 +81,7 @@ export type Action =
     | { type: 'RESTORE_FROM_TRASH'; payload: TrashItem }
     | { type: 'PERMANENTLY_DELETE_FROM_TRASH'; payload: string }
     | { type: 'EMPTY_TRASH' }
-    | { type: 'RESTORE_SNAPSHOT'; payload: Partial<any> } // AppState
+    | { type: 'RESTORE_SNAPSHOT'; payload: Partial<any> } // DataState
     // Bank Account Actions
     | { type: 'ADD_BANK_ACCOUNT'; payload: BankAccount }
     | { type: 'UPDATE_BANK_ACCOUNT'; payload: BankAccount }

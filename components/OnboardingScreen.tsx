@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { User, ShoppingBag, ArrowRight, Store } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
 import { ProfileData } from '../types';
 import Button from './Button';
 
@@ -12,7 +12,7 @@ interface OnboardingScreenProps {
 }
 
 const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ isOpen, onClose }) => {
-    const { dispatch, googleSignIn, showToast } = useAppContext();
+    const { dispatch, googleSignIn, showToast } = useData();
     const [businessName, setBusinessName] = useState('');
     const [ownerName, setOwnerName] = useState('');
 

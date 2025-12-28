@@ -165,4 +165,10 @@ export interface AppMetadataStaffMode {
     updatedAt?: string;
 }
 
-export type AppMetadata = AppMetadataPin | AppMetadataBackup | AppMetadataRevenueGoal | AppMetadataLastModified | AppMetadataTheme | AppMetadataInvoiceSettings | AppMetadataNavOrder | AppMetadataQuickActions | AppMetadataUIPreferences | AppMetadataDashboardConfig | AppMetadataLastSync | AppMetadataGoogleUser | AppMetadataAutoCleanup | AppMetadataStaffMode;
+export interface AppMetadataTemplate {
+    id: 'invoiceTemplate' | 'estimateTemplate' | 'debitNoteTemplate' | 'receiptTemplate' | 'reportTemplate';
+    value: InvoiceTemplateConfig;
+    updatedAt?: string;
+}
+
+export type AppMetadata = AppMetadataPin | AppMetadataBackup | AppMetadataRevenueGoal | AppMetadataLastModified | AppMetadataTheme | AppMetadataInvoiceSettings | AppMetadataNavOrder | AppMetadataQuickActions | AppMetadataUIPreferences | AppMetadataDashboardConfig | AppMetadataLastSync | AppMetadataGoogleUser | AppMetadataAutoCleanup | AppMetadataStaffMode | AppMetadataTemplate;

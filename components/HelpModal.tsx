@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Globe, BookOpen, ChevronRight, Search, Zap, DollarSign, FileText, Settings, ShieldCheck, PieChart, Users, Package } from 'lucide-react';
 import Card from './Card';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
 
 // Helper to convert hex to rgba
 const hexToRgba = (hex: string, alpha: number) => {
@@ -863,7 +863,7 @@ const helpContent: Record<string, HelpSection[]> = {
 };
 
 const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
-  // const { state } = useAppContext(); // Not strictly needed for basic rendering but good for theme if we want to sync
+  // const { state } = useData(); // Not strictly needed for basic rendering but good for theme if we want to sync
   const [lang, setLang] = useState<'en' | 'te'>('en');
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({ 'toc': true });
 

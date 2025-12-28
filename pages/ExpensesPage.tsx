@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Plus, Trash2, Filter, Receipt, DollarSign, X, Camera, Image as ImageIcon, ScanLine, Loader2, Edit } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
+import { useUI } from '../context/UIContext';
 import { Expense, ExpenseCategory } from '../types';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -36,7 +37,8 @@ const PAYMENT_METHODS = [
 ];
 
 const ExpensesPage: React.FC<ExpensesPageProps> = ({ setIsDirty }) => {
-    const { state, dispatch, showToast } = useAppContext();
+    const { state, dispatch } = useData();
+    const { showToast } = useUI();
     const { showConfirm } = useDialog();
     const [amount, setAmount] = useState('');
     const [category, setCategory] = useState<ExpenseCategory>('Other');

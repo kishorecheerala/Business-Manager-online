@@ -1,5 +1,5 @@
 
-import { AppState } from '../context/AppContext';
+import { DataState } from '../context/DataContext';
 import { ProfileData, Customer, Supplier, Product, Purchase, Sale, Return, Expense, BankAccount, FinancialGoal, Budget, AppMetadata } from '../types';
 
 // Utility to create dates relative to today

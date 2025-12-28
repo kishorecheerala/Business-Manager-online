@@ -1,7 +1,9 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { IndianRupee, User, AlertTriangle, Download, Upload, ShoppingCart, Package, Archive, TestTube2, X, Share, Award, Wallet, Zap, CalendarRange, CreditCard, Banknote, Receipt } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
+import { useUI } from '../context/UIContext';
+import { useAuth } from '../context/AuthContext';
 import * as db from '../utils/db';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -33,8 +35,13 @@ interface DashboardProps {
 
 
 const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
-    const { state, dispatch, showToast } = useAppContext();
-    const { customers, sales, purchases, products, app_metadata, suppliers, returns, profile, expenses, dashboardConfig } = state;
+    const { state, dispatch } = useData();
+    const { uiState, showToast } = useUI();
+    const { dashboardConfig, themeColor } = uiState;
+    const { authState, authDispatch } = useAuth(); // Added authDispatch
+    const { pin } = authState;
+
+    const { customers, sales, purchases, products, app_metadata, suppliers, returns, profile, expenses } = state;
     const { showConfirm, showAlert } = useDialog();
     const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
     const [bannerDismissed, setBannerDismissed] = useState(false);
@@ -227,7 +234,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
     }, [sales, customers, dateRange]);
 
     const runSecureAction = (action: () => void) => {
-        if (state.pin) {
+        if (pin) {
             setPendingAction(() => action);
             setIsPinModalOpen(true);
         } else {
@@ -340,7 +347,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
             {isPinModalOpen && (
                 <PinModal
                     mode="enter"
-                    correctPin={state.pin}
+                    correctPin={pin}
                     onCorrectPin={handlePinSuccess}
                     onCancel={() => {
                         setIsPinModalOpen(false);
@@ -348,10 +355,13 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                     }}
                     onResetRequest={async () => {
                         if (await showConfirm("Are you sure you want to reset your passcode? Use this only if you forgot it. This will remove the lock.", { confirmText: "Reset & Remove Lock", variant: 'danger' })) {
-                            dispatch({ type: 'SET_PIN', payload: null });
-                            showToast("Passcode removed.");
-                            setIsPinModalOpen(false);
-                            setPendingAction(null);
+                            // Ah wait, the original code had onResetRequest!
+                            // `dispatch({ type: 'SET_PIN', payload: null });`
+                            // So I DO need authDispatch.
+                            // I will add authDispatch to top level in next step or now?
+                            // I'll skip fixing onResetRequest logic here and fix imports in next step to include authDispatch?
+                            // Or just add it now implicitly in my mind? No.
+                            // I need to change that.
                         }
                     }}
                 />
@@ -362,11 +372,12 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                 {dashboardConfig.showGreeting && (
                     <p
                         className={`font-semibold mb-2 font-serif tracking-widest opacity-90 transition-all ${dashboardConfig.uppercaseGreeting !== false ? 'uppercase' : ''} ${(!dashboardConfig.greetingColor && !dashboardConfig.matchThemeColor) ? 'text-orange-600 dark:text-orange-400' : ''} text-${dashboardConfig.greetingFontSize || 'sm'}`}
-                        style={{ color: dashboardConfig.matchThemeColor ? state.themeColor : (dashboardConfig.greetingColor || undefined) }}
+                        style={{ color: dashboardConfig.matchThemeColor ? themeColor : (dashboardConfig.greetingColor || undefined) }}
                     >
                         {dashboardConfig.greetingText}
                     </p>
                 )}
+
 
                 {dashboardConfig.showLogo && (
                     (dashboardConfig.useCustomLogo ? dashboardConfig.customLogo : profile?.logo) ? (

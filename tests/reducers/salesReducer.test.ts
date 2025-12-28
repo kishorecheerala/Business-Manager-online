@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { salesReducer } from '../../context/reducers/salesReducer';
-import { AppState, Sale } from '../../types';
+import { DataState, Sale } from '../../types';
 
 // Mock DB
 vi.mock('../../utils/db', () => ({
@@ -11,7 +11,7 @@ vi.mock('../../utils/db', () => ({
     addToTrash: vi.fn()
 }));
 
-const mockState: AppState = {
+const mockState: DataState = {
     sales: [],
     products: [
         { id: 'p1', name: 'Product 1', quantity: 10, salePrice: 100, purchasePrice: 50, gstPercent: 18, updatedAt: '' },
@@ -21,7 +21,7 @@ const mockState: AppState = {
     audit_logs: [],
     // ... other state fields needed? Reducer copies state so partial might fail if spread
     // We can cast or use a helper
-} as unknown as AppState;
+} as unknown as DataState;
 
 describe('salesReducer', () => {
     it('should add a sale and update product stock', () => {
@@ -45,7 +45,7 @@ describe('salesReducer', () => {
         // Let's check salesReducer implementation.
         // Case 'ADD_SALE': ... upsertItem('sales', newSale); ... returns ...
         // It does NOT update products!
-        // Wait, original AppContext `ADD_SALE` didn't update stock?
+        // Wait, original DataContext `ADD_SALE` didn't update stock?
         // Let's check `UPDATE_SALE` logic which calculates diffs.
         // Usually stock is updated when sale is created.
         // IF `ADD_SALE` creates a draft, maybe no stock update?
@@ -72,7 +72,7 @@ describe('salesReducer', () => {
             products: [
                 { id: 'p1', quantity: 8 }, // Assume stock was 8
             ]
-        } as unknown as AppState;
+        } as unknown as DataState;
 
         const updatedSaleData = {
             id: 's1',

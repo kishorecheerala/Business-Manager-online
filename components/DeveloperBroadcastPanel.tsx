@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Send, History, Trash2, AlertCircle, CheckCircle, Clock, MessageSquare } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
+import { useUI } from '../context/UIContext';
+import { useAuth } from '../context/AuthContext';
 import {
     sendBroadcastNotification,
     getSentMessages,
@@ -18,7 +20,9 @@ interface SentMessage {
 }
 
 const DeveloperBroadcastPanel: React.FC = () => {
-    const { state, showToast } = useAppContext();
+    const { state } = useData();
+    const { showToast } = useUI();
+    const { authState } = useAuth();
     const [title, setTitle] = useState('');
     const [message, setMessage] = useState('');
     const [priority, setPriority] = useState<'low' | 'normal' | 'high' | 'urgent'>('normal');
@@ -29,16 +33,16 @@ const DeveloperBroadcastPanel: React.FC = () => {
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
     // Security check - only show for developer
-    if (state.googleUser?.email !== 'cheeralakishore@gmail.com') {
+    if (authState.googleUser?.email !== 'cheeralakishore@gmail.com') {
         return null;
     }
 
     const loadSentMessages = async () => {
-        if (!state.googleUser?.accessToken) return;
+        if (!authState.googleUser?.accessToken) return;
 
         setIsLoadingHistory(true);
         try {
-            const messages = await getSentMessages(state.googleUser.accessToken);
+            const messages = await getSentMessages(authState.googleUser.accessToken);
             setSentMessages(messages);
         } catch (error) {
             console.error('Failed to load sent messages:', error);
@@ -54,7 +58,7 @@ const DeveloperBroadcastPanel: React.FC = () => {
             return;
         }
 
-        if (!state.googleUser?.accessToken) {
+        if (!authState.googleUser?.accessToken) {
             showToast('Please sign in with Google first', 'error');
             return;
         }
@@ -62,7 +66,7 @@ const DeveloperBroadcastPanel: React.FC = () => {
         setIsSending(true);
         try {
             await sendBroadcastNotification(
-                state.googleUser.accessToken,
+                authState.googleUser.accessToken,
                 title,
                 message,
                 priority,
@@ -88,12 +92,12 @@ const DeveloperBroadcastPanel: React.FC = () => {
     };
 
     const handleDeleteMessage = async (messageId: string) => {
-        if (!state.googleUser?.accessToken) return;
+        if (!authState.googleUser?.accessToken) return;
 
         if (!confirm('Are you sure you want to delete this message?')) return;
 
         try {
-            const success = await deleteBroadcastMessage(state.googleUser.accessToken, messageId);
+            const success = await deleteBroadcastMessage(authState.googleUser.accessToken, messageId);
             if (success) {
                 showToast('Message deleted', 'success');
                 setSentMessages(prev => prev.filter(m => m.id !== messageId));

@@ -3,7 +3,7 @@ import { Search, Command, ArrowRight, CornerDownLeft, Sparkles, X } from 'lucide
 import { useNavigate } from 'react-router-dom';
 import { Page } from '../types';
 import { ICON_MAP, LABEL_MAP } from '../utils/iconMap';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
 import { useHotkeys } from '../hooks/useHotkeys';
 
 interface CommandPaletteProps {
@@ -23,7 +23,7 @@ interface ActionItem {
 }
 
 const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, onNavigate }) => {
-    const { state, dispatch, showToast } = useAppContext();
+    const { state, dispatch, showToast } = useData();
     const [query, setQuery] = useState('');
     const [selectedIndex, setSelectedIndex] = useState(0);
     const inputRef = useRef<HTMLInputElement>(null);

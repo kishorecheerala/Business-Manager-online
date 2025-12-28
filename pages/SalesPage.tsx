@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Plus, Trash2, Share2, Search, X, IndianRupee, QrCode, Save, Edit, PauseCircle, PlayCircle, Clock, History, ArrowRight, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
+import { useUI } from '../context/UIContext';
 import { useDialog } from '../context/DialogContext';
 import { Sale, SaleItem, Customer, Product, Payment, ParkedSale } from '../types';
 import Card from '../components/Card';
@@ -20,6 +21,7 @@ import FormattedNumberInput from '../components/FormattedNumberInput';
 import Dropdown from '../components/Dropdown';
 import MagicOrderModal from '../components/MagicOrderModal';
 import WhatsAppButton from '../components/WhatsAppButton';
+import { useDataLookups } from '../hooks/useDataLookups';
 
 // Refactored Components
 import SalesForm from '../components/sales/SalesForm';
@@ -31,7 +33,9 @@ interface SalesPageProps {
 }
 
 const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
-    const { state, dispatch, showToast } = useAppContext();
+    const { state, dispatch } = useData();
+    const { showToast } = useUI();
+    const { getProduct, getCustomer, productMap } = useDataLookups();
     const { showConfirm } = useDialog();
     const { currentSale, parkedSales } = state;
 
@@ -236,7 +240,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
 
         // Wholesale Pricing Logic
         if (customerId) {
-            const customer = state.customers.find(c => c.id === customerId);
+            const customer = getCustomer(customerId);
             if (customer?.priceTier === 'WHOLESALE' && product.wholesalePrice && product.wholesalePrice > 0) {
                 price = Number(product.wholesalePrice);
                 showToast(`Wholesale price applied for ${product.name}`, 'info');
@@ -274,7 +278,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
 
     const handleProductScanned = (decodedText: string) => {
         setIsScanning(false);
-        const product = state.products.find(p => p.id.toLowerCase() === decodedText.toLowerCase());
+        const product = getProduct(decodedText) || state.products.find(p => p.id.toLowerCase() === decodedText.toLowerCase());
         if (product) {
             handleSelectProduct(product);
         } else {
@@ -284,8 +288,8 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
 
     // Calculate totals for submit validation
     const calculations = useMemo(() => {
-        return calculateTotals(items, parseFloat(discount) || 0, state.products);
-    }, [items, discount, state.products]);
+        return calculateTotals(items, parseFloat(discount) || 0, productMap);
+    }, [items, discount, productMap]);
 
     // Total due for standalone payments
     const customerTotalDue = useMemo(() => {
@@ -351,7 +355,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
             return;
         }
 
-        const customer = state.customers.find(c => c.id === customerId);
+        const customer = getCustomer(customerId);
         if (!customer) {
             showToast("Could not find the selected customer.", 'error');
             return;

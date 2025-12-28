@@ -1,18 +1,17 @@
-import { Action } from "../AppContext";
-import { AppState, Sale, AuditLogEntry, TrashItem, Payment, ParkedSale } from "../../types";
+import { Action, DataState, Sale, AuditLogEntry, TrashItem, Payment, ParkedSale } from "../../types";
 import * as db from "../../utils/db";
 
-export const saleReducer = (state: AppState, action: Action): AppState => {
+export const saleReducer = (state: DataState, action: Action): DataState => {
     const touch = { lastLocalUpdate: Date.now() };
 
     switch (action.type) {
         case 'ADD_SALE': {
             const newSale = action.payload;
             db.upsertItem('sales', newSale);
-            const newLog: AuditLogEntry = {
+            const newLog = {
                 id: `LOG-${Date.now()}`,
                 timestamp: new Date().toISOString(),
-                user: state.googleUser?.email || state.profile?.ownerName || 'User',
+                user: state.profile?.ownerName || 'User',
                 action: 'New Sale',
                 details: `ID: ${newSale.id}, Amt: ${newSale.totalAmount}`
             };
@@ -45,10 +44,10 @@ export const saleReducer = (state: AppState, action: Action): AppState => {
             db.upsertItem('sales', updatedSaleWithTime);
             db.upsertMany('products', productsToUpdate);
 
-            const newLog: AuditLogEntry = {
+            const newLog = {
                 id: `LOG-${Date.now()}`,
                 timestamp: new Date().toISOString(),
-                user: state.googleUser?.email || state.profile?.ownerName || 'User',
+                user: state.profile?.ownerName || 'User',
                 action: 'Updated Sale',
                 details: `ID: ${updatedSale.id}`
             };
@@ -89,10 +88,10 @@ export const saleReducer = (state: AppState, action: Action): AppState => {
             db.deleteFromStore('sales', saleToDelete.id);
             db.upsertMany('products', productsToUpdate);
 
-            const newLog: AuditLogEntry = {
+            const newLog = {
                 id: `LOG-${Date.now()}`,
                 timestamp: new Date().toISOString(),
-                user: state.googleUser?.email || state.profile?.ownerName || 'User',
+                user: state.profile?.ownerName || 'User',
                 action: 'Deleted Sale',
                 details: `ID: ${action.payload}`
             };
@@ -119,10 +118,10 @@ export const saleReducer = (state: AppState, action: Action): AppState => {
             };
             db.upsertItem('sales', updatedSale);
 
-            const newLog: AuditLogEntry = {
+            const newLog = {
                 id: `LOG-${Date.now()}`,
                 timestamp: new Date().toISOString(),
-                user: state.googleUser?.email || state.profile?.ownerName || 'User',
+                user: state.profile?.ownerName || 'User',
                 action: 'Payment Added',
                 details: `Sale ID: ${action.payload.saleId}, Amount: ${action.payload.payment.amount}`
             };
@@ -190,33 +189,7 @@ export const saleReducer = (state: AppState, action: Action): AppState => {
             return { ...state, parkedSales: updatedParkedSales, ...touch };
         }
 
-        case 'UPDATE_CURRENT_SALE':
-            return { ...state, currentSale: { ...state.currentSale, ...action.payload }, ...touch };
 
-        case 'PARK_CURRENT_SALE': {
-            const newParked = { ...state.currentSale, id: `PARKED-${Date.now()}`, parkedAt: Date.now() };
-            const updatedParked = [newParked, ...state.parkedSales];
-            localStorage.setItem('parked_sales', JSON.stringify(updatedParked));
-            return { ...state, parkedSales: updatedParked, currentSale: { customerId: '', items: [], discount: '0', date: state.currentSale.date, paymentDetails: { amount: '', method: 'CASH', date: state.currentSale.date, reference: '' } }, ...touch };
-        }
-
-        case 'CLEAR_CURRENT_SALE':
-            return { ...state, currentSale: { customerId: '', items: [], discount: '0', date: state.currentSale.date, paymentDetails: { amount: '', method: 'CASH', date: state.currentSale.date, reference: '' } }, ...touch };
-
-        case 'RESUME_PARKED_SALE':
-            return { ...state, currentSale: { ...action.payload }, parkedSales: state.parkedSales.filter(s => s.id !== action.payload.id), ...touch };
-
-        case 'DELETE_PARKED_SALE': {
-            const filteredParked = state.parkedSales.filter(s => s.id !== action.payload);
-            localStorage.setItem('parked_sales', JSON.stringify(filteredParked));
-            return { ...state, parkedSales: filteredParked, ...touch };
-        }
-
-        case 'ADD_PARKED_SALES': {
-            const combinedParked = [...action.payload, ...state.parkedSales];
-            localStorage.setItem('parked_sales', JSON.stringify(combinedParked));
-            return { ...state, parkedSales: combinedParked, ...touch };
-        }
 
         default:
             return state;

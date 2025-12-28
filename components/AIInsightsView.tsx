@@ -4,7 +4,7 @@ import {
     Gauge, ArrowRight, Target, ShoppingBag, Users, Zap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
 import Card from './Card';
 import Button from './Button';
 import AskAIModal from './AskAIModal';
@@ -19,7 +19,7 @@ interface AIInsightsViewProps {
 }
 
 const AIInsightsView: React.FC<AIInsightsViewProps> = ({ className, onNavigate }) => {
-    const { state } = useAppContext();
+    const { state } = useData();
     const [data, setData] = useState<AIResponse | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);

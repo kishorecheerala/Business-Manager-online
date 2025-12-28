@@ -1,8 +1,8 @@
-import { AppState, Action, Product } from '../../types';
+import { DataState, Action, Product } from '../../types';
 import * as db from '../../utils/db';
 import { logAction } from './helpers';
 
-export const productReducer = (state: AppState, action: Action): AppState => {
+export const productReducer = (state: DataState, action: Action): DataState => {
     let newLog: any;
     const touch = { lastLocalUpdate: Date.now() };
 

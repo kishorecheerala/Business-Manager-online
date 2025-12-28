@@ -1,12 +1,12 @@
 
 import { openDB, deleteDB, DBSchema, IDBPDatabase } from 'idb';
-import { Customer, Supplier, Product, Sale, Purchase, Return, Notification, ProfileData, AppMetadata, AuditLogEntry, Expense, Quote, CustomFont, Snapshot, TrashItem, Budget, FinancialScenario, AppState, BankAccount, FinancialGoal } from '../types';
+import { Customer, Supplier, Product, Sale, Purchase, Return, Notification, ProfileData, AppMetadata, AuditLogEntry, Expense, Quote, CustomFont, Snapshot, TrashItem, Budget, FinancialScenario, DataState, BankAccount, FinancialGoal } from '../types';
 
 const DB_NAME = 'business-manager-db';
-const DB_VERSION = 15; // Bumped for Goals
+const DB_VERSION = 16; // Bumped for sync_metadata
 
-export type StoreName = 'customers' | 'suppliers' | 'products' | 'sales' | 'purchases' | 'returns' | 'app_metadata' | 'notifications' | 'profile' | 'audit_logs' | 'expenses' | 'quotes' | 'custom_fonts' | 'snapshots' | 'trash' | 'budgets' | 'financial_scenarios' | 'bank_accounts' | 'goals';
-const STORE_NAMES: StoreName[] = ['customers', 'suppliers', 'products', 'sales', 'purchases', 'returns', 'app_metadata', 'notifications', 'profile', 'audit_logs', 'expenses', 'quotes', 'custom_fonts', 'snapshots', 'trash', 'budgets', 'financial_scenarios', 'bank_accounts', 'goals'];
+export type StoreName = 'customers' | 'suppliers' | 'products' | 'sales' | 'purchases' | 'returns' | 'app_metadata' | 'notifications' | 'profile' | 'audit_logs' | 'expenses' | 'quotes' | 'custom_fonts' | 'snapshots' | 'trash' | 'budgets' | 'financial_scenarios' | 'bank_accounts' | 'goals' | 'sync_metadata';
+const STORE_NAMES: StoreName[] = ['customers', 'suppliers', 'products', 'sales', 'purchases', 'returns', 'app_metadata', 'notifications', 'profile', 'audit_logs', 'expenses', 'quotes', 'custom_fonts', 'snapshots', 'trash', 'budgets', 'financial_scenarios', 'bank_accounts', 'goals', 'sync_metadata'];
 
 interface BusinessManagerDB extends DBSchema {
     customers: { key: string; value: Customer; };
@@ -28,6 +28,7 @@ interface BusinessManagerDB extends DBSchema {
     financial_scenarios: { key: string; value: FinancialScenario; };
     bank_accounts: { key: string; value: BankAccount };
     goals: { key: string; value: FinancialGoal; };
+    sync_metadata: { key: string; value: { id: string; lastModified: number; lastSynced: number }; };
 }
 
 /**
@@ -119,6 +120,7 @@ export async function upsertItem<T extends StoreName>(storeName: T, item: Busine
     try {
         const db = await getDb();
         await db.put(storeName, item);
+        await markStoreModified(storeName);
     } catch (error) {
         console.error(`Failed to upsert item in ${storeName}:`, error);
     }
@@ -136,6 +138,7 @@ export async function upsertMany<T extends StoreName>(storeName: T, items: Busin
         await Promise.all(items.map(item => store.put(item)));
 
         await tx.done;
+        await markStoreModified(storeName);
     } catch (error) {
         console.error(`Failed to upsert many in ${storeName}:`, error);
     }
@@ -145,6 +148,7 @@ export async function addToTrash(item: TrashItem) {
     try {
         const db = await getDb();
         await db.put('trash', item);
+        await markStoreModified('trash');
     } catch (error) {
         console.error('Failed to add to trash:', error);
     }
@@ -163,8 +167,50 @@ export async function deleteFromStore<T extends StoreName>(storeName: T, id: str
     try {
         const db = await getDb();
         await db.delete(storeName, id);
+        await markStoreModified(storeName);
     } catch (error) {
         console.error(`Failed to delete from store ${storeName}:`, error);
+    }
+}
+
+async function markStoreModified(storeName: StoreName) {
+    if (storeName === 'sync_metadata' || storeName === 'snapshots') return;
+    try {
+        const db = await getDb();
+        const existing = await db.get('sync_metadata', storeName);
+        await db.put('sync_metadata', {
+            id: storeName,
+            lastModified: Date.now(),
+            lastSynced: existing?.lastSynced || 0
+        });
+    } catch (e) {
+        console.warn("Failed to mark store modified", e);
+    }
+}
+
+export async function getModifiedStores(): Promise<{ storeName: StoreName, lastModified: number }[]> {
+    try {
+        const db = await getDb();
+        const all = await db.getAll('sync_metadata');
+        return all
+            .filter(m => m.lastModified > m.lastSynced)
+            .map(m => ({ storeName: m.id as StoreName, lastModified: m.lastModified }));
+    } catch (e) {
+        return [];
+    }
+}
+
+export async function markStoreSynced(storeName: StoreName, timestamp: number) {
+    try {
+        const db = await getDb();
+        const existing = await db.get('sync_metadata', storeName);
+        await db.put('sync_metadata', {
+            id: storeName,
+            lastModified: existing?.lastModified || timestamp,
+            lastSynced: timestamp
+        });
+    } catch (e) {
+        console.warn("Failed to mark store synced", e);
     }
 }
 
@@ -183,7 +229,7 @@ export async function setLastBackupDate(): Promise<void> {
     await db.put('app_metadata', { id: 'lastBackup', date: now });
 }
 
-export async function exportData(): Promise<Omit<AppState, 'toast' | 'selection' | 'pin' | 'googleUser' | 'syncStatus'>> {
+export async function exportData(): Promise<Omit<DataState, 'toast' | 'selection' | 'pin' | 'googleUser' | 'syncStatus'>> {
     const db = await getDb();
     const data: any = {};
     for (const storeName of STORE_NAMES) {
@@ -274,6 +320,9 @@ export async function mergeData(cloudData: any): Promise<void> {
 export async function importData(data: any, merge: boolean = false): Promise<void> {
     // If overwrite (merge=false), use sequential saveCollection calls which are robust
     if (!merge) {
+        // Clear sync metadata on full import
+        const db = await getDb();
+        await db.clear('sync_metadata');
         for (const storeName of STORE_NAMES) {
             if (storeName === 'notifications' || storeName === 'snapshots') continue;
 
@@ -338,6 +387,8 @@ export async function clearDatabase(): Promise<void> {
     const tx = db.transaction(STORE_NAMES, 'readwrite');
     await Promise.all(STORE_NAMES.map(storeName => tx.objectStore(storeName).clear()));
     await tx.done;
+    const db2 = await getDb();
+    await db2.clear('sync_metadata');
 }
 
 // --- Snapshot Functions ---

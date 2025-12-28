@@ -5,7 +5,7 @@ import Button from './Button';
 import FormattedNumberInput from './FormattedNumberInput'; // Added import
 import { Product } from '../types';
 import { X } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
 
 interface QuantityInputModalProps {
   isOpen: boolean;
@@ -15,7 +15,7 @@ interface QuantityInputModalProps {
 }
 
 const QuantityInputModal: React.FC<QuantityInputModalProps> = ({ isOpen, onClose, onSubmit, product }) => {
-  const { showToast } = useAppContext();
+  const { showToast } = useData();
   const [quantity, setQuantity] = useState(1); // Changed initial state to number
   // inputRef is no longer directly used for focus, autoFocus prop is used on FormattedNumberInput
 

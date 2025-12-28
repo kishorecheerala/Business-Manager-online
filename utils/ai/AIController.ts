@@ -1,10 +1,10 @@
 import { GoogleGenAI } from "@google/genai";
 import { OfflineIntelligence } from './OfflineIntelligence';
-import { AppState, AIResponse, SaleItem, Product } from '../../types';
+import { DataState, AIResponse, SaleItem, Product } from '../../types';
 
 export class AIController {
 
-    private static getInfo(state: AppState) {
+    private static getInfo(state: DataState) {
         return {
             isOnline: state.isOnline,
             apiKey: localStorage.getItem('gemini_api_key') || ((import.meta as any).env.VITE_GEMINI_API_KEY as string) || ''
@@ -14,7 +14,7 @@ export class AIController {
     /**
      * Generates business insights.
      */
-    static async getInsights(state: AppState): Promise<AIResponse> {
+    static async getInsights(state: DataState): Promise<AIResponse> {
         const { isOnline, apiKey } = this.getInfo(state);
 
         if (isOnline && apiKey) {
@@ -92,7 +92,7 @@ export class AIController {
     /**
      * Chat Assistant
      */
-    static async chat(query: string, state: AppState): Promise<string> {
+    static async chat(query: string, state: DataState): Promise<string> {
         const { isOnline, apiKey } = this.getInfo(state);
 
         if (isOnline && apiKey) {
@@ -141,7 +141,7 @@ export class AIController {
     /**
      * Magic Order Parser
      */
-    static async parseOrder(text: string, products: Product[], state: AppState): Promise<SaleItem[]> {
+    static async parseOrder(text: string, products: Product[], state: DataState): Promise<SaleItem[]> {
         const { isOnline, apiKey } = this.getInfo(state);
         const catalog = products.map(p => ({ id: p.id, name: p.name, price: p.salePrice }));
 
@@ -188,7 +188,7 @@ export class AIController {
     /**
      * Marketing Text Generation
      */
-    static async generateMarketingCopy(product: Product, state: AppState): Promise<string> {
+    static async generateMarketingCopy(product: Product, state: DataState): Promise<string> {
         const { isOnline, apiKey } = this.getInfo(state);
 
         if (isOnline && apiKey) {
@@ -214,7 +214,7 @@ export class AIController {
     /**
      * SQL Generator
      */
-    static async generateSQL(query: string, schema: any, state: AppState): Promise<string> {
+    static async generateSQL(query: string, schema: any, state: DataState): Promise<string> {
         const { isOnline, apiKey } = this.getInfo(state);
 
         if (isOnline && apiKey) {

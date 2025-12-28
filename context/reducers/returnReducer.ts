@@ -1,8 +1,8 @@
-import { AppState, Action, Product, TrashItem } from '../../types';
+import { DataState, Action, Product, TrashItem } from '../../types';
 import * as db from '../../utils/db';
 import { logAction } from './helpers';
 
-export const returnReducer = (state: AppState, action: Action): AppState => {
+export const returnReducer = (state: DataState, action: Action): DataState => {
     let newLog: any;
     const touch = { lastLocalUpdate: Date.now() };
 

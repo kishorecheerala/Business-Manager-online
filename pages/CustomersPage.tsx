@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Plus, User, Phone, MapPin, Search, Edit, Save, X, IndianRupee, ShoppingCart, Share2, Crown, ShieldAlert, BadgeCheck, Users, MessageCircle, FileText, Star, Tag, Wallet } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
+import { useUI } from '../context/UIContext';
 import { Customer, Payment, Sale, Page, SaleItem } from '../types';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -66,7 +67,8 @@ interface CustomersPageProps {
 }
 
 const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPage }) => {
-    const { state, dispatch, showToast } = useAppContext();
+    const { state, dispatch } = useData();
+    const { showToast } = useUI();
     const { showConfirm } = useDialog();
     const [searchTerm, setSearchTerm] = useState('');
     const [isAdding, setIsAdding] = useState(false);

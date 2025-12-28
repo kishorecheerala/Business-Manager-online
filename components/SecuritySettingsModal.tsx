@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Lock, Unlock, Shield, X, Save } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
 import { useDialog } from '../context/DialogContext';
 import { Page } from '../types';
 
@@ -23,7 +23,7 @@ const PROTECTABLE_PAGES: { id: Page; label: string }[] = [
 ];
 
 const SecuritySettingsModal: React.FC<SecuritySettingsModalProps> = ({ isOpen, onClose }) => {
-    const { state, dispatch, showToast } = useAppContext();
+    const { state, dispatch, showToast } = useData();
     const { showConfirm } = useDialog();
 
     // Initialize with existing protected pages

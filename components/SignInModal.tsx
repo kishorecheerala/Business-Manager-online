@@ -2,7 +2,9 @@ import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Check, Cloud, Shield, RefreshCw, Calendar, FileSpreadsheet, AlertTriangle } from 'lucide-react';
 import Card from './Card';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
+import { useUI } from '../context/UIContext';
 
 interface SignInModalProps {
     isOpen: boolean;
@@ -10,7 +12,10 @@ interface SignInModalProps {
 }
 
 const SignInModal: React.FC<SignInModalProps> = ({ isOpen, onClose }) => {
-    const { googleSignIn, state, showToast } = useAppContext();
+    const { state } = useData();
+    const { googleSignIn, authState } = useAuth();
+    const { showToast } = useUI();
+    const { googleUser } = authState;
 
     useEffect(() => {
         if (isOpen) document.body.style.overflow = 'hidden';
@@ -19,10 +24,10 @@ const SignInModal: React.FC<SignInModalProps> = ({ isOpen, onClose }) => {
 
     // Auto-close on successful sign-in
     useEffect(() => {
-        if (isOpen && state.googleUser) {
+        if (isOpen && googleUser) {
             onClose();
         }
-    }, [state.googleUser, isOpen, onClose]);
+    }, [googleUser, isOpen, onClose]);
 
     if (!isOpen) return null;
 

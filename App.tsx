@@ -1,11 +1,14 @@
 import React, { useState, useRef, useEffect, useMemo, useLayoutEffect, Suspense } from 'react';
+import { useNavigate, useLocation, Routes, Route, Navigate } from 'react-router-dom';
 import {
     Home, Users, ShoppingCart, Package, Menu, Plus, UserPlus, PackagePlus,
     Receipt, Undo2, FileText, BarChart2, Settings, PenTool, Gauge, Search,
     Sparkles, Bell, HelpCircle, Cloud, CloudOff, RefreshCw, Layout, Edit,
     X, Download, Sun, Moon, CalendarClock, WifiOff, Database, PauseCircle, Trash2
 } from 'lucide-react';
-import { useAppContext } from './context/AppContext';
+import { useData } from './context/DataContext';
+import { useUI } from './context/UIContext';
+import { useAuth } from './context/AuthContext';
 import { useDialog } from './context/DialogContext';
 import { Page } from './types';
 import { ICON_MAP } from './utils/iconMap';
@@ -54,27 +57,49 @@ import { QUICK_ACTION_REGISTRY, QUICK_ACTION_SHORTCUTS } from './utils/quickActi
 
 // Root Component
 const App: React.FC = () => {
-    const { state, dispatch, isDbLoaded, showToast, unlockApp } = useAppContext();
+    const { state, dispatch, isDbLoaded } = useData();
+    const { uiState, showToast } = useUI();
+    const { theme, themeColor, themeGradient, font, uiPreferences } = uiState;
+    const { authState, authDispatch, unlockApp } = useAuth();
+    const { isLocked, pin } = authState;
+
     const { showConfirm } = useDialog();
 
 
 
     // --- Routing State ---
-    const [currentPage, setCurrentPage] = useState<Page>(() => {
-        const params = new URLSearchParams(window.location.search);
-        const action = params.get('action');
-        if (action === 'new_sale') return 'SALES';
-        if (action === 'new_customer') return 'CUSTOMERS';
+    const navigate = useNavigate();
+    const location = useLocation();
 
-        try {
-            const saved = localStorage.getItem('business_manager_last_page');
-            const excludedPages = ['INVOICE_DESIGNER', 'SYSTEM_OPTIMIZER', 'SQL_ASSISTANT', 'TRASH'];
-            if (saved && Object.keys(ICON_MAP).includes(saved) && !excludedPages.includes(saved)) {
-                return saved as Page;
-            }
-        } catch (e) { }
-        return 'DASHBOARD';
-    });
+    // Route Mapping
+    const ROUTE_MAP: Record<string, string> = {
+        'DASHBOARD': '/',
+        'CUSTOMERS': '/customers',
+        'SALES': '/sales',
+        'PURCHASES': '/purchases',
+        'PRODUCTS': '/products',
+        'REPORTS': '/reports',
+        'RETURNS': '/returns',
+        'INSIGHTS': '/insights',
+        'EXPENSES': '/expenses',
+        'QUOTATIONS': '/quotations',
+        'INVOICE_DESIGNER': '/invoice-designer',
+        'SYSTEM_OPTIMIZER': '/system-optimizer',
+        'SQL_ASSISTANT': '/sql-assistant',
+        'TRASH': '/trash',
+        'FINANCIAL_PLANNING': '/financial-planning',
+        'ANALYTICS': '/analytics'
+    };
+
+    const REVERSE_ROUTE_MAP = useMemo(() => {
+        const map: Record<string, Page> = {};
+        Object.entries(ROUTE_MAP).forEach(([k, v]) => map[v] = k as Page);
+        return map;
+    }, []);
+
+    const currentPage = useMemo<Page>(() => {
+        return REVERSE_ROUTE_MAP[location.pathname] || 'DASHBOARD';
+    }, [location.pathname]);
 
     // --- UI State ---
     const [isDirty, setIsDirty] = useState(false);
@@ -115,7 +140,7 @@ const App: React.FC = () => {
     // Selection Effect
     useEffect(() => {
         if (state.selection && state.selection.page) {
-            setCurrentPage(state.selection.page);
+            navigate(ROUTE_MAP[state.selection.page] || '/');
         }
     }, [state.selection]);
 
@@ -209,13 +234,13 @@ const App: React.FC = () => {
     // Theme Effect
     useEffect(() => {
         const root = document.documentElement;
-        if (state.theme === 'dark') {
+        if (theme === 'dark') {
             root.classList.add('dark');
         } else {
             root.classList.remove('dark');
         }
 
-        const hex = state.themeColor.replace(/^#/, '');
+        const hex = themeColor.replace(/^#/, '');
         if (/^[0-9A-F]{6}$/i.test(hex)) {
             const r = parseInt(hex.substring(0, 2), 16);
             const g = parseInt(hex.substring(2, 4), 16);
@@ -225,39 +250,30 @@ const App: React.FC = () => {
             root.style.setProperty('--primary-color', '13 148 136');
         }
 
-        if (state.themeGradient) {
-            root.style.setProperty('--header-bg', state.themeGradient);
-            root.style.setProperty('--theme-gradient', state.themeGradient);
+        if (themeGradient) {
+            root.style.setProperty('--header-bg', themeGradient);
+            root.style.setProperty('--theme-gradient', themeGradient);
         } else {
-            root.style.setProperty('--header-bg', state.themeColor);
-            root.style.setProperty('--theme-gradient', `linear-gradient(135deg, ${state.themeColor} 0%, ${state.themeColor} 100%)`);
+            root.style.setProperty('--header-bg', themeColor);
+            root.style.setProperty('--theme-gradient', `linear-gradient(135deg, ${themeColor} 0%, ${themeColor} 100%)`);
         }
 
-        if (state.font) {
-            root.style.setProperty('--app-font', state.font);
-        }
-
-        localStorage.setItem('theme', state.theme);
-        localStorage.setItem('themeColor', state.themeColor);
-        localStorage.setItem('font', state.font);
-        if (state.themeGradient) {
-            localStorage.setItem('themeGradient', state.themeGradient);
-        } else {
-            localStorage.removeItem('themeGradient');
+        if (font) {
+            root.style.setProperty('--app-font', font);
         }
 
         // Apply UI Preferences classes
         const body = document.body;
         body.classList.remove('font-size-small', 'font-size-normal', 'font-size-large', 'compact');
-        if (state.uiPreferences?.fontSize) {
-            body.classList.add(`font-size-${state.uiPreferences.fontSize}`);
+        if (uiPreferences?.fontSize) {
+            body.classList.add(`font-size-${uiPreferences.fontSize}`);
         }
-        if (state.uiPreferences?.density === 'compact') {
+        if (uiPreferences?.density === 'compact') {
             body.classList.add('compact');
         }
 
         const updateIcons = () => {
-            const bg = state.themeColor;
+            const bg = themeColor;
             const svgString = `
                 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" font-size="400" font-family="serif" fill="${bg}" font-weight="bold" dy="20">ॐ</text>
@@ -272,7 +288,7 @@ const App: React.FC = () => {
         };
         updateIcons();
 
-    }, [state.theme, state.themeColor, state.themeGradient, state.font, state.uiPreferences]);
+    }, [theme, themeColor, themeGradient, font, uiPreferences]);
 
     // Analytics Effect
     useEffect(() => {
@@ -295,11 +311,11 @@ const App: React.FC = () => {
             (async () => {
                 if (await showConfirm('You have unsaved changes. Are you sure you want to leave?', { variant: 'danger' })) {
                     setIsDirty(false);
-                    setCurrentPage(page);
+                    navigate(ROUTE_MAP[page] || '/');
                 }
             })();
         } else {
-            setCurrentPage(page);
+            navigate(ROUTE_MAP[page] || '/');
         }
     };
 
@@ -347,7 +363,7 @@ const App: React.FC = () => {
         }
 
         if (parkModalState.targetPage) {
-            setCurrentPage(parkModalState.targetPage);
+            navigate(ROUTE_MAP[parkModalState.targetPage] || '/');
         }
         setParkModalState({ isOpen: false, targetPage: null });
         setIsDirty(false);
@@ -359,15 +375,15 @@ const App: React.FC = () => {
     // Safety: If locked but no PIN is set (corruption?), auto-unlock.
     // App Lock Screen
     // Only show PinModal if explicitly locked AND a valid PIN exists.
-    if (state.isLocked && state.pin) {
+    if (isLocked && pin) {
         return (
             <PinModal
                 mode="enter"
-                correctPin={state.pin}
+                correctPin={pin}
                 onCorrectPin={unlockApp}
                 onResetRequest={async () => {
                     if (await showConfirm("Are you sure you want to reset your passcode? This will remove the app lock.", { confirmText: "Reset & Remove Lock", variant: 'danger' })) {
-                        dispatch({ type: 'SET_PIN', payload: null });
+                        authDispatch({ type: 'SET_PIN', payload: null });
                         unlockApp();
                         showToast("Passcode removed.");
                     }
@@ -418,22 +434,25 @@ const App: React.FC = () => {
             <div className={`mx-auto ${currentPage === 'INVOICE_DESIGNER' ? 'h-full' : 'p-4 pb-32 max-w-7xl'}`}>
                 <ErrorBoundary>
                     <Suspense fallback={<DevineLoader />}>
-                        {currentPage === 'DASHBOARD' && <Dashboard setCurrentPage={handleNavigation} />}
-                        {currentPage === 'CUSTOMERS' && <CustomersPage setIsDirty={setIsDirty} setCurrentPage={handleNavigation} />}
-                        {currentPage === 'SALES' && <SalesPage setIsDirty={setIsDirty} />}
-                        {currentPage === 'PURCHASES' && <PurchasesPage setIsDirty={setIsDirty} setCurrentPage={handleNavigation} />}
-                        {currentPage === 'PRODUCTS' && <ProductsPage setIsDirty={setIsDirty} />}
-                        {currentPage === 'REPORTS' && <ReportsPage setCurrentPage={handleNavigation} />}
-                        {currentPage === 'RETURNS' && <ReturnsPage setIsDirty={setIsDirty} />}
-                        {currentPage === 'INSIGHTS' && <InsightsPage setCurrentPage={handleNavigation} />}
-                        {currentPage === 'EXPENSES' && <ExpensesPage setIsDirty={setIsDirty} />}
-                        {currentPage === 'FINANCIAL_PLANNING' && <FinancialPlanningPage />}
-                        {currentPage === 'ANALYTICS' && <AnalyticsPage />}
-                        {currentPage === 'QUOTATIONS' && <QuotationsPage />}
-                        {currentPage === 'INVOICE_DESIGNER' && <InvoiceDesigner setIsDirty={setIsDirty} setCurrentPage={handleNavigation} />}
-                        {currentPage === 'SYSTEM_OPTIMIZER' && <SystemOptimizerPage />}
-                        {currentPage === 'SQL_ASSISTANT' && <SQLAssistantPage setCurrentPage={handleNavigation} />}
-                        {currentPage === 'TRASH' && <TrashPage setCurrentPage={handleNavigation} />}
+                        <Routes>
+                            <Route path="/" element={<Dashboard setCurrentPage={handleNavigation} />} />
+                            <Route path="/customers" element={<CustomersPage setIsDirty={setIsDirty} setCurrentPage={handleNavigation} />} />
+                            <Route path="/sales" element={<SalesPage setIsDirty={setIsDirty} />} />
+                            <Route path="/purchases" element={<PurchasesPage setIsDirty={setIsDirty} setCurrentPage={handleNavigation} />} />
+                            <Route path="/products" element={<ProductsPage setIsDirty={setIsDirty} />} />
+                            <Route path="/reports" element={<ReportsPage setCurrentPage={handleNavigation} />} />
+                            <Route path="/returns" element={<ReturnsPage setIsDirty={setIsDirty} />} />
+                            <Route path="/insights" element={<InsightsPage setCurrentPage={handleNavigation} />} />
+                            <Route path="/expenses" element={<ExpensesPage setIsDirty={setIsDirty} />} />
+                            <Route path="/financial-planning" element={<FinancialPlanningPage />} />
+                            <Route path="/analytics" element={<AnalyticsPage />} />
+                            <Route path="/quotations" element={<QuotationsPage />} />
+                            <Route path="/invoice-designer" element={<InvoiceDesigner setIsDirty={setIsDirty} setCurrentPage={handleNavigation} />} />
+                            <Route path="/system-optimizer" element={<SystemOptimizerPage />} />
+                            <Route path="/sql-assistant" element={<SQLAssistantPage setCurrentPage={handleNavigation} />} />
+                            <Route path="/trash" element={<TrashPage setCurrentPage={handleNavigation} />} />
+                            <Route path="*" element={<Navigate to="/" replace />} />
+                        </Routes>
                     </Suspense>
                 </ErrorBoundary>
             </div>
@@ -442,7 +461,5 @@ const App: React.FC = () => {
         </AppLayout>
     );
 };
-
-
 
 export default App;

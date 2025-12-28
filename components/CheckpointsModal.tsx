@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, RotateCcw, Trash2, Clock, CheckCircle } from 'lucide-react';
 import Card from './Card';
 import Button from './Button';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
 import { formatDateTime } from '../utils/formatUtils';
 import { useDialog } from '../context/DialogContext';
 import * as db from '../utils/db';
@@ -14,7 +14,7 @@ interface CheckpointsModalProps {
 }
 
 const CheckpointsModal: React.FC<CheckpointsModalProps> = ({ isOpen, onClose }) => {
-  const { showToast } = useAppContext();
+  const { showToast } = useData();
   const { showConfirm } = useDialog();
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [loading, setLoading] = useState(false);

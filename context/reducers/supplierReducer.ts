@@ -1,8 +1,7 @@
-import { Action } from "../AppContext";
-import { AppState, Supplier } from "../../types";
+import { Action, DataState, Supplier } from "../../types";
 import * as db from "../../utils/db";
 
-export const supplierReducer = (state: AppState, action: Action): AppState => {
+export const supplierReducer = (state: DataState, action: Action): DataState => {
     const touch = { lastLocalUpdate: Date.now() };
 
     switch (action.type) {

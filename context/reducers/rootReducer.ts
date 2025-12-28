@@ -1,4 +1,4 @@
-import { AppState, Action } from '../../types';
+import { DataState, Action } from '../../types';
 import { customerReducer } from './customerReducer';
 import { productReducer } from './productReducer';
 import { salesReducer } from './salesReducer';
@@ -9,14 +9,14 @@ import { quoteReducer } from './quoteReducer';
 import { financeReducer } from './financeReducer';
 import { commonReducer } from './commonReducer';
 
-export const rootReducer = (state: AppState, action: Action): AppState => {
+export const rootReducer = (state: DataState, action: Action): DataState => {
     // 1. Global overwrites
     if (action.type === 'SET_STATE') {
         return { ...state, ...action.payload };
     }
 
     if (action.type === 'RESTORE_SNAPSHOT') {
-        // Payload is Partial<AppState>
+        // Payload is Partial<DataState>
         // We probably need to merge or replace?
         // Usually full replace of data keys.
         return { ...state, ...action.payload, lastLocalUpdate: Date.now() };

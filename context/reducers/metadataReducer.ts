@@ -1,8 +1,7 @@
-import { Action } from "../AppContext";
-import { AppState, Notification, ProfileData } from "../../types";
+import { Action, DataState, Notification, ProfileData } from "../../types";
 import * as db from "../../utils/db";
 
-export const metadataReducer = (state: AppState, action: Action): AppState => {
+export const metadataReducer = (state: DataState, action: Action): DataState => {
     const touch = { lastLocalUpdate: Date.now() };
 
     switch (action.type) {
@@ -32,8 +31,8 @@ export const metadataReducer = (state: AppState, action: Action): AppState => {
 
         case 'SET_DOCUMENT_TEMPLATE': {
             const { type, config } = action.payload;
-            const key = `${type}Template` as keyof AppState;
-            db.upsertItem('app_metadata', { id: `template_${type}`, ...config } as any);
+            const key = `${type} Template` as keyof DataState;
+            db.upsertItem('app_metadata', { id: `template_${type} `, ...config } as any);
             return { ...state, [key]: config, ...touch };
         }
 
@@ -41,22 +40,10 @@ export const metadataReducer = (state: AppState, action: Action): AppState => {
             return { ...state, ...touch };
         }
 
-        case 'UPDATE_SECURITY_CONFIG': {
-            const updated = { id: 'securityPin', security: action.payload, updatedAt: new Date().toISOString() };
-            db.upsertItem('app_metadata', updated as any);
-            return { ...state, pin: action.payload.pin, ...touch };
-        }
-
-        case 'UPDATE_PROTECTED_PAGES': {
-            const updated = { id: 'securityPin', protectedPages: action.payload, updatedAt: new Date().toISOString() };
-            db.upsertItem('app_metadata', updated as any);
-            return { ...state, protectedPages: action.payload, ...touch };
-        }
-
-        case 'UPDATE_DASHBOARD_CONFIG': {
-            const updated = { ...state.dashboardConfig, ...action.payload, updatedAt: new Date().toISOString() };
-            db.upsertItem('app_metadata', updated);
-            return { ...state, dashboardConfig: updated, ...touch };
+        case 'UPDATE_PROFILE': {
+            const updatedProfile = { ...state.profile, ...action.payload, updatedAt: new Date().toISOString() };
+            db.upsertItem('profile', updatedProfile);
+            return { ...state, profile: updatedProfile, ...touch };
         }
 
         case 'CLEAR_NOTIFICATIONS': {

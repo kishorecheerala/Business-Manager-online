@@ -1,21 +1,21 @@
 
 import React, { useEffect } from 'react';
 import { CheckCircle, AlertCircle, Info, X } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useUI } from '../context/UIContext';
 
 const Toast: React.FC = () => {
-  const { state, dispatch } = useAppContext();
-  const { show, message, type } = state.toast;
-  const position = state.uiPreferences?.toastPosition || 'top-center';
+  const { uiState, uiDispatch } = useUI();
+  const { show, message, type } = uiState.toast;
+  const position = uiState.uiPreferences?.toastPosition || 'top-center';
 
   useEffect(() => {
     if (show) {
       const timer = setTimeout(() => {
-        dispatch({ type: 'HIDE_TOAST' });
+        uiDispatch({ type: 'HIDE_TOAST' });
       }, 3000);
       return () => clearTimeout(timer);
     }
-  }, [show, dispatch]);
+  }, [show, uiDispatch]);
 
   if (!show) return null;
 
@@ -42,7 +42,7 @@ const Toast: React.FC = () => {
         {/* Background Layer with Opacity Control */}
         <div
           className={`absolute inset-0 ${currentConfig.bg} transition-opacity duration-300`}
-          style={{ opacity: state.uiPreferences?.toastOpacity ?? 0.95 }}
+          style={{ opacity: uiState.uiPreferences?.toastOpacity ?? 0.95 }}
         ></div>
 
         {/* Content Layer (Always Opaque) */}
@@ -54,7 +54,7 @@ const Toast: React.FC = () => {
 
           {/* Close Button */}
           <button
-            onClick={() => dispatch({ type: 'HIDE_TOAST' })}
+            onClick={() => uiDispatch({ type: 'HIDE_TOAST' })}
             className="absolute -right-2 -top-1 text-white/70 hover:text-white transition-colors p-1 rounded-full hover:bg-white/20"
           >
             <X size={16} />

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, Save, Key, Globe, Info, RefreshCw, Settings } from 'lucide-react';
 import Card from './Card';
 import Button from './Button';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
 import { useDialog } from '../context/DialogContext';
 import { getClientId } from '../utils/googleDrive';
 import Input from './Input';
@@ -14,7 +14,7 @@ interface APIConfigModalProps {
 }
 
 const APIConfigModal: React.FC<APIConfigModalProps> = ({ isOpen, onClose }) => {
-  const { showToast } = useAppContext();
+  const { showToast } = useData();
   const { showConfirm } = useDialog();
   const [clientId, setClientId] = useState('');
   const [apiKey, setApiKey] = useState('');

@@ -5,7 +5,8 @@ import Card from './Card';
 import Button from './Button';
 import Dropdown from './Dropdown';
 import FormattedNumberInput from './FormattedNumberInput';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
+import { useUI } from '../context/UIContext';
 import { Product } from '../types';
 
 interface StockAdjustmentModalProps {
@@ -23,7 +24,8 @@ const REASONS = [
 ];
 
 const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({ isOpen, onClose }) => {
-    const { state, dispatch, showToast } = useAppContext();
+    const { state, dispatch } = useData();
+    const { showToast } = useUI();
     const [selectedProductId, setSelectedProductId] = useState('');
     const [actualStock, setActualStock] = useState('');
     const [reason, setReason] = useState('CORRECTION');

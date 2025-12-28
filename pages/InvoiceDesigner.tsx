@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Save, RotateCcw, RotateCw, Type, Layout, Palette, FileText, Edit3, ChevronDown, Upload, Trash2, Wand2, Grid, QrCode, Printer, Eye, ArrowLeft, CheckSquare, Square, Type as TypeIcon, AlignLeft, AlignCenter, AlignRight, Move, GripVertical, Layers, ArrowUp, ArrowDown, Table, Monitor, Loader2, ZoomIn, ZoomOut, ExternalLink, Columns, Download, FileJson, Image as ImageIcon, Plus, Landmark, Calendar, Coins, Zap, MoveHorizontal, MoveVertical, ArrowRight as ArrowRightIcon, Circle, Share2, Copy, RefreshCw, X } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
 import { InvoiceTemplateConfig, DocumentType, InvoiceLabels, CustomFont, ProfileData, Page, CustomSection } from '../types';
 import Button from '../components/Button';
 import ColorPickerModal from '../components/ColorPickerModal';
@@ -37,7 +37,7 @@ interface InvoiceDesignerProps {
 
 // --- Main Editor Component ---
 const InvoiceDesigner: React.FC<InvoiceDesignerProps> = ({ setIsDirty, setCurrentPage }) => {
-    const { state, dispatch, showToast } = useAppContext();
+    const { state, dispatch, showToast } = useData();
     const { showConfirm } = useDialog();
 
     const [docType, setDocType] = useState<DocumentType>('INVOICE');

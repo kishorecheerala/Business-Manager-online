@@ -48,7 +48,7 @@ export interface AIResponse {
     strategy: string;
 }
 
-export interface AppState {
+export interface DataState {
     customers: Customer[];
     suppliers: Supplier[];
     products: Product[];
@@ -68,42 +68,27 @@ export interface AppState {
     receiptTemplate: InvoiceTemplateConfig;
     reportTemplate: InvoiceTemplateConfig;
     invoiceSettings?: AppMetadataInvoiceSettings;
-    dashboardConfig: AppMetadataDashboardConfig;
 
     bankAccounts: BankAccount[];
     budgets: Budget[];
     financialScenarios: FinancialScenario[];
     goals: FinancialGoal[];
 
-    uiPreferences: AppMetadataUIPreferences;
     autoCleanupSettings: AppMetadataAutoCleanup;
 
-    toast: ToastState;
     selection: { page: Page; id: string; action?: 'edit' | 'new'; data?: any } | null;
-    pin: string | null;
-    theme: Theme;
-    themeColor: string;
-    headerColor: string;
-    themeGradient: string;
-    font: string;
-    googleUser: GoogleUser | null;
+
     syncStatus: SyncStatus;
     lastSyncTime: null | number | string;
     lastLocalUpdate: number;
     devMode: boolean;
     performanceMode: boolean;
-    navOrder: string[];
-    quickActions: string[];
+
     isOnline: boolean;
-    isLocked: boolean;
-    isAuthenticated: boolean;
-    protectedPages: Page[];
-    isStaffMode: boolean;
 
     currentSale: SaleDraft;
     parkedSales: ParkedSale[];
     trash: TrashItem[];
-    restoreFromFileId?: (fileId: string) => Promise<void>;
 }
 
 export type ReportType = 'TABLE' | 'BAR' | 'LINE' | 'PIE' | 'AREA' | 'SCATTER' | 'COMPOSED' | 'KPI' | 'FUNNEL' | 'TREEMAP';

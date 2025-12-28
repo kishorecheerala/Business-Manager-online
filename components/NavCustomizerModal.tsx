@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, GripVertical, Check, Info, Plus, Trash2 } from 'lucide-react';
 import Card from './Card';
 import Button from './Button';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
 import { Page } from '../types';
 import { Home, Users, ShoppingCart, Package, Receipt, Undo2, FileText, BarChart2, PenTool, Gauge, UserPlus, PackagePlus, TrendingUp, HelpCircle } from 'lucide-react';
 
@@ -49,7 +49,7 @@ const PAGE_LABELS: Record<string, string> = {
 };
 
 const NavCustomizerModal: React.FC<NavCustomizerModalProps> = ({ isOpen, onClose }) => {
-    const { state, dispatch, showToast } = useAppContext();
+    const { state, dispatch, showToast } = useData();
     const [activeTab, setActiveTab] = useState<'nav' | 'quick'>('nav');
     const [currentNavOrder, setCurrentNavOrder] = useState<string[]>([]);
     const [currentQuickActions, setCurrentQuickActions] = useState<string[]>([]);
@@ -86,7 +86,7 @@ const NavCustomizerModal: React.FC<NavCustomizerModalProps> = ({ isOpen, onClose
             onClose();
         } else {
             // We'd need a reset action for quick actions too, or just manually set defaults if imported
-            // simpler to dispatch a RESET_QUICK_ACTIONS if it exists, checking AppContext types later or searching logic.
+            // simpler to dispatch a RESET_QUICK_ACTIONS if it exists, checking DataContext types later or searching logic.
             // For now assume we might need to add these action types to reducer if missing.
             // Actually, let's check if the reducer supports RESET.
             dispatch({ type: 'RESET_NAV_ORDER' }); // Re-using this for now as placeholder, likely need to implement.

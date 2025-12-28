@@ -4,7 +4,7 @@ import { Send, Bot, User, X, Loader2, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from './Button';
 import Input from './Input';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
 import { AIController } from '../utils/ai/AIController';
 
 interface Message {
@@ -20,7 +20,7 @@ interface AskAIModalProps {
 }
 
 const AskAIModal: React.FC<AskAIModalProps> = ({ isOpen, onClose }) => {
-    const { state } = useAppContext();
+    const { state } = useData();
     const [messages, setMessages] = useState<Message[]>([
         {
             id: 'welcome',

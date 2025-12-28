@@ -87,6 +87,14 @@ export const initGoogleAuth = (callback: (response: any) => void, errorCallback?
     });
 };
 
+export const revokeConsent = (accessToken: string) => {
+    if ((window as any).google) {
+        (window as any).google.accounts.oauth2.revoke(accessToken, () => {
+            console.log('Consent revoked');
+        });
+    }
+};
+
 // --- Drive API Helpers ---
 
 const getHeaders = (accessToken: string) => ({
@@ -522,75 +530,107 @@ export const DriveService = {
     /**
      * Reads data from Drive.
      */
+    /**
+     * Reads data from Drive using Manifest-based incremental strategy.
+     */
     async read(accessToken: string): Promise<any | null> {
         try {
             const { folderId } = await locateDriveConfig(accessToken);
             if (!folderId) return null;
             localStorage.setItem('gdrive_folder_id', folderId);
 
-            // 1. Resolve "True" Sync File ID (Prioritize Server Search)
-            // We ALWAYS checking by name first to ensure we aren't stuck on a stale cached ID.
-            // "findFileByName" handles duplicate deletion internally.
-            let stableFile = await findFileByName(accessToken, folderId, STABLE_SYNC_FILENAME);
-            let targetFileId = stableFile ? stableFile.id : localStorage.getItem('gdrive_sync_file_id');
-
-            if (stableFile) {
-                console.log("Read: Found Live Sync File (Server Truth):", stableFile.id);
-                localStorage.setItem('gdrive_sync_file_id', stableFile.id);
-                targetFileId = stableFile.id;
-            } else if (targetFileId) {
-                console.warn("Read: File not found by name, attempting Cached ID:", targetFileId);
+            // 1. Load Manifest
+            const manifestFile = await findFileByName(accessToken, folderId, 'Manifest.json');
+            if (!manifestFile) {
+                // Fallback to legacy single file
+                console.log("Read: No Manifest found, checking for legacy LiveSync file...");
+                const stableFile = await findFileByName(accessToken, folderId, STABLE_SYNC_FILENAME);
+                if (stableFile) {
+                    const data = await downloadFile(accessToken, stableFile.id);
+                    if (data) localStorage.setItem('gdrive_sync_file_id', stableFile.id);
+                    return data;
+                }
+                return null;
             }
 
-            if (targetFileId) {
-                try {
-                    const coreData = await downloadFile(accessToken, targetFileId);
-                    if (coreData) {
-                        // Decrypt API Key if present
-                        if (coreData.metadata?.secure) {
-                            try {
-                                const decryptedKey = await decryptData(coreData.metadata.secure);
-                                if (decryptedKey) {
-                                    localStorage.setItem('gemini_api_key', decryptedKey);
-                                    console.log("Securely restored API Key.");
-                                }
-                            } catch (err) {
-                                console.warn("Failed to decrypt API Key:", err);
-                            }
-                        }
+            const manifest = await downloadFile(accessToken, manifestFile.id);
+            if (!manifest || !manifest.collections) return null;
 
-                        // Asynchronously check for assets to merge
-                        const assetsFile = await findFileByName(accessToken, folderId, STABLE_ASSETS_FILENAME);
-                        if (assetsFile) {
-                            const assetsData = await downloadFile(accessToken, assetsFile.id);
-                            if (assetsData) return mergeStateData(coreData, assetsData);
-                        }
-                        return coreData;
-                    }
-                } catch (e) {
-                    console.warn("Read failed on target ID, clearing cache.");
-                    localStorage.removeItem('gdrive_sync_file_id');
+            console.log("Read: Loading collections from Manifest...");
+            const collections: Record<string, any[]> = {};
+            const downloadPromises = Object.entries(manifest.collections).map(async ([name, info]: [string, any]) => {
+                try {
+                    const data = await downloadFile(accessToken, info.fileId);
+                    if (data) collections[name] = data;
+                } catch (err) {
+                    console.warn(`Failed to download collection ${name}:`, err);
+                }
+            });
+
+            await Promise.all(downloadPromises);
+
+            // Merge everything into a single object for the AppState
+            const combinedData = { ...collections };
+
+            // Handle API Key from Manifest metadata
+            if (manifest.metadata?.secure) {
+                try {
+                    const decryptedKey = await decryptData(manifest.metadata.secure);
+                    if (decryptedKey) localStorage.setItem('gemini_api_key', decryptedKey);
+                } catch (err) {
+                    console.warn("Failed to decrypt API Key from Manifest:", err);
                 }
             }
 
-            // 2. Fallback: Daily Core Files (Migration)
-            const coreFile = await findLatestFileByPrefix(accessToken, folderId, 'BusinessManager_Core_');
-            if (coreFile) {
-                console.log("Found Legacy Daily Backup:", coreFile.name);
-                return await downloadFile(accessToken, coreFile.id);
-            }
-
-            // 3. Fallback: Legacy Monolithic
-            const legacyFile = await findLatestFileByPrefix(accessToken, folderId, 'BusinessManager_Backup_');
-            if (legacyFile) {
-                console.log("Found Legacy Monolithic Backup:", legacyFile.name);
-                return await downloadFile(accessToken, legacyFile.id);
-            }
-
-            console.log("No backup files found.");
-            return null;
+            return combinedData;
         } catch (e: any) {
             console.error("DriveService.read failed", e);
+            throw e;
+        }
+    },
+
+    async writeIncremental(accessToken: string, changedCollections: Record<string, any[]>, fullMetadata?: any): Promise<void> {
+        const { folderId } = await locateDriveConfig(accessToken);
+        if (!folderId) throw new Error("Could not locate or create Drive folder.");
+
+        try {
+            // 1. Load or Create Manifest
+            let manifestFile = await findFileByName(accessToken, folderId, 'Manifest.json');
+            let manifest: any = { collections: {}, metadata: {} };
+            if (manifestFile) {
+                manifest = await downloadFile(accessToken, manifestFile.id) || manifest;
+            }
+
+            // 2. Upload Changed Collections
+            const uploadPromises = Object.entries(changedCollections).map(async ([name, data]) => {
+                const filename = `Collection_${name}.json`;
+                const existingFileId = manifest.collections[name]?.fileId;
+                const result = await uploadFile(accessToken, folderId, data, filename, existingFileId);
+                manifest.collections[name] = {
+                    fileId: result.id,
+                    updatedAt: new Date().toISOString()
+                };
+            });
+
+            await Promise.all(uploadPromises);
+
+            // 3. Update Manifest Metadata
+            if (fullMetadata) manifest.metadata = { ...manifest.metadata, ...fullMetadata };
+
+            const apiKey = localStorage.getItem('gemini_api_key');
+            if (apiKey) {
+                try {
+                    manifest.metadata.secure = await encryptData(apiKey);
+                } catch (err) {
+                    console.error("Failed to encrypt API key for manifest:", err);
+                }
+            }
+
+            // 4. Save Manifest
+            await uploadFile(accessToken, folderId, manifest, 'Manifest.json', manifestFile?.id);
+            console.log("Incremental sync successful.");
+        } catch (e: any) {
+            console.error("Incremental write failed", e);
             throw e;
         }
     },

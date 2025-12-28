@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Target, Trophy, Edit2, Check, X, TrendingUp } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
+import { useUI } from '../context/UIContext';
 import { Sale } from '../types';
 import { formatCurrency } from '../utils/formatUtils';
 import FormattedNumberInput from './FormattedNumberInput';
@@ -10,7 +11,7 @@ interface GoalTrackerCardProps {
 }
 
 const GoalTrackerCard: React.FC<GoalTrackerCardProps> = ({ sales }) => {
-    const { showToast } = useAppContext();
+    const { showToast } = useUI();
     const [monthlyGoal, setMonthlyGoal] = useState<number>(100000); // Default 1 Lakh
     const [isEditing, setIsEditing] = useState(false);
     const [tempGoal, setTempGoal] = useState('');

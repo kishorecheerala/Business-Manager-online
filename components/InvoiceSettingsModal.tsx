@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import { X, Save } from 'lucide-react';
 import Card from './Card';
 import Button from './Button';
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
+import { useUI } from '../context/UIContext';
 
 interface InvoiceSettingsModalProps {
   isOpen: boolean;
@@ -11,7 +12,8 @@ interface InvoiceSettingsModalProps {
 }
 
 const InvoiceSettingsModal: React.FC<InvoiceSettingsModalProps> = ({ isOpen, onClose }) => {
-  const { state, dispatch, showToast } = useAppContext();
+  const { state, dispatch } = useData();
+  const { showToast } = useUI();
   const [terms, setTerms] = useState('');
   const [footer, setFooter] = useState('');
   const [showQr, setShowQr] = useState(true);
@@ -38,8 +40,8 @@ const InvoiceSettingsModal: React.FC<InvoiceSettingsModalProps> = ({ isOpen, onC
   if (!isOpen) return null;
 
   return createPortal(
-    <div 
-        className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+    <div
+      className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
     >
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-fade-in-fast" onClick={onClose} />
       <Card className="relative z-10 w-full max-w-md animate-scale-in">

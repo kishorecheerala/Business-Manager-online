@@ -9,7 +9,7 @@ import {
 } from 'recharts';
 import { motion } from 'framer-motion';
 
-import { useAppContext } from '../context/AppContext';
+import { useData } from '../context/DataContext';
 import { Page } from '../types';
 import Card from '../components/Card';
 import AIInsightsView from '../components/AIInsightsView';
@@ -48,7 +48,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 const InsightsPage: React.FC<InsightsPageProps> = ({ setCurrentPage }) => {
-    const { state } = useAppContext();
+    const { state } = useData();
     const { sales, purchases, products, customers, expenses } = state;
 
     const forecast = useMemo(() => calculateLinearRegression(sales), [sales]);
