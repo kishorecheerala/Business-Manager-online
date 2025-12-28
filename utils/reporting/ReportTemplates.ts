@@ -66,7 +66,7 @@ export const EXTENDED_PREBUILT_REPORTS: ReportConfig[] = [
     createTemplate('inactive_customers', 'Inactive Customers (>90 Days)', 'Customers who haven\'t purchased recently', 'customers', 'TABLE', 'name', 'lastPurchaseDays', 'Days Since Purchase', 'MAX'),
     createTemplate('top_customers_freq', 'Frequent Buyers', 'Customers with most transactions', 'customers', 'BAR', 'name', 'transactionCount', 'Orders', 'SUM'),
     createTemplate('customer_tier', 'Customers by Pricing Tier', 'Retail vs Wholesale distribution', 'customers', 'PIE', 'priceTier', 'id', 'Count', 'COUNT'),
-    createTemplate('loyalty_points', 'Loyalty Points Liability', 'Outstanding points to be redeemed', 'customers', 'BAR', 'name', 'loyaltyPoints', 'Points Balance', 'SUM'),
+
     createTemplate('credit_utilization', 'Credit Limit Utilization', 'Who is close to their credit limit?', 'customers', 'BAR', 'name', 'creditUtilization', 'Utilization %', 'AVG'),
     createTemplate('customer_profitability', 'Most Profitable Customers', 'Profit generated per customer', 'customers', 'BAR', 'name', 'totalProfit', 'Profit Contribution', 'SUM'),
 

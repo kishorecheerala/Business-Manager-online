@@ -450,15 +450,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
             const saleCustomerIdx = state.customers.findIndex(c => c.id === newSale.customerId);
 
             if (saleCustomerIdx >= 0) {
-                const cust = customersAfterSale[saleCustomerIdx];
-                const currentPoints = cust.loyaltyPoints || 0;
-                const pointsUsed = newSale.loyaltyPointsUsed || 0;
-                const pointsEarned = newSale.loyaltyPointsEarned || 0;
-
-                customersAfterSale[saleCustomerIdx] = {
-                    ...cust,
-                    loyaltyPoints: Math.max(0, currentPoints - pointsUsed + pointsEarned)
-                };
+                // No points updates
             }
 
             db.saveCollection('sales', [...state.sales, newSale]);
@@ -505,20 +497,8 @@ const appReducer = (state: AppState, action: Action): AppState => {
                 return item ? { ...p, quantity: p.quantity + item.quantity, updatedAt: new Date().toISOString() } : p;
             });
 
-            // Revert Loyalty Points
-            let customersAfterDelete = [...state.customers];
-            const delCustomerIdx = state.customers.findIndex(c => c.id === saleToDelete.customerId);
-            if (delCustomerIdx >= 0) {
-                const cust = customersAfterDelete[delCustomerIdx];
-                const currentPoints = cust.loyaltyPoints || 0;
-                const pointsUsed = saleToDelete.loyaltyPointsUsed || 0;
-                const pointsEarned = saleToDelete.loyaltyPointsEarned || 0;
-
-                customersAfterDelete[delCustomerIdx] = {
-                    ...cust,
-                    loyaltyPoints: Math.max(0, currentPoints + pointsUsed - pointsEarned)
-                };
-            }
+            // No loyalty points to revert, so customer state remains unchanged for now
+            const customersAfterDelete = state.customers;
 
             // Create Trash Item
             const trashSale: TrashItem = {

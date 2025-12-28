@@ -33,7 +33,12 @@ A comprehensive, offline-first Progressive Web App (PWA) designed to streamline 
 - **👔 Product & Inventory Control:** Manage a complete product catalog of sarees. Stock is automatically updated with every sale, purchase, and return. Includes bulk barcode printing.
 - **🔄 Returns Processing:** Handle both customer returns (crediting their account and adding stock back) and returns to suppliers (reducing stock and creating a credit).
 - **📉 Standard Reports:** Quick access to existing CSV/PDF reports for Dues and Low Stock.
-- **🔒 Data Backup & Restore:** Since all data is stored locally on the device, a robust backup (download JSON) and restore (upload JSON) system ensures data safety. Also supports **Google Drive Sync** for cloud backups.
+- **🔒 Robust Data Safety:**
+    - **Offline First:** All data lives on the device.
+    - **Google Drive Sync:** Automatic cloud sync with "Last Write Wins" logic.
+    - **Daily Snapshots:** Automatically creates a immutable daily backup file (e.g., `_Core_2024-12-28.json`) on the first sync of the day, ensuring historical recovery points.
+    - **Manual Backup:** Download/Upload JSON backups anytime.
+
 - **⚙️ Customization:** Fully customizable UI themes (Colors, Gradients), Button Styles, and Navigation Menu ordering.
 - **🌐 Offline First (PWA):** Built as a Progressive Web App, it can be "installed" on a device's home screen and works seamlessly offline.
 
@@ -41,16 +46,58 @@ A comprehensive, offline-first Progressive Web App (PWA) designed to streamline 
 
 - **Frontend:** React, TypeScript
 - **Styling:** Tailwind CSS
-- **State Management:** React Context API with `useReducer` for centralized logic.
-- **Local Storage:** Browser `localStorage` & `IndexedDB` for robust data persistence.
-- **PWA Capabilities:** Service Workers (`sw.js`) for caching and offline access.
-- **Icons:** [Lucide React](https://lucide.dev/) for consistent UI.
+- **State Management:** React Context API with `useReducer`.
+- **Local Storage:** Browser `localStorage` & `IndexedDB` (via `idb`).
+- **PWA:** Service Workers (`sw.js`) for caching and offline access.
+- **Icons:** [Lucide React](https://lucide.dev/).
+- **Charts:** Recharts.
 - **PDF Generation:** [jsPDF](https://github.com/parallax/jsPDF) & [jspdf-autotable](https://github.com/simonbengtsson/jsPDF-AutoTable).
-- **AI Integration:** Google Gemini API for insights and text parsing.
+- **AI Integration:** Google Gemini API.
+
+## 💻 Development Guide
+
+### Prerequisites
+- Node.js (v18 or higher)
+- npm or pnpm
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/business-manager-online.git
+   cd business-manager-online
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+4. Open [http://localhost:5173](http://localhost:5173) in your browser.
+
+### Building for Production
+
+To create a production build:
+```bash
+npm run build
+```
+The output will be in the `dist` directory.
+
+### Environment Variables
+
+Create a `.env` file in the root directory (optional for local dev, required for AI features):
+```env
+VITE_GEMINI_API_KEY=your_api_key_here
+```
 
 ## 📁 Project Structure
 
-The project is organized into a modular and scalable structure:
+The project is organized into a modular structure:
 
 ```
 /
@@ -70,8 +117,10 @@ The project is organized into a modular and scalable structure:
 ### Data Persistence
 The application uses a "Local First" architecture. Critical data (Sales, Products) is stored in **IndexedDB** for high capacity, while settings use **LocalStorage**. This ensures instant load times and full offline capability.
 
-### Cloud Sync
-Users can sign in with Google to sync their database to a private folder (`BusinessManager_AppData`) in their Google Drive. The sync uses a robust **"Last Write Wins"** strategy with timestamp-based conflict resolution to ensure data consistency across multiple devices.
+### Cloud Sync & Backups
+Users can sign in with Google to sync their database to a private folder (`BusinessManager_AppData`) in their Google Drive.
+- **Live Sync:** Keeps devices in sync in real-time.
+- **Daily Backups:** automatically creates a dated snapshot (e.g., `_Core_YYYY-MM-DD.json`) once per day to preserve history.
 
 ### AI Features
 - **Smart Analyst:** Analyzes transaction history to provide executive summaries.

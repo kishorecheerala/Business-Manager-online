@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Download, Folder, FileText, RefreshCw, Terminal, AlertTriangle, LogIn, Settings } from 'lucide-react';
+import { X, Download, Folder, FileText, RefreshCw, Terminal, AlertTriangle, LogIn, Settings, Trash2 } from 'lucide-react';
 import Card from './Card';
 import Button from './Button';
 import { useAppContext } from '../context/AppContext';
 
-import { debugDriveState, getFolderById, createFolder } from '../utils/googleDrive';
+import { debugDriveState, getFolderById, createFolder, deleteFile } from '../utils/googleDrive';
 import { useDialog } from '../context/DialogContext';
 import * as db from '../utils/db';
 
@@ -268,13 +268,41 @@ const CloudDebugModal: React.FC<CloudDebugModalProps> = ({ isOpen, onClose, onOp
                                                             </p>
                                                         </div>
                                                     </div>
-                                                    <Button
-                                                        onClick={() => handleManualRestore(f.id)}
-                                                        className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700"
-                                                        disabled={restoringId === f.id}
-                                                    >
-                                                        {restoringId === f.id ? 'Restoring...' : 'Restore'}
-                                                    </Button>
+                                                    <div className="flex gap-2">
+                                                        <Button
+                                                            onClick={async () => {
+                                                                if (!state.googleUser?.accessToken) return;
+                                                                const confirmed = await showConfirm(`Are you sure you want to PERMANENTLY delete "${f.name}"? This cannot be undone.`, { variant: 'danger', confirmText: 'Delete Forever' });
+                                                                if (confirmed) {
+                                                                    setLogs(prev => [`Deleting file: ${f.name}...`, ...prev]);
+                                                                    try {
+                                                                        await deleteFile(state.googleUser.accessToken, f.id);
+                                                                        setLogs(prev => [`✅ Deleted: ${f.name}`, ...prev]);
+                                                                        // Update UI
+                                                                        setDetails(prev => prev.map(d => {
+                                                                            if (d.folder.id === item.folder.id) {
+                                                                                return { ...d, files: d.files.filter((file: any) => file.id !== f.id) };
+                                                                            }
+                                                                            return d;
+                                                                        }));
+                                                                    } catch (e) {
+                                                                        setLogs(prev => [`❌ Delete Failed: ${(e as Error).message}`, ...prev]);
+                                                                    }
+                                                                }
+                                                            }}
+                                                            className="h-8 px-3 text-xs bg-red-100 hover:bg-red-200 text-red-700 border-red-200"
+                                                            disabled={restoringId === f.id}
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </Button>
+                                                        <Button
+                                                            onClick={() => handleManualRestore(f.id)}
+                                                            className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700"
+                                                            disabled={restoringId === f.id}
+                                                        >
+                                                            {restoringId === f.id ? 'Restoring...' : 'Restore'}
+                                                        </Button>
+                                                    </div>
                                                 </div>
                                             ))
                                         )}

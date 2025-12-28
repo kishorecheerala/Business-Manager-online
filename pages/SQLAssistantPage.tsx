@@ -26,7 +26,7 @@ const SQLAssistantPage: React.FC<SQLAssistantPageProps> = ({ setCurrentPage }) =
 
     // Schema Definition for UI and AI Context
     const schema = useMemo(() => ({
-        customers: ['id', 'name', 'phone', 'area', 'loyaltyPoints', 'priceTier'],
+        customers: ['id', 'name', 'phone', 'area', 'priceTier'],
         products: ['id', 'name', 'category', 'quantity', 'purchasePrice', 'salePrice', 'gstPercent'],
         sales: ['id', 'customerId', 'totalAmount', 'date', 'discount', 'gstAmount'],
         purchases: ['id', 'supplierId', 'totalAmount', 'date', 'supplierInvoiceId'],

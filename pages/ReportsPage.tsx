@@ -10,6 +10,7 @@ import { generateGenericReportPDF } from '../utils/pdfGenerator';
 import { exportReportToSheet } from '../utils/googleSheets';
 import ReportsPageV2 from './ReportsPageV2';
 import FormattedNumberInput from '../components/FormattedNumberInput';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 interface CustomerWithDue extends Customer {
     dueAmount: number;
@@ -509,7 +510,9 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
                         Switch to Standard Reports
                     </Button>
                 </div>
-                <ReportsPageV2 />
+                <ErrorBoundary>
+                    <ReportsPageV2 />
+                </ErrorBoundary>
             </div>
         );
     }

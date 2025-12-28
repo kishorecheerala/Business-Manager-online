@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { IndianRupee, User, AlertTriangle, Download, Upload, ShoppingCart, Package, ShieldCheck, ShieldX, Archive, PackageCheck, TestTube2, Sparkles, TrendingUp, TrendingDown, CalendarClock, Volume2, StopCircle, X, RotateCw, MessageCircle, Share, Award, Wallet, ArrowRight, Phone, UserX, Zap, Activity, Receipt, CalendarRange, CreditCard, Banknote, Info } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import * as db from '../utils/db';
@@ -995,7 +996,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                 <div className="space-y-6">
                     <AIInsightsView />
                     <Card title="Data Management">
-                        <BackupStatusAlert lastBackupDate={lastBackupDate} lastSyncTime={state.lastSyncTime} />
+                        <BackupStatusAlert lastBackupDate={lastBackupDate} lastSyncTime={state.lastSyncTime || null} />
                         <div className="space-y-4 mt-4">
                             <p className="text-sm text-gray-600 dark:text-gray-400">
                                 Your data is stored locally. Please create regular backups.
@@ -1014,6 +1015,9 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                                     className="hidden"
                                     onChange={handleFileRestore}
                                 />
+                                <Button onClick={() => window.dispatchEvent(new CustomEvent('OPEN_DATA_IMPORT'))} variant="secondary" className="w-full bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800">
+                                    <Upload className="w-4 h-4 mr-2" /> Import CSV Data
+                                </Button>
                                 <Button onClick={() => runSecureAction(handleLoadTestData)} variant="secondary" className="w-full bg-purple-50 text-purple-700 hover:bg-purple-100 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800">
                                     <TestTube2 className="w-4 h-4 mr-2" /> Load Test Data
                                 </Button>
@@ -1033,8 +1037,8 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
             </div>
 
             {/* Collection Details Modal */}
-            {collectionDetailModalOpen && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4 animate-fade-in-fast" onClick={() => setCollectionDetailModalOpen(false)}>
+            {collectionDetailModalOpen && createPortal(
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[2000] flex items-center justify-center p-4 animate-fade-in-fast" onClick={() => setCollectionDetailModalOpen(false)}>
                     <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden animate-scale-in border dark:border-slate-700" onClick={e => e.stopPropagation()}>
                         <div className="p-4 border-b dark:border-slate-700 flex justify-between items-center bg-emerald-50 dark:bg-emerald-900/20">
                             <div>
@@ -1086,7 +1090,8 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

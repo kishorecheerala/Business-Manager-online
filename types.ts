@@ -86,7 +86,6 @@ export interface Customer {
   address: string;
   area: string;
   reference?: string;
-  loyaltyPoints?: number; // New: Loyalty Points Balance
   priceTier?: 'RETAIL' | 'WHOLESALE'; // New: Customer Pricing Tier
   updatedAt?: string; // ISO 8601 Timestamp for Smart Sync
 }
@@ -154,8 +153,6 @@ export interface Sale {
   totalAmount: number;
   date: string; // ISO string
   payments: Payment[];
-  loyaltyPointsUsed?: number; // New: Points redeemed
-  loyaltyPointsEarned?: number; // New: Points awarded
   updatedAt?: string; // ISO 8601 Timestamp for Smart Sync
   recurring?: RecurringConfig;
 }

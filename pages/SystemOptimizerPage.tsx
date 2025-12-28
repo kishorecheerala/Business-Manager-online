@@ -198,20 +198,6 @@ const SystemOptimizerPage: React.FC = () => {
                         </Button>
                     </div>
                 </Card>
-
-                {/* New Data Management Card */}
-                <Card title="Data Management">
-                    <div className="flex flex-col h-full justify-between">
-                        <div>
-                            <p className="text-xs text-slate-500 mb-4">
-                                Import existing data from CSV files to quickly populate your business records.
-                            </p>
-                        </div>
-                        <Button onClick={() => window.dispatchEvent(new CustomEvent('OPEN_DATA_IMPORT'))} variant="secondary" className="w-full text-orange-600 hover:bg-orange-50 border-orange-200">
-                            <Database size={16} className="mr-2" /> Import Data (CSV)
-                        </Button>
-                    </div>
-                </Card>
             </div>
 
             {state.performanceMode && (

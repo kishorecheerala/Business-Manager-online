@@ -368,6 +368,19 @@ export const downloadFile = async (accessToken: string, fileId: string) => {
     return data;
 };
 
+export const deleteFile = async (accessToken: string, fileId: string) => {
+    console.log(`Deleting file: ${fileId}`);
+    const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+    });
+
+    if (!response.ok) {
+        await handleApiError(response, "Delete Failed");
+    }
+    return true;
+};
+
 export const getUserInfo = async (accessToken: string) => {
     try {
         const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
@@ -633,6 +646,44 @@ export const DriveService = {
                 console.log("Write: Creating NEW Sync file...");
                 const result = await uploadFile(accessToken, folderId, core, STABLE_SYNC_FILENAME);
                 finalId = result.id;
+            }
+
+            // 1a. DAILY BACKUP CHECK (Restore History)
+            // Check if we have already created a backup for TODAY. If not, create one.
+            const dailyFiles = getDailyFilenames();
+            const todayBackupName = dailyFiles.core;
+
+            // We do this check asynchronously/independently so it doesn't block the main sync too much,
+            // but we await it to ensure safety.
+            const existingDaily = await findFileByName(accessToken, folderId, todayBackupName);
+            if (!existingDaily) {
+                console.log(`[Backup] No backup found for today (${todayBackupName}). Creating daily snapshot...`);
+                try {
+                    await uploadFile(accessToken, folderId, core, todayBackupName);
+                    console.log("[Backup] Daily snapshot created successfully.");
+                } catch (err) {
+                    console.error("[Backup] Failed to create daily snapshot:", err);
+                    // We continue with Live Sync even if daily backup fails
+                }
+            } else {
+                console.log(`[Backup] Daily backup already exists (${todayBackupName}). Skipping.`);
+            }
+
+            // 1b. DAILY ASSET BACKUP (Images)
+            if (hasAssets) {
+                const todayAssetsName = dailyFiles.assets;
+                const existingDailyAssets = await findFileByName(accessToken, folderId, todayAssetsName);
+                if (!existingDailyAssets) {
+                    console.log(`[Backup] No asset backup found for today (${todayAssetsName}). Creating daily snapshot...`);
+                    try {
+                        await uploadFile(accessToken, folderId, assets, todayAssetsName);
+                        console.log("[Backup] Daily asset snapshot created successfully.");
+                    } catch (err) {
+                        console.error("[Backup] Failed to create daily asset snapshot:", err);
+                    }
+                } else {
+                    console.log(`[Backup] Daily asset backup already exists (${todayAssetsName}). Skipping.`);
+                }
             }
 
             if (finalId) localStorage.setItem('gdrive_sync_file_id', finalId);
