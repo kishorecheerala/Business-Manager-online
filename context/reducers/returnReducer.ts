@@ -1,67 +1,72 @@
-import { Action } from "../AppContext";
-import { AppState, AuditLogEntry, TrashItem } from "../../types";
-import * as db from "../../utils/db";
+import { AppState, Action, Product, TrashItem } from '../../types';
+import * as db from '../../utils/db';
+import { logAction } from './helpers';
 
 export const returnReducer = (state: AppState, action: Action): AppState => {
+    let newLog: any;
     const touch = { lastLocalUpdate: Date.now() };
 
     switch (action.type) {
-        case 'ADD_RETURN': {
+        case 'ADD_RETURN':
             const newReturn = { ...action.payload, updatedAt: new Date().toISOString() };
-            const productsToUpdate: any[] = [];
+            const productsToUpsertReturn: Product[] = [];
 
-            let stockAdjProducts = state.products.map(p => {
-                const item = newReturn.items.find((i: any) => i.productId === p.id);
+            const stockAdjProducts = state.products.map(p => {
+                let updatedInfo: Partial<Product> | null = null;
+                const item = newReturn.items.find(i => i.productId === p.id);
+
                 if (item) {
-                    const quantityChange = newReturn.type === 'CUSTOMER' ? item.quantity : -item.quantity;
-                    const updated = { ...p, quantity: Math.max(0, p.quantity + quantityChange), updatedAt: new Date().toISOString() };
-                    productsToUpdate.push(updated);
-                    return updated;
+                    if (newReturn.type === 'CUSTOMER') {
+                        updatedInfo = { quantity: p.quantity + item.quantity };
+                    } else {
+                        updatedInfo = { quantity: Math.max(0, p.quantity - item.quantity) };
+                    }
+                    const up = { ...p, ...updatedInfo, updatedAt: new Date().toISOString() };
+                    productsToUpsertReturn.push(up);
+                    return up;
                 }
                 return p;
             });
 
             db.upsertItem('returns', newReturn);
-            db.upsertMany('products', productsToUpdate);
+            if (productsToUpsertReturn.length > 0) db.upsertMany('products', productsToUpsertReturn);
 
-            const newLog: AuditLogEntry = {
-                id: `LOG-${Date.now()}`,
-                timestamp: new Date().toISOString(),
-                user: state.googleUser?.email || state.profile?.ownerName || 'User',
-                action: 'Return Processed',
-                details: `Type: ${newReturn.type}, ID: ${newReturn.id}`
-            };
+            newLog = logAction(state, 'Return Processed', `Type: ${newReturn.type}, ID: ${newReturn.id} `);
             db.upsertItem('audit_logs', newLog);
 
             return { ...state, returns: [...state.returns, newReturn], products: stockAdjProducts, audit_logs: [newLog, ...state.audit_logs], ...touch };
-        }
 
-        case 'UPDATE_RETURN': {
+        case 'UPDATE_RETURN':
             const updatedReturn = { ...action.payload.updatedReturn, updatedAt: new Date().toISOString() };
+            const updatedReturns = state.returns.map(r => r.id === updatedReturn.id ? updatedReturn : r);
             db.upsertItem('returns', updatedReturn);
-            return {
-                ...state,
-                returns: state.returns.map(r => r.id === updatedReturn.id ? updatedReturn : r),
-                ...touch
-            };
-        }
+            return { ...state, returns: updatedReturns, ...touch };
 
         case 'DELETE_RETURN': {
             const returnToDelete = state.returns.find(r => r.id === action.payload);
             if (!returnToDelete) return state;
 
-            const productsToUpdate: any[] = [];
-            let reversedStockProducts = state.products.map(p => {
-                const item = returnToDelete.items.find((i: any) => i.productId === p.id);
+            // Reverse Stock Logic
+            const productsToUpsertRev: Product[] = [];
+            const reversedStockProducts = state.products.map(p => {
+                const item = returnToDelete.items.find(i => i.productId === p.id);
                 if (item) {
-                    const quantityChange = returnToDelete.type === 'CUSTOMER' ? -item.quantity : item.quantity;
-                    const updated = { ...p, quantity: Math.max(0, p.quantity + quantityChange), updatedAt: new Date().toISOString() };
-                    productsToUpdate.push(updated);
-                    return updated;
+                    let newQty = p.quantity;
+                    if (returnToDelete.type === 'CUSTOMER') {
+                        // Original: Added. Now: Subtract.
+                        newQty = Math.max(0, p.quantity - item.quantity);
+                    } else {
+                        // Original: Subtracted. Now: Add.
+                        newQty = p.quantity + item.quantity;
+                    }
+                    const up = { ...p, quantity: newQty, updatedAt: new Date().toISOString() };
+                    productsToUpsertRev.push(up);
+                    return up;
                 }
                 return p;
             });
 
+            // Trash Logic
             const trashReturn: TrashItem = {
                 id: returnToDelete.id,
                 originalStore: 'returns',
@@ -71,15 +76,9 @@ export const returnReducer = (state: AppState, action: Action): AppState => {
 
             db.addToTrash(trashReturn);
             db.deleteFromStore('returns', returnToDelete.id);
-            db.upsertMany('products', productsToUpdate);
+            if (productsToUpsertRev.length > 0) db.upsertMany('products', productsToUpsertRev);
 
-            const newLog: AuditLogEntry = {
-                id: `LOG-${Date.now()}`,
-                timestamp: new Date().toISOString(),
-                user: state.googleUser?.email || state.profile?.ownerName || 'User',
-                action: 'Deleted Return',
-                details: `ID: ${action.payload}`
-            };
+            newLog = logAction(state, 'Deleted Return', `ID: ${action.payload} `);
             db.upsertItem('audit_logs', newLog);
 
             return {

@@ -1,157 +1,100 @@
-import { Action } from "../AppContext";
-import { AppState, Product, AuditLogEntry } from "../../types";
-import * as db from "../../utils/db";
+import { AppState, Action, Product } from '../../types';
+import * as db from '../../utils/db';
+import { logAction } from './helpers';
 
 export const productReducer = (state: AppState, action: Action): AppState => {
+    let newLog: any;
     const touch = { lastLocalUpdate: Date.now() };
 
     switch (action.type) {
-        case 'ADD_PRODUCT': {
+        case 'ADD_PRODUCT':
             const newProduct = { ...action.payload, updatedAt: new Date().toISOString() };
             const existingProductIndex = state.products.findIndex(p => p.id === newProduct.id);
             let productsList;
             if (existingProductIndex >= 0) {
-                productsList = state.products.map((p, i) => i === existingProductIndex ? { ...p, quantity: p.quantity + newProduct.quantity, updatedAt: new Date().toISOString() } : p);
-                const updatedProduct = productsList[existingProductIndex];
+                const existing = state.products[existingProductIndex];
+                const updatedProduct = { ...existing, quantity: existing.quantity + newProduct.quantity, updatedAt: new Date().toISOString() };
+                productsList = state.products.map((p, i) => i === existingProductIndex ? updatedProduct : p);
                 db.upsertItem('products', updatedProduct);
             } else {
                 productsList = [...state.products, newProduct];
                 db.upsertItem('products', newProduct);
             }
             return { ...state, products: productsList, ...touch };
-        }
 
-        case 'UPDATE_PRODUCT_STOCK': {
-            const updatedStockProducts = state.products.map(p => {
-                if (p.id === action.payload.productId) {
-                    const updated = { ...p, quantity: p.quantity + action.payload.change, updatedAt: new Date().toISOString() };
-                    db.upsertItem('products', updated);
-                    return updated;
-                }
-                return p;
-            });
+        case 'UPDATE_PRODUCT_STOCK':
+            const prodToUpdate = state.products.find(p => p.id === action.payload.productId);
+            if (!prodToUpdate) return state;
+
+            const updatedStockProduct = { ...prodToUpdate, quantity: prodToUpdate.quantity + action.payload.change, updatedAt: new Date().toISOString() };
+            const updatedStockProducts = state.products.map(p =>
+                p.id === action.payload.productId ? updatedStockProduct : p
+            );
+            db.upsertItem('products', updatedStockProduct);
             return { ...state, products: updatedStockProducts, ...touch };
-        }
 
-        case 'BATCH_UPDATE_PRODUCTS': {
-            const updates: Product[] = [];
+        case 'BATCH_UPDATE_PRODUCTS':
+            const productsToUpdateBatch: Product[] = [];
             const batchUpdatedProducts = state.products.map(p => {
                 const update = action.payload.find(u => u.id === p.id);
                 if (update) {
-                    const updated = { ...update, updatedAt: new Date().toISOString() };
-                    updates.push(updated);
-                    return updated;
+                    const up = { ...update, updatedAt: new Date().toISOString() };
+                    productsToUpdateBatch.push(up);
+                    return up;
                 }
                 return p;
             });
-            db.upsertMany('products', updates);
+            if (productsToUpdateBatch.length > 0) db.upsertMany('products', productsToUpdateBatch);
             return { ...state, products: batchUpdatedProducts, ...touch };
-        }
 
         case 'RENAME_PRODUCT_ID': {
             const { oldId, newId } = action.payload;
             if (oldId === newId) return state;
 
             // 1. Update Products
-            const renamedProducts = state.products.map(p => {
-                if (p.id === oldId) {
-                    const updated = { ...p, id: newId, updatedAt: new Date().toISOString() };
-                    // We need to delete old and add new
-                    db.deleteFromStore('products', oldId);
-                    db.upsertItem('products', updated);
-                    return updated;
-                }
-                return p;
-            });
+            const renamedProducts = state.products.map(p =>
+                p.id === oldId ? { ...p, id: newId, updatedAt: new Date().toISOString() } : p
+            );
+            db.saveCollection('products', renamedProducts);
 
             // 2. Cascade to Sales
-            const salesToUpdate: any[] = [];
-            const updatedSales = state.sales.map(sale => {
-                let changed = false;
-                const newItems = sale.items.map(item => {
-                    if (item.productId === oldId) {
-                        changed = true;
-                        return { ...item, productId: newId };
-                    }
-                    return item;
-                });
-                if (changed) {
-                    const updated = { ...sale, items: newItems, updatedAt: new Date().toISOString() };
-                    salesToUpdate.push(updated);
-                    return updated;
-                }
-                return sale;
-            });
-            db.upsertMany('sales', salesToUpdate);
+            const updatedSales = state.sales.map(sale => ({
+                ...sale,
+                items: sale.items.map(item =>
+                    item.productId === oldId ? { ...item, productId: newId, updatedAt: new Date().toISOString() } : item
+                )
+            }));
+            db.saveCollection('sales', updatedSales);
 
             // 3. Cascade to Purchases
-            const purchasesToUpdate: any[] = [];
-            const updatedPurchases = state.purchases.map(purchase => {
-                let changed = false;
-                const newItems = purchase.items.map(item => {
-                    if (item.productId === oldId) {
-                        changed = true;
-                        return { ...item, productId: newId };
-                    }
-                    return item;
-                });
-                if (changed) {
-                    const updated = { ...purchase, items: newItems, updatedAt: new Date().toISOString() };
-                    purchasesToUpdate.push(updated);
-                    return updated;
-                }
-                return purchase;
-            });
-            db.upsertMany('purchases', purchasesToUpdate);
+            const updatedPurchases = state.purchases.map(purchase => ({
+                ...purchase,
+                items: purchase.items.map(item =>
+                    item.productId === oldId ? { ...item, productId: newId, updatedAt: new Date().toISOString() } : item
+                )
+            }));
+            db.saveCollection('purchases', updatedPurchases);
 
             // 4. Cascade to Quotes
-            const quotesToUpdate: any[] = [];
-            const updatedQuotes = state.quotes.map(quote => {
-                let changed = false;
-                const newItems = quote.items.map(item => {
-                    if (item.productId === oldId) {
-                        changed = true;
-                        return { ...item, productId: newId };
-                    }
-                    return item;
-                });
-                if (changed) {
-                    const updated = { ...quote, items: newItems, updatedAt: new Date().toISOString() };
-                    quotesToUpdate.push(updated);
-                    return updated;
-                }
-                return quote;
-            });
-            db.upsertMany('quotes', quotesToUpdate);
+            const updatedQuotes = state.quotes.map(quote => ({
+                ...quote,
+                items: quote.items.map(item =>
+                    item.productId === oldId ? { ...item, productId: newId } : item
+                )
+            }));
+            db.saveCollection('quotes', updatedQuotes);
 
             // 5. Cascade to Returns
-            const returnsToUpdate: any[] = [];
-            const updatedReturns = state.returns.map(ret => {
-                let changed = false;
-                const newItems = ret.items.map(item => {
-                    if (item.productId === oldId) {
-                        changed = true;
-                        return { ...item, productId: newId };
-                    }
-                    return item;
-                });
-                if (changed) {
-                    const updated = { ...ret, items: newItems, updatedAt: new Date().toISOString() };
-                    returnsToUpdate.push(updated);
-                    return updated;
-                }
-                return ret;
-            });
-            db.upsertMany('returns', returnsToUpdate);
+            const updatedReturns = state.returns.map(ret => ({
+                ...ret,
+                items: ret.items.map(item =>
+                    item.productId === oldId ? { ...item, productId: newId } : item
+                )
+            }));
+            db.saveCollection('returns', updatedReturns);
 
-            const newLog: AuditLogEntry = {
-                id: `LOG-${Date.now()}`,
-                timestamp: new Date().toISOString(),
-                user: state.googleUser?.email || state.profile?.ownerName || 'User',
-                action: 'Product ID Renamed',
-                details: `${oldId} -> ${newId}`
-            };
-            db.upsertItem('audit_logs', newLog);
+            newLog = logAction(state, 'Product ID Renamed', `${oldId} -> ${newId} `);
+            db.saveCollection('audit_logs', [newLog, ...state.audit_logs]);
 
             return {
                 ...state,
