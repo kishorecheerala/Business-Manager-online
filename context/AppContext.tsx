@@ -1674,6 +1674,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // --- SYNC DATA FUNCTION (Moved Up for Scope) ---
     const syncData = async (overrideToken?: string) => {
+        // Prevent concurrent syncs
+        if (stateRef.current.syncStatus === 'syncing') {
+            if (state.devMode) console.warn("Sync already in progress. Skipping.");
+            return;
+        }
+
         // Use override token (from login) OR state token
         const currentUser = stateRef.current.googleUser;
         let token = overrideToken || currentUser?.accessToken;

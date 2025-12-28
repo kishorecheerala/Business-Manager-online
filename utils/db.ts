@@ -99,7 +99,6 @@ export async function saveCollection<T extends StoreName>(storeName: T, data: Bu
         }
 
         await tx.done;
-        await tx.done;
     } catch (error) {
         // Ignore specific internal error that happens on race conditions/closing
         const msg = String(error);
@@ -108,6 +107,7 @@ export async function saveCollection<T extends StoreName>(storeName: T, data: Bu
             return;
         }
         console.error(`Failed to save collection ${storeName}:`, error);
+        throw error; // Propagate error
     }
 }
 
@@ -195,75 +195,80 @@ export async function exportData(): Promise<Omit<AppState, 'toast' | 'selection'
 }
 
 export async function mergeData(cloudData: any): Promise<void> {
-    const db = await getDb();
-    const tx = db.transaction(STORE_NAMES, 'readwrite');
+    try {
+        const db = await getDb();
+        const tx = db.transaction(STORE_NAMES, 'readwrite');
 
-    // 1. Process Trash First
-    // We need to know what has been deleted to ensure we don't re-add it from cloud
-    // and to remove it locally if it was deleted on another device.
-    const cloudTrash = cloudData['trash'] || [];
-    const trashStore = tx.objectStore('trash');
+        // 1. Process Trash First
+        // We need to know what has been deleted to ensure we don't re-add it from cloud
+        // and to remove it locally if it was deleted on another device.
+        const cloudTrash = cloudData['trash'] || [];
+        const trashStore = tx.objectStore('trash');
 
-    for (const item of cloudTrash) {
-        // Add to local trash
-        await trashStore.put(item);
+        for (const item of cloudTrash) {
+            // Add to local trash
+            await trashStore.put(item);
 
-        // If item exists in its original store locally, DELETE it.
-        // This syncs the deletion from other devices.
-        if (item.originalStore && item.id) {
-            try {
-                const originalStore = tx.objectStore(item.originalStore as StoreName);
-                const exists = await originalStore.get(item.id);
-                if (exists) {
-                    await originalStore.delete(item.id);
+            // If item exists in its original store locally, DELETE it.
+            // This syncs the deletion from other devices.
+            if (item.originalStore && item.id) {
+                try {
+                    const originalStore = tx.objectStore(item.originalStore as StoreName);
+                    const exists = await originalStore.get(item.id);
+                    if (exists) {
+                        await originalStore.delete(item.id);
+                    }
+                } catch (e) {
+                    // Store might not exist or be valid, ignore
                 }
-            } catch (e) {
-                // Store might not exist or be valid, ignore
             }
         }
-    }
 
-    // Get all trash IDs to verify against other collections
-    const allTrashKeys = await trashStore.getAllKeys();
-    const trashIdSet = new Set(allTrashKeys.map(k => String(k)));
+        // Get all trash IDs to verify against other collections
+        const allTrashKeys = await trashStore.getAllKeys();
+        const trashIdSet = new Set(allTrashKeys.map(k => String(k)));
 
-    for (const storeName of STORE_NAMES) {
-        if (storeName === 'notifications' || storeName === 'snapshots' || storeName === 'trash') continue;
+        for (const storeName of STORE_NAMES) {
+            if (storeName === 'notifications' || storeName === 'snapshots' || storeName === 'trash') continue;
 
-        const remoteItems = cloudData[storeName];
-        if (!remoteItems || !Array.isArray(remoteItems)) continue;
+            const remoteItems = cloudData[storeName];
+            if (!remoteItems || !Array.isArray(remoteItems)) continue;
 
-        const store = tx.objectStore(storeName);
+            const store = tx.objectStore(storeName);
 
-        if (remoteItems.length > 0) {
-            for (const item of remoteItems) {
-                if (item && item.id) {
-                    // Check Trash
-                    if (trashIdSet.has(item.id)) {
-                        const exists = await store.get(item.id);
-                        if (exists) await store.delete(item.id);
-                        continue;
-                    }
+            if (remoteItems.length > 0) {
+                for (const item of remoteItems) {
+                    if (item && item.id) {
+                        // Check Trash
+                        if (trashIdSet.has(item.id)) {
+                            const exists = await store.get(item.id);
+                            if (exists) await store.delete(item.id);
+                            continue;
+                        }
 
-                    const localItem = await store.get(item.id);
+                        const localItem = await store.get(item.id);
 
-                    if (!localItem) {
-                        // 1. New -> Add
-                        await store.put(item);
-                    } else {
-                        // 2. Conflict: Compare timestamps
-                        const remoteTime = (item as any).updatedAt ? new Date((item as any).updatedAt).getTime() : 0;
-                        const localTime = (localItem as any).updatedAt ? new Date((localItem as any).updatedAt).getTime() : 0;
-
-                        if (remoteTime > localTime) {
+                        if (!localItem) {
+                            // 1. New -> Add
                             await store.put(item);
+                        } else {
+                            // 2. Conflict: Compare timestamps
+                            const remoteTime = (item as any).updatedAt ? new Date((item as any).updatedAt).getTime() : 0;
+                            const localTime = (localItem as any).updatedAt ? new Date((localItem as any).updatedAt).getTime() : 0;
+
+                            if (remoteTime > localTime) {
+                                await store.put(item);
+                            }
                         }
                     }
                 }
             }
         }
+        await tx.done;
+    } catch (error) {
+        console.error("Merge Failed:", error);
+        throw error; // Stop the sync process on error
     }
-    await tx.done;
 }
 
 export async function importData(data: any, merge: boolean = false): Promise<void> {
