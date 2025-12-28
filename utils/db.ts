@@ -104,12 +104,33 @@ export async function saveCollection<T extends StoreName>(storeName: T, data: Bu
     }
 }
 
-export async function deleteFromStore<T extends StoreName>(storeName: T, id: string) {
+/**
+ * Updates or inserts a single item in a store.
+ * More efficient than saveCollection for single updates.
+ */
+export async function upsertItem<T extends StoreName>(storeName: T, item: BusinessManagerDB[T]['value']) {
     try {
         const db = await getDb();
-        await db.delete(storeName, id);
-    } catch (e) {
-        console.error(`Failed to delete ${id} from ${storeName}`, e);
+        await db.put(storeName, item);
+    } catch (error) {
+        console.error(`Failed to upsert item in ${storeName}:`, error);
+    }
+}
+
+/**
+ * Updates or inserts multiple items in a store.
+ */
+export async function upsertMany<T extends StoreName>(storeName: T, items: BusinessManagerDB[T]['value'][]) {
+    try {
+        const db = await getDb();
+        const tx = db.transaction(storeName, 'readwrite');
+        const store = tx.objectStore(storeName);
+
+        await Promise.all(items.map(item => store.put(item)));
+
+        await tx.done;
+    } catch (error) {
+        console.error(`Failed to upsert many in ${storeName}:`, error);
     }
 }
 
@@ -117,8 +138,26 @@ export async function addToTrash(item: TrashItem) {
     try {
         const db = await getDb();
         await db.put('trash', item);
-    } catch (e) {
-        console.error("Failed to add to trash", e);
+    } catch (error) {
+        console.error('Failed to add to trash:', error);
+    }
+}
+
+export async function deleteFromTrash(id: string) {
+    try {
+        const db = await getDb();
+        await db.delete('trash', id);
+    } catch (error) {
+        console.error('Failed to delete from trash:', error);
+    }
+}
+
+export async function deleteFromStore<T extends StoreName>(storeName: T, id: string) {
+    try {
+        const db = await getDb();
+        await db.delete(storeName, id);
+    } catch (error) {
+        console.error(`Failed to delete from store ${storeName}:`, error);
     }
 }
 

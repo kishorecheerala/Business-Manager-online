@@ -11,7 +11,7 @@ import { StoreName } from '../utils/db';
 import { DriveService, initGoogleAuth, getUserInfo, loadGoogleScript, downloadFile } from '../utils/googleDrive';
 import { getLocalDateString } from '../utils/dateUtils';
 
-type Action =
+export type Action =
     | { type: 'SET_STATE'; payload: Partial<AppState> }
     | { type: 'ADD_CUSTOMER'; payload: Customer }
     | { type: 'UPDATE_CUSTOMER'; payload: Customer }
@@ -41,7 +41,10 @@ type Action =
     | { type: 'DELETE_QUOTE'; payload: string }
     | { type: 'ADD_NOTIFICATION'; payload: Notification }
     | { type: 'MARK_NOTIFICATION_AS_READ'; payload: string }
+    | { type: 'CLEAR_NOTIFICATIONS' }
+    | { type: 'CLEAR_AUDIT_LOGS' }
     | { type: 'SET_PROFILE'; payload: ProfileData }
+    | { type: 'UPDATE_PROFILE'; payload: Partial<ProfileData> }
     | { type: 'SET_THEME'; payload: Theme }
     | { type: 'SET_THEME_COLOR'; payload: string }
     | { type: 'SET_HEADER_COLOR'; payload: string }
@@ -77,8 +80,11 @@ type Action =
     | { type: 'DELETE_PARKED_SALE'; payload: string }
     | { type: 'ADD_PARKED_SALES'; payload: ParkedSale[] }
     // Trash Actions
-    | { type: 'RESTORE_FROM_TRASH'; payload: TrashItem }
+    | { type: 'MOVE_TO_TRASH'; payload: TrashItem }
+    | { type: 'RESTORE_FROM_TRASH'; payload: string }
     | { type: 'PERMANENTLY_DELETE_FROM_TRASH'; payload: string }
+    | { type: 'EMPTY_TRASH' }
+    | { type: 'RESTORE_SNAPSHOT'; payload: Partial<AppState> }
     // Bank Account Actions
     | { type: 'ADD_BANK_ACCOUNT'; payload: BankAccount }
     | { type: 'UPDATE_BANK_ACCOUNT'; payload: BankAccount }
@@ -87,9 +93,9 @@ type Action =
     | { type: 'ADD_BUDGET'; payload: Budget }
     | { type: 'UPDATE_BUDGET'; payload: Budget }
     | { type: 'DELETE_BUDGET'; payload: string }
-    | { type: 'ADD_SCENARIO'; payload: FinancialScenario }
-    | { type: 'UPDATE_SCENARIO'; payload: FinancialScenario }
-    | { type: 'DELETE_SCENARIO'; payload: string }
+    | { type: 'ADD_FINANCIAL_SCENARIO'; payload: FinancialScenario }
+    | { type: 'UPDATE_FINANCIAL_SCENARIO'; payload: FinancialScenario }
+    | { type: 'DELETE_FINANCIAL_SCENARIO'; payload: string }
     | { type: 'ADD_GOAL'; payload: FinancialGoal }
     | { type: 'UPDATE_GOAL'; payload: FinancialGoal }
     | { type: 'DELETE_GOAL'; payload: string }
@@ -1199,22 +1205,23 @@ const appReducer = (state: AppState, action: Action): AppState => {
             db.saveCollection('goals', remainingGoals);
             return { ...state, goals: remainingGoals, ...touch };
 
-        case 'ADD_SCENARIO':
-            const newScenario = action.payload;
-            const updatedScenarios = [...state.financialScenarios, newScenario];
-            db.saveCollection('financial_scenarios', updatedScenarios);
-            return { ...state, financialScenarios: updatedScenarios, ...touch };
+        case 'ADD_FINANCIAL_SCENARIO': {
+            const newScenario = { ...action.payload, id: `SCENARIO - ${Date.now()}`, updatedAt: new Date().toISOString() };
+            db.saveCollection('financial_scenarios', [...state.financialScenarios, newScenario]);
+            return { ...state, financialScenarios: [...state.financialScenarios, newScenario], ...touch };
+        }
 
-        case 'UPDATE_SCENARIO':
-            const modifiedScenario = action.payload;
+        case 'UPDATE_FINANCIAL_SCENARIO': {
+            const modifiedScenario = { ...action.payload, updatedAt: new Date().toISOString() };
             const scenarioList = state.financialScenarios.map(s => s.id === modifiedScenario.id ? modifiedScenario : s);
             db.saveCollection('financial_scenarios', scenarioList);
             return { ...state, financialScenarios: scenarioList, ...touch };
+        }
 
-        case 'DELETE_SCENARIO':
-            const filteredScenarios = state.financialScenarios.filter(s => s.id !== action.payload);
-            db.saveCollection('financial_scenarios', filteredScenarios);
-            return { ...state, financialScenarios: filteredScenarios, ...touch };
+        case 'DELETE_FINANCIAL_SCENARIO': {
+            db.deleteFromStore('financial_scenarios', action.payload);
+            return { ...state, financialScenarios: state.financialScenarios.filter(s => s.id !== action.payload), ...touch };
+        }
 
         case 'LOCK_APP':
             return { ...state, isLocked: true };
