@@ -108,25 +108,40 @@ export const purchaseReducer = (state: AppState, action: Action): AppState => {
         }
 
         case 'ADD_PAYMENT_TO_PURCHASE':
+            const targetPurchaseAddVal = state.purchases.find(p => p.id === action.payload.purchaseId);
+            if (!targetPurchaseAddVal) return state;
+
+            const updatedPurchaseAdd = {
+                ...targetPurchaseAddVal,
+                payments: [...(targetPurchaseAddVal.payments || []), action.payload.payment],
+                updatedAt: new Date().toISOString()
+            };
+
             const purchasesWithPayment = state.purchases.map(p =>
-                p.id === action.payload.purchaseId
-                    ? { ...p, payments: [...(p.payments || []), action.payload.payment], updatedAt: new Date().toISOString() }
-                    : p
+                p.id === action.payload.purchaseId ? updatedPurchaseAdd : p
             );
-            db.saveCollection('purchases', purchasesWithPayment);
+
+            db.upsertItem('purchases', updatedPurchaseAdd);
             newLog = logAction(state, 'Payment Added (Purchase)', `Purchase ID: ${action.payload.purchaseId} `);
-            db.saveCollection('audit_logs', [newLog, ...state.audit_logs]);
+            db.upsertItem('audit_logs', newLog);
             return { ...state, purchases: purchasesWithPayment, audit_logs: [newLog, ...state.audit_logs], ...touch };
 
         case 'UPDATE_PAYMENT_IN_PURCHASE':
             const { purchaseId, payment } = action.payload;
-            const purchasesWithUpdatedPayment = state.purchases.map(p => {
-                if (p.id === purchaseId) {
-                    return { ...p, payments: p.payments.map((py: any) => py.id === payment.id ? payment : py), updatedAt: new Date().toISOString() };
-                }
-                return p;
-            });
-            db.saveCollection('purchases', purchasesWithUpdatedPayment);
+            const targetPurchaseUpdate = state.purchases.find(p => p.id === purchaseId);
+            if (!targetPurchaseUpdate) return state;
+
+            const updatedPurchaseUpdate = {
+                ...targetPurchaseUpdate,
+                payments: targetPurchaseUpdate.payments.map((py: any) => py.id === payment.id ? payment : py),
+                updatedAt: new Date().toISOString()
+            };
+
+            const purchasesWithUpdatedPayment = state.purchases.map(p =>
+                p.id === purchaseId ? updatedPurchaseUpdate : p
+            );
+
+            db.upsertItem('purchases', updatedPurchaseUpdate);
             return { ...state, purchases: purchasesWithUpdatedPayment, ...touch };
 
         default:

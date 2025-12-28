@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import Card from './Card';
 import { Lock, Delete, X, Fingerprint, ScanFace } from 'lucide-react';
+import { usePinSecurity } from '../hooks/usePinSecurity';
 
 interface PinModalProps {
     mode: 'setup' | 'enter';
@@ -13,17 +14,16 @@ interface PinModalProps {
 }
 
 const PinModal: React.FC<PinModalProps> = ({ mode, onSetPin, onCorrectPin, correctPin, onResetRequest, onCancel }) => {
-    const [pin, setPin] = useState('');
-    const [confirmPin, setConfirmPin] = useState(''); // Not actively used but kept to avoid breakage
-
-    // Correct Logic for State Management
-    const [tempPin, setTempPin] = useState(''); // Stores the first PIN during setup
-    const [finalPin, setFinalPin] = useState(''); // Stores PIN while waiting for biometric setup
-
-    // Biometric Registration
-    const [step, setStep] = useState<'enter' | 'create' | 'confirm' | 'biometric-setup'>(mode === 'setup' ? 'create' : 'enter');
-    const [error, setError] = useState(false);
-    const [shake, setShake] = useState(false);
+    const {
+        pin,
+        step,
+        error,
+        shake,
+        biometricsAvailable,
+        handleInputChange: onPinInput,
+        handleBiometricSetup,
+        handleBiometricUnlock
+    } = usePinSecurity({ mode, correctPin, onSetPin, onCorrectPin });
 
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -48,164 +48,9 @@ const PinModal: React.FC<PinModalProps> = ({ mode, onSetPin, onCorrectPin, corre
         };
     }, []);
 
-    // Biometrics Check
-    const [biometricsAvailable, setBiometricsAvailable] = useState(false);
-    useEffect(() => {
-        if (window.PublicKeyCredential &&
-            window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable) {
-            window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().then(available => {
-                setBiometricsAvailable(available);
-            });
-        }
-    }, []);
-
-    const registerBiometric = async () => {
-        if (!biometricsAvailable) return false;
-        try {
-            const challenge = new Uint8Array(32);
-            window.crypto.getRandomValues(challenge);
-
-            const publicKeyCredentialCreationOptions: PublicKeyCredentialCreationOptions = {
-                challenge,
-                rp: {
-                    name: "Business Manager",
-                    id: window.location.hostname,
-                },
-                user: {
-                    id: Uint8Array.from("USER_ID", c => c.charCodeAt(0)),
-                    name: "user@local",
-                    displayName: "Local User",
-                },
-                pubKeyCredParams: [{ alg: -7, type: "public-key" }, { alg: -257, type: "public-key" }],
-                authenticatorSelection: {
-                    authenticatorAttachment: "platform",
-                    userVerification: "required",
-                    requireResidentKey: false,
-                },
-                timeout: 60000,
-                attestation: "none"
-            };
-
-            const credential = await navigator.credentials.create({
-                publicKey: publicKeyCredentialCreationOptions
-            });
-
-            if (credential) {
-                localStorage.setItem('biometric_enabled', 'true');
-                return true;
-            }
-            return false;
-        } catch (e) {
-            console.error("Registration failed", e);
-            return false;
-        }
-    };
-
-    const handleBiometricUnlock = async () => {
-        try {
-            const challenge = new Uint8Array(32);
-            window.crypto.getRandomValues(challenge);
-
-            await navigator.credentials.get({
-                publicKey: {
-                    challenge,
-                    timeout: 60000,
-                    userVerification: 'required',
-                    rpId: window.location.hostname
-                }
-            });
-            // If we get here, it succeeded
-            onCorrectPin?.();
-        } catch (e) {
-            console.error("Biometric failed", e);
-            triggerError();
-        }
-    };
-
-    // Auto-trigger Biometrics
-    useEffect(() => {
-        if (mode === 'enter' && step === 'enter' && biometricsAvailable) {
-            // Check if user has enabled it previously
-            const enabled = localStorage.getItem('biometric_enabled') === 'true';
-            if (enabled) {
-                // Small delay to ensure modal execution is ready
-                const timer = setTimeout(() => {
-                    handleBiometricUnlock();
-                }, 500);
-                return () => clearTimeout(timer);
-            }
-        }
-    }, [mode, step, biometricsAvailable]);
-
     const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-        // ... (unused legacy handler)
-    };
-
-    // Correct Logic for State Management (Moved logic to hooks, this block is just methods now)
-
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = e.target.value.replace(/\D/g, '').slice(0, 4);
-
-        if (step === 'create') {
-            setPin(val);
-            if (val.length === 4) {
-                setTimeout(() => {
-                    setTempPin(val);
-                    setPin('');
-                    setStep('confirm');
-                }, 400);
-            }
-        } else if (step === 'confirm') {
-            setPin(val);
-            if (val.length === 4) {
-                if (val === tempPin) {
-                    // Check for biometrics before finishing
-                    if (biometricsAvailable) {
-                        setFinalPin(val);
-                        setStep('biometric-setup');
-                        setPin('');
-                    } else {
-                        onSetPin?.(val);
-                    }
-                } else {
-                    triggerError("PINs do not match");
-                    setTimeout(() => {
-                        setStep('create');
-                        setPin('');
-                        setTempPin('');
-                    }, 1000);
-                }
-            }
-        } else if (step === 'biometric-setup') {
-            // No input handling here
-        } else { // enter
-            setPin(val);
-            if (val.length === 4) {
-                if (val === correctPin) {
-                    onCorrectPin?.();
-                } else {
-                    triggerError();
-                    setTimeout(() => setPin(''), 500);
-                }
-            }
-        }
-    };
-
-    const handleBiometricSetup = async (enable: boolean) => {
-        if (enable) {
-            const success = await registerBiometric();
-            if (success) {
-                // Toast handled by parent or implied? PinModal doesn't have showToast. 
-                // Just proceed.
-            }
-        }
-        onSetPin?.(finalPin);
-    };
-
-    const triggerError = (msg?: string) => {
-        setError(true);
-        setShake(true);
-        setTimeout(() => setShake(false), 500);
+        onPinInput(val);
     };
 
     const getTitle = () => {
@@ -276,7 +121,7 @@ const PinModal: React.FC<PinModalProps> = ({ mode, onSetPin, onCorrectPin, corre
                                 pattern="[0-9]*"
                                 maxLength={4}
                                 value={pin}
-                                onChange={handleInputChange}
+                                onChange={handleInput}
                                 placeholder="••••"
                                 className="w-full text-center text-4xl font-bold tracking-[1em] px-4 py-4 bg-white dark:bg-slate-800 border-2 border-gray-300 dark:border-slate-600 rounded-xl focus:border-indigo-600 dark:focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-500/20 transition-all"
                                 style={{

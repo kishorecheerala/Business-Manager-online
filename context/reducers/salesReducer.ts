@@ -130,13 +130,23 @@ export const salesReducer = (state: AppState, action: Action): AppState => {
 
         case 'UPDATE_PAYMENT_IN_SALE': {
             const { saleId, payment } = action.payload;
-            const salesWithUpdatedPayment = state.sales.map(s => {
-                if (s.id === saleId) {
-                    return { ...s, payments: s.payments.map((p: any) => p.id === payment.id ? payment : p), updatedAt: new Date().toISOString() };
-                }
-                return s;
-            });
-            db.saveCollection('sales', salesWithUpdatedPayment);
+
+            // Find the specific sale to update
+            const targetSale = state.sales.find(s => s.id === saleId);
+            if (!targetSale) return state;
+
+            const updatedSale = {
+                ...targetSale,
+                payments: targetSale.payments.map((p: any) => p.id === payment.id ? payment : p),
+                updatedAt: new Date().toISOString()
+            };
+
+            const salesWithUpdatedPayment = state.sales.map(s =>
+                s.id === saleId ? updatedSale : s
+            );
+
+            // Optimized: Upsert single item
+            db.upsertItem('sales', updatedSale);
             return { ...state, sales: salesWithUpdatedPayment, ...touch };
         }
 
@@ -148,7 +158,7 @@ export const salesReducer = (state: AppState, action: Action): AppState => {
             const parkedSale = {
                 id: Date.now().toString(),
                 ...state.currentSale,
-                parkedAt: new Date().toISOString()
+                parkedAt: Date.now()
             };
             const newParkedSales = [parkedSale, ...state.parkedSales];
             localStorage.setItem('parked_sales', JSON.stringify(newParkedSales));

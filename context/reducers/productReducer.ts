@@ -55,46 +55,90 @@ export const productReducer = (state: AppState, action: Action): AppState => {
             const renamedProducts = state.products.map(p =>
                 p.id === oldId ? { ...p, id: newId, updatedAt: new Date().toISOString() } : p
             );
-            db.saveCollection('products', renamedProducts);
+            // Delete old, upsert new
+            db.deleteFromStore('products', oldId);
+            const newProd = renamedProducts.find(p => p.id === newId);
+            if (newProd) db.upsertItem('products', newProd);
 
-            // 2. Cascade to Sales
-            const updatedSales = state.sales.map(sale => ({
-                ...sale,
-                items: sale.items.map(item =>
-                    item.productId === oldId ? { ...item, productId: newId, updatedAt: new Date().toISOString() } : item
-                )
-            }));
-            db.saveCollection('sales', updatedSales);
 
-            // 3. Cascade to Purchases
-            const updatedPurchases = state.purchases.map(purchase => ({
-                ...purchase,
-                items: purchase.items.map(item =>
-                    item.productId === oldId ? { ...item, productId: newId, updatedAt: new Date().toISOString() } : item
-                )
-            }));
-            db.saveCollection('purchases', updatedPurchases);
+            // 2. Cascade to Sales (Optimized)
+            const salesToUpdate: any[] = [];
+            const updatedSales = state.sales.map(sale => {
+                const hasItem = sale.items.some(i => i.productId === oldId);
+                if (hasItem) {
+                    const up = {
+                        ...sale,
+                        items: sale.items.map(item =>
+                            item.productId === oldId ? { ...item, productId: newId, updatedAt: new Date().toISOString() } : item
+                        ),
+                        updatedAt: new Date().toISOString()
+                    };
+                    salesToUpdate.push(up);
+                    return up;
+                }
+                return sale;
+            });
+            if (salesToUpdate.length > 0) db.upsertMany('sales', salesToUpdate);
 
-            // 4. Cascade to Quotes
-            const updatedQuotes = state.quotes.map(quote => ({
-                ...quote,
-                items: quote.items.map(item =>
-                    item.productId === oldId ? { ...item, productId: newId } : item
-                )
-            }));
-            db.saveCollection('quotes', updatedQuotes);
+            // 3. Cascade to Purchases (Optimized)
+            const purchasesToUpdate: any[] = [];
+            const updatedPurchases = state.purchases.map(purchase => {
+                const hasItem = purchase.items.some(i => i.productId === oldId);
+                if (hasItem) {
+                    const up = {
+                        ...purchase,
+                        items: purchase.items.map(item =>
+                            item.productId === oldId ? { ...item, productId: newId, updatedAt: new Date().toISOString() } : item
+                        ),
+                        updatedAt: new Date().toISOString()
+                    };
+                    purchasesToUpdate.push(up);
+                    return up;
+                }
+                return purchase;
+            });
+            if (purchasesToUpdate.length > 0) db.upsertMany('purchases', purchasesToUpdate);
 
-            // 5. Cascade to Returns
-            const updatedReturns = state.returns.map(ret => ({
-                ...ret,
-                items: ret.items.map(item =>
-                    item.productId === oldId ? { ...item, productId: newId } : item
-                )
-            }));
-            db.saveCollection('returns', updatedReturns);
+            // 4. Cascade to Quotes (Optimized)
+            const quotesToUpdate: any[] = [];
+            const updatedQuotes = state.quotes.map(quote => {
+                const hasItem = quote.items.some(i => i.productId === oldId);
+                if (hasItem) {
+                    const up = {
+                        ...quote,
+                        items: quote.items.map(item =>
+                            item.productId === oldId ? { ...item, productId: newId } : item
+                        ),
+                        updatedAt: new Date().toISOString()
+                    };
+                    quotesToUpdate.push(up);
+                    return up;
+                }
+                return quote;
+            });
+            if (quotesToUpdate.length > 0) db.upsertMany('quotes', quotesToUpdate);
+
+            // 5. Cascade to Returns (Optimized)
+            const returnsToUpdate: any[] = [];
+            const updatedReturns = state.returns.map(ret => {
+                const hasItem = ret.items.some(i => i.productId === oldId);
+                if (hasItem) {
+                    const up = {
+                        ...ret,
+                        items: ret.items.map(item =>
+                            item.productId === oldId ? { ...item, productId: newId } : item
+                        ),
+                        updatedAt: new Date().toISOString()
+                    };
+                    returnsToUpdate.push(up);
+                    return up;
+                }
+                return ret;
+            });
+            if (returnsToUpdate.length > 0) db.upsertMany('returns', returnsToUpdate);
 
             newLog = logAction(state, 'Product ID Renamed', `${oldId} -> ${newId} `);
-            db.saveCollection('audit_logs', [newLog, ...state.audit_logs]);
+            db.upsertItem('audit_logs', newLog); // Optimized
 
             return {
                 ...state,

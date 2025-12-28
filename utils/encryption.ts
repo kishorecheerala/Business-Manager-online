@@ -83,6 +83,26 @@ export const decryptData = async (encrypted: { ciphertext: string, salt: string,
     }
 };
 
+// --- PIN Hashing ---
+
+export const hashPin = async (pin: string): Promise<string> => {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(pin);
+    const hash = await window.crypto.subtle.digest('SHA-256', data);
+    return arrayBufferToBase64(hash);
+};
+
+export const verifyPin = async (inputPin: string, storedHash: string): Promise<boolean> => {
+    // Legacy support: If stored hash is exactly 4 digits, it's a plain text PIN
+    if (storedHash && storedHash.length === 4 && /^\d+$/.test(storedHash)) {
+        return inputPin === storedHash;
+    }
+
+    // Otherwise verify hash
+    const inputHash = await hashPin(inputPin);
+    return inputHash === storedHash;
+};
+
 // --- Helpers ---
 
 const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {

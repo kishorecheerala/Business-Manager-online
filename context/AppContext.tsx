@@ -306,6 +306,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         let hasChanges = false;
         const updatedSales = [...sales];
         const newDrafts: ParkedSale[] = [];
+        const changedSales: Sale[] = [];
 
         sales.forEach((sale, index) => {
             if (sale.recurring && sale.recurring.active) {
@@ -333,20 +334,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     else if (sale.recurring.frequency === 'monthly') nextDate.setMonth(nextDate.getMonth() + 1);
                     else if (sale.recurring.frequency === 'quarterly') nextDate.setMonth(nextDate.getMonth() + 4);
 
-                    updatedSales[index] = {
+                    const updatedSale = {
                         ...sale,
                         recurring: {
                             ...sale.recurring,
                             nextOccurrence: nextDate.toISOString()
                         }
                     };
+
+                    updatedSales[index] = updatedSale;
+                    changedSales.push(updatedSale);
                     hasChanges = true;
                 }
             }
         });
 
         if (hasChanges) {
-            db.saveCollection('sales', updatedSales);
+            // Optimized: Only upsert changed sales
+            db.upsertMany('sales', changedSales);
             dispatch({ type: 'SET_STATE', payload: { sales: updatedSales } });
             dispatch({ type: 'ADD_PARKED_SALES', payload: newDrafts });
             showToast(`${newDrafts.length} Recurring Invoices generated as drafts!`, "info");
