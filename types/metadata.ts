@@ -23,8 +23,17 @@ export interface Notification {
     message: string;
     read: boolean;
     createdAt: string;
-    type: 'backup' | 'info' | 'expiry' | 'stock';
+    type: 'backup' | 'info' | 'expiry' | 'stock' | 'developer' | 'support';
     actionLink?: Page;
+    isDeveloperMessage?: boolean;
+    priority?: 'low' | 'normal' | 'high' | 'urgent';
+    metadata?: {
+        requiresAction?: boolean;
+        supportCode?: string;
+        troubleshootingSteps?: string[];
+        minVersion?: string;
+        maxVersion?: string;
+    };
 }
 
 export interface ProfileData {

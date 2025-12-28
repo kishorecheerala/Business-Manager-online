@@ -371,13 +371,11 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                 {dashboardConfig.showLogo && (
                     (dashboardConfig.useCustomLogo ? dashboardConfig.customLogo : profile?.logo) ? (
                         <div
-                            className={`mb-4 relative group transition-all duration-300 cursor-pointer
+                            className={`mb-4 relative group transition-all duration-300
                                 h-[var(--logo-h-mobile)] md:h-[var(--logo-h-desktop)]
                                 ${dashboardConfig.logoFillMobile ? 'w-full' : 'w-auto'}
                                 ${dashboardConfig.logoFillDesktop ? 'md:w-full' : 'md:w-auto'}
                             `}
-                            onClick={() => setIsUISettingsOpen(true)}
-                            title="Click to Configure Logo"
                             style={{
                                 '--logo-h-mobile': `${(dashboardConfig.logoSizeMobile || dashboardConfig.logoSize || 1) * 5}rem`,
                                 '--logo-h-desktop': `${(dashboardConfig.logoSizeDesktop || dashboardConfig.logoSize || 1) * 5}rem`,
@@ -396,10 +394,17 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                                     `}
                                 />
                                 {/* Golden Glow Overlay */}
-                                <div className="absolute inset-0 shadow-[inset_0_0_40px_rgba(255,215,0,0.5)] rounded-lg pointer-events-none z-10 mix-blend-screen bg-transparent group-hover:bg-black/10 transition-colors"></div>
-                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 pointer-events-none">
-                                    <span className="bg-black/60 text-white text-xs px-2 py-1 rounded backdrop-blur-sm">Configure</span>
-                                </div>
+                                <div className="absolute inset-0 shadow-[inset_0_0_40px_rgba(255,215,0,0.5)] rounded-lg pointer-events-none z-10 mix-blend-screen bg-transparent"></div>
+
+                                {/* Replace Button in Top-Right */}
+                                <button
+                                    onClick={() => setIsUISettingsOpen(true)}
+                                    className="absolute top-2 right-2 z-20 bg-black/70 hover:bg-black/90 text-white text-xs px-3 py-1.5 rounded-md backdrop-blur-sm transition-all duration-200 flex items-center gap-1.5 shadow-lg opacity-0 group-hover:opacity-100"
+                                    title="Replace Logo"
+                                >
+                                    <Upload size={12} />
+                                    <span>Replace</span>
+                                </button>
                             </div>
                         </div>
                     ) : (

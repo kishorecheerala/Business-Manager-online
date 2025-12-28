@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Database, Terminal, CloudLightning, Zap, Trash2, RefreshCw, HardDrive, Save, AlertTriangle, Bell, Bug, History, RotateCcw, PlusCircle, Server, Activity, Cloud } from 'lucide-react';
+import { X, Database, Terminal, CloudLightning, Zap, Trash2, RefreshCw, HardDrive, Save, AlertTriangle, Bell, Bug, History, RotateCcw, PlusCircle, Server, Activity, Cloud, MessageSquare } from 'lucide-react';
 import Card from './Card';
 import Button from './Button';
 import { useAppContext } from '../context/AppContext';
@@ -10,6 +10,7 @@ import * as db from '../utils/db';
 import { testData, testProfile } from '../utils/testData';
 import { useDialog } from '../context/DialogContext';
 import { Snapshot, Customer, Product, Sale, SaleItem } from '../types';
+import DeveloperBroadcastPanel from './DeveloperBroadcastPanel';
 
 interface DeveloperToolsModalProps {
     isOpen: boolean;
@@ -21,7 +22,7 @@ interface DeveloperToolsModalProps {
 const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({ isOpen, onClose, onOpenCloudDebug, onOpenAPIConfig }) => {
     const { state, dispatch, showToast } = useAppContext();
     const { showConfirm, showPrompt } = useDialog();
-    const [activeTab, setActiveTab] = useState<'general' | 'state' | 'db' | 'stress' | 'danger'>('general');
+    const [activeTab, setActiveTab] = useState<'general' | 'state' | 'db' | 'broadcast' | 'stress' | 'danger'>('general');
     const [storageEstimate, setStorageEstimate] = useState<{ usage: number, quota: number } | null>(null);
     const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
     const [isSnapshotLoading, setIsSnapshotLoading] = useState(false);
@@ -337,6 +338,12 @@ const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({ isOpen, onClo
                             <HardDrive size={16} /> Backup Control
                         </button>
 
+                        {state.googleUser?.email === 'cheeralakishore@gmail.com' && (
+                            <button onClick={() => setActiveTab('broadcast')} className={`p-4 text-left text-sm font-semibold flex items-center gap-2 hover:bg-white dark:hover:bg-slate-700 ${activeTab === 'broadcast' ? 'bg-white dark:bg-slate-700 text-purple-600 dark:text-purple-400 border-r-2 border-purple-600' : 'text-slate-600 dark:text-slate-400'}`}>
+                                <MessageSquare size={16} /> Developer Broadcast
+                            </button>
+                        )}
+
                         {!isProduction && (
                             <>
                                 <button onClick={() => setActiveTab('stress')} className={`p-4 text-left text-sm font-semibold flex items-center gap-2 hover:bg-white dark:hover:bg-slate-700 ${activeTab === 'stress' ? 'bg-white dark:bg-slate-700 text-amber-600 dark:text-amber-400 border-r-2 border-amber-600' : 'text-slate-600 dark:text-slate-400'}`}>
@@ -487,6 +494,12 @@ const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({ isOpen, onClo
                                         </Button>
                                     </div>
                                 </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'broadcast' && (
+                            <div className="space-y-6">
+                                <DeveloperBroadcastPanel />
                             </div>
                         )}
 

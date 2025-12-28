@@ -9,6 +9,7 @@ import {
 import * as db from '../utils/db';
 import { StoreName } from '../utils/db';
 import { DriveService, initGoogleAuth, getUserInfo, loadGoogleScript, downloadFile } from '../utils/googleDrive';
+import { fetchDeveloperMessages, markDeveloperMessageAsRead } from '../utils/adminNotifications';
 import { getLocalDateString } from '../utils/dateUtils';
 
 export type Action =
@@ -1558,6 +1559,42 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             });
         });
     }, [hydrateState]);
+
+    // Poll for developer messages every 10 minutes
+    useEffect(() => {
+        if (!state.googleUser?.accessToken || !state.isOnline) return;
+
+        const pollDeveloperMessages = async () => {
+            try {
+                const messages = await fetchDeveloperMessages(state.googleUser!.accessToken);
+
+                if (messages.length > 0) {
+                    // Add new messages to notifications
+                    messages.forEach(msg => {
+                        dispatch({ type: 'ADD_NOTIFICATION', payload: msg });
+
+                        // Mark as read in our tracking
+                        markDeveloperMessageAsRead(msg.id);
+
+                        // Show toast for urgent messages
+                        if (msg.priority === 'urgent' || msg.priority === 'high') {
+                            showToast(msg.title, 'info');
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to poll developer messages:', error);
+            }
+        };
+
+        // Poll immediately on mount
+        pollDeveloperMessages();
+
+        // Then poll every 10 minutes
+        const interval = setInterval(pollDeveloperMessages, 10 * 60 * 1000);
+
+        return () => clearInterval(interval);
+    }, [state.googleUser, state.isOnline, dispatch, showToast]);
 
     // --- SYNC DATA FUNCTION (Moved Up for Scope) ---
     const syncData = async (overrideToken?: string) => {
