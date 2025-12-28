@@ -17,6 +17,7 @@ import OnboardingScreen from './components/OnboardingScreen';
 import DevineLoader from './components/DevineLoader';
 import Toast from './components/Toast';
 import AppLayout from './components/AppLayout';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Hooks
 import { useHotkeys } from './hooks/useHotkeys';
@@ -43,6 +44,8 @@ const FinancialPlanningPage = React.lazy(() => import('./pages/FinancialPlanning
 
 import PinLock from './components/PinLock';
 import PinModal from './components/PinModal';
+import CommandPalette from './components/CommandPalette';
+
 
 import { QUICK_ACTION_REGISTRY, QUICK_ACTION_SHORTCUTS } from './utils/quickActions';
 
@@ -75,6 +78,7 @@ const App: React.FC = () => {
 
     // --- Effects ---
 
+
     // Action Params Effect
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -89,6 +93,19 @@ const App: React.FC = () => {
             }
         }
     }, [dispatch]);
+
+    // --- Command Palette State ---
+    const [isCmdOpen, setIsCmdOpen] = useState(false);
+
+    // Toggle Command Palette
+    useHotkeys('k', () => {
+        setIsCmdOpen(prev => !prev);
+    }, { ctrl: true, preventDefault: true });
+
+    // Also support Cmd+K on Mac (which often maps to Meta, but useHotkeys might treat 'ctrl' as meta on mac if typed correctly, or we add another hook)
+    // The current hook implementation checks: "if (ctrl && !event.ctrlKey && !event.metaKey) return;"
+    // So { ctrl: true } actually supports BOTH Ctrl OR Cmd (Meta) key! Perfect.
+
 
     // Selection Effect
     useEffect(() => {
@@ -361,6 +378,11 @@ const App: React.FC = () => {
         >
             <OnboardingScreen isOpen={showOnboarding} onClose={() => setShowOnboarding(false)} />
             <Toast />
+            <CommandPalette
+                isOpen={isCmdOpen}
+                onClose={() => setIsCmdOpen(false)}
+                onNavigate={handleNavigation}
+            />
 
             {/* Park Sale Modal */}
             {parkModalState.isOpen && (
@@ -386,23 +408,25 @@ const App: React.FC = () => {
             )}
 
             <div className={`mx-auto ${currentPage === 'INVOICE_DESIGNER' ? 'h-full' : 'p-4 pb-32 max-w-7xl'}`}>
-                <Suspense fallback={<DevineLoader />}>
-                    {currentPage === 'DASHBOARD' && <Dashboard setCurrentPage={handleNavigation} />}
-                    {currentPage === 'CUSTOMERS' && <CustomersPage setIsDirty={setIsDirty} setCurrentPage={handleNavigation} />}
-                    {currentPage === 'SALES' && <SalesPage setIsDirty={setIsDirty} />}
-                    {currentPage === 'PURCHASES' && <PurchasesPage setIsDirty={setIsDirty} setCurrentPage={handleNavigation} />}
-                    {currentPage === 'PRODUCTS' && <ProductsPage setIsDirty={setIsDirty} />}
-                    {currentPage === 'REPORTS' && <ReportsPage setCurrentPage={handleNavigation} />}
-                    {currentPage === 'RETURNS' && <ReturnsPage setIsDirty={setIsDirty} />}
-                    {currentPage === 'INSIGHTS' && <InsightsPage setCurrentPage={handleNavigation} />}
-                    {currentPage === 'EXPENSES' && <ExpensesPage setIsDirty={setIsDirty} />}
-                    {currentPage === 'FINANCIAL_PLANNING' && <FinancialPlanningPage />}
-                    {currentPage === 'QUOTATIONS' && <QuotationsPage />}
-                    {currentPage === 'INVOICE_DESIGNER' && <InvoiceDesigner setIsDirty={setIsDirty} setCurrentPage={handleNavigation} />}
-                    {currentPage === 'SYSTEM_OPTIMIZER' && <SystemOptimizerPage />}
-                    {currentPage === 'SQL_ASSISTANT' && <SQLAssistantPage setCurrentPage={handleNavigation} />}
-                    {currentPage === 'TRASH' && <TrashPage setCurrentPage={handleNavigation} />}
-                </Suspense>
+                <ErrorBoundary>
+                    <Suspense fallback={<DevineLoader />}>
+                        {currentPage === 'DASHBOARD' && <Dashboard setCurrentPage={handleNavigation} />}
+                        {currentPage === 'CUSTOMERS' && <CustomersPage setIsDirty={setIsDirty} setCurrentPage={handleNavigation} />}
+                        {currentPage === 'SALES' && <SalesPage setIsDirty={setIsDirty} />}
+                        {currentPage === 'PURCHASES' && <PurchasesPage setIsDirty={setIsDirty} setCurrentPage={handleNavigation} />}
+                        {currentPage === 'PRODUCTS' && <ProductsPage setIsDirty={setIsDirty} />}
+                        {currentPage === 'REPORTS' && <ReportsPage setCurrentPage={handleNavigation} />}
+                        {currentPage === 'RETURNS' && <ReturnsPage setIsDirty={setIsDirty} />}
+                        {currentPage === 'INSIGHTS' && <InsightsPage setCurrentPage={handleNavigation} />}
+                        {currentPage === 'EXPENSES' && <ExpensesPage setIsDirty={setIsDirty} />}
+                        {currentPage === 'FINANCIAL_PLANNING' && <FinancialPlanningPage />}
+                        {currentPage === 'QUOTATIONS' && <QuotationsPage />}
+                        {currentPage === 'INVOICE_DESIGNER' && <InvoiceDesigner setIsDirty={setIsDirty} setCurrentPage={handleNavigation} />}
+                        {currentPage === 'SYSTEM_OPTIMIZER' && <SystemOptimizerPage />}
+                        {currentPage === 'SQL_ASSISTANT' && <SQLAssistantPage setCurrentPage={handleNavigation} />}
+                        {currentPage === 'TRASH' && <TrashPage setCurrentPage={handleNavigation} />}
+                    </Suspense>
+                </ErrorBoundary>
             </div>
 
 

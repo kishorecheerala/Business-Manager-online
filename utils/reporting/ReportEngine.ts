@@ -3,7 +3,7 @@ import { AppState, ReportConfig, ReportField, ReportFilter } from "../../types";
 export class ReportEngine {
     private static _loggedSample = false;
 
-    static process(state: AppState, config: ReportConfig): any[] {
+    static async process(state: AppState, config: ReportConfig): Promise<any[]> {
         let rawData: any[] = [];
 
         // Pre-processing for lookups to avoid O(N^2) complexity
@@ -46,12 +46,24 @@ export class ReportEngine {
         }
 
         console.log(`[ReportEngine] Data source: ${config.dataSource}, Raw data count: ${rawData.length}`);
-        console.log(`[ReportEngine] Filters:`, config.filters);
 
-        // 2. Flatten & map fields needed FIRST, so filters can work on derived fields (like dateVal)
-        const flattenedData = rawData
-            .map(item => this.flattenItem(item, state, config.dataSource, { productMap, customerMap, supplierMap, salesByCustomer }))
-            .filter(item => this.applyFilters(item, config.filters));
+        // 2. Flatten & map fields with yielding
+        const flattenedData: any[] = [];
+        const CHUNK_SIZE = 100;
+
+        for (let i = 0; i < rawData.length; i++) {
+            // Yield every CHUNK_SIZE items to let UI breathe
+            if (i % CHUNK_SIZE === 0) {
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
+
+            const item = rawData[i];
+            const flat = this.flattenItem(item, state, config.dataSource, { productMap, customerMap, supplierMap, salesByCustomer });
+
+            if (this.applyFilters(flat, config.filters)) {
+                flattenedData.push(flat);
+            }
+        }
 
         console.log(`[ReportEngine] After filtering: ${flattenedData.length} items`);
 

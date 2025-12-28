@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
     BarChart3, PieChart, LineChart, Table as TableIcon,
     Plus, Save, Play, Filter, Download, MoreVertical, LayoutGrid, Calendar as CalendarIcon,
@@ -140,28 +140,49 @@ const ReportsPageV2: React.FC<ReportsPageProps> = ({ setCurrentPage }) => {
     });
 
     // --- Derived Data ---
-    const reportData = useMemo(() => {
-        if (!selectedReport) return [];
-        try {
-            // Apply Global Date Filter if applicable
-            const config = { ...selectedReport };
+    const [reportData, setReportData] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
 
-            if (['sales', 'purchases', 'expenses'].includes(config.dataSource)) {
-                const dateFilter: any = {
-                    id: 'dateVal', // ReportEngine.flattenItem creates this
-                    operator: 'between',
-                    value: [dateRange.start.getTime(), dateRange.end.getTime()]
-                };
-                // Prepend filter to ensure it runs
-                config.filters = [dateFilter, ...(config.filters || [])];
-            }
-
-            return ReportEngine.process(state, config);
-        } catch (e) {
-            console.error(e);
-            return [];
+    useEffect(() => {
+        if (!selectedReport) {
+            setReportData([]);
+            return;
         }
-    }, [state, selectedReport, dateRange]);
+
+        let isMounted = true;
+        const generate = async () => {
+            setIsLoading(true);
+            try {
+                // Yield to let UI render the loader first
+                await new Promise(r => setTimeout(r, 10));
+
+                // Apply Global Date Filter if applicable
+                const config = { ...selectedReport };
+                if (['sales', 'purchases', 'expenses'].includes(config.dataSource)) {
+                    const dateFilter: any = {
+                        id: 'dateVal', // ReportEngine.flattenItem creates this
+                        operator: 'between',
+                        value: [dateRange.start.getTime(), dateRange.end.getTime()]
+                    };
+                    // Prepend filter to ensure it runs
+                    config.filters = [dateFilter, ...(config.filters || [])];
+                }
+
+                const data = await ReportEngine.process(state, config);
+                if (isMounted) {
+                    setReportData(data);
+                    setIsLoading(false);
+                }
+            } catch (error) {
+                console.error("Report Generation Failed:", error);
+                if (isMounted) setIsLoading(false);
+            }
+        };
+
+        generate();
+
+        return () => { isMounted = false; };
+    }, [selectedReport, state, dateRange]);
 
     const filteredTemplates = useMemo(() => {
         if (activeCategory === 'All') return EXTENDED_PREBUILT_REPORTS;

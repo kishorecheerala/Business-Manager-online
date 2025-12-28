@@ -62,4 +62,19 @@ export default defineConfig({
     })
   ],
   base: './',
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-ui': ['lucide-react', 'framer-motion', 'react-color'],
+          'pdf-utils': ['jspdf', 'jspdf-autotable', 'html2canvas'],
+          'charts': ['recharts'],
+          'db': ['idb'],
+          'qr': ['html5-qrcode', 'jsbarcode']
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000
+  }
 })

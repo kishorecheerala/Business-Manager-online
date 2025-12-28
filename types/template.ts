@@ -14,6 +14,8 @@ export interface InvoiceLabels {
     balance: string;
 }
 
+export type DocumentType = 'INVOICE' | 'ESTIMATE' | 'DEBIT_NOTE' | 'RECEIPT' | 'REPORT';
+
 export interface CustomSection {
     id: string;
     type: 'text-block' | 'image-block' | 'divider';

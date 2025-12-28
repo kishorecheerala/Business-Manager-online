@@ -6,6 +6,8 @@
 // ENSURE NO TRAILING SLASH at the end of the URL in Google Console (e.g., use .app NOT .app/).
 const DEFAULT_CLIENT_ID = '647430742620-e9ev2ravu25cj170o42gvvbpqqq4cmhc.apps.googleusercontent.com'.trim();
 
+import { DriveFile, DriveDebugInfo, DriveUser, DailyFilenames } from '../types';
+
 export const getClientId = () => {
     return localStorage.getItem('google_client_id') || DEFAULT_CLIENT_ID;
 };
@@ -17,7 +19,7 @@ const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapi
 const APP_FOLDER_NAME = 'BusinessManager_AppData';
 
 // Helper to generate daily filenames
-const getDailyFilenames = () => {
+const getDailyFilenames = (): DailyFilenames => {
     const date = new Date();
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -103,7 +105,7 @@ const safeJsonParse = async (response: Response) => {
     }
 };
 
-const filesList = async (accessToken: string, params: Record<string, string>) => {
+const filesList = async (accessToken: string, params: Record<string, string>): Promise<DriveFile[]> => {
     const query = new URLSearchParams(params).toString();
     const response = await fetch(`https://www.googleapis.com/drive/v3/files?${query}`, {
         headers: getHeaders(accessToken),
@@ -111,7 +113,7 @@ const filesList = async (accessToken: string, params: Record<string, string>) =>
     });
     if (!response.ok) await handleApiError(response, "List Files Failed");
     const data = await safeJsonParse(response);
-    return data && data.files ? data.files : [];
+    return data && data.files ? (data.files as DriveFile[]) : [];
 };
 
 const handleApiError = async (response: Response, context: string) => {
@@ -219,7 +221,7 @@ const mergeStateData = (core: any, assets: any) => {
 
 // --- Low Level Operations ---
 
-export const getCandidateFolders = async (accessToken: string) => {
+export const getCandidateFolders = async (accessToken: string): Promise<DriveFile[]> => {
     const q = `mimeType='application/vnd.google-apps.folder' and name='${APP_FOLDER_NAME}' and trashed=false`;
     const response = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=createdTime desc&fields=files(id,name,createdTime,modifiedTime)`, {
         headers: getHeaders(accessToken),
@@ -227,7 +229,7 @@ export const getCandidateFolders = async (accessToken: string) => {
     });
     if (!response.ok) await handleApiError(response, "Search Folders Failed");
     const data = await safeJsonParse(response);
-    return data && data.files ? data.files : [];
+    return data && data.files ? (data.files as DriveFile[]) : [];
 };
 
 export const getFolderById = async (accessToken: string, folderId: string) => {
@@ -385,7 +387,7 @@ export const deleteFile = async (accessToken: string, fileId: string) => {
     return true;
 };
 
-export const getUserInfo = async (accessToken: string) => {
+export const getUserInfo = async (accessToken: string): Promise<DriveUser> => {
     try {
         const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
             headers: { 'Authorization': `Bearer ${accessToken}` },
@@ -437,7 +439,7 @@ async function locateDriveConfig(accessToken: string) {
     return { folderId: activeFolderId };
 }
 
-export const debugDriveState = async (accessToken: string) => {
+export const debugDriveState = async (accessToken: string): Promise<DriveDebugInfo> => {
     const logs: string[] = [];
     const details: any[] = [];
 
