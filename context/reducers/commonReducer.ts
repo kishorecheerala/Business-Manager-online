@@ -45,6 +45,10 @@ export const commonReducer = (state: DataState, action: Action): DataState => {
             // I'll add a side effect to clear the store 'audit_logs'.
             db.saveCollection('audit_logs', []);
             return { ...state, audit_logs: [], ...touch };
+        case 'ADD_AUDIT_LOG':
+            const logEntry = { ...action.payload, updatedAt: new Date().toISOString() };
+            db.upsertItem('audit_logs', logEntry);
+            return { ...state, audit_logs: [logEntry, ...state.audit_logs], ...touch };
 
         // --- Profile ---
         case 'SET_PROFILE':

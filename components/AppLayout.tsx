@@ -1,8 +1,9 @@
 import React, { useState, useRef, Suspense, useMemo } from 'react';
 import {
     Menu, Search, Sparkles, WifiOff, Sun, Moon, RefreshCw, CloudOff, Cloud, Bell, HelpCircle, CalendarClock,
-    Plus, X, Settings, ShoppingCart, UserPlus, PackagePlus, Receipt, Undo2, FileText, Package, BarChart2, Layout
+    Plus, X, Settings, ShoppingCart, UserPlus, PackagePlus, Receipt, Undo2, FileText, Package, BarChart2, Layout, Download, Info
 } from 'lucide-react';
+import { useRegisterSW } from 'virtual:pwa-register/react';
 import { Page, AppMetadata } from '../types';
 import { useData } from '../context/DataContext';
 import { useUI } from '../context/UIContext';
@@ -68,6 +69,27 @@ const AppLayout: React.FC<AppLayoutProps> = ({
     const [isMobileQuickAddOpen, setIsMobileQuickAddOpen] = useState(false);
     const [isChangeLogOpen, setIsChangeLogOpen] = useState(false);
     const [isSecuritySettingsOpen, setIsSecuritySettingsOpen] = useState(false);
+
+    // --- PWA Update Logic ---
+    const swResult = useRegisterSW({
+        onRegistered(r) {
+            console.log('SW Registered:', r);
+        },
+        onRegisterError(error) {
+            console.error('SW registration error', error);
+        },
+    });
+
+    const {
+        offlineReady: [offlineReady, setOfflineReady] = [false, () => { }] as const,
+        needUpdate: [needUpdate, setNeedUpdate] = [false, () => { }] as const,
+        updateServiceWorker,
+    } = swResult || {};
+
+    const closePWA = () => {
+        setOfflineReady(false);
+        setNeedUpdate(false);
+    };
 
 
 
@@ -204,6 +226,41 @@ const AppLayout: React.FC<AppLayoutProps> = ({
 
     return (
         <div className={`min-h-screen flex flex-col bg-background dark:bg-slate-950 text-text dark:text-slate-200 transition-colors duration-300`}>
+            {/* PWA Update Toast */}
+            {(offlineReady || needUpdate) && (
+                <div className="fixed bottom-20 left-4 right-4 md:left-auto md:right-4 md:w-80 z-[3000] animate-bounce-in">
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-4 border border-indigo-100 dark:border-slate-700 flex items-start gap-3">
+                        <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl">
+                            {offlineReady ? <Info className="text-indigo-600 w-5 h-5" /> : <RefreshCw className="text-indigo-600 w-5 h-5 animate-spin" />}
+                        </div>
+                        <div className="flex-1">
+                            <p className="text-sm font-bold text-slate-800 dark:text-white">
+                                {offlineReady ? 'App ready to work offline' : 'New version available!'}
+                            </p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                {offlineReady ? 'You can use the app even without internet.' : 'Reload to get the latest features and fixes.'}
+                            </p>
+                            <div className="flex items-center gap-2 mt-3">
+                                {needUpdate && (
+                                    <button
+                                        onClick={() => updateServiceWorker(true)}
+                                        className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5"
+                                    >
+                                        <Download size={14} /> Update Now
+                                    </button>
+                                )}
+                                <button
+                                    onClick={closePWA}
+                                    className="px-3 py-1.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 text-xs font-bold rounded-lg transition-colors"
+                                >
+                                    Dismiss
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Modals & Overlays */}
             <Suspense fallback={null}>
 
@@ -242,13 +299,13 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                 <header className="fixed top-0 left-0 right-0 z-40 bg-theme shadow-lg transition-all duration-300">
                     <div className="h-16 px-3 sm:px-4 flex items-center justify-between text-white relative">
                         <div className="flex items-center gap-1 sm:gap-2 z-20">
-                            <button onClick={() => setIsMenuOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors" title="Menu (Ctrl+M)">
+                            <button onClick={() => setIsMenuOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors" title="Menu (Ctrl+M)" aria-label="Open sidebar menu">
                                 <Menu size={24} />
                             </button>
-                            <button onClick={() => setIsSearchOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors" title="Search (Ctrl+K)">
+                            <button onClick={() => setIsSearchOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors" title="Search (Ctrl+K)" aria-label="Open search">
                                 <Search size={20} />
                             </button>
-                            <button onClick={() => setIsAskAIOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors" title="AI Assistant">
+                            <button onClick={() => setIsAskAIOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors" title="AI Assistant" aria-label="Open AI assistant">
                                 <Sparkles size={20} />
                             </button>
                         </div>

@@ -26,6 +26,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { useHotkeys } from './hooks/useHotkeys';
 import { logPageView } from './utils/analyticsLogger';
 import { APP_VERSION } from './utils/changelogData';
+import { performanceReporter } from './utils/performanceReporter';
 
 // Pages (Lazy Load)
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
@@ -109,10 +110,16 @@ const App: React.FC = () => {
     // --- Effects ---
 
 
+    // Performance Initialization
+    useEffect(() => {
+        performanceReporter.init();
+    }, []);
+
     // Action Params Effect
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         const action = params.get('action');
+
         if (action === 'new_customer') {
             dispatch({ type: 'SET_SELECTION', payload: { page: 'CUSTOMERS', id: 'new' } });
             try {
@@ -122,7 +129,7 @@ const App: React.FC = () => {
                 if (state.devMode) console.warn('Could not clean URL history', e);
             }
         }
-    }, [dispatch]);
+    }, [dispatch, state.devMode]);
 
     // --- Command Palette State ---
     const [isCmdOpen, setIsCmdOpen] = useState(false);

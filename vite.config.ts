@@ -1,12 +1,16 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import compression from 'vite-plugin-compression'
 
 export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
+      devOptions: {
+        enabled: true
+      },
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'vite.svg'],
       manifest: {
         name: 'Business Manager',
@@ -59,7 +63,13 @@ export default defineConfig({
           }
         ]
       }
-    })
+    }),
+    compression({
+      algorithm: 'brotliCompress',
+    }),
+    compression({
+      algorithm: 'gzip',
+    }),
   ],
   base: './',
   build: {

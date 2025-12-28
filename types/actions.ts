@@ -103,4 +103,5 @@ export type Action =
     | { type: 'RENAME_PRODUCT_ID'; payload: { oldId: string; newId: string } }
     | { type: 'SET_AUTHENTICATED'; payload: boolean }
     | { type: 'TOGGLE_STAFF_MODE'; payload: boolean }
-    | { type: 'UPDATE_AUTO_CLEANUP_SETTINGS'; payload: Partial<AppMetadataAutoCleanup> };
+    | { type: 'UPDATE_AUTO_CLEANUP_SETTINGS'; payload: Partial<AppMetadataAutoCleanup> }
+    | { type: 'ADD_AUDIT_LOG'; payload: any }; // Using any for now to avoid circular if AuditLogEntry not here, but it is imported up top!

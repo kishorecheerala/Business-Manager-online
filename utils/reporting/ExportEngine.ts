@@ -92,4 +92,18 @@ export class ExportEngine {
 
         doc.save(generateDownloadFilename(config.title, 'pdf'));
     }
+
+    static exportToJSON(config: ReportConfig, data: any[]) {
+        if (!data || data.length === 0) return;
+        const jsonContent = JSON.stringify(data, null, 2);
+        const blob = new Blob([jsonContent], { type: 'application/json' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', generateDownloadFilename(config.title, 'json'));
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
 }

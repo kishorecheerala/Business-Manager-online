@@ -39,10 +39,10 @@ describe('productReducer', () => {
         expect(newState.purchases[0].items[0].productId).toBe('p_new');
 
         // 3. Verify DB calls
-        // Since we mocked db, distinct calls should be made
-        expect(db.saveCollection).toHaveBeenCalledWith('products', expect.any(Array));
-        expect(db.saveCollection).toHaveBeenCalledWith('sales', expect.any(Array));
-        expect(db.saveCollection).toHaveBeenCalledWith('purchases', expect.any(Array));
+        expect(db.deleteFromStore).toHaveBeenCalledWith('products', 'p1');
+        expect(db.upsertItem).toHaveBeenCalledWith('products', expect.objectContaining({ id: 'p_new' }));
+        expect(db.upsertMany).toHaveBeenCalledWith('sales', expect.any(Array));
+        expect(db.upsertMany).toHaveBeenCalledWith('purchases', expect.any(Array));
     });
 
     it('should handle batch update', () => {

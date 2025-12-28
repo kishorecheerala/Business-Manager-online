@@ -190,6 +190,29 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         };
     }, [showToast]);
 
+    // --- Structured Logging Listener ---
+    useEffect(() => {
+        const handleLogEvent = (e: any) => {
+            const entry = e.detail;
+            if (entry) {
+                dispatch({
+                    type: 'ADD_AUDIT_LOG',
+                    payload: {
+                        id: `log-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                        action: entry.message,
+                        details: JSON.stringify(entry.details || {}),
+                        timestamp: entry.timestamp,
+                        module: entry.context || 'SYSTEM',
+                        userId: googleUser?.email || 'Anonymous'
+                    }
+                });
+            }
+        };
+
+        window.addEventListener('APP_LOG_EVENT', handleLogEvent);
+        return () => window.removeEventListener('APP_LOG_EVENT', handleLogEvent);
+    }, [dispatch, googleUser]);
+
     const hydrateState = useCallback(async () => {
         try {
             const loadPromise = Promise.all([
