@@ -8,7 +8,7 @@ const DB_VERSION = 17; // Bumped for indices
 export type StoreName = 'customers' | 'suppliers' | 'products' | 'sales' | 'purchases' | 'returns' | 'app_metadata' | 'notifications' | 'profile' | 'audit_logs' | 'expenses' | 'quotes' | 'custom_fonts' | 'snapshots' | 'trash' | 'budgets' | 'financial_scenarios' | 'bank_accounts' | 'goals' | 'sync_metadata';
 const STORE_NAMES: StoreName[] = ['customers', 'suppliers', 'products', 'sales', 'purchases', 'returns', 'app_metadata', 'notifications', 'profile', 'audit_logs', 'expenses', 'quotes', 'custom_fonts', 'snapshots', 'trash', 'budgets', 'financial_scenarios', 'bank_accounts', 'goals', 'sync_metadata'];
 
-interface BusinessManagerDB extends DBSchema {
+export interface BusinessManagerDB extends DBSchema {
     customers: {
         key: string;
         value: Customer;
@@ -75,7 +75,7 @@ export async function deleteDatabase(): Promise<void> {
     await deleteDB(DB_NAME);
 }
 
-let dbPromise: Promise<IDBPDatabase<BusinessManagerDB>> | undefined;
+export let dbPromise: Promise<IDBPDatabase<BusinessManagerDB>> | undefined;
 
 function getDb(): Promise<IDBPDatabase<BusinessManagerDB>> {
     if (!dbPromise) {
@@ -372,7 +372,8 @@ export async function mergeData(cloudData: any): Promise<void> {
                             const remoteTime = (item as any).updatedAt ? new Date((item as any).updatedAt).getTime() : 0;
                             const localTime = (localItem as any).updatedAt ? new Date((localItem as any).updatedAt).getTime() : 0;
 
-                            if (remoteTime > localTime) {
+                            // If remote is newer OR (both are equal/missing and it's a merge from cloud), take remote
+                            if (remoteTime >= localTime) {
                                 await store.put(item);
                             }
                         }

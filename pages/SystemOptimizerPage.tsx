@@ -10,6 +10,7 @@ import { Product } from '../types';
 import { useDialog } from '../context/DialogContext';
 import { getStorageStats, getDetailedStats } from '../utils/db';
 import FormattedNumberInput from '../components/FormattedNumberInput';
+import { runFullIntegrityCheck, IntegrityResult } from '../utils/dbIntegrity';
 
 const SystemOptimizerPage: React.FC = () => {
     const { state, dispatch } = useData();
@@ -123,32 +124,22 @@ const SystemOptimizerPage: React.FC = () => {
         setProgress(0);
 
         try {
-            // Simulated check: iterate through collections and verify IDs
-            const collections = ['customers', 'products', 'sales', 'purchases'];
-            let totalRecords = 0;
-            collections.forEach(c => totalRecords += (state as any)[c]?.length || 0);
+            const result: IntegrityResult = await runFullIntegrityCheck();
 
-            let checked = 0;
-            for (const coll of collections) {
-                const data = (state as any)[coll];
-                if (data) {
-                    for (const item of data) {
-                        if (!item.id) {
-                            console.error(`Missing ID in ${coll}`, item);
-                        }
-                        checked++;
-                        if (checked % 10 === 0) {
-                            setProgress(Math.round((checked / totalRecords) * 100));
-                            await new Promise(r => setTimeout(r, 10)); // Yield to UI
-                        }
-                    }
+            if (result.passed) {
+                showToast(`Integrity check passed! Scanned ${result.scannedCount} records.`, 'success');
+            } else {
+                const highSeverity = result.issues.filter(i => i.severity === 'high').length;
+                if (highSeverity > 0) {
+                    showToast(`Found ${result.issues.length} issues (${highSeverity} critical). Check console for details.`, 'error');
+                } else {
+                    showToast(`Check completed with ${result.issues.length} minor issues.`, 'info');
                 }
+                console.table(result.issues);
             }
-
-            showToast("Database integrity check passed. No corrupt records found.", 'success');
         } catch (e) {
             console.error("Integrity check failed", e);
-            showToast("Integrity check completed with some issues. See console for details.", 'info');
+            showToast("Integrity check could not be completed.", 'error');
         } finally {
             setIsOptimizing(false);
             setProgress(0);

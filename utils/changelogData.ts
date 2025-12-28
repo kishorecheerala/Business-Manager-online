@@ -1,5 +1,5 @@
 
-export const APP_VERSION = '1.6.1';
+export const APP_VERSION = '1.7.0';
 
 export interface Release {
     version: string;
@@ -10,8 +10,23 @@ export interface Release {
 
 export const releases: Release[] = [
     {
-        version: '1.6.1',
+        version: '1.7.0',
         date: new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' }),
+        features: [
+            '🚀 Production Ready: Final internal audit and structural optimizations complete.',
+            '🔍 Deep Integrity Check: New advanced database diagnostic tool in System Optimizer.',
+            '✨ Update Awareness: Automatic notification of new features on application launch.',
+            '♿ Accessibility: Improved navigation support for screen readers and diverse devices.',
+            '📱 Enhanced PWA: Optimized manifest for better installation on iOS and Android.'
+        ],
+        fixes: [
+            'Standardized ARIA labels across the application.',
+            'Improved manifest icon definitions for home screen clarity.'
+        ]
+    },
+    {
+        version: '1.6.1',
+        date: '28 December 2025',
         features: [
             '🕒 Enhanced Time Display: "Last Synced" and Banner times now use clear AM/PM formatting.',
             '🆘 Support: Fixed specific "Help & Documentation" links in the main menu.'

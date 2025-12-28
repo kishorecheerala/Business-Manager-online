@@ -432,6 +432,7 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); googleSignOut(); onClose(); }}
                                                             className="text-[10px] text-red-100 hover:text-white flex items-center gap-1.5 transition-colors self-start"
+                                                            aria-label="Sign out of Google account"
                                                         >
                                                             <LogOut size={10} /> Sign Out
                                                         </button>
@@ -476,7 +477,8 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                             )}
                             <div className="my-2 border-t border-gray-100 dark:border-slate-700 mx-4"></div>
 
-                            {/* 5. General / Other (Moved to Top) */}
+                            {/* Social / WhatsApp - Adding specific labels if they were here, but let's check existing buttons */}
+                            {/* General / Other */}
                             <div className="px-4 py-2 mt-2">
                                 <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">General</span>
                             </div>
@@ -484,6 +486,7 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                                 <button
                                     onClick={(e) => { e.stopPropagation(); handleToggleStaffMode(); }}
                                     className="menu-item group"
+                                    aria-label={authState.isStaffMode ? "Disable staff mode" : "Enable staff mode"}
                                 >
                                     <Shield className={`w-5 h-5 flex-shrink-0 ${authState.isStaffMode ? 'text-green-500' : 'text-gray-400'}`} />
                                     <span className="flex-grow text-sm font-medium text-left">Staff Mode</span>

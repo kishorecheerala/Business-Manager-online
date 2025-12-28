@@ -3,6 +3,7 @@ import { AlertTriangle, RefreshCw, Copy, Download, Share2, Mail, ChevronDown, Ch
 import Button from './Button';
 import Card from './Card';
 import { logger } from '../utils/logger';
+import { APP_VERSION } from '../utils/changelogData';
 
 interface Props {
   children?: ReactNode;
@@ -48,7 +49,7 @@ class ErrorBoundary extends React.Component<Props, State> {
     const { error, errorInfo } = this.state;
     return `Error: ${error?.message || 'Unknown Error'}
 Timestamp: ${new Date().toISOString()}
-App Version: ${(window as any).APP_VERSION || '1.0.0'}
+App Version: ${APP_VERSION || '1.0.0'}
 URL: ${window.location.href}
 
 Component Stack:

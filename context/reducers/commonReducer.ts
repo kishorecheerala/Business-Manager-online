@@ -52,11 +52,12 @@ export const commonReducer = (state: DataState, action: Action): DataState => {
 
         // --- Profile ---
         case 'SET_PROFILE':
-            db.upsertItem('profile', action.payload);
-            return { ...state, profile: action.payload, ...touch };
+            const profileToSet = { ...action.payload, updatedAt: action.payload.updatedAt || new Date().toISOString() };
+            db.upsertItem('profile', profileToSet);
+            return { ...state, profile: profileToSet, ...touch };
         case 'UPDATE_PROFILE':
             if (!state.profile) return state;
-            const updatedProfile = { ...state.profile, ...action.payload };
+            const updatedProfile = { ...state.profile, ...action.payload, updatedAt: new Date().toISOString() };
             db.upsertItem('profile', updatedProfile);
             return { ...state, profile: updatedProfile, ...touch };
 

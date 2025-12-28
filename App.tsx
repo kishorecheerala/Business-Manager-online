@@ -25,7 +25,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 // Hooks
 import { useHotkeys } from './hooks/useHotkeys';
 import { logPageView } from './utils/analyticsLogger';
-import { APP_VERSION } from './utils/changelogData';
+import { APP_VERSION as VERSION_CONST } from './utils/changelogData';
 import { performanceReporter } from './utils/performanceReporter';
 
 // Pages (Lazy Load)

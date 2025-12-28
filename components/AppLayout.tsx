@@ -9,6 +9,7 @@ import { useData } from '../context/DataContext';
 import { useUI } from '../context/UIContext';
 import { useAuth } from '../context/AuthContext';
 import { useDialog } from '../context/DialogContext';
+import { APP_VERSION as VERSION_CONST } from '../utils/changelogData';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
 import NavItem from './NavItem';
 import { ICON_MAP, LABEL_MAP } from '../utils/iconMap';
@@ -95,6 +96,20 @@ const AppLayout: React.FC<AppLayoutProps> = ({
 
     const [isAPIConfigOpen, setIsAPIConfigOpen] = useState(false);
 
+    // --- Version Check for "What's New" ---
+    React.useEffect(() => {
+        const lastSeenVersion = localStorage.getItem('last_seen_version');
+        const APP_V = VERSION_CONST || '1.7.0';
+
+        if (lastSeenVersion !== APP_V) {
+            const timer = setTimeout(() => {
+                setIsChangeLogOpen(true);
+                localStorage.setItem('last_seen_version', APP_V);
+            }, 2000);
+            return () => clearTimeout(timer);
+        }
+    }, []);
+
     const notificationsRef = useRef<HTMLDivElement>(null);
     useOnClickOutside(notificationsRef, () => setIsNotificationsOpen(false));
 
@@ -145,9 +160,6 @@ const AppLayout: React.FC<AppLayoutProps> = ({
     // --- Staff Mode Restricted Pages ---
     const RESTRICTED_PAGES: Page[] = ['DASHBOARD', 'REPORTS', 'INSIGHTS', 'EXPENSES', 'FINANCIAL_PLANNING', 'INVOICE_DESIGNER', 'SYSTEM_OPTIMIZER'];
 
-    // Note: Restricted pages are filtered from navigation in useMemo below
-    // No need for aggressive redirect loop
-
     // Prepare Nav Items
     const { mainNavItems, pinnedItems, mobilePinnedItems, mobileMoreItems } = useMemo(() => {
         const order = navOrder || [];
@@ -166,7 +178,6 @@ const AppLayout: React.FC<AppLayoutProps> = ({
         const pinnedItems = pinnedIds.map(id => ({ page: id, label: LABEL_MAP[id] || id, icon: ICON_MAP[id] || HelpCircle }));
 
         // For Mobile: Show 4 pinned in bar (Index 0, 1, 2, 3)
-        // The 5th pinned item (Index 4) moves to "More" for mobile
         const mobilePinnedItems = pinnedIds.slice(0, 4).map(id => ({ page: id, label: LABEL_MAP[id] || id, icon: ICON_MAP[id] || HelpCircle }));
 
         // Mobile More includes the 5th pinned item + rest
@@ -245,6 +256,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                                     <button
                                         onClick={() => updateServiceWorker(true)}
                                         className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5"
+                                        aria-label="Update app to latest version"
                                     >
                                         <Download size={14} /> Update Now
                                     </button>
@@ -252,6 +264,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                                 <button
                                     onClick={closePWA}
                                     className="px-3 py-1.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 text-xs font-bold rounded-lg transition-colors"
+                                    aria-label="Dismiss update notification"
                                 >
                                     Dismiss
                                 </button>
@@ -263,9 +276,6 @@ const AppLayout: React.FC<AppLayoutProps> = ({
 
             {/* Modals & Overlays */}
             <Suspense fallback={null}>
-
-
-
                 <ChangeLogModal isOpen={isChangeLogOpen} onClose={() => setIsChangeLogOpen(false)} />
                 <SignInModal isOpen={isSignInModalOpen} onClose={() => setIsSignInModalOpen(false)} />
                 <MenuPanel
@@ -302,10 +312,10 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                             <button onClick={() => setIsMenuOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors" title="Menu (Ctrl+M)" aria-label="Open sidebar menu">
                                 <Menu size={24} />
                             </button>
-                            <button onClick={() => setIsSearchOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors" title="Search (Ctrl+K)" aria-label="Open search">
+                            <button onClick={() => setIsSearchOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors" title="Search (Ctrl+K)" aria-label="Open universal search">
                                 <Search size={20} />
                             </button>
-                            <button onClick={() => setIsAskAIOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors" title="AI Assistant" aria-label="Open AI assistant">
+                            <button onClick={() => setIsAskAIOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors" title="AI Assistant" aria-label="Open Gemini AI assistant">
                                 <Sparkles size={20} />
                             </button>
                         </div>
@@ -314,6 +324,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                             <button
                                 onClick={() => onNavigate('DASHBOARD')}
                                 className="pointer-events-auto flex flex-col items-center justify-center hover:opacity-90 transition-opacity"
+                                aria-label="Go to Dashboard"
                             >
                                 <h1 className="text-lg sm:text-xl font-bold tracking-tight truncate max-w-[200px] sm:max-w-[300px] leading-tight drop-shadow-sm">
                                     {state.profile?.name || (state.profile?.ownerName || 'Saree Business Manager')}
@@ -362,7 +373,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
 
                         <div className="flex items-center gap-1 sm:gap-2 z-20">
                             {!isOnline && (
-                                <div className="hidden sm:flex items-center gap-1 px-2 py-1 bg-red-500/20 rounded-full border border-red-400/50 mr-1 animate-pulse">
+                                <div className="hidden sm:flex items-center gap-1 px-2 py-1 bg-red-500/20 rounded-full border border-red-400/50 mr-1 animate-pulse" aria-label="You are currently offline">
                                     <WifiOff size={14} className="text-white" />
                                     <span className="text-[10px] font-bold text-white">Offline</span>
                                 </div>
@@ -372,6 +383,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                                 onClick={toggleTheme}
                                 className="p-2 hover:bg-white/20 rounded-full transition-colors hidden sm:block"
                                 title="Toggle Theme"
+                                aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
                             >
                                 {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
                             </button>
@@ -393,6 +405,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                                     }}
                                     className="relative p-2 hover:bg-white/20 rounded-full transition-colors"
                                     title={state.lastSyncTime ? `Last Synced: ${formatDateTime(state.lastSyncTime)}` : "Sync Data"}
+                                    aria-label="Synchronize data with cloud storage"
                                 >
                                     {state.syncStatus === 'syncing' ? (
                                         <RefreshCw size={20} className="animate-spin" />
@@ -405,7 +418,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                             </div>
 
                             <div className="relative" ref={notificationsRef}>
-                                <button onClick={() => setIsNotificationsOpen(!isNotificationsOpen)} className="p-2 hover:bg-white/20 rounded-full transition-colors relative">
+                                <button onClick={() => setIsNotificationsOpen(!isNotificationsOpen)} className="p-2 hover:bg-white/20 rounded-full transition-colors relative" aria-label="View notifications">
                                     <Bell size={20} />
                                     {state.notifications.some(n => !n.read) && (
                                         <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-slate-800"></span>
@@ -416,7 +429,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                                 </Suspense>
                             </div>
 
-                            <button onClick={() => setIsHelpOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+                            <button onClick={() => setIsHelpOpen(true)} className="p-2 hover:bg-white/20 rounded-full transition-colors" aria-label="Open help and documentation">
                                 <HelpCircle size={20} />
                             </button>
                         </div>
