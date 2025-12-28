@@ -320,9 +320,9 @@ const FinancialPlanningPage: React.FC = () => {
                     </Card>
 
                     <Card title="Expense Composition">
-                        <div className="h-[300px] flex items-center justify-center">
+                        <div className="h-[300px] flex items-center justify-center" style={{ minWidth: 0, minHeight: 0 }}>
                             {/* Simple Pie Chart of Actuals */}
-                            <ResponsiveContainer width="100%" height="100%">
+                            <ResponsiveContainer width="100%" height="100%" minWidth={100}>
                                 <BarChart data={expenseCategories.map(c => ({ name: c, value: actualSpend[c] || 0 }))} layout="vertical">
                                     <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                                     <XAxis type="number" hide />
@@ -366,8 +366,8 @@ const FinancialPlanningPage: React.FC = () => {
                     </div>
 
                     <Card title="Revenue Forecast (90 Days)">
-                        <div className="h-[400px]">
-                            <ResponsiveContainer width="100%" height="100%">
+                        <div className="h-[400px]" style={{ minWidth: 0, minHeight: 0 }}>
+                            <ResponsiveContainer width="100%" height="100%" minWidth={100}>
                                 <AreaChart data={forecastData}>
                                     <defs>
                                         <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
@@ -486,8 +486,8 @@ const FinancialPlanningPage: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="h-[300px]">
-                            <ResponsiveContainer width="100%" height="100%">
+                        <div className="h-[300px]" style={{ minWidth: 0, minHeight: 0 }}>
+                            <ResponsiveContainer width="100%" height="100%" minWidth={100}>
                                 <ComposedChart data={[
                                     { name: 'Current', revenue: totalRevenue, profit: netProfit },
                                     { name: 'Scenario', revenue: scenarioResult.projectedRevenue, profit: scenarioResult.projectedProfit }
@@ -667,8 +667,8 @@ const FinancialPlanningPage: React.FC = () => {
                     </Card>
 
                     <Card className="lg:col-span-1" title="Sales by Category">
-                        <div className="h-64">
-                            <ResponsiveContainer width="100%" height="100%">
+                        <div className="h-64" style={{ minWidth: 0, minHeight: 0 }}>
+                            <ResponsiveContainer width="100%" height="100%" minWidth={100}>
                                 <PieChart>
                                     <Pie
                                         data={categoryData}
@@ -694,8 +694,8 @@ const FinancialPlanningPage: React.FC = () => {
                     </Card>
 
                     <Card className="lg:col-span-1" title="Revenue vs Expenses (6M)">
-                        <div className="h-64">
-                            <ResponsiveContainer width="100%" height="100%">
+                        <div className="h-64" style={{ minWidth: 0, minHeight: 0 }}>
+                            <ResponsiveContainer width="100%" height="100%" minWidth={100}>
                                 <AreaChart data={cashFlowData}>
                                     <defs>
                                         <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">

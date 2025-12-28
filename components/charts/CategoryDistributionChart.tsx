@@ -50,8 +50,8 @@ const CategoryDistributionChart: React.FC<CategoryDistributionChartProps> = ({ s
                 Sales by Category
             </h3>
 
-            <div className="flex-grow flex flex-col items-center justify-center relative min-h-[250px]">
-                <ResponsiveContainer width="100%" height="100%">
+            <div className="flex-grow flex flex-col items-center justify-center relative min-h-[250px]" style={{ minWidth: 0, minHeight: 0 }}>
+                <ResponsiveContainer width="100%" height="100%" minWidth={100}>
                     <PieChart>
                         <Pie
                             data={data}

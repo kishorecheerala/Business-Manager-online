@@ -66,8 +66,8 @@ const ExpenseTrendChart: React.FC<ExpenseTrendChartProps> = ({ sales, expenses, 
                 Revenue vs Expenses
             </h3>
 
-            <div className="flex-grow min-h-[250px]">
-                <ResponsiveContainer width="100%" height="100%">
+            <div className="flex-grow min-h-[250px]" style={{ minWidth: 0, minHeight: 0 }}>
+                <ResponsiveContainer width="100%" height="100%" minWidth={100}>
                     <LineChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" opacity={0.5} />
                         <XAxis

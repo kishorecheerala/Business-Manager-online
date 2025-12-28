@@ -344,7 +344,14 @@ const appReducer = (state: AppState, action: Action): AppState => {
             return { ...state, ...action.payload };
 
         case 'TOGGLE_STAFF_MODE':
-            return { ...state, isStaffMode: action.payload, ...touch };
+            const staffModeMeta: AppMetadata = {
+                id: 'staffMode',
+                value: action.payload,
+                updatedAt: new Date().toISOString()
+            };
+            const metaWithoutStaffMode = state.app_metadata.filter(m => m.id !== 'staffMode');
+            db.saveCollection('app_metadata', [...metaWithoutStaffMode, staffModeMeta]);
+            return { ...state, isStaffMode: action.payload, app_metadata: [...metaWithoutStaffMode, staffModeMeta], ...touch };
 
         case 'ADD_CUSTOMER':
             const newCustomer = { ...action.payload, updatedAt: new Date().toISOString() };
@@ -1478,12 +1485,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             const navMeta = app_metadata.find(m => m.id === 'navOrder') as AppMetadataNavOrder;
             const qaMeta = app_metadata.find(m => m.id === 'quickActions') as AppMetadataQuickActions;
             const cleanupMeta = app_metadata.find(m => m.id === 'autoCleanupSettings') as AppMetadataAutoCleanup;
+            const staffModeMeta = app_metadata.find(m => m.id === 'staffMode') as any;
+            const googleUserMeta = app_metadata.find(m => m.id === 'googleUser');
 
             // Backup Metadata
             const lastBackupMeta = app_metadata.find(m => m.id === 'lastBackup');
 
-            // Profile processing
-            let finalProfile = (profile && profile.length > 0) ? profile[0] : null;
+            // Profile processing: Resolve conflicts by taking the most recently updated
+            let finalProfile = null;
+            if (profile && profile.length > 0) {
+                finalProfile = (profile as any[]).sort((a, b) =>
+                    new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime()
+                )[0];
+            }
 
             // Bank Accounts
             const finalBankAccounts = Array.isArray(bankAccountsData) ? (bankAccountsData as unknown as BankAccount[]) : [];
@@ -1531,11 +1545,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 app_metadata: app_metadata as AppMetadata[],
                 customFonts: customFonts as CustomFont[],
 
+                // FIX: Load Google User from DB to prevent logout during sync/hydration
+                googleUser: (googleUserMeta as any) || stateRef.current.googleUser || localDefaults.googleUser || null,
+
                 // Security
                 pin: pinMeta?.security?.enabled ? pinMeta.security.pin : null,
-                isLocked: pinMeta?.security?.enabled || false,
+                isLocked: false, // Don't auto-lock on load - only lock via manual lock or idle timeout
                 protectedPages: pinMeta?.protectedPages || [],
-                autoCleanupSettings: cleanupMeta ? { ...initialAutoCleanup, ...cleanupMeta } : initialAutoCleanup
+                autoCleanupSettings: cleanupMeta ? { ...initialAutoCleanup, ...cleanupMeta } : initialAutoCleanup,
+
+                // Staff Mode
+                isStaffMode: staffModeMeta?.value || false
             };
 
             dispatch({

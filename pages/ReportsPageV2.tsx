@@ -187,12 +187,17 @@ const ReportsPageV2: React.FC = () => {
 
     const handleSaveReport = () => {
         if (!builderConfig.title) { showToast("Title required", "error"); return; }
-        const fullConfig = builderConfig as ReportConfig;
-        fullConfig.id = `custom_${Date.now()}`;
-        fullConfig.createdAt = Date.now();
+        const fullConfig = { ...builderConfig } as ReportConfig;
+
+        // Only generate ID if it's a new report
+        if (!fullConfig.id) {
+            fullConfig.id = `custom_${Date.now()}`;
+            fullConfig.createdAt = Date.now();
+        }
+
         setSelectedReport(fullConfig);
         setViewMode('view');
-        showToast("Report generated!", "success");
+        showToast(builderConfig.id ? "Report updated!" : "Report generated!", "success");
     };
 
     const handleRunPrebuilt = (report: ReportConfig) => {
@@ -240,7 +245,7 @@ const ReportsPageV2: React.FC = () => {
         switch (selectedReport.chartType) {
             case 'BAR':
                 return (
-                    <ResponsiveContainer width="100%" height={400}>
+                    <ResponsiveContainer width="100%" height={400} minWidth={100}>
                         <BarChart {...CommonProps}>
                             <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                             <XAxis dataKey={labelKey} tickFormatter={formatLabel} />
@@ -257,7 +262,7 @@ const ReportsPageV2: React.FC = () => {
                 );
             case 'LINE':
                 return (
-                    <ResponsiveContainer width="100%" height={400}>
+                    <ResponsiveContainer width="100%" height={400} minWidth={100}>
                         <RechartsLine {...CommonProps}>
                             <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                             <XAxis dataKey={labelKey} tickFormatter={formatLabel} />
@@ -270,7 +275,7 @@ const ReportsPageV2: React.FC = () => {
                 );
             case 'AREA':
                 return (
-                    <ResponsiveContainer width="100%" height={400}>
+                    <ResponsiveContainer width="100%" height={400} minWidth={100}>
                         <AreaChart {...CommonProps}>
                             <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                             <XAxis dataKey={labelKey} tickFormatter={formatLabel} />
@@ -283,7 +288,7 @@ const ReportsPageV2: React.FC = () => {
                 );
             case 'PIE':
                 return (
-                    <ResponsiveContainer width="100%" height={400}>
+                    <ResponsiveContainer width="100%" height={400} minWidth={100}>
                         <RechartsPie data={reportData}>
                             <Pie
                                 data={reportData}
@@ -306,7 +311,7 @@ const ReportsPageV2: React.FC = () => {
                 );
             case 'SCATTER':
                 return (
-                    <ResponsiveContainer width="100%" height={400}>
+                    <ResponsiveContainer width="100%" height={400} minWidth={100}>
                         <ScatterChart {...CommonProps}>
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis type="category" dataKey={labelKey} name={labelKey} />
@@ -322,7 +327,7 @@ const ReportsPageV2: React.FC = () => {
                 );
             case 'COMPOSED':
                 return (
-                    <ResponsiveContainer width="100%" height={400}>
+                    <ResponsiveContainer width="100%" height={400} minWidth={100}>
                         <ComposedChart {...CommonProps}>
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey={labelKey} />
@@ -337,7 +342,7 @@ const ReportsPageV2: React.FC = () => {
                 );
             case 'FUNNEL':
                 return (
-                    <ResponsiveContainer width="100%" height={400}>
+                    <ResponsiveContainer width="100%" height={400} minWidth={100}>
                         <FunnelChart>
                             <Tooltip />
                             <RechartsFunnel
@@ -352,7 +357,7 @@ const ReportsPageV2: React.FC = () => {
                 );
             case 'TREEMAP':
                 return (
-                    <ResponsiveContainer width="100%" height={400}>
+                    <ResponsiveContainer width="100%" height={400} minWidth={100}>
                         <Treemap
                             data={reportData}
                             dataKey={dataKey}
@@ -649,7 +654,15 @@ const ReportsPageV2: React.FC = () => {
                                 <Button variant="secondary" onClick={() => showToast("Scheduled for email delivery.", "success")}>
                                     <CalendarIcon size={16} className="mr-2" /> Schedule
                                 </Button>
-                                <Button variant="secondary" onClick={() => setViewMode('builder')}><Edit2 size={16} className="mr-2" /> Customize</Button>
+                                <Button variant="secondary" onClick={() => {
+                                    setBuilderConfig({
+                                        ...selectedReport,
+                                        // If it's a prebuilt report (no 'custom_' prefix), clear ID to force a new copy (Save As)
+                                        // If it's a custom report, keep ID to support editing
+                                        id: selectedReport.id.startsWith('custom_') ? selectedReport.id : undefined
+                                    });
+                                    setViewMode('builder');
+                                }}><Edit2 size={16} className="mr-2" /> Customize</Button>
                                 <div className="relative group">
                                     <Button variant="primary"><Download size={16} className="mr-2" /> Export</Button>
                                     <div className="absolute right-0 top-full mt-2 w-32 bg-white dark:bg-slate-800 rounded-lg shadow-xl border dark:border-slate-700 hidden group-hover:block z-50">
@@ -670,7 +683,7 @@ const ReportsPageV2: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="min-h-[450px]">
+                        <div className="min-h-[450px]" style={{ minWidth: 0, minHeight: 0 }}>
                             {renderChart()}
                         </div>
 

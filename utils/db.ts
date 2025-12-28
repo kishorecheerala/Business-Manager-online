@@ -99,7 +99,14 @@ export async function saveCollection<T extends StoreName>(storeName: T, data: Bu
         }
 
         await tx.done;
+        await tx.done;
     } catch (error) {
+        // Ignore specific internal error that happens on race conditions/closing
+        const msg = String(error);
+        if (msg.includes('Internal error opening backing store') || msg.includes('The database connection is closing')) {
+            console.warn(`Supressed DB Error in ${storeName}:`, msg);
+            return;
+        }
         console.error(`Failed to save collection ${storeName}:`, error);
     }
 }
@@ -260,39 +267,65 @@ export async function mergeData(cloudData: any): Promise<void> {
 }
 
 export async function importData(data: any, merge: boolean = false): Promise<void> {
-    const db = await getDb();
-    const tx = db.transaction(STORE_NAMES, 'readwrite');
+    // If overwrite (merge=false), use sequential saveCollection calls which are robust
+    if (!merge) {
+        for (const storeName of STORE_NAMES) {
+            if (storeName === 'notifications' || storeName === 'snapshots') continue;
 
+            let items = (data as any)[storeName] || [];
+            if (!Array.isArray(items) && items && typeof items === 'object') {
+                items = [items];
+            }
+
+            // saveCollection internally handles clearing and chunked saving with error suppression
+            // It expects an array. If items is empty/undefined, it clears the store (which is correct for overwrite)
+            if (Array.isArray(items)) {
+                await saveCollection(storeName, items as any);
+            } else {
+                await saveCollection(storeName, []);
+            }
+        }
+        return;
+    }
+
+    // If merge=true, process sequentially to avoid "Internal error" from massive transaction
+    const db = await getDb();
     for (const storeName of STORE_NAMES) {
         if (storeName === 'notifications' || storeName === 'snapshots') continue;
 
-        const store = tx.objectStore(storeName);
-
-        if (!merge) {
-            await store.clear();
-        }
-
         let items = (data as any)[storeName] || [];
-
         if (!Array.isArray(items) && items && typeof items === 'object') {
             items = [items];
         }
 
         if (Array.isArray(items) && items.length > 0) {
-            const CHUNK_SIZE = 500;
-            for (let i = 0; i < items.length; i += CHUNK_SIZE) {
-                const chunk = items.slice(i, i + CHUNK_SIZE);
-                await Promise.all(chunk.map(item => {
-                    if (item && typeof item === 'object' && 'id' in item) {
-                        return store.put(item);
-                    }
-                    return Promise.resolve();
-                }));
+            try {
+                const tx = db.transaction(storeName, 'readwrite');
+                const store = tx.objectStore(storeName);
+
+                // No clear(), just append/update
+                const CHUNK_SIZE = 500;
+                for (let i = 0; i < items.length; i += CHUNK_SIZE) {
+                    const chunk = items.slice(i, i + CHUNK_SIZE);
+                    await Promise.all(chunk.map(item => {
+                        if (item && typeof item === 'object' && 'id' in item) {
+                            return store.put(item);
+                        }
+                        return Promise.resolve();
+                    }));
+                }
+                await tx.done;
+            } catch (error) {
+                // Ignore specific internal error that happens on race conditions/closing
+                const msg = String(error);
+                if (msg.includes('Internal error opening backing store') || msg.includes('The database connection is closing')) {
+                    console.warn(`Supressed DB Error in merge ${storeName}:`, msg);
+                    continue;
+                }
+                console.error(`Failed to merge store ${storeName}:`, error);
             }
         }
     }
-
-    await tx.done;
 }
 
 export async function clearDatabase(): Promise<void> {

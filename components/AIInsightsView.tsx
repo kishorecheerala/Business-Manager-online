@@ -144,8 +144,8 @@ const AIInsightsView: React.FC<AIInsightsViewProps> = ({ className, onNavigate }
                                                 <TrendingUp size={14} /> Revenue Projection (Simulated)
                                             </h4>
                                             {/* Simple Sparkline simulation using regression */}
-                                            <div className="h-24 w-full">
-                                                <ResponsiveContainer width="100%" height="100%">
+                                            <div className="h-24 w-full" style={{ minWidth: 0, minHeight: 0 }}>
+                                                <ResponsiveContainer width="100%" height="100%" minWidth={100}>
                                                     <LineChart data={
                                                         Array.from({ length: 7 }, (_, i) => ({
                                                             day: i,

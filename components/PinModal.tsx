@@ -267,9 +267,8 @@ const PinModal: React.FC<PinModalProps> = ({ mode, onSetPin, onCorrectPin, corre
                     </div>
                 ) : (
                     <>
-                        {/* Dots UI */}
-                        <div className="relative flex gap-6" onClick={() => inputRef.current?.focus()}>
-                            {/* The Hidden Input */}
+                        {/* Visible Text Input Box */}
+                        <div className="w-full max-w-[200px]">
                             <input
                                 ref={inputRef}
                                 type="password"
@@ -278,20 +277,15 @@ const PinModal: React.FC<PinModalProps> = ({ mode, onSetPin, onCorrectPin, corre
                                 maxLength={4}
                                 value={pin}
                                 onChange={handleInputChange}
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                placeholder="••••"
+                                className="w-full text-center text-4xl font-bold tracking-[1em] px-4 py-4 bg-white dark:bg-slate-800 border-2 border-gray-300 dark:border-slate-600 rounded-xl focus:border-indigo-600 dark:focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-500/20 transition-all"
+                                style={{
+                                    letterSpacing: '0.5em',
+                                    paddingLeft: '1.5rem'
+                                }}
                                 autoFocus
                             />
-
-                            {/* Visual Dots */}
-                            {[0, 1, 2, 3].map((i) => (
-                                <div
-                                    key={i}
-                                    className={`w-4 h-4 rounded-full transition-all duration-300 ${i < pin.length
-                                        ? `scale-110 ${error ? 'bg-red-500' : 'bg-indigo-600 dark:bg-indigo-400'}`
-                                        : 'bg-gray-200 dark:bg-slate-700'
-                                        }`}
-                                />
-                            ))}
+                            <p className="text-xs text-gray-400 dark:text-gray-500 text-center mt-2">4-digit PIN</p>
                         </div>
 
                         {/* Forgot PIN / Reset Link */}

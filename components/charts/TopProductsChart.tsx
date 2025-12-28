@@ -58,8 +58,8 @@ const TopProductsChart: React.FC<TopProductsChartProps> = ({ sales, className })
                 Top Selling Products
             </h3>
 
-            <div className="flex-grow min-h-[250px]">
-                <ResponsiveContainer width="100%" height="100%">
+            <div className="flex-grow min-h-[250px]" style={{ minWidth: 0, minHeight: 0 }}>
+                <ResponsiveContainer width="100%" height="100%" minWidth={100}>
                     <BarChart data={data} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                         <XAxis type="number" hide />
                         <YAxis

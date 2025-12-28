@@ -115,13 +115,8 @@ const AppLayout: React.FC<AppLayoutProps> = ({
     // --- Staff Mode Restricted Pages ---
     const RESTRICTED_PAGES: Page[] = ['DASHBOARD', 'REPORTS', 'INSIGHTS', 'EXPENSES', 'FINANCIAL_PLANNING', 'INVOICE_DESIGNER', 'SYSTEM_OPTIMIZER'];
 
-    // Verify Staff Mode Access
-    React.useEffect(() => {
-        if (state.isStaffMode && RESTRICTED_PAGES.includes(currentPage)) {
-            showToast("Access Restricted in Staff Mode", 'error');
-            onNavigate('SALES');
-        }
-    }, [state.isStaffMode, currentPage]);
+    // Note: Restricted pages are filtered from navigation in useMemo below
+    // No need for aggressive redirect loop
 
     // Prepare Nav Items
     const { mainNavItems, pinnedItems, mobilePinnedItems, mobileMoreItems } = useMemo(() => {
@@ -149,7 +144,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
         const mobileMoreItems = mobileRestIds.map(id => ({ page: id, label: LABEL_MAP[id] || id, icon: ICON_MAP[id] || HelpCircle }));
 
         return { mainNavItems, pinnedItems, mobilePinnedItems, mobileMoreItems };
-    }, [state.navOrder]);
+    }, [state.navOrder, state.isStaffMode]);
 
     const mainClass = currentPage === 'INVOICE_DESIGNER'
         ? 'h-[100dvh] overflow-hidden'

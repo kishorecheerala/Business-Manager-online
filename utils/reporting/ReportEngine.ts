@@ -1,6 +1,7 @@
 import { AppState, ReportConfig, ReportField, ReportFilter } from "../../types";
 
 export class ReportEngine {
+    private static _loggedSample = false;
 
     static process(state: AppState, config: ReportConfig): any[] {
         let rawData: any[] = [];
@@ -44,22 +45,41 @@ export class ReportEngine {
             default: rawData = [];
         }
 
-        // 2. Flatten & map fields needed
+        console.log(`[ReportEngine] Data source: ${config.dataSource}, Raw data count: ${rawData.length}`);
+        console.log(`[ReportEngine] Filters:`, config.filters);
+
+        // 2. Flatten & map fields needed FIRST, so filters can work on derived fields (like dateVal)
         const flattenedData = rawData
-            .filter(item => this.applyFilters(item, config.filters))
-            .map(item => this.flattenItem(item, state, config.dataSource, { productMap, customerMap, supplierMap, salesByCustomer }));
+            .map(item => this.flattenItem(item, state, config.dataSource, { productMap, customerMap, supplierMap, salesByCustomer }))
+            .filter(item => this.applyFilters(item, config.filters));
+
+        console.log(`[ReportEngine] After filtering: ${flattenedData.length} items`);
 
         // 3. Group & Aggregate (if groupBy is set)
         if (config.groupBy) {
-            return this.groupData(flattenedData, config.groupBy, config.fields);
+            const grouped = this.groupData(flattenedData, config.groupBy, config.fields);
+            console.log(`[ReportEngine] After grouping by '${config.groupBy}': ${grouped.length} groups`);
+            return grouped;
         }
 
+        console.log(`[ReportEngine] Returning ${flattenedData.length} ungrouped items`);
         return flattenedData;
     }
 
     private static flattenItem(item: any, state: AppState, source: string, ctx: { productMap: Map<string, any>, customerMap: Map<string, any>, supplierMap: Map<string, any>, salesByCustomer: Map<string, any[]> }): any {
+        // Debug: Log first item to see structure
+        if (source === 'sales' && !this._loggedSample) {
+            console.log('[DEBUG] Sample sale item:', item);
+            this._loggedSample = true;
+        }
+
         const flat = { ...item };
         let dateObj: Date | null = null;
+
+        // Debug date issues
+        if (source === 'sales') {
+            console.log(`[Date Debug] Sale item date field:`, item.date, `Type:`, typeof item.date);
+        }
 
         if (item.date) {
             dateObj = new Date(item.date);
@@ -70,6 +90,8 @@ export class ReportEngine {
             flat['hour'] = dateObj.getHours().toString();
             const dayOfWeek = dateObj.getDay();
             flat['isWeekend'] = (dayOfWeek === 0 || dayOfWeek === 6) ? 'Weekend' : 'Weekday';
+        } else {
+            console.warn(`[ReportEngine] Item missing date:`, source, item);
         }
 
         // Enrich common relations
@@ -87,6 +109,14 @@ export class ReportEngine {
 
             // GST
             flat['gstAmount'] = Number(item.gstAmount || 0);
+
+            // Extract product names from items (for product-level reports)
+            if (item.items && Array.isArray(item.items) && item.items.length > 0) {
+                // For single-product reports, use first item
+                const firstItem = item.items[0];
+                const prod = ctx.productMap.get(firstItem.productId);
+                flat['productName'] = prod?.name || 'Unknown Product';
+            }
 
             // Net Profit
             let cogs = 0;
@@ -124,6 +154,21 @@ export class ReportEngine {
             const supp = ctx.supplierMap.get(item.supplierId);
             flat['supplierName'] = supp?.name || 'Unknown';
             flat['dueDate'] = item.paymentDueDates?.[0] || 'N/A';
+
+            // Calculate due amount for purchases
+            const totalPaid = (item.payments || []).reduce((sum: number, p: any) => sum + Number(p.amount), 0);
+            flat['dueAmount'] = Number(item.totalAmount || 0) - totalPaid;
+
+            // GST amount
+            flat['gstAmount'] = Number(item.gstAmount || 0);
+
+            // Extract product info if items exist
+            if (item.items && Array.isArray(item.items) && item.items.length > 0) {
+                const firstItem = item.items[0];
+                const prod = ctx.productMap.get(firstItem.productId);
+                flat['productName'] = prod?.name || 'Unknown Product';
+                flat['category'] = prod?.category || 'Uncategorized';
+            }
         }
 
         if (source === 'inventory') {
@@ -150,6 +195,22 @@ export class ReportEngine {
             flat['creditUtilization'] = 0; // Placeholder
             flat['transactionCount'] = customerSales.length;
 
+            // Calculate total profit for this customer
+            let totalProfit = 0;
+            customerSales.forEach((sale: any) => {
+                let saleCOGS = 0;
+                if (sale.items && Array.isArray(sale.items)) {
+                    sale.items.forEach((si: any) => {
+                        const prod = ctx.productMap.get(si.productId);
+                        if (prod) {
+                            saleCOGS += (Number(prod.purchasePrice) || 0) * (Number(si.quantity) || 0);
+                        }
+                    });
+                }
+                totalProfit += (Number(sale.totalAmount) || 0) - (Number(sale.gstAmount) || 0) - saleCOGS;
+            });
+            flat['totalProfit'] = totalProfit;
+
             // Last Purchase
             if (customerSales.length > 0) {
                 const lastDate = Math.max(...customerSales.map((s: any) => new Date(s.date).getTime()));
@@ -158,6 +219,15 @@ export class ReportEngine {
             } else {
                 flat['lastPurchaseDays'] = 999;
             }
+        }
+
+        if (source === 'expenses') {
+            // Ensure amount is properly set
+            flat['amount'] = Number(item.amount || 0);
+
+            // If date was already processed, month/year should exist
+            // But ensure category exists
+            flat['category'] = item.category || 'Uncategorized';
         }
 
         return flat;
@@ -174,6 +244,10 @@ export class ReportEngine {
                 case 'gt': return Number(val) > Number(target);
                 case 'lt': return Number(val) < Number(target);
                 case 'between':
+                    if (filter.id === 'dateVal') {
+                        console.log(`[Filter Debug] Comparing dateVal: ${val} (${new Date(val)}) between ${target[0]} (${new Date(target[0])}) and ${target[1]} (${new Date(target[1])})`);
+                        console.log(`[Filter Debug] Result: val >= target[0] = ${val >= target[0]}, val <= target[1] = ${val <= target[1]}`);
+                    }
                     return Array.isArray(target) && val >= target[0] && val <= target[1];
                 case 'in':
                     return Array.isArray(target) && target.includes(val);

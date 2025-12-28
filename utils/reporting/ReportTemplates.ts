@@ -11,20 +11,39 @@ const createTemplate = (
     metricId: string,
     metricLabel: string,
     metricAgg: 'SUM' | 'AVG' | 'COUNT' | 'MIN' | 'MAX'
-): ReportConfig => ({
-    id,
-    title,
-    description: desc,
-    dataSource: source,
-    chartType: type,
-    groupBy,
-    fields: [
-        { id: groupBy, label: groupBy.replace(/([A-Z])/g, ' $1').trim(), type: 'string' },
-        { id: metricId, label: metricLabel, type: 'number', aggregation: metricAgg }
-    ],
-    filters: [],
-    createdAt: Date.now()
-});
+): ReportConfig => {
+    // Determine groupBy field type
+    const groupByFieldType = groupBy === 'date' || groupBy.includes('Date') ? 'date' : 'string';
+
+    // Determine metric field type based on label and metric ID
+    let metricType: 'number' | 'currency' = 'number';
+    if (metricLabel.includes('Revenue') || metricLabel.includes('Amount') ||
+        metricLabel.includes('Value') || metricLabel.includes('Spend') ||
+        metricLabel.includes('Cost') || metricLabel.includes('Profit') ||
+        metricLabel.includes('LTV') || metricLabel.includes('Price') ||
+        metricLabel.includes('Discount') || metricLabel.includes('GST') ||
+        metricLabel.includes('Due') || metricLabel.includes('Payable') ||
+        metricLabel.includes('Liability') || metricLabel.includes('Cash') ||
+        metricLabel.includes('Salaries') || metricLabel.includes('Costs') ||
+        metricLabel.includes('Expense') || metricLabel.includes('Wages')) {
+        metricType = 'currency';
+    }
+
+    return {
+        id,
+        title,
+        description: desc,
+        dataSource: source,
+        chartType: type,
+        groupBy,
+        fields: [
+            { id: groupBy, label: groupBy.replace(/([A-Z])/g, ' $1').trim(), type: groupByFieldType },
+            { id: metricId, label: metricLabel, type: metricType, aggregation: metricAgg }
+        ],
+        filters: [],
+        createdAt: Date.now()
+    };
+};
 
 export const REPORT_CATEGORIES = ['All', 'Sales', 'Inventory', 'Customers', 'Purchases', 'Financial'];
 

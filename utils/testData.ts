@@ -255,15 +255,15 @@ export const testData = {
   purchases,
   returns,
   expenses,
-  bankAccounts,
+  bank_accounts: bankAccounts,
   budgets,
-  financialScenarios: [],
+  financial_scenarios: [],
   goals,
   quotes: [],
   app_metadata,
   audit_logs: [],
   notifications: [],
   profile: testProfile,
-  customFonts: [],
+  custom_fonts: [],
   trash: []
 };
