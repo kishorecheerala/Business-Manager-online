@@ -49,18 +49,31 @@ const initialState: AuthState = {
 const authReducer = (state: AuthState, action: AuthAction): AuthState => {
     switch (action.type) {
         case 'SET_GOOGLE_USER':
+            console.log('[AUTH REDUCER] SET_GOOGLE_USER called', { 
+                hasPayload: !!action.payload,
+                email: action.payload?.email 
+            });
             if (action.payload) {
-                localStorage.setItem('googleUser', JSON.stringify(action.payload));
-                upsertItem('app_metadata', { id: 'googleUser', ...action.payload, updatedAt: new Date().toISOString() });
-            } else {
-                localStorage.removeItem('googleUser');
-                // Also clear from DB
                 try {
-                    // Note: we can't easily call an async delete from heart of reducer, but upsertItem is fire-and-forget in current implementation?
-                    // Let's check db.ts.
-                } catch (e) { }
+                    localStorage.setItem('googleUser', JSON.stringify(action.payload));
+                    console.log('[AUTH REDUCER] ✓ Saved to localStorage');
+                } catch (e) {
+                    console.error('[AUTH REDUCER] ✗ localStorage save failed:', e);
+                }
+                
+                try {
+                    upsertItem('app_metadata', { id: 'googleUser', ...action.payload, updatedAt: new Date().toISOString() });
+                    console.log('[AUTH REDUCER] ✓ Initiated IndexedDB save');
+                } catch (e) {
+                    console.error('[AUTH REDUCER] ✗ IndexedDB save failed:', e);
+                }
+            } else {
+                console.log('[AUTH REDUCER] Clearing user data');
+                localStorage.removeItem('googleUser');
             }
-            return { ...state, googleUser: action.payload };
+            const newState = { ...state, googleUser: action.payload };
+            console.log('[AUTH REDUCER] ✓ New state:', { hasUser: !!newState.googleUser });
+            return newState;
         case 'SET_PIN': {
             const pinMeta: AppMetadataPin = { id: 'securityPin', pin: action.payload || '', updatedAt: new Date().toISOString() };
             upsertItem('app_metadata', pinMeta);
@@ -175,15 +188,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // Handle Login Response
     const handleGoogleLoginResponse = async (response: any) => {
-        console.log("handleGoogleLoginResponse triggered with:", response);
+        console.log("[AUTH] handleGoogleLoginResponse triggered", { 
+            hasError: !!response.error,
+            hasAccessToken: !!response.access_token,
+            scope: response.scope,
+            expiresIn: response.expires_in,
+            fullResponse: response 
+        });
+        
         if (response.error) {
-            console.warn("Google Login Error found in response:", response.error);
+            console.error("[AUTH] Google Login Error:", response.error);
+            showToast(`Sign-in failed: ${response.error}`, 'error');
+            return;
         }
 
         if (response.access_token) {
-            console.log("Google Login Response Scopes:", response.scope);
+            console.log("[AUTH] Access token received, fetching user info...");
             try {
                 const userInfo = await getUserInfo(response.access_token);
+                console.log("[AUTH] User info fetched:", { name: userInfo.name, email: userInfo.email });
+                
                 const expiresAt = Date.now() + (response.expires_in * 1000);
 
                 const user: GoogleUser = {
@@ -194,21 +218,30 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     expiresAt: expiresAt
                 };
 
-                // Save to local storage and state
-                // Note: We also save to DB 'app_metadata' generally, but that might belong in DataContext?
-                // Actually, saving user metadata is Auth concern.
-                // We need to fetch current metadata to append? Or just save isolated?
-                // 'saveCollection' overwrites? No, 'saveCollection' (from db.ts) usually saves the whole array.
-                // We'll need to handle DB persistence carefully. For now, rely on LocalStorage + State.
-                // Revisit DB persistence when connecting DataContext.
+                console.log("[AUTH] Saving user to state and localStorage...");
+                
+                // Save to localStorage first (synchronous)
+                try {
+                    localStorage.setItem('googleUser', JSON.stringify(user));
+                    console.log("[AUTH] ✓ Saved to localStorage");
+                } catch (e) {
+                    console.error("[AUTH] ✗ Failed to save to localStorage:", e);
+                }
 
+                // Save to IndexedDB (async, fire-and-forget in reducer)
                 authDispatch({ type: 'SET_GOOGLE_USER', payload: user });
+                console.log("[AUTH] ✓ Dispatched SET_GOOGLE_USER action");
+                
                 showToast(`Welcome, ${user.name}!`, 'success');
+                console.log("[AUTH] ✓ Sign-in complete!");
 
             } catch (err) {
-                console.error("Login Error:", err);
-                showToast("Failed to get user info.", 'error');
+                console.error("[AUTH] Failed to get user info:", err);
+                showToast("Failed to get user info. Please try again.", 'error');
             }
+        } else {
+            console.warn("[AUTH] No access_token in response:", response);
+            showToast("Sign-in incomplete. Please try again.", 'error');
         }
     };
 

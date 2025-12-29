@@ -33,17 +33,40 @@ const getDailyFilenames = (): DailyFilenames => {
 
 export const loadGoogleScript = (): Promise<void> => {
     return new Promise((resolve, reject) => {
+        console.log('[GOOGLE] Loading Google Identity Services script...');
+        
         if ((window as any).google) {
+            console.log('[GOOGLE] ✓ Google script already loaded');
             resolve();
             return;
         }
+        
         const script = document.createElement('script');
         script.src = 'https://accounts.google.com/gsi/client';
         script.async = true;
         script.defer = true;
-        script.onload = () => resolve();
-        script.onerror = reject;
+        
+        script.onload = () => {
+            console.log('[GOOGLE] ✓ Google script loaded successfully');
+            // Give it a moment to initialize
+            setTimeout(() => {
+                if ((window as any).google?.accounts?.oauth2) {
+                    console.log('[GOOGLE] ✓ OAuth2 API available');
+                    resolve();
+                } else {
+                    console.error('[GOOGLE] ✗ OAuth2 API not available after script load');
+                    reject(new Error('Google OAuth2 API not available'));
+                }
+            }, 100);
+        };
+        
+        script.onerror = (error) => {
+            console.error('[GOOGLE] ✗ Failed to load Google script:', error);
+            reject(error);
+        };
+        
         document.body.appendChild(script);
+        console.log('[GOOGLE] Script tag appended to body');
     });
 };
 
@@ -52,17 +75,20 @@ export const initGoogleAuth = (
     errorCallback?: (error: any) => void,
     modeOverride?: 'popup' | 'redirect'
 ) => {
+    console.log('[GOOGLE] initGoogleAuth called');
+    
     // Detect mobile for UX mode selection
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     const uxMode = modeOverride || (isMobile ? 'redirect' : 'popup');
 
-    if ((window as any).devMode) console.log(`[GoogleDrive] Initializing Auth with mode: ${uxMode}`);
+    console.log(`[GOOGLE] Initializing Auth with mode: ${uxMode}, isMobile: ${isMobile}`);
 
     const config: any = {
         client_id: getClientId(),
         scope: SCOPES,
         ux_mode: uxMode,
         error_callback: (err: any) => {
+            console.error('[GOOGLE] OAuth error_callback triggered:', err);
             if (errorCallback) errorCallback(err);
             console.error("Google Auth Error:", err);
             const currentOrigin = window.location.origin;
@@ -97,12 +123,24 @@ export const initGoogleAuth = (
 
     if (uxMode === 'popup') {
         config.callback = (resp: any) => {
-            if ((window as any).devMode) console.log("[GoogleDrive] Popup Callback Fired", resp);
+            console.log("[GOOGLE] Popup callback fired", { 
+                hasError: !!resp.error, 
+                hasToken: !!resp.access_token 
+            });
             callback(resp);
         };
     }
 
-    return (window as any).google.accounts.oauth2.initTokenClient(config);
+    console.log('[GOOGLE] Creating token client with config:', { 
+        client_id: config.client_id.substring(0, 20) + '...', 
+        ux_mode: config.ux_mode,
+        hasCallback: !!config.callback
+    });
+    
+    const tokenClient = (window as any).google.accounts.oauth2.initTokenClient(config);
+    console.log('[GOOGLE] ✓ Token client created successfully');
+    
+    return tokenClient;
 };
 
 export const revokeConsent = (accessToken: string) => {
