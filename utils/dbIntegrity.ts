@@ -1,7 +1,7 @@
-import { BusinessManagerDB, StoreName, dbPromise } from './db';
+import * as db from './db';
 
 export interface IntegrityIssue {
-    store: StoreName;
+    store: db.StoreName;
     id?: string;
     type: 'missing_id' | 'invalid_date' | 'orphan_reference' | 'corrupt_data';
     message: string;
@@ -16,15 +16,12 @@ export interface IntegrityResult {
 }
 
 export async function runFullIntegrityCheck(): Promise<IntegrityResult> {
-    const db = await dbPromise;
-    const stores: StoreName[] = ['customers', 'products', 'sales', 'purchases', 'expenses', 'audit_logs', 'notifications'];
+    const stores: db.StoreName[] = ['customers', 'products', 'sales', 'purchases', 'expenses', 'audit_logs', 'notifications'];
     const issues: IntegrityIssue[] = [];
     let scannedCount = 0;
 
     for (const storeName of stores) {
-        const transaction = db.transaction(storeName, 'readonly');
-        const store = transaction.objectStore(storeName);
-        const data = await store.getAll();
+        const data = await db.getAll(storeName);
 
         for (const item of data) {
             scannedCount++;
