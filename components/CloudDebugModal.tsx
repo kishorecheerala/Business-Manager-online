@@ -16,7 +16,7 @@ interface CloudDebugModalProps {
 }
 
 const CloudDebugModal: React.FC<CloudDebugModalProps> = ({ isOpen, onClose, onOpenAPIConfig }) => {
-    const { state, dispatch, googleSignIn, showToast } = useData();
+    const { state, dispatch, googleSignIn, showToast, googleUser, restoreFromFileId } = useData();
     const { showConfirm, showAlert } = useDialog();
     const [logs, setLogs] = useState<string[]>([]);
     const [details, setDetails] = useState<any[]>([]);
@@ -30,7 +30,7 @@ const CloudDebugModal: React.FC<CloudDebugModalProps> = ({ isOpen, onClose, onOp
     }, [isOpen]);
 
     const runDiagnostics = async () => {
-        if (!state.googleUser?.accessToken) {
+        if (!googleUser?.accessToken) {
             setLogs(["Error: Not signed in."]);
             return;
         }
@@ -39,7 +39,7 @@ const CloudDebugModal: React.FC<CloudDebugModalProps> = ({ isOpen, onClose, onOp
         setDetails([]);
 
         try {
-            const result = await debugDriveState(state.googleUser.accessToken);
+            const result = await debugDriveState(googleUser.accessToken);
             setLogs(result.logs);
             setDetails(result.details);
         } catch (e) {
@@ -54,17 +54,17 @@ const CloudDebugModal: React.FC<CloudDebugModalProps> = ({ isOpen, onClose, onOp
     };
 
     useEffect(() => {
-        if (isOpen && state.googleUser) {
+        if (isOpen && googleUser) {
             runDiagnostics();
         }
     }, [isOpen]);
 
     const handleCheckFolder = async () => {
-        if (!manualId.trim() || !state.googleUser?.accessToken) return;
+        if (!manualId.trim() || !googleUser?.accessToken) return;
         setLogs(prev => [`checking ID: ${manualId}...`, ...prev]);
 
         try {
-            const folder = await getFolderById(state.googleUser.accessToken, manualId.trim());
+            const folder = await getFolderById(googleUser.accessToken, manualId.trim());
             if (folder) {
                 setLogs(prev => [`✅ FOUND: ${folder.name} (Created: ${new Date(folder.createdTime).toLocaleString()})`, ...prev]);
                 // Automatically add to details to "reveal" it
@@ -78,13 +78,13 @@ const CloudDebugModal: React.FC<CloudDebugModalProps> = ({ isOpen, onClose, onOp
     };
 
     const handleCreateFolder = async () => {
-        if (!state.googleUser?.accessToken) return;
+        if (!googleUser?.accessToken) return;
         const confirmed = await showConfirm("Create a new 'BusinessManager_AppData' folder? You will need to move your backup files into it.", { variant: 'info', confirmText: 'Create Folder' });
         if (!confirmed) return;
 
         setLogs(prev => ["Creating new app folder...", ...prev]);
         try {
-            const newId = await createFolder(state.googleUser.accessToken);
+            const newId = await createFolder(googleUser.accessToken);
             if (newId) {
                 setLogs(prev => [`✅ Folder Created! ID: ${newId}`, "ACTION REQUIRED: Move your 'BusinessManager_Core_...' files into this new folder in Google Drive.", ...prev]);
                 runDiagnostics(); // Refresh list
@@ -123,22 +123,21 @@ const CloudDebugModal: React.FC<CloudDebugModalProps> = ({ isOpen, onClose, onOp
     };
 
     const handleManualRestore = async (fileId: string) => {
-        if (!state.googleUser?.accessToken) return;
+        if (!googleUser?.accessToken) return;
         const confirmed = await showConfirm("Force restore this file? It will overwrite local data.", { variant: 'danger', confirmText: 'Restore' });
         if (!confirmed) return;
 
         setRestoringId(fileId);
         try {
-            // @ts-ignore
-            const restoreFn = state.restoreFromFileId;
-            if (restoreFn) {
-                await restoreFn(fileId);
+            if (restoreFromFileId) {
+                await restoreFromFileId(fileId);
             } else {
                 showToast("Restore function not available in context yet. Please refresh.", 'error');
             }
         } catch (e) {
             showToast("Restore failed.", 'error');
         }
+
         setRestoringId(null);
         onClose();
     };
@@ -271,12 +270,12 @@ const CloudDebugModal: React.FC<CloudDebugModalProps> = ({ isOpen, onClose, onOp
                                                     <div className="flex gap-2">
                                                         <Button
                                                             onClick={async () => {
-                                                                if (!state.googleUser?.accessToken) return;
+                                                                if (!googleUser?.accessToken) return;
                                                                 const confirmed = await showConfirm(`Are you sure you want to PERMANENTLY delete "${f.name}"? This cannot be undone.`, { variant: 'danger', confirmText: 'Delete Forever' });
                                                                 if (confirmed) {
                                                                     setLogs(prev => [`Deleting file: ${f.name}...`, ...prev]);
                                                                     try {
-                                                                        await deleteFile(state.googleUser.accessToken, f.id);
+                                                                        await deleteFile(googleUser.accessToken, f.id);
                                                                         setLogs(prev => [`✅ Deleted: ${f.name}`, ...prev]);
                                                                         // Update UI
                                                                         setDetails(prev => prev.map(d => {

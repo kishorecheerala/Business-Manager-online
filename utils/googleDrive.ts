@@ -306,7 +306,15 @@ export const createFolder = async (accessToken: string) => {
 export const findFileByName = async (accessToken: string, folderId: string, filename: string) => {
     // Fetch ALL files with this name, sorted by newest first
     const q = `name='${filename}' and '${folderId}' in parents and trashed=false`;
-    const response = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=modifiedTime desc`, {
+    const params = new URLSearchParams({
+        q: q,
+        orderBy: 'modifiedTime desc',
+        fields: 'files(id,name,modifiedTime)'
+    });
+
+    if ((window as any).devMode) console.log(`[Drive] Searching for ${filename}...`);
+
+    const response = await fetch(`https://www.googleapis.com/drive/v3/files?${params.toString()}`, {
         headers: getHeaders(accessToken),
         cache: 'no-store'
     });
@@ -572,64 +580,88 @@ export const DriveService = {
             if (!folderId) return null;
             localStorage.setItem('gdrive_folder_id', folderId);
 
-            // 1. Load Manifest
-            const manifestFile = await findFileByName(accessToken, folderId, 'Manifest.json');
-            if (!manifestFile) {
-                // Fallback to legacy single file
-                console.log("Read: No Manifest found, checking for legacy LiveSync file...");
-                const stableFile = await findFileByName(accessToken, folderId, STABLE_SYNC_FILENAME);
-                if (stableFile) {
-                    const data = await downloadFile(accessToken, stableFile.id);
-                    if (data) {
-                        localStorage.setItem('gdrive_sync_file_id', stableFile.id);
-                        // Also load legacy assets
-                        const assetsFile = await findFileByName(accessToken, folderId, STABLE_ASSETS_FILENAME);
-                        if (assetsFile) {
-                            const assets = await downloadFile(accessToken, assetsFile.id);
-                            return mergeStateData(data, assets);
+            // Fetch both Manifest and Legacy Sync file options
+            const [manifestFile, stableFile] = await Promise.all([
+                findFileByName(accessToken, folderId, 'Manifest.json'),
+                findFileByName(accessToken, folderId, STABLE_SYNC_FILENAME)
+            ]);
+
+            let useManifest = false;
+
+            // Determine which source is newer
+            if (manifestFile && stableFile) {
+                const manifestTime = new Date(manifestFile.modifiedTime).getTime();
+                const stableTime = new Date(stableFile.modifiedTime).getTime();
+
+                // If Manifest is newer or roughly same time, use it. 
+                // Buffer of 1 minute to prefer Manifest (as it takes time to write)
+                if (manifestTime >= (stableTime - 60000)) {
+                    useManifest = true;
+                } else {
+                    console.warn(`[Sync] Legacy Sync file is significantly newer than Manifest. Using Legacy file. (Stable: ${stableFile.modifiedTime} vs Manifest: ${manifestFile.modifiedTime})`);
+                    useManifest = false;
+                }
+            } else if (manifestFile) {
+                useManifest = true;
+            }
+
+            // A. Load from Manifest (Incremental)
+            if (useManifest && manifestFile) {
+                const manifest = await downloadFile(accessToken, manifestFile.id);
+                if (!manifest || !manifest.collections) {
+                    console.warn("Manifest empty or invalid. Falling back check...");
+                } else {
+                    console.log("Read: Loading collections from Manifest...");
+                    const collections: Record<string, any[]> = {};
+                    const downloadPromises = Object.entries(manifest.collections).map(async ([name, info]: [string, any]) => {
+                        try {
+                            const data = await downloadFile(accessToken, info.fileId);
+                            if (data) collections[name] = data;
+                        } catch (err) {
+                            console.warn(`Failed to download collection ${name}:`, err);
+                        }
+                    });
+
+                    await Promise.all(downloadPromises);
+                    const combinedData = { ...collections };
+
+                    // Handle API Key
+                    if (manifest.metadata?.secure) {
+                        try {
+                            const decryptedKey = await decryptData(manifest.metadata.secure);
+                            if (decryptedKey) localStorage.setItem('gemini_api_key', decryptedKey);
+                        } catch (err) {
+                            console.warn("Failed to decrypt API Key from Manifest:", err);
                         }
                     }
-                    return data;
-                }
-                return null;
-            }
 
-            const manifest = await downloadFile(accessToken, manifestFile.id);
-            if (!manifest || !manifest.collections) return null;
-
-            console.log("Read: Loading collections from Manifest...");
-            const collections: Record<string, any[]> = {};
-            const downloadPromises = Object.entries(manifest.collections).map(async ([name, info]: [string, any]) => {
-                try {
-                    const data = await downloadFile(accessToken, info.fileId);
-                    if (data) collections[name] = data;
-                } catch (err) {
-                    console.warn(`Failed to download collection ${name}:`, err);
-                }
-            });
-
-            await Promise.all(downloadPromises);
-
-            const combinedData = { ...collections };
-
-            // Handle API Key from Manifest metadata
-            if (manifest.metadata?.secure) {
-                try {
-                    const decryptedKey = await decryptData(manifest.metadata.secure);
-                    if (decryptedKey) localStorage.setItem('gemini_api_key', decryptedKey);
-                } catch (err) {
-                    console.warn("Failed to decrypt API Key from Manifest:", err);
+                    // Load assets if present
+                    const assetsFile = await findFileByName(accessToken, folderId, STABLE_ASSETS_FILENAME);
+                    if (assetsFile) {
+                        const assets = await downloadFile(accessToken, assetsFile.id);
+                        return mergeStateData(combinedData, assets);
+                    }
+                    return combinedData;
                 }
             }
 
-            // Load assets if they exist (legacy transition or future expansion)
-            const assetsFile = await findFileByName(accessToken, folderId, STABLE_ASSETS_FILENAME);
-            if (assetsFile) {
-                const assets = await downloadFile(accessToken, assetsFile.id);
-                return mergeStateData(combinedData, assets);
+            // B. Fallback to Legacy/Stable File
+            if (stableFile) {
+                console.log("Read: Loading from monolithic LiveSync file...");
+                const data = await downloadFile(accessToken, stableFile.id);
+                if (data) {
+                    localStorage.setItem('gdrive_sync_file_id', stableFile.id);
+                    const assetsFile = await findFileByName(accessToken, folderId, STABLE_ASSETS_FILENAME);
+                    if (assetsFile) {
+                        const assets = await downloadFile(accessToken, assetsFile.id);
+                        return mergeStateData(data, assets);
+                    }
+                }
+                return data;
             }
 
-            return combinedData;
+            return null;
+
         } catch (e: any) {
             console.error("DriveService.read failed", e);
             throw e;

@@ -108,6 +108,9 @@ export const DataContext = createContext<{
     isDbLoaded: boolean;
     syncData: (overrideToken?: string, isManual?: boolean) => Promise<void>;
     restoreFromFileId?: (fileId: string) => Promise<void>;
+    googleSignIn: (options?: any) => void;
+    showToast: (message: string, type?: ToastState['type']) => void;
+    googleUser: any;
 } | undefined>(undefined);
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -123,6 +126,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     useEffect(() => {
         stateRef.current = state;
     }, [state]);
+
+
 
     const handleAutoCleanup = useCallback(async () => {
         const { enabled, logsRetentionDays, notificationsRetentionDays, trashRetentionDays } = state.autoCleanupSettings;
@@ -607,7 +612,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     return (
-        <DataContext.Provider value={{ state, dispatch, isDbLoaded, syncData, restoreFromFileId }}>
+        <DataContext.Provider value={{ state, dispatch, isDbLoaded, syncData, restoreFromFileId, googleSignIn, showToast, googleUser }}>
             {children}
         </DataContext.Provider>
     );
