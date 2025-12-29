@@ -79,6 +79,11 @@ class SQLiteManager {
         return this.sendCommand('GET_ALL', { collection });
     }
 
+    public async upsertMany(collection: string, items: any[]): Promise<void> {
+        await this.waitReady();
+        return this.sendCommand('UPSERT_MANY', { collection, items });
+    }
+
     public async delete(collection: string, id: string): Promise<void> {
         await this.waitReady();
         return this.sendCommand('DELETE', { collection, id });

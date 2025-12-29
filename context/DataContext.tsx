@@ -92,6 +92,12 @@ const initialState: DataState = {
 
     bankAccounts: [],
     goals: [],
+
+    isLocked: false,
+    isAuthenticated: false,
+    protectedPages: [],
+    isStaffMode: false,
+    dbError: null,
 };
 
 const appReducer = rootReducer;
@@ -100,7 +106,7 @@ export const DataContext = createContext<{
     state: DataState;
     dispatch: React.Dispatch<any>;
     isDbLoaded: boolean;
-    syncData: (overrideToken?: string) => Promise<void>;
+    syncData: (overrideToken?: string, isManual?: boolean) => Promise<void>;
     restoreFromFileId?: (fileId: string) => Promise<void>;
 } | undefined>(undefined);
 
@@ -419,7 +425,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }, [googleUser, state.isOnline, dispatch, showToast]);
 
     // Sync Data
-    const syncData = async (overrideToken?: string) => {
+    const syncData = async (overrideToken?: string, isManual: boolean = false) => {
+        if (!stateRef.current.isOnline) return;
+
         if (stateRef.current.syncStatus === 'syncing') {
             if (state.devMode) console.warn("Sync already in progress. Skipping.");
             return;
@@ -428,40 +436,55 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         let token = overrideToken || googleUser?.accessToken;
 
         if (!token) {
-            if (!overrideToken) showToast("Please sign in to sync.", 'error');
+            if (isManual) showToast("Cloud connection required. Please sign in.", 'info');
             return;
         }
 
-        // Auto-Refresh Check
-        if (!overrideToken && googleUser?.expiresAt) {
-            const fiveMinutes = 5 * 60 * 1000;
-            if (Date.now() > googleUser.expiresAt - fiveMinutes) {
-                if (state.devMode) console.log("Token expiring or expired. Initiating Auto-Refresh...");
-                refreshGoogleToken();
-                return;
-            }
-        }
+        const logEntry = (action: string, details: string) => {
+            dispatch({
+                type: 'ADD_AUDIT_LOG',
+                payload: {
+                    id: `sync-log-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                    action,
+                    details,
+                    timestamp: new Date().toISOString(),
+                    user: googleUser?.email || 'Anonymous'
+                }
+            });
+        };
 
         dispatch({ type: 'SET_SYNC_STATUS', payload: 'syncing' });
         try {
+            logEntry('SYNC_START', 'Sync process initiated');
+
             // 1. Read Cloud Data (Manifest-based)
             if (state.devMode) console.log("Sync: Reading cloud data...");
             const cloudData = await DriveService.read(token);
 
-            // 2. Merge Strategies
+            // 2. Merge Cloud -> Local
             let freshState: DataState | undefined;
-            if (cloudData) {
-                if (state.devMode) console.log("Sync: Merging cloud data...");
+            if (cloudData && Object.keys(cloudData).length > 0) {
+                logEntry('SYNC_MERGE', `Merging data from cloud (${Object.keys(cloudData).length} stores)`);
+                if (state.devMode) console.log("Sync: Merging cloud data...", Object.keys(cloudData));
+
                 await db.mergeData(cloudData);
-                freshState = await hydrateState();
+
+                // Force full re-hydration to ensure UI reflects DB
+                const result = await hydrateState();
+                if (result) {
+                    freshState = result as DataState;
+                    // Explicitly dispatch to ensure UI update
+                    dispatch({ type: 'SET_FULL_STATE', payload: result });
+                }
             }
 
-            // 3. Incremental Export & Upload
+            // 3. Local -> Cloud (Incremental)
             if (state.devMode) console.log("Sync: Identifying modified collections...");
             const modifiedInfo = await getModifiedStores();
             const currentState = freshState || stateRef.current;
 
             if (modifiedInfo.length > 0) {
+                logEntry('SYNC_UPLOAD', `Uploading ${modifiedInfo.length} changed stores`);
                 const changedCollections: Record<string, any[]> = {};
                 for (const info of modifiedInfo) {
                     const storeName = info.storeName;
@@ -471,13 +494,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     else if (storeName === 'financial_scenarios') stateKey = 'financialScenarios';
 
                     let data = (currentState as any)[stateKey];
-                    if (storeName === 'profile' && data) data = [data];
+                    if (storeName === 'profile' && data) data = [data]; // Force array for sync consistency
                     changedCollections[storeName] = data || [];
                 }
 
-                if (state.devMode) console.log(`Sync: Uploading ${modifiedInfo.length} changed collections...`, Object.keys(changedCollections));
-
-                // Track metadata in Manifest for legacy single-file readers or global info
                 const manifestMetadata = {
                     lastSyncTime: Date.now(),
                     appVersion: (window as any).APP_VERSION || '1.0.0'
@@ -493,7 +513,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
                 dispatch({ type: 'SET_LAST_SYNC_TIME', payload: now });
                 showToast(`Sync completed: ${modifiedInfo.length} sections updated.`, 'success');
+                logEntry('SYNC_SUCCESS', `Sync complete. ${modifiedInfo.length} stores uploaded.`);
             } else {
+                logEntry('SYNC_COMPLETE', 'No local changes to upload');
                 if (state.devMode) console.log("Sync: No local changes to upload.");
                 if (cloudData) showToast("Sync completed (Cloud updates applied).", 'success');
                 else showToast("Sync: Everything up to date.", 'info');
@@ -504,26 +526,69 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             console.error("Sync Failed:", error);
             dispatch({ type: 'SET_SYNC_STATUS', payload: 'error' });
 
+            // Log error for debugging
+            dispatch({
+                type: 'ADD_AUDIT_LOG',
+                payload: {
+                    id: `sync-err-${Date.now()}`,
+                    action: 'SYNC_FAILED',
+                    details: error.message || 'Unknown error',
+                    timestamp: new Date().toISOString(),
+                    user: googleUser?.email || 'Anonymous'
+                }
+            });
+
             const isAuthError = error.message?.includes('401') || error.message?.includes('Unauthorized') || error.message?.includes('invalid_grant');
 
             if (isAuthError) {
-                console.warn("Auth Error 401 detected. Attempting recovery...");
-                showToast("Session expired. Refreshing...", 'info');
-                refreshGoogleToken();
+                console.warn("Auth Error 401 detected.");
+                // Clear invalid token immediately to prevent loop
+                dispatch({ type: 'SET_GOOGLE_USER', payload: null });
+
+                if (isManual) {
+                    showToast("Session expired. Please sign in again.", 'info');
+                } else {
+                    if (state.devMode) console.log("Background sync paused: Auth required.");
+                }
             } else {
                 showToast(`Sync failed: ${error.message || 'Unknown error'} `, 'error');
             }
         }
     };
 
-    // Auto-Sync
+    // Trigger sync on login/token refresh
     useEffect(() => {
-        if (!state.lastLocalUpdate || !googleUser?.accessToken) return;
+        if (googleUser?.accessToken && state.isOnline) {
+            syncData();
+        }
+    }, [googleUser?.accessToken, state.isOnline]);
+
+    // Auto-Sync on local changes
+    useEffect(() => {
+        if (!googleUser?.accessToken || !state.isOnline || !state.lastLocalUpdate) return;
+
+        const isMobile = /Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        const debounceTime = isMobile ? 30000 : 10000;
+
         const timeout = setTimeout(() => {
             syncData();
-        }, 5000);
+        }, debounceTime);
+
         return () => clearTimeout(timeout);
-    }, [state.lastLocalUpdate, googleUser]);
+    }, [state.lastLocalUpdate, googleUser?.accessToken, state.isOnline]);
+
+    // Periodic Poll for Desktop (Pull cloud changes)
+    useEffect(() => {
+        const isMobile = /Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        if (isMobile || !googleUser?.accessToken || !state.isOnline) return;
+
+        const pollInterval = setInterval(() => {
+            if (state.devMode) console.log("Desktop Poll: Checking cloud for updates...");
+            syncData();
+        }, 5 * 60 * 1000); // 5 minutes
+
+        return () => clearInterval(pollInterval);
+    }, [googleUser?.accessToken, state.isOnline]);
 
     // Restore helper (injected into state for compatibility)
     const restoreFromFileId = async (fileId: string) => {

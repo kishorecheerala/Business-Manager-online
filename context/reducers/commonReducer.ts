@@ -44,11 +44,11 @@ export const commonReducer = (state: DataState, action: Action): DataState => {
             // But wait, if persisted, reloading will bring them back.
             // I'll add a side effect to clear the store 'audit_logs'.
             db.saveCollection('audit_logs', []);
-            return { ...state, audit_logs: [], ...touch };
+            return { ...state, audit_logs: [] };
         case 'ADD_AUDIT_LOG':
             const logEntry = { ...action.payload, updatedAt: new Date().toISOString() };
             db.upsertItem('audit_logs', logEntry);
-            return { ...state, audit_logs: [logEntry, ...state.audit_logs], ...touch };
+            return { ...state, audit_logs: [logEntry, ...state.audit_logs] };
 
         // --- Profile ---
         case 'SET_PROFILE':
@@ -197,6 +197,18 @@ export const commonReducer = (state: DataState, action: Action): DataState => {
         case 'EMPTY_TRASH':
             state.trash.forEach(t => db.deleteFromTrash(t.id));
             return { ...state, trash: [], ...touch };
+
+        case 'SET_FULL_STATE':
+            // Merge hydrated state with current transient state (like isOnline, auth, etc. which are not in DB)
+            return {
+                ...state,
+                ...action.payload,
+                // Ensure transient flags are preserved if not in payload
+                isOnline: state.isOnline,
+                dbError: state.dbError,
+                syncStatus: state.syncStatus,
+                // selection: state.selection, // Maybe preserve selection? No, page reload usually resets.
+            };
 
         default:
             return state;

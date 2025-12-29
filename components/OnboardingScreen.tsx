@@ -41,6 +41,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ isOpen, onClose }) 
             logo: ''
         };
         dispatch({ type: 'SET_PROFILE', payload: newProfile });
+        localStorage.setItem('business_manager_onboarded', 'true');
         showToast("Welcome! Your business is ready.", 'success');
         onClose();
     };
@@ -48,6 +49,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ isOpen, onClose }) 
     const handleRestore = () => {
         // Trigger Google Sign In to check for backups
         googleSignIn();
+        localStorage.setItem('business_manager_onboarded', 'true');
         onClose();
     };
 
@@ -64,6 +66,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ isOpen, onClose }) 
             updatedAt: new Date(0).toISOString()
         };
         dispatch({ type: 'SET_PROFILE', payload: defaultProfile });
+        localStorage.setItem('business_manager_onboarded', 'true');
         onClose();
     };
 

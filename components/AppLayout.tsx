@@ -51,7 +51,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
     const { state, dispatch, syncData } = useData();
     const { uiState, uiDispatch, showToast } = useUI();
     const { theme, uiPreferences, navOrder, themeColor, themeGradient } = uiState;
-    const { authState, authDispatch, lockApp, unlockApp } = useAuth();
+    const { authState, authDispatch, lockApp, unlockApp, refreshGoogleToken } = useAuth();
     const { isAuthenticated, isLocked, pin, isStaffMode, protectedPages, googleUser } = authState;
     const { isOnline, syncStatus, lastSyncTime } = state; // state contains: isOnline, syncStatus, lastSyncTime, profile, notifications
 
@@ -396,7 +396,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                                         if (!googleUser) {
                                             setIsSignInModalOpen(true);
                                         } else {
-                                            syncData();
+                                            syncData(undefined, true);
                                         }
                                     }}
                                     onContextMenu={(e) => {

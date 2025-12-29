@@ -164,8 +164,16 @@ const App: React.FC = () => {
     }, [state.selection]);
 
     // Onboarding Effect
+    // Onboarding Effect
     useEffect(() => {
+        // Fast path: Check specific local storage flag first to avoid UI flickering
+        const hasOnboarded = localStorage.getItem('business_manager_onboarded');
+        if (hasOnboarded === 'true') return;
+
         if (isDbLoaded && (!state.profile || !state.profile.name)) {
+            // Double check inside the effect to be sure
+            if (localStorage.getItem('business_manager_onboarded') === 'true') return;
+
             const timer = setTimeout(() => setShowOnboarding(true), 500);
             return () => clearTimeout(timer);
         }

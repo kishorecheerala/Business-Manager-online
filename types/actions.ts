@@ -105,4 +105,5 @@ export type Action =
     | { type: 'TOGGLE_STAFF_MODE'; payload: boolean }
     | { type: 'UPDATE_AUTO_CLEANUP_SETTINGS'; payload: Partial<AppMetadataAutoCleanup> }
     | { type: 'ADD_AUDIT_LOG'; payload: any }
-    | { type: 'SET_DB_ERROR'; payload: any | null };
+    | { type: 'SET_DB_ERROR'; payload: any | null }
+    | { type: 'SET_FULL_STATE'; payload: any };

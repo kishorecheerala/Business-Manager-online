@@ -46,9 +46,8 @@ export async function getAllCollections(): Promise<Record<StoreName, any[]>> {
 export async function saveCollection<T extends StoreName>(storeName: T, data: any[]) {
     try {
         await sqlite.clearCollection(storeName);
-        for (const item of data) {
-            const id = item.id || 'singleton';
-            await sqlite.upsert(storeName, id, item);
+        if (data.length > 0) {
+            await sqlite.upsertMany(storeName, data);
         }
         await markStoreModified(storeName);
     } catch (error) {
@@ -68,14 +67,13 @@ export async function upsertItem<T extends StoreName>(storeName: T, item: any) {
 }
 
 export async function upsertMany<T extends StoreName>(storeName: T, items: any[]) {
+    if (!items || items.length === 0) return;
     try {
-        for (const item of items) {
-            const id = item.id || 'singleton';
-            await sqlite.upsert(storeName, id, item);
-        }
+        await sqlite.upsertMany(storeName, items);
         await markStoreModified(storeName);
     } catch (error) {
         console.error(`Failed to upsert many in ${storeName}:`, error);
+        throw error; // Propagate error
     }
 }
 
@@ -185,27 +183,35 @@ export async function mergeData(cloudData: any): Promise<void> {
             const remoteItems = cloudData[storeName];
             if (!remoteItems || !Array.isArray(remoteItems)) continue;
 
+            const localItems = await sqlite.getAll(storeName);
+            const localMap = new Map(localItems.map(l => [String(l.id), l]));
+            const itemsToUpsert: any[] = [];
+
             for (const item of remoteItems) {
                 if (item && item.id) {
-                    if (trashIdSet.has(item.id)) {
-                        await sqlite.delete(storeName, item.id);
+                    const itemId = String(item.id);
+                    if (trashIdSet.has(itemId)) {
+                        await sqlite.delete(storeName, itemId);
                         continue;
                     }
 
-                    const localItems = await sqlite.getAll(storeName);
-                    const localItem = localItems.find(l => l.id === item.id);
+                    const localItem = localMap.get(itemId);
 
                     if (!localItem) {
-                        await upsertItem(storeName, item);
+                        itemsToUpsert.push(item);
                     } else {
                         const remoteTime = (item as any).updatedAt ? new Date((item as any).updatedAt).getTime() : 0;
                         const localTime = (localItem as any).updatedAt ? new Date((localItem as any).updatedAt).getTime() : 0;
 
                         if (remoteTime >= localTime) {
-                            await upsertItem(storeName, item);
+                            itemsToUpsert.push(item);
                         }
                     }
                 }
+            }
+
+            if (itemsToUpsert.length > 0) {
+                await sqlite.upsertMany(storeName, itemsToUpsert);
             }
         }
     } catch (error) {

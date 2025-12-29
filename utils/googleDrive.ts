@@ -47,12 +47,21 @@ export const loadGoogleScript = (): Promise<void> => {
     });
 };
 
-export const initGoogleAuth = (callback: (response: any) => void, errorCallback?: (error: any) => void) => {
-    return (window as any).google.accounts.oauth2.initTokenClient({
+export const initGoogleAuth = (
+    callback: (response: any) => void,
+    errorCallback?: (error: any) => void,
+    modeOverride?: 'popup' | 'redirect'
+) => {
+    // Detect mobile for UX mode selection
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const uxMode = modeOverride || (isMobile ? 'redirect' : 'popup');
+
+    if ((window as any).devMode) console.log(`[GoogleDrive] Initializing Auth with mode: ${uxMode}`);
+
+    const config: any = {
         client_id: getClientId(),
         scope: SCOPES,
-        ux_mode: 'popup',
-        callback: callback,
+        ux_mode: uxMode,
         error_callback: (err: any) => {
             if (errorCallback) errorCallback(err);
             console.error("Google Auth Error:", err);
@@ -84,7 +93,16 @@ export const initGoogleAuth = (callback: (response: any) => void, errorCallback?
             }
             alert(msg);
         }
-    });
+    };
+
+    if (uxMode === 'popup') {
+        config.callback = (resp: any) => {
+            if ((window as any).devMode) console.log("[GoogleDrive] Popup Callback Fired", resp);
+            callback(resp);
+        };
+    }
+
+    return (window as any).google.accounts.oauth2.initTokenClient(config);
 };
 
 export const revokeConsent = (accessToken: string) => {
@@ -179,7 +197,16 @@ const splitStateData = (data: any) => {
     }
 
     // Split Profile Logo
-    if (core.profile && Array.isArray(core.profile)) {
+    if (core.profile && !Array.isArray(core.profile)) {
+        const p = core.profile;
+        if (p.logo) {
+            hasAssets = true;
+            if (!assets.profile) assets.profile = {};
+            assets.profile[p.id || 'userProfile'] = p.logo;
+            delete core.profile.logo;
+        }
+    } else if (core.profile && Array.isArray(core.profile)) {
+        // Legacy array support
         core.profile = core.profile.map((p: any) => {
             if (p.logo) {
                 hasAssets = true;
@@ -217,11 +244,17 @@ const mergeStateData = (core: any, assets: any) => {
     }
 
     if (core.profile && assets.profile) {
-        core.profile = core.profile.map((p: any) => {
-            const logo = assets.profile[p.id];
-            if (logo) return { ...p, logo };
-            return p;
-        });
+        if (!Array.isArray(core.profile)) {
+            const logo = assets.profile[core.profile.id || 'userProfile'];
+            if (logo) core.profile.logo = logo;
+        } else {
+            // Legacy array support
+            core.profile = core.profile.map((p: any) => {
+                const logo = assets.profile[p.id];
+                if (logo) return { ...p, logo };
+                return p;
+            });
+        }
     }
 
     return core;
@@ -547,7 +580,15 @@ export const DriveService = {
                 const stableFile = await findFileByName(accessToken, folderId, STABLE_SYNC_FILENAME);
                 if (stableFile) {
                     const data = await downloadFile(accessToken, stableFile.id);
-                    if (data) localStorage.setItem('gdrive_sync_file_id', stableFile.id);
+                    if (data) {
+                        localStorage.setItem('gdrive_sync_file_id', stableFile.id);
+                        // Also load legacy assets
+                        const assetsFile = await findFileByName(accessToken, folderId, STABLE_ASSETS_FILENAME);
+                        if (assetsFile) {
+                            const assets = await downloadFile(accessToken, assetsFile.id);
+                            return mergeStateData(data, assets);
+                        }
+                    }
                     return data;
                 }
                 return null;
@@ -569,7 +610,6 @@ export const DriveService = {
 
             await Promise.all(downloadPromises);
 
-            // Merge everything into a single object for the AppState
             const combinedData = { ...collections };
 
             // Handle API Key from Manifest metadata
@@ -580,6 +620,13 @@ export const DriveService = {
                 } catch (err) {
                     console.warn("Failed to decrypt API Key from Manifest:", err);
                 }
+            }
+
+            // Load assets if they exist (legacy transition or future expansion)
+            const assetsFile = await findFileByName(accessToken, folderId, STABLE_ASSETS_FILENAME);
+            if (assetsFile) {
+                const assets = await downloadFile(accessToken, assetsFile.id);
+                return mergeStateData(combinedData, assets);
             }
 
             return combinedData;

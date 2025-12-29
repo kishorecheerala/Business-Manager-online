@@ -98,6 +98,37 @@ self.onmessage = async (event) => {
                 self.postMessage({ type: 'SUCCESS', id });
                 break;
 
+            case 'UPSERT_MANY':
+                const { collection, items } = payload;
+                const now = Date.now();
+                db.exec('BEGIN TRANSACTION');
+                let stmtToFinalize: any = null;
+                try {
+                    stmtToFinalize = db.prepare(`
+                        INSERT INTO kv_store (collection, id, data, updated_at)
+                        VALUES (?, ?, ?, ?)
+                        ON CONFLICT(collection, id) DO UPDATE SET
+                            data = excluded.data,
+                            updated_at = excluded.updated_at
+                    `);
+                    for (const item of items) {
+                        if (!item) continue;
+                        const itemId = item.id || 'singleton';
+                        stmtToFinalize.bind([collection, itemId, JSON.stringify(item), now]);
+                        stmtToFinalize.step();
+                        stmtToFinalize.reset();
+                    }
+                    stmtToFinalize.finalize();
+                    stmtToFinalize = null;
+                    db.exec('COMMIT');
+                    self.postMessage({ type: 'SUCCESS', id });
+                } catch (err) {
+                    if (stmtToFinalize) try { stmtToFinalize.finalize(); } catch (e) { }
+                    try { db.exec('ROLLBACK'); } catch (e) { }
+                    throw err;
+                }
+                break;
+
             case 'GET_ALL':
                 const all: any[] = [];
                 db.exec(`SELECT data FROM kv_store WHERE collection = ?`, {
@@ -125,10 +156,10 @@ self.onmessage = async (event) => {
                 break;
 
             default:
-                self.postMessage({ type: 'ERROR', id, message: 'Unknown command' });
+                self.postMessage({ type: 'ERROR', id, message: `Unknown command: ${type}` });
         }
     } catch (error: any) {
         console.error(`[SQLiteWorker] Command ${type} failed:`, error);
-        self.postMessage({ type: 'ERROR', id, message: error.message });
+        self.postMessage({ type: 'ERROR', id, message: `${type} failed: ${error.message}` });
     }
 };

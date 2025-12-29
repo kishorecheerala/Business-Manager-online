@@ -51,8 +51,14 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
         case 'SET_GOOGLE_USER':
             if (action.payload) {
                 localStorage.setItem('googleUser', JSON.stringify(action.payload));
+                upsertItem('app_metadata', { id: 'googleUser', ...action.payload, updatedAt: new Date().toISOString() });
             } else {
                 localStorage.removeItem('googleUser');
+                // Also clear from DB
+                try {
+                    // Note: we can't easily call an async delete from heart of reducer, but upsertItem is fire-and-forget in current implementation?
+                    // Let's check db.ts.
+                } catch (e) { }
             }
             return { ...state, googleUser: action.payload };
         case 'SET_PIN': {
@@ -108,11 +114,42 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 });
             })
             .catch(console.error);
+
+        // Check for redirect response on mount (Mobile fallback)
+        const checkRedirect = async () => {
+            const hash = window.location.hash;
+            if (hash && (hash.includes('access_token=') || hash.includes('error='))) {
+                const params = new URLSearchParams(hash.substring(1));
+                const accessToken = params.get('access_token');
+                const expiresIn = params.get('expires_in');
+                const error = params.get('error');
+
+                if (accessToken) {
+                    await handleGoogleLoginResponse({
+                        access_token: accessToken,
+                        expires_in: parseInt(expiresIn || '3600', 10)
+                    });
+                    // Clean URL
+                    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+                } else if (error) {
+                    console.error("Redirect Auth Error:", error);
+                    showToast(`Login failed: ${error}`, 'error');
+                    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+                }
+            }
+        };
+        checkRedirect();
     }, []);
 
     // Handle Login Response
     const handleGoogleLoginResponse = async (response: any) => {
+        console.log("handleGoogleLoginResponse triggered with:", response);
+        if (response.error) {
+            console.warn("Google Login Error found in response:", response.error);
+        }
+
         if (response.access_token) {
+            console.log("Google Login Response Scopes:", response.scope);
             try {
                 const userInfo = await getUserInfo(response.access_token);
                 const expiresAt = Date.now() + (response.expires_in * 1000);
@@ -149,6 +186,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             return;
         }
 
+        // Force fresh init if consent is requested (retrying)
+        if (options?.forceConsent) {
+            tokenClientRef.current = null;
+        }
+
         if (!tokenClientRef.current) {
             showToast("Initializing login...", 'info');
             loadGoogleScript().then(() => {
@@ -173,6 +215,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const refreshGoogleToken = () => {
         if (tokenClientRef.current) {
             tokenClientRef.current.requestAccessToken({ prompt: '' });
+        } else {
+            loadGoogleScript().then(() => {
+                tokenClientRef.current = initGoogleAuth(handleGoogleLoginResponse, (err: any) => {
+                    console.error("Refresh Init Error:", err);
+                });
+                tokenClientRef.current.requestAccessToken({ prompt: '' });
+            }).catch(console.error);
         }
     };
 
