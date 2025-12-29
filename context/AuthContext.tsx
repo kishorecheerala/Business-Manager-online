@@ -105,6 +105,38 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const { showToast } = useUI();
     const tokenClientRef = useRef<any>(null);
 
+    // Restore auth state from IndexedDB if localStorage is empty (recovery scenario)
+    useEffect(() => {
+        const restoreAuthFromDB = async () => {
+            if (!authState.googleUser) {
+                try {
+                    const metadata = await getAll('app_metadata');
+                    const googleUserMeta = metadata.find((m: any) => m.id === 'googleUser');
+                    if (googleUserMeta) {
+                        const user: GoogleUser = {
+                            name: googleUserMeta.name,
+                            email: googleUserMeta.email,
+                            picture: googleUserMeta.picture,
+                            accessToken: googleUserMeta.accessToken,
+                            expiresAt: googleUserMeta.expiresAt
+                        };
+                        // Check if token is still valid (not expired)
+                        if (user.expiresAt && user.expiresAt > Date.now()) {
+                            localStorage.setItem('googleUser', JSON.stringify(user));
+                            authDispatch({ type: 'SET_GOOGLE_USER', payload: user });
+                            console.log('[Auth] Restored user from IndexedDB');
+                        } else {
+                            console.log('[Auth] Stored token expired, user needs to re-authenticate');
+                        }
+                    }
+                } catch (e) {
+                    console.error('[Auth] Failed to restore from IndexedDB:', e);
+                }
+            }
+        };
+        restoreAuthFromDB();
+    }, []);
+
     // Initialize Google Auth
     useEffect(() => {
         loadGoogleScript()
@@ -185,6 +217,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             showToast("Internet connection required to sign in.", 'error');
             return;
         }
+
+        console.log('[Auth] Sign-in initiated', { 
+            hasTokenClient: !!tokenClientRef.current,
+            forceConsent: options?.forceConsent 
+        });
 
         // Force fresh init if consent is requested (retrying)
         if (options?.forceConsent) {

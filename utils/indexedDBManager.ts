@@ -146,12 +146,28 @@ class IndexedDBManager {
 
         console.log(`[IndexedDB] Initiating Recovery... (Attempt ${recoveryCount + 1})`);
 
+        // CRITICAL: Preserve authentication state during recovery
+        const googleUser = localStorage.getItem('googleUser');
+        const preservedAuth = googleUser ? { googleUser } : null;
+
         try {
             this.closeAllConnections();
             await this.deleteDatabase(config.dbName);
             console.log(`[IndexedDB] Database deleted for recovery.`);
         } catch (e) {
             console.error('[IndexedDB] Recovery delete failed:', e);
+        }
+
+        // Restore auth data after DB deletion
+        if (preservedAuth) {
+            try {
+                if (preservedAuth.googleUser) {
+                    localStorage.setItem('googleUser', preservedAuth.googleUser);
+                }
+                console.log('[IndexedDB] Auth state preserved during recovery');
+            } catch (e) {
+                console.error('[IndexedDB] Failed to restore auth state:', e);
+            }
         }
 
         sessionStorage.setItem('db_recovery_count', (recoveryCount + 1).toString());
