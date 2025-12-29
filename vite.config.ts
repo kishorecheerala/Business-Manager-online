@@ -71,6 +71,16 @@ export default defineConfig({
       algorithm: 'gzip',
     }),
   ],
+  server: {
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'credentialless',
+    },
+  },
+  optimizeDeps: {
+    exclude: ['@sqlite.org/sqlite-wasm'],
+  },
+  assetsInclude: ['**/*.wasm'],
   base: './',
   build: {
     rollupOptions: {

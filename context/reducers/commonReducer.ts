@@ -72,7 +72,13 @@ export const commonReducer = (state: DataState, action: Action): DataState => {
         case 'SET_LAST_SYNC_TIME':
             localStorage.setItem('lastSyncTime', action.payload.toString());
             return { ...state, lastSyncTime: action.payload };
-        case 'SET_LAST_BACKUP_DATE': return { ...state, app_metadata: state.app_metadata }; // DB update handled by helper usually
+        case 'SET_LAST_BACKUP_DATE':
+            const backupMeta: AppMetadata = { id: 'lastBackup', date: action.payload };
+            db.upsertItem('app_metadata', backupMeta);
+            return { ...state, app_metadata: [...state.app_metadata.filter(m => m.id !== 'lastBackup'), backupMeta] };
+
+        case 'SET_DB_ERROR':
+            return { ...state, dbError: action.payload };
 
         // --- Custom Fonts ---
         case 'ADD_CUSTOM_FONT':

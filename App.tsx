@@ -21,12 +21,14 @@ import DevineLoader from './components/DevineLoader';
 import Toast from './components/Toast';
 import AppLayout from './components/AppLayout';
 import ErrorBoundary from './components/ErrorBoundary';
+import CriticalErrorScreen from './components/CriticalErrorScreen';
 
 // Hooks
 import { useHotkeys } from './hooks/useHotkeys';
 import { logPageView } from './utils/analyticsLogger';
-import { APP_VERSION as VERSION_CONST } from './utils/changelogData';
+import { APP_VERSION } from './utils/changelogData';
 import { performanceReporter } from './utils/performanceReporter';
+import StorageMonitor from './utils/storageMonitor';
 
 // Pages (Lazy Load)
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
@@ -58,12 +60,22 @@ import { QUICK_ACTION_REGISTRY, QUICK_ACTION_SHORTCUTS } from './utils/quickActi
 
 // Root Component
 const App: React.FC = () => {
+    // Initialize Storage Monitor
+    useEffect(() => {
+        const monitor = StorageMonitor.getInstance();
+        const unsubscribe = monitor.subscribe((event) => {
+            if (event.type === 'sqlite-error' || event.type === 'indexeddb-error') {
+                console.warn("Monitor detected DB error:", event.details);
+            }
+        });
+        return () => unsubscribe();
+    }, []);
+
     const { state, dispatch, isDbLoaded } = useData();
     const { uiState, showToast } = useUI();
     const { theme, themeColor, themeGradient, font, uiPreferences } = uiState;
     const { authState, authDispatch, unlockApp } = useAuth();
     const { isLocked, pin } = authState;
-
     const { showConfirm } = useDialog();
 
 
@@ -376,6 +388,7 @@ const App: React.FC = () => {
         setIsDirty(false);
     };
 
+    if (state.dbError) return <CriticalErrorScreen error={state.dbError} />;
     if (!isDbLoaded) return <DevineLoader />;
 
     // App Lock Screen

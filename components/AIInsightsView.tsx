@@ -71,10 +71,10 @@ const AIInsightsView: React.FC<AIInsightsViewProps> = ({ className, onNavigate }
                     </div>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="secondary" size="sm" onClick={() => setIsChatOpen(true)} className="flex items-center gap-2">
+                    <Button variant="secondary" onClick={() => setIsChatOpen(true)} className="flex items-center gap-2">
                         <Users size={16} /> <span className="hidden sm:inline">Ask Analyst</span>
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={generateInsight} disabled={loading} className="hover:bg-indigo-50 dark:hover:bg-slate-700">
+                    <Button variant="ghost" onClick={generateInsight} disabled={loading} className="hover:bg-indigo-50 dark:hover:bg-slate-700">
                         <RefreshCw size={18} className={loading ? "animate-spin text-indigo-500" : "text-slate-400"} />
                     </Button>
                 </div>
@@ -94,7 +94,7 @@ const AIInsightsView: React.FC<AIInsightsViewProps> = ({ className, onNavigate }
                         <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center py-10 text-center">
                             <AlertTriangle size={40} className="text-red-500 mb-3" />
                             <p className="text-slate-600 dark:text-slate-300 mb-4">{error}</p>
-                            <Button onClick={generateInsight} variant="primary" size="sm">Retry Analysis</Button>
+                            <Button onClick={generateInsight} variant="primary">Retry Analysis</Button>
                         </motion.div>
                     ) : data ? (
                         <motion.div key="content" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
@@ -145,7 +145,7 @@ const AIInsightsView: React.FC<AIInsightsViewProps> = ({ className, onNavigate }
                                             </h4>
                                             {/* Simple Sparkline simulation using regression */}
                                             <div className="h-24 w-full" style={{ minWidth: 0, minHeight: 0 }}>
-                                                <ResponsiveContainer width="100%" height="100%" minWidth={100}>
+                                                <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100} debounce={100}>
                                                     <LineChart data={
                                                         Array.from({ length: 7 }, (_, i) => ({
                                                             day: i,
@@ -202,7 +202,7 @@ const AIInsightsView: React.FC<AIInsightsViewProps> = ({ className, onNavigate }
                                                     </div>
                                                 </div>
                                                 {(action.targetId && onNavigate) && (
-                                                    <Button size="xs" variant="secondary" onClick={() => onNavigate(
+                                                    <Button variant="secondary" onClick={() => onNavigate(
                                                         action.type === 'restock' ? 'PRODUCTS' :
                                                             action.type === 'collect' ? 'CUSTOMERS' : 'DASHBOARD',
                                                         action.targetId

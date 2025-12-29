@@ -85,6 +85,11 @@ export interface DataState {
     performanceMode: boolean;
 
     isOnline: boolean;
+    isLocked: boolean;
+    isAuthenticated: boolean;
+    protectedPages: Page[];
+    isStaffMode: boolean;
+    dbError: any | null;
 
     currentSale: SaleDraft;
     parkedSales: ParkedSale[];
