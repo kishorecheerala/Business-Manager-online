@@ -20,7 +20,7 @@ export const defaultLabels: any = {
 export const registerCustomFonts = (doc: jsPDF, fonts: CustomFont[]) => {
     fonts.forEach(font => {
         try {
-            const fontData = font.data.split(',')[1] || font.data;
+            const fontData = font.url.split(',')[1] || font.url;
             doc.addFileToVFS(`${font.name}.ttf`, fontData);
             doc.addFont(`${font.name}.ttf`, font.name, 'normal');
             doc.addFont(`${font.name}.ttf`, font.name, 'bold');

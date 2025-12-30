@@ -24,7 +24,7 @@ interface SalesFormProps {
     setSaleDate: (date: string) => void;
     paymentDetails: {
         amount: string;
-        method: 'CASH' | 'UPI' | 'CHEQUE';
+        method: 'CASH' | 'UPI' | 'CHEQUE' | 'RETURN_CREDIT';
         date: string;
         reference: string;
         accountId?: string;
@@ -281,7 +281,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
                                             <div className="w-full sm:w-32">
                                                 <label className="text-[10px] uppercase font-bold text-gray-500 dark:text-gray-400 mb-1 block">Method</label>
                                                 <Dropdown
-                                                    options={[{ value: 'CASH', label: 'Cash' }, { value: 'UPI', label: 'UPI' }, { value: 'CHEQUE', label: 'Cheque' }]}
+                                                    options={[{ value: 'CASH', label: 'Cash' }, { value: 'UPI', label: 'UPI' }, { value: 'CHEQUE', label: 'Cheque' }, { value: 'RETURN_CREDIT', label: 'Return Credit' }]}
                                                     value={payment.method}
                                                     onChange={(val) => {
                                                         const newPayments = [...storedPayments];
@@ -344,7 +344,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Payment Method</label>
                                     <Dropdown
-                                        options={[{ value: 'CASH', label: 'Cash' }, { value: 'UPI', label: 'UPI' }, { value: 'CHEQUE', label: 'Cheque' }]}
+                                        options={[{ value: 'CASH', label: 'Cash' }, { value: 'UPI', label: 'UPI' }, { value: 'CHEQUE', label: 'Cheque' }, { value: 'RETURN_CREDIT', label: 'Return Credit' }]}
                                         value={paymentDetails.method}
                                         onChange={(val) => setPaymentDetails({ ...paymentDetails, method: val as any })}
                                     />

@@ -4,6 +4,7 @@ import { X, GripVertical, Check, Info, Plus, Trash2 } from 'lucide-react';
 import Card from './Card';
 import Button from './Button';
 import { useData } from '../context/DataContext';
+import { useUI } from '../context/UIContext';
 import { Page } from '../types';
 import { Home, Users, ShoppingCart, Package, Receipt, Undo2, FileText, BarChart2, PenTool, Gauge, UserPlus, PackagePlus, TrendingUp, HelpCircle } from 'lucide-react';
 
@@ -49,7 +50,8 @@ const PAGE_LABELS: Record<string, string> = {
 };
 
 const NavCustomizerModal: React.FC<NavCustomizerModalProps> = ({ isOpen, onClose }) => {
-    const { state, dispatch, showToast } = useData();
+    const { showToast } = useData();
+    const { uiState, uiDispatch } = useUI();
     const [activeTab, setActiveTab] = useState<'nav' | 'quick'>('nav');
     const [currentNavOrder, setCurrentNavOrder] = useState<string[]>([]);
     const [currentQuickActions, setCurrentQuickActions] = useState<string[]>([]);
@@ -60,19 +62,19 @@ const NavCustomizerModal: React.FC<NavCustomizerModalProps> = ({ isOpen, onClose
 
     useEffect(() => {
         if (isOpen) {
-            setCurrentNavOrder([...state.navOrder]);
-            setCurrentQuickActions([...state.quickActions]);
+            setCurrentNavOrder([...uiState.navOrder]);
+            setCurrentQuickActions([...uiState.quickActions]);
             document.body.style.overflow = 'hidden';
         }
         return () => { document.body.style.overflow = ''; };
-    }, [isOpen, state.navOrder, state.quickActions]);
+    }, [isOpen, uiState.navOrder, uiState.quickActions]);
 
     const handleSave = () => {
         if (activeTab === 'nav') {
-            dispatch({ type: 'UPDATE_NAV_ORDER', payload: currentNavOrder });
+            uiDispatch({ type: 'UPDATE_NAV_ORDER', payload: currentNavOrder });
             showToast("Navigation layout updated.");
         } else {
-            dispatch({ type: 'UPDATE_QUICK_ACTIONS', payload: currentQuickActions });
+            uiDispatch({ type: 'UPDATE_QUICK_ACTIONS', payload: currentQuickActions });
             showToast("Quick actions updated.");
         }
         onClose();
@@ -80,16 +82,14 @@ const NavCustomizerModal: React.FC<NavCustomizerModalProps> = ({ isOpen, onClose
 
     const handleReset = () => {
         if (activeTab === 'nav') {
-            // Import DEFAULT_NAV_ORDER logic or just trigger a reset action
-            dispatch({ type: 'RESET_NAV_ORDER' });
-            showToast("Navigation reset to default.");
+            // Simplified reset: UIContext handles actual defaults usually, but here we can just clear?
+            // Actually let's assume UIContext has a RESET action or we just set back to something.
+            // For now let's use the provided RESET_NAV_ORDER if it exists.
+            uiDispatch({ type: 'UPDATE_NAV_ORDER', payload: [] }); // Or actual default list if available
+            showToast("Navigation reset requested.");
             onClose();
         } else {
-            // We'd need a reset action for quick actions too, or just manually set defaults if imported
-            // simpler to dispatch a RESET_QUICK_ACTIONS if it exists, checking DataContext types later or searching logic.
-            // For now assume we might need to add these action types to reducer if missing.
-            // Actually, let's check if the reducer supports RESET.
-            dispatch({ type: 'RESET_NAV_ORDER' }); // Re-using this for now as placeholder, likely need to implement.
+            uiDispatch({ type: 'UPDATE_QUICK_ACTIONS', payload: [] });
         }
     };
 

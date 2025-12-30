@@ -50,11 +50,11 @@ const SalesPage: React.FC<SalesPageProps> = ({ setIsDirty }) => {
 
     const [paymentDetails, setPaymentDetails] = useState<{
         amount: string;
-        method: 'CASH' | 'UPI' | 'CHEQUE';
+        method: 'CASH' | 'UPI' | 'CHEQUE' | 'RETURN_CREDIT';
         date: string;
         reference: string;
         accountId?: string;
-    }>(currentSale.paymentDetails || {
+    }>((currentSale as any).paymentDetails || {
         amount: '',
         method: 'CASH',
         date: getLocalDateString(),

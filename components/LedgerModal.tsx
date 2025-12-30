@@ -7,6 +7,7 @@ import Button from './Button';
 import Dropdown from './Dropdown';
 import { getLocalDateString } from '../utils/dateUtils';
 import { useData } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
 import { generateGenericReportPDF } from '../utils/pdfGenerator';
 import { generateDownloadFilename, formatCurrency, formatNumber, formatDate } from '../utils/formatUtils';
 import { exportReportToSheet } from '../utils/googleSheets';
@@ -30,6 +31,7 @@ interface LedgerEntry {
 
 const LedgerModal: React.FC<LedgerModalProps> = ({ isOpen, onClose, partyId, partyType }) => {
     const { state, showToast } = useData();
+    const { authState } = useAuth();
     const [isExporting, setIsExporting] = useState(false);
 
     // Filters
@@ -288,7 +290,7 @@ const LedgerModal: React.FC<LedgerModalProps> = ({ isOpen, onClose, partyId, par
     };
 
     const handleExportSheets = async () => {
-        if (!state.googleUser?.accessToken) {
+        if (!authState.googleUser?.accessToken) {
             showToast("Sign in with Google required for Sheets export.", 'info');
             return;
         }
@@ -309,7 +311,7 @@ const LedgerModal: React.FC<LedgerModalProps> = ({ isOpen, onClose, partyId, par
             // Add Summary Rows
             rows.push(['', '', '', 'TOTALS', totalDebit.toString(), totalCredit.toString(), closingBalance.toString()]);
 
-            const url = await exportReportToSheet(state.googleUser.accessToken, title, headers, rows);
+            const url = await exportReportToSheet(authState.googleUser.accessToken, title, headers, rows);
             window.open(url, '_blank');
             showToast("Statement exported to Google Sheets!", 'success');
         } catch (e) {

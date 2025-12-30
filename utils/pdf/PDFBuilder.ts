@@ -3,7 +3,7 @@ import autoTable from 'jspdf-autotable';
 import { InvoiceTemplateConfig, ProfileData, CustomFont } from '../../types';
 import { GenericDocumentData } from './types';
 import { PDFLayoutEngine } from './PDFLayoutEngine';
-import { registerCustomFonts, logoBase64, getImageType, getQrCodeBase64, formatDate, formatCurrency, defaultLabels, numberToWords } from './helpers';
+import { registerCustomFonts, getImageType, getQrCodeBase64, formatDate, formatCurrency, defaultLabels, numberToWords } from './helpers';
 
 // Helper to handle logo base64 which might be in helpers or separate.
 // I'll assume logoBase64 is imported from ../logo usually, but here I can import it from parent or expect it in helpers if I moved it.

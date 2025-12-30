@@ -1,7 +1,6 @@
-
 import { openDB, deleteDB, DBSchema, IDBPDatabase, wrap } from 'idb';
 import IndexedDBManager from './indexedDBManager';
-import { Customer, Supplier, Product, Sale, Purchase, Return, Notification, ProfileData, AppMetadata, AuditLogEntry, Expense, Quote, CustomFont, Snapshot, TrashItem, Budget, FinancialScenario, AppState, BankAccount, FinancialGoal } from '../types';
+import { Customer, Supplier, Product, Sale, Purchase, Return, Notification, ProfileData, AppMetadata, AuditLogEntry, Expense, Quote, CustomFont, Snapshot, TrashItem, Budget, FinancialScenario, BankAccount, FinancialGoal, DataState, Page, Action } from '../types';
 
 const DB_NAME = 'business-manager-db';
 const DB_VERSION = 16; // Kept as 16 to match previous attempts
@@ -81,7 +80,7 @@ export async function getAll<T extends StoreName>(storeName: T): Promise<any[]> 
         const db = await getDb();
         return await db.getAll(storeName as any);
     } catch (e) {
-        console.error(`Failed to getAll from ${storeName}`, e);
+        console.error(`Failed to getAll from ${storeName} `, e);
         return [];
     }
 }
@@ -133,10 +132,10 @@ export async function saveCollection<T extends StoreName>(storeName: T, data: an
         // Ignore specific internal error that can happen during page unload/close
         const msg = String(error);
         if (msg.includes('Internal error opening backing store') || msg.includes('The database connection is closing')) {
-            console.warn(`Supressed DB Error in ${storeName}:`, msg);
+            console.warn(`Supressed DB Error in ${storeName}: `, msg);
             return;
         }
-        console.error(`Failed to save collection ${storeName}:`, error);
+        console.error(`Failed to save collection ${storeName}: `, error);
         throw error;
     }
 }
@@ -149,7 +148,7 @@ export async function upsertItem<T extends StoreName>(storeName: T, item: any) {
         await db.put(storeName as any, item);
         await markStoreModified(storeName);
     } catch (error) {
-        console.error(`Failed to upsert item in ${storeName}:`, error);
+        console.error(`Failed to upsert item in ${storeName}: `, error);
     }
 }
 
@@ -164,7 +163,7 @@ export async function upsertMany<T extends StoreName>(storeName: T, items: any[]
         await tx.done;
         await markStoreModified(storeName);
     } catch (error) {
-        console.error(`Failed to upsert many in ${storeName}:`, error);
+        console.error(`Failed to upsert many in ${storeName}: `, error);
     }
 }
 
@@ -174,7 +173,7 @@ export async function deleteFromStore<T extends StoreName>(storeName: T, id: str
         await db.delete(storeName as any, id);
         await markStoreModified(storeName);
     } catch (error) {
-        console.error(`Failed to delete from store ${storeName}:`, error);
+        console.error(`Failed to delete from store ${storeName}: `, error);
     }
 }
 
@@ -306,7 +305,7 @@ export async function mergeData(cloudData: any): Promise<void> {
                             }
                         }
                     } catch (e) {
-                        console.warn(`Error processing item ${itemId} in ${storeName}:`, e);
+                        console.warn(`Error processing item ${itemId} in ${storeName}: `, e);
                     }
                 }
             }
@@ -350,7 +349,7 @@ export async function importData(data: any, merge: boolean = false): Promise<voi
 export async function createSnapshot(name: string = 'Auto Checkpoint'): Promise<string> {
     const data = await exportData();
     const db = await getDb();
-    const id = `snap-${Date.now()}`;
+    const id = `snap - ${Date.now()} `;
     const snapshot: Snapshot = {
         id,
         timestamp: new Date().toISOString(),

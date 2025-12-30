@@ -51,7 +51,7 @@ const APIConfigModal: React.FC<APIConfigModalProps> = ({ isOpen, onClose }) => {
   };
 
   const handleReset = async () => {
-    if (await showConfirm("Reset all API settings to default?", { variant: 'warning' })) {
+    if (await showConfirm("Reset all API settings to default?", { variant: 'danger' })) {
       localStorage.removeItem('google_client_id');
       localStorage.removeItem('gemini_api_key');
       window.location.reload();

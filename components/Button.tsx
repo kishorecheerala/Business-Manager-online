@@ -1,6 +1,6 @@
 
-import React, { forwardRef, useContext } from 'react';
-import { DataContext } from '../context/DataContext';
+import React, { forwardRef } from 'react';
+import { useUI } from '../context/UIContext';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children: React.ReactNode;
@@ -9,10 +9,8 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(({ children, variant = 'primary', className = '', type = 'button', ...props }, ref) => {
-  // Use useContext directly to avoid throwing if provider is missing (e.g. inside ErrorBoundary)
-  const context = useContext(DataContext);
-  const state = context?.state;
-  const style = state?.uiPreferences?.buttonStyle || 'rounded';
+  const { uiState } = useUI();
+  const style = uiState?.uiPreferences?.buttonStyle || 'rounded';
 
   let roundedClass = 'rounded-md'; // Default
   if (style === 'pill') roundedClass = 'rounded-full';

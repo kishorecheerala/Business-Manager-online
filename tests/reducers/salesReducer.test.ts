@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { salesReducer } from '../../context/reducers/salesReducer';
-import { DataState, Sale } from '../../types';
+import { DataState, Sale, Action } from '../../types';
 
 // Mock DB
 vi.mock('../../utils/db', () => ({
@@ -28,8 +28,9 @@ describe('salesReducer', () => {
         const sale: Sale = {
             id: 's1',
             date: '2025-01-01',
-            items: [{ productId: 'p1', quantity: 2, price: 100, productName: 'P1', saleValue: 100, gstPercent: 18 }],
+            items: [{ productId: 'p1', quantity: 2, price: 100, productName: 'P1' }],
             totalAmount: 200,
+            gstAmount: 36,
             customerId: 'c1',
             discount: 0,
             payments: [],

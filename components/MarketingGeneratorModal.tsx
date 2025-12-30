@@ -314,11 +314,10 @@ const MarketingGeneratorModal: React.FC<MarketingGeneratorModalProps> = ({ isOpe
                                 </div>
                             </div>
                         </>
-                        </>
-                ) : null}
+                    ) : null}
+                </div>
+            </Card>
         </div>
-            </Card >
-        </div >
     );
 };
 

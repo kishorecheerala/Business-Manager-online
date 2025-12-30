@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Copy, Download, Upload, AlertCircle, CheckCircle, Code, HelpCircle, Monitor, Smartphone } from 'lucide-react';
 import { useData } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
 import { generateDiagnostics, uploadDiagnostics } from '../utils/adminNotifications';
 import Button from './Button';
 
@@ -17,7 +18,8 @@ const RemoteSupportModal: React.FC<RemoteSupportModalProps> = ({
     supportCode: initialSupportCode,
     troubleshootingSteps = []
 }) => {
-    const { state, showToast } = useData();
+    const { showToast } = useData();
+    const { authState } = useAuth();
     const [supportCode, setSupportCode] = useState(initialSupportCode || '');
     const [diagnostics, setDiagnostics] = useState<any>(null);
     const [isUploading, setIsUploading] = useState(false);
@@ -76,7 +78,7 @@ const RemoteSupportModal: React.FC<RemoteSupportModalProps> = ({
     };
 
     const handleUploadDiagnostics = async () => {
-        if (!state.googleUser?.accessToken || !diagnostics) {
+        if (!authState.googleUser?.accessToken || !diagnostics) {
             showToast('Please sign in with Google first', 'error');
             return;
         }
@@ -84,7 +86,7 @@ const RemoteSupportModal: React.FC<RemoteSupportModalProps> = ({
         setIsUploading(true);
         try {
             const fileId = await uploadDiagnostics(
-                state.googleUser.accessToken,
+                authState.googleUser.accessToken,
                 supportCode,
                 diagnostics
             );
@@ -249,7 +251,7 @@ const RemoteSupportModal: React.FC<RemoteSupportModalProps> = ({
 
                             <Button
                                 onClick={handleUploadDiagnostics}
-                                disabled={isUploading || !state.googleUser || uploadSuccess}
+                                disabled={isUploading || !authState.googleUser || uploadSuccess}
                                 className="w-full"
                             >
                                 {uploadSuccess ? (
@@ -271,7 +273,7 @@ const RemoteSupportModal: React.FC<RemoteSupportModalProps> = ({
                             </Button>
                         </div>
 
-                        {!state.googleUser && (
+                        {!authState.googleUser && (
                             <p className="text-xs text-orange-600 dark:text-orange-400 text-center">
                                 ⚠️ Sign in with Google to upload diagnostics directly
                             </p>
