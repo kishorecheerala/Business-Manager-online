@@ -83,6 +83,15 @@ export default defineConfig({
   assetsInclude: ['**/*.wasm'],
   base: './',
   build: {
+    sourcemap: false, // Disable sourcemaps in production for security and size
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true, // Remove console.* in production
+        drop_debugger: true,
+        pure_funcs: ['console.log', 'console.debug', 'console.info']
+      }
+    },
     rollupOptions: {
       output: {
         manualChunks: {

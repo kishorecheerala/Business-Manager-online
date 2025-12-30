@@ -5,6 +5,30 @@ export interface Payment {
     method: 'CASH' | 'UPI' | 'CHEQUE' | 'RETURN_CREDIT';
     reference?: string;
     accountId?: string;
+    isScheduled?: boolean; // NEW: Part of payment schedule
+    scheduleId?: string; // NEW: Link to schedule
+    status?: 'pending' | 'paid' | 'overdue'; // NEW: Payment status
+}
+
+// NEW: Payment Schedule Interface
+export interface PaymentSchedule {
+    id: string;
+    saleId: string;
+    totalAmount: number;
+    installments: PaymentInstallment[];
+    autoReminders: boolean;
+    createdAt: string;
+}
+
+export interface PaymentInstallment {
+    id: string;
+    dueDate: string;
+    amount: number;
+    status: 'pending' | 'paid' | 'overdue' | 'cancelled';
+    paidDate?: string;
+    paidAmount?: number;
+    reminderSent?: boolean;
+    notes?: string;
 }
 
 export interface SaleItem {
@@ -33,6 +57,7 @@ export interface Sale {
     payments: Payment[];
     updatedAt?: string;
     recurring?: RecurringConfig;
+    paymentSchedule?: PaymentSchedule; // NEW: Payment scheduling
 }
 
 export interface SaleDraft {

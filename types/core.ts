@@ -7,6 +7,14 @@ export interface Customer {
     reference?: string;
     priceTier?: 'RETAIL' | 'WHOLESALE';
     updatedAt?: string;
+    // NEW: Bulk notification preferences
+    notificationPreferences?: {
+        smsEnabled: boolean;
+        whatsappEnabled: boolean;
+        emailEnabled?: boolean;
+        birthdate?: string; // For birthday notifications
+    };
+    tags?: string[]; // NEW: For segmentation (e.g., 'VIP', 'Regular')
 }
 
 export interface Supplier {

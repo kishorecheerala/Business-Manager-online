@@ -139,6 +139,35 @@ export interface AppMetadataDashboardConfig {
     matchThemeColor?: boolean;
     greetingFontSize?: 'xs' | 'sm' | 'base' | 'lg' | 'xl' | '2xl';
     updatedAt?: string;
+    // NEW: Custom widget configuration
+    customWidgets?: DashboardWidget[];
+    widgetLayouts?: {
+        mobile?: DashboardWidgetLayout[];
+        desktop?: DashboardWidgetLayout[];
+    };
+}
+
+// NEW: Dashboard Widget Interfaces
+export interface DashboardWidget {
+    id: string;
+    type: 'chart' | 'metric' | 'table' | 'alert' | 'goal';
+    title: string;
+    dataSource: 'sales' | 'products' | 'customers' | 'expenses' | 'purchases';
+    enabled: boolean;
+    configuration: {
+        chartType?: 'line' | 'bar' | 'pie' | 'area' | 'treemap';
+        metric?: string; // e.g., 'totalRevenue', 'lowStock'
+        dateRange?: 'today' | 'week' | 'month' | 'year' | 'custom';
+        limit?: number; // For table widgets
+        threshold?: number; // For alert widgets
+    };
+    size: 'small' | 'medium' | 'large' | 'full';
+}
+
+export interface DashboardWidgetLayout {
+    widgetId: string;
+    position: { row: number; col: number };
+    span: { rows: number; cols: number };
 }
 
 export interface AppMetadataLastSync {
