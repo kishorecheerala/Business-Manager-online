@@ -313,7 +313,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 customFonts, app_metadata, notifications, audit_logs, profile,
                 budget, scenarios, trashData, bankAccountsData, goalsData
             ] = results as any[];
-            
+
             // Handle potential errors in individual results
             customers = Array.isArray(customers) ? customers : [];
             suppliers = Array.isArray(suppliers) ? suppliers : [];
@@ -346,26 +346,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const staffModeMeta = app_metadata.find(m => m.id === 'staffMode') as any;
             const googleUserMeta = app_metadata.find(m => m.id === 'googleUser');
 
-            // Dispatch to UI Context
-            if (themeMeta) {
-                uiDispatch({ type: 'SET_THEME', payload: themeMeta.theme });
-                uiDispatch({ type: 'SET_THEME_COLOR', payload: themeMeta.color });
-                if (themeMeta.gradient) uiDispatch({ type: 'SET_THEME_GRADIENT', payload: themeMeta.gradient });
-                if (themeMeta.font) uiDispatch({ type: 'SET_FONT', payload: themeMeta.font });
-            }
-            if (uiMeta) uiDispatch({ type: 'UPDATE_UI_PREFS', payload: uiMeta });
-            if (dashMeta) uiDispatch({ type: 'UPDATE_DASHBOARD_CONFIG', payload: dashMeta });
-            if (navMeta?.order) uiDispatch({ type: 'UPDATE_NAV_ORDER', payload: navMeta.order });
-            if (qaMeta?.actions) uiDispatch({ type: 'UPDATE_QUICK_ACTIONS', payload: qaMeta.actions });
-
-            // Dispatch to Auth Context
-            if (pinMeta?.security?.enabled) authDispatch({ type: 'SET_PIN', payload: pinMeta.security.pin });
-            if (staffModeMeta?.value) authDispatch({ type: 'SET_STAFF_MODE', payload: staffModeMeta.value });
-            if (pinMeta?.protectedPages) authDispatch({ type: 'SET_PROTECTED_PAGES', payload: pinMeta.protectedPages });
-
-            // Data State
-            const dbUser = (googleUserMeta as any);
-            if (dbUser) authDispatch({ type: 'SET_GOOGLE_USER', payload: dbUser });
+            // Data State dispatches to other contexts are removed to prevent circular sync loops.
+            // These contexts (UI, Auth) already manage their own persistent state initialization.
 
             let finalProfile = null;
             if (profile && profile.length > 0) {
@@ -575,10 +557,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 console.log('[SYNC] No local changes to upload. Updating sync time...', now);
                 dispatch({ type: 'SET_LAST_SYNC_TIME', payload: now });
                 console.log('[SYNC] ✓ Sync completed! Last sync:', new Date(now).toLocaleTimeString());
-                
+
                 logEntry('SYNC_COMPLETE', cloudDataMerged ? 'Cloud data merged successfully' : 'Everything up to date');
                 if (state.devMode) console.log("Sync: No local changes to upload.");
-                
+
                 if (cloudDataMerged) {
                     showToast("Sync completed: Cloud updates applied.", 'success');
                 } else {
@@ -587,18 +569,18 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
 
             dispatch({ type: 'SET_SYNC_STATUS', payload: 'success' });
-            
+
             // Reset sync status after 2 seconds to avoid stuck 'success' state
             setTimeout(() => {
                 dispatch({ type: 'SET_SYNC_STATUS', payload: 'idle' });
             }, 2000);
         } catch (error: any) {
             console.error("Sync Failed:", error);
-            
+
             // NEW: More robust error handling to prevent crashes
             try {
                 dispatch({ type: 'SET_SYNC_STATUS', payload: 'error' });
-                
+
                 // Reset error status after 5 seconds
                 setTimeout(() => {
                     dispatch({ type: 'SET_SYNC_STATUS', payload: 'idle' });
