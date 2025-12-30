@@ -123,8 +123,9 @@ class IndexedDBManager {
 
     private async handleCorruption<T extends IDBDatabase>(config: DBOpenConfig): Promise<T> {
         if (this.isRecovering) {
-            // NEW: Return a promise that resolves immediately to prevent blocking
-            return Promise.resolve(undefined as T);
+            console.warn('[IndexedDB] Already in recovery process, skipping duplicate attempt');
+            // Instead of returning undefined, try to open a fresh connection
+            return this.attemptOpen(config);
         }
 
         this.isRecovering = true;
@@ -138,19 +139,17 @@ class IndexedDBManager {
         if (now - lastReset < 10000 && recoveryCount >= 1) {
             console.error("[IndexedDB] Infinite loop detected. Stopping automatic recovery.");
             sessionStorage.removeItem('db_recovery_count');
-            // NEW: Don't throw error that causes crash, just return and let app continue without DB
             this.isRecovering = false;
-            console.warn("[IndexedDB] Returning without recovery to prevent crash");
-            return Promise.resolve(undefined as T);
+            // Instead of returning undefined, try to open a fresh connection
+            return this.attemptOpen(config);
         }
 
         if (recoveryCount >= 2) {
             console.error("[IndexedDB] Recovery failed multiple times.");
             sessionStorage.removeItem('db_recovery_count');
-            // NEW: Don't throw error that causes crash, just return and let app continue without DB
             this.isRecovering = false;
-            console.warn("[IndexedDB] Returning without recovery to prevent crash");
-            return Promise.resolve(undefined as T);
+            // Instead of returning undefined, try to open a fresh connection
+            return this.attemptOpen(config);
         }
 
         console.log(`[IndexedDB] Initiating Recovery... (Attempt ${recoveryCount + 1})`);
@@ -190,8 +189,8 @@ class IndexedDBManager {
         console.warn('[IndexedDB] Recovery completed without reload to prevent crashes');
         this.isRecovering = false;
         
-        // NEW: Return a promise that resolves immediately to prevent blocking
-        return Promise.resolve(undefined as T);
+        // Try to open a fresh connection after recovery
+        return this.attemptOpen(config);
     }
 
     private initializeStores(

@@ -125,12 +125,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [authState, authDispatch] = useReducer(authReducer, initialState);
     const { showToast } = useUI();
     const tokenClientRef = useRef<any>(null);
+    const tokenRefreshTimerRef = useRef<number | null>(null);
+    const refreshGoogleTokenRef = useRef<() => void>(() => {});
 
     // NEW: Token refresh timer cleanup on unmount
     useEffect(() => {
         return () => {
-            if (authState.tokenRefreshTimer) {
-                clearTimeout(authState.tokenRefreshTimer);
+            if (tokenRefreshTimerRef.current) {
+                clearTimeout(tokenRefreshTimerRef.current);
                 authDispatch({ type: 'SET_TOKEN_REFRESH_TIMER', payload: null });
             }
         };
@@ -138,8 +140,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // NEW: Auto-refresh token before expiration
     const scheduleTokenRefresh = useCallback((user: GoogleUser | null) => {
-        if (authState.tokenRefreshTimer) {
-            clearTimeout(authState.tokenRefreshTimer);
+        // Clear any existing timer
+        if (tokenRefreshTimerRef.current) {
+            clearTimeout(tokenRefreshTimerRef.current);
+            tokenRefreshTimerRef.current = null;
             authDispatch({ type: 'SET_TOKEN_REFRESH_TIMER', payload: null });
         }
 
@@ -150,23 +154,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             if (refreshTime > 0) {
                 const timerId = window.setTimeout(() => {
                     console.log('[AUTH] Token about to expire, refreshing...');
-                    refreshGoogleToken();
+                    refreshGoogleTokenRef.current();
                 }, refreshTime);
                 
+                // Store timer ID in both ref and state
+                tokenRefreshTimerRef.current = timerId;
                 authDispatch({ type: 'SET_TOKEN_REFRESH_TIMER', payload: timerId });
                 console.log(`[AUTH] Scheduled token refresh in ${Math.round(refreshTime / 60000)} minutes`);
             } else {
                 // Token already expired or will expire soon, refresh immediately
                 console.log('[AUTH] Token already expired or expiring soon, refreshing immediately');
-                refreshGoogleToken();
+                refreshGoogleTokenRef.current();
             }
         }
-    }, [authState.tokenRefreshTimer]);
+    }, [authDispatch]); // Include only non-circular dependencies
 
     // NEW: Update token refresh when user changes
     useEffect(() => {
         scheduleTokenRefresh(authState.googleUser);
-    }, [authState.googleUser, scheduleTokenRefresh]);
+    }, [authState.googleUser]); // Don't include scheduleTokenRefresh to avoid infinite loop
 
     // Restore auth state from IndexedDB if localStorage is empty (recovery scenario)
     useEffect(() => {
@@ -396,6 +402,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }).catch(console.error);
         }
     };
+    
+    // Update the ref when the function is defined
+    useEffect(() => {
+        refreshGoogleTokenRef.current = refreshGoogleToken;
+    }, [refreshGoogleToken]);
 
     const unlockApp = () => authDispatch({ type: 'SET_LOCK', payload: false });
     const lockApp = () => authDispatch({ type: 'SET_LOCK', payload: true });

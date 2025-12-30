@@ -295,7 +295,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             ]);
 
             const timeoutPromise = new Promise((resolve) => {
-                setTimeout(() => resolve('TIMEOUT'), 3000);
+                setTimeout(() => resolve('TIMEOUT'), 10000); // Increased timeout to 10 seconds to handle larger datasets
             });
 
             const results = await Promise.race([loadPromise, timeoutPromise]);
@@ -307,11 +307,32 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 return;
             }
 
-            const [
+            // Safely extract results with error handling
+            let [
                 customers, suppliers, products, sales, purchases, returns, expenses, quotes,
                 customFonts, app_metadata, notifications, audit_logs, profile,
                 budget, scenarios, trashData, bankAccountsData, goalsData
             ] = results as any[];
+            
+            // Handle potential errors in individual results
+            customers = Array.isArray(customers) ? customers : [];
+            suppliers = Array.isArray(suppliers) ? suppliers : [];
+            products = Array.isArray(products) ? products : [];
+            sales = Array.isArray(sales) ? sales : [];
+            purchases = Array.isArray(purchases) ? purchases : [];
+            returns = Array.isArray(returns) ? returns : [];
+            expenses = Array.isArray(expenses) ? expenses : [];
+            quotes = Array.isArray(quotes) ? quotes : [];
+            customFonts = Array.isArray(customFonts) ? customFonts : [];
+            app_metadata = Array.isArray(app_metadata) ? app_metadata : [];
+            notifications = Array.isArray(notifications) ? notifications : [];
+            audit_logs = Array.isArray(audit_logs) ? audit_logs : [];
+            profile = Array.isArray(profile) ? profile : [];
+            budget = Array.isArray(budget) ? budget : [];
+            scenarios = Array.isArray(scenarios) ? scenarios : [];
+            trashData = Array.isArray(trashData) ? trashData : [];
+            bankAccountsData = Array.isArray(bankAccountsData) ? bankAccountsData : [];
+            goalsData = Array.isArray(goalsData) ? goalsData : [];
 
             // Process Metadata
             const themeMeta = app_metadata.find(m => m.id === 'themeSettings') as AppMetadataTheme;
