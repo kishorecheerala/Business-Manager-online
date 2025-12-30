@@ -163,13 +163,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // Check for redirect response on mount (Mobile fallback)
         const checkRedirect = async () => {
             const hash = window.location.hash;
+            const search = window.location.search;
+            
+            console.log('[AUTH] Checking for OAuth redirect...', { 
+                hash: hash.substring(0, 100), 
+                search: search.substring(0, 100),
+                fullURL: window.location.href
+            });
+            
+            // Check hash parameters (standard OAuth2 implicit flow)
             if (hash && (hash.includes('access_token=') || hash.includes('error='))) {
+                console.log('[AUTH] ✓ Found OAuth response in URL hash');
                 const params = new URLSearchParams(hash.substring(1));
                 const accessToken = params.get('access_token');
                 const expiresIn = params.get('expires_in');
                 const error = params.get('error');
+                const errorDescription = params.get('error_description');
 
                 if (accessToken) {
+                    console.log('[AUTH] Processing access token from redirect...');
                     await handleGoogleLoginResponse({
                         access_token: accessToken,
                         expires_in: parseInt(expiresIn || '3600', 10)
@@ -177,10 +189,35 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     // Clean URL
                     window.history.replaceState(null, '', window.location.pathname + window.location.search);
                 } else if (error) {
-                    console.error("Redirect Auth Error:", error);
-                    showToast(`Login failed: ${error}`, 'error');
+                    console.error("[AUTH] Redirect Auth Error:", error, errorDescription);
+                    showToast(`Login failed: ${errorDescription || error}`, 'error');
                     window.history.replaceState(null, '', window.location.pathname + window.location.search);
                 }
+            }
+            // Also check query parameters (some OAuth flows use query string)
+            else if (search && (search.includes('access_token=') || search.includes('error='))) {
+                console.log('[AUTH] ✓ Found OAuth response in query string');
+                const params = new URLSearchParams(search);
+                const accessToken = params.get('access_token');
+                const expiresIn = params.get('expires_in');
+                const error = params.get('error');
+                const errorDescription = params.get('error_description');
+
+                if (accessToken) {
+                    console.log('[AUTH] Processing access token from query string...');
+                    await handleGoogleLoginResponse({
+                        access_token: accessToken,
+                        expires_in: parseInt(expiresIn || '3600', 10)
+                    });
+                    // Clean URL
+                    window.history.replaceState(null, '', window.location.pathname);
+                } else if (error) {
+                    console.error("[AUTH] Query Auth Error:", error, errorDescription);
+                    showToast(`Login failed: ${errorDescription || error}`, 'error');
+                    window.history.replaceState(null, '', window.location.pathname);
+                }
+            } else {
+                console.log('[AUTH] No OAuth redirect parameters found in URL');
             }
         };
         checkRedirect();

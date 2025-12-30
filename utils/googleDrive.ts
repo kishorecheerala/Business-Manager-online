@@ -82,11 +82,14 @@ export const initGoogleAuth = (
     const uxMode = modeOverride || (isMobile ? 'redirect' : 'popup');
 
     console.log(`[GOOGLE] Initializing Auth with mode: ${uxMode}, isMobile: ${isMobile}`);
+    console.log(`[GOOGLE] Current URL: ${window.location.href}`);
+    console.log(`[GOOGLE] Origin: ${window.location.origin}`);
 
     const config: any = {
         client_id: getClientId(),
         scope: SCOPES,
         ux_mode: uxMode,
+        redirect_uri: window.location.origin + window.location.pathname,
         error_callback: (err: any) => {
             console.error('[GOOGLE] OAuth error_callback triggered:', err);
             if (errorCallback) errorCallback(err);
@@ -134,7 +137,9 @@ export const initGoogleAuth = (
     console.log('[GOOGLE] Creating token client with config:', { 
         client_id: config.client_id.substring(0, 20) + '...', 
         ux_mode: config.ux_mode,
-        hasCallback: !!config.callback
+        redirect_uri: config.redirect_uri,
+        hasCallback: !!config.callback,
+        scope: config.scope
     });
     
     const tokenClient = (window as any).google.accounts.oauth2.initTokenClient(config);
