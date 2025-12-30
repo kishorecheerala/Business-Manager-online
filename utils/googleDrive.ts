@@ -158,6 +158,109 @@ export const revokeConsent = (accessToken: string) => {
 
 // --- Drive API Helpers ---
 
+// NEW: In-memory cache for Drive operations
+class DriveCache {
+    private folderCache: Map<string, { folderId: string; timestamp: number }>; // accessToken -> folderId
+    private fileCache: Map<string, { file: any; timestamp: number }>; // fileId -> file
+    private folderFileCache: Map<string, { files: DriveFile[]; timestamp: number }>; // folderId -> files
+    private manifestCache: Map<string, { data: any; timestamp: number }>; // manifestId -> manifest data
+    
+    constructor() {
+        this.folderCache = new Map();
+        this.fileCache = new Map();
+        this.folderFileCache = new Map();
+        this.manifestCache = new Map();
+        
+        // Cleanup old cache entries periodically
+        setInterval(() => this.cleanup(), 5 * 60 * 1000); // Every 5 minutes
+    }
+    
+    getFolderId(accessToken: string): string | null {
+        const cached = this.folderCache.get(accessToken);
+        if (cached && Date.now() - cached.timestamp < 10 * 60 * 1000) { // 10 minutes
+            return cached.folderId;
+        }
+        return null;
+    }
+    
+    setFolderId(accessToken: string, folderId: string) {
+        this.folderCache.set(accessToken, { folderId, timestamp: Date.now() });
+    }
+    
+    getFile(fileId: string): any {
+        const cached = this.fileCache.get(fileId);
+        if (cached && Date.now() - cached.timestamp < 5 * 60 * 1000) { // 5 minutes
+            return cached.file;
+        }
+        return null;
+    }
+    
+    setFile(fileId: string, file: any) {
+        this.fileCache.set(fileId, { file, timestamp: Date.now() });
+    }
+    
+    getFolderFiles(folderId: string): DriveFile[] | null {
+        const cached = this.folderFileCache.get(folderId);
+        if (cached && Date.now() - cached.timestamp < 2 * 60 * 1000) { // 2 minutes
+            return cached.files;
+        }
+        return null;
+    }
+    
+    setFolderFiles(folderId: string, files: DriveFile[]) {
+        this.folderFileCache.set(folderId, { files, timestamp: Date.now() });
+    }
+    
+    getManifest(): { data: any; timestamp: number } | null {
+        // For now, we'll just return the first manifest in the cache
+        // In a more advanced implementation, we could have multiple manifests
+        for (const [_, manifest] of this.manifestCache) {
+            if (Date.now() - manifest.timestamp < 2 * 60 * 1000) { // 2 minutes
+                return manifest;
+            }
+        }
+        return null;
+    }
+    
+    setManifest(manifest: any) {
+        // Use a fixed key for now, could be made more sophisticated
+        this.manifestCache.set('current_manifest', { data: manifest, timestamp: Date.now() });
+    }
+    
+    private cleanup() {
+        const now = Date.now();
+        
+        // Clean up folder cache
+        this.folderCache.forEach((value, key) => {
+            if (now - value.timestamp > 10 * 60 * 1000) {
+                this.folderCache.delete(key);
+            }
+        });
+        
+        // Clean up file cache
+        this.fileCache.forEach((value, key) => {
+            if (now - value.timestamp > 5 * 60 * 1000) {
+                this.fileCache.delete(key);
+            }
+        });
+        
+        // Clean up folder files cache
+        this.folderFileCache.forEach((value, key) => {
+            if (now - value.timestamp > 2 * 60 * 1000) {
+                this.folderFileCache.delete(key);
+            }
+        });
+    }
+    
+    clear() {
+        this.folderCache.clear();
+        this.fileCache.clear();
+        this.folderFileCache.clear();
+    }
+}
+
+const driveCache = new DriveCache();
+
 const getHeaders = (accessToken: string) => ({
     'Authorization': `Bearer ${accessToken}`,
     'Content-Type': 'application/json',
@@ -347,6 +450,16 @@ export const createFolder = async (accessToken: string) => {
 };
 
 export const findFileByName = async (accessToken: string, folderId: string, filename: string) => {
+    // NEW: Check cache for folder files first
+    const cachedFiles = driveCache.getFolderFiles(folderId);
+    if (cachedFiles) {
+        const cachedFile = cachedFiles.find((file: any) => file.name === filename);
+        if (cachedFile) {
+            if ((window as any).devMode) console.log(`[Drive] Found ${filename} in folder cache`);
+            return cachedFile;
+        }
+    }
+
     // Fetch ALL files with this name, sorted by newest first
     const q = `name='${filename}' and '${folderId}' in parents and trashed=false`;
     const params = new URLSearchParams({
@@ -368,6 +481,9 @@ export const findFileByName = async (accessToken: string, folderId: string, file
     if (data && data.files && data.files.length > 0) {
         // The first file is the newest one (Live Sync File)
         const newestFile = data.files[0];
+
+        // NEW: Cache the folder files
+        driveCache.setFolderFiles(folderId, data.files);
 
         // If duplicates exist, DELETE the older ones to fix "Split Brain"
         if (data.files.length > 1) {
@@ -451,6 +567,13 @@ export const uploadFile = async (accessToken: string, folderId: string, content:
 };
 
 export const downloadFile = async (accessToken: string, fileId: string) => {
+    // NEW: Check cache first
+    const cached = driveCache.getFile(fileId);
+    if (cached) {
+        if ((window as any).devMode) console.log(`[Drive] Using cached content for ID: ${fileId}`);
+        return cached;
+    }
+    
     if ((window as any).devMode) console.log(`Downloading file content for ID: ${fileId}`);
     const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
         headers: { 'Authorization': `Bearer ${accessToken}` },
@@ -463,6 +586,12 @@ export const downloadFile = async (accessToken: string, fileId: string) => {
     }
 
     const data = await safeJsonParse(response);
+    
+    // NEW: Cache the downloaded content
+    if (data) {
+        driveCache.setFile(fileId, data);
+    }
+    
     return data;
 };
 
@@ -501,6 +630,13 @@ export const getUserInfo = async (accessToken: string): Promise<DriveUser> => {
 async function locateDriveConfig(accessToken: string) {
     if ((window as any).devMode) console.log("Locating app folder in Drive...");
 
+    // NEW: Use cache first
+    const cachedFolderId = driveCache.getFolderId(accessToken);
+    if (cachedFolderId) {
+        if ((window as any).devMode) console.log(`Using cached folder ID: ${cachedFolderId}`);
+        return { folderId: cachedFolderId };
+    }
+
     // Use the unified constant APP_FOLDER_NAME
     const folders = await filesList(accessToken, {
         q: `mimeType = 'application/vnd.google-apps.folder' and name = '${APP_FOLDER_NAME}' and trashed = false`,
@@ -528,6 +664,12 @@ async function locateDriveConfig(accessToken: string) {
         console.log("No app folder found. Creating new one.");
         activeFolderId = await createFolder(accessToken);
     }
+    
+    // NEW: Cache the folder ID
+    if (activeFolderId) {
+        driveCache.setFolderId(accessToken, activeFolderId);
+    }
+    
     return { folderId: activeFolderId };
 }
 
@@ -623,38 +765,77 @@ export const DriveService = {
             if (!folderId) return null;
             localStorage.setItem('gdrive_folder_id', folderId);
 
+            // NEW: Check if we have a cached manifest and it's recent (less than 2 minutes old)
+            const cachedManifest = driveCache.getManifest();
+            if (cachedManifest && Date.now() - cachedManifest.timestamp < 2 * 60 * 1000) {
+                console.log("Read: Using cached manifest...");
+                
+                // Download only changed collections
+                const collections: Record<string, any[]> = {};
+                const downloadPromises = Object.entries(cachedManifest.data.collections || {}).map(async ([name, info]: [string, any]) => {
+                    try {
+                        const data = await downloadFile(accessToken, info.fileId);
+                        if (data) collections[name] = data;
+                    } catch (err) {
+                        console.warn(`Failed to download collection ${name}:`, err);
+                    }
+                });
+
+                await Promise.all(downloadPromises);
+                const combinedData = { ...collections };
+
+                // Handle API Key
+                if (cachedManifest.data.metadata?.secure) {
+                    try {
+                        const decryptedKey = await decryptData(cachedManifest.data.metadata.secure);
+                        if (decryptedKey) localStorage.setItem('gemini_api_key', decryptedKey);
+                    } catch (err) {
+                        console.warn("Failed to decrypt API Key from cached Manifest:", err);
+                    }
+                }
+
+                // Load assets if present
+                const assetsFile = await findFileByName(accessToken, folderId, STABLE_ASSETS_FILENAME);
+                if (assetsFile) {
+                    const assets = await downloadFile(accessToken, assetsFile.id);
+                    return mergeStateData(combinedData, assets);
+                }
+                return combinedData;
+            }
+
             // Fetch both Manifest and Legacy Sync file options
             const [manifestFile, stableFile] = await Promise.all([
                 findFileByName(accessToken, folderId, 'Manifest.json'),
                 findFileByName(accessToken, folderId, STABLE_SYNC_FILENAME)
             ]);
 
-            let useManifest = false;
-
-            // Determine which source is newer
-            if (manifestFile && stableFile) {
-                const manifestTime = new Date(manifestFile.modifiedTime).getTime();
-                const stableTime = new Date(stableFile.modifiedTime).getTime();
-
-                // If Manifest is newer or roughly same time, use it. 
-                // Buffer of 1 minute to prefer Manifest (as it takes time to write)
-                if (manifestTime >= (stableTime - 60000)) {
-                    useManifest = true;
-                } else {
-                    console.warn(`[Sync] Legacy Sync file is significantly newer than Manifest. Using Legacy file. (Stable: ${stableFile.modifiedTime} vs Manifest: ${manifestFile.modifiedTime})`);
-                    useManifest = false;
+            // NEW: Prioritize the stable file (monolithic approach) for faster sync
+            // Only use manifest if it's significantly newer than the stable file
+            if (stableFile) {
+                console.log("Read: Loading from monolithic LiveSync file (faster approach)");
+                const data = await downloadFile(accessToken, stableFile.id);
+                if (data) {
+                    localStorage.setItem('gdrive_sync_file_id', stableFile.id);
+                    const assetsFile = await findFileByName(accessToken, folderId, STABLE_ASSETS_FILENAME);
+                    if (assetsFile) {
+                        const assets = await downloadFile(accessToken, assetsFile.id);
+                        return mergeStateData(data, assets);
+                    }
+                    return data;
                 }
-            } else if (manifestFile) {
-                useManifest = true;
             }
 
-            // A. Load from Manifest (Incremental)
-            if (useManifest && manifestFile) {
+            // Fallback to Manifest if stable file doesn't exist or failed to load
+            if (manifestFile) {
                 const manifest = await downloadFile(accessToken, manifestFile.id);
                 if (!manifest || !manifest.collections) {
-                    console.warn("Manifest empty or invalid. Falling back check...");
+                    console.warn("Manifest empty or invalid. No data to load.");
                 } else {
-                    console.log("Read: Loading collections from Manifest...");
+                    console.log("Read: Loading from Manifest (incremental approach)");
+                    
+                    // NEW: Cache the manifest for future use
+                    driveCache.setManifest(manifest);
+                    
                     const collections: Record<string, any[]> = {};
                     const downloadPromises = Object.entries(manifest.collections).map(async ([name, info]: [string, any]) => {
                         try {
@@ -665,7 +846,13 @@ export const DriveService = {
                         }
                     });
 
-                    await Promise.all(downloadPromises);
+                    // Execute downloads in parallel but with a limit to prevent overwhelming
+                    const chunkSize = 3; // Limit concurrent downloads
+                    for (let i = 0; i < downloadPromises.length; i += chunkSize) {
+                        const chunk = downloadPromises.slice(i, i + chunkSize);
+                        await Promise.all(chunk);
+                    }
+
                     const combinedData = { ...collections };
 
                     // Handle API Key
@@ -686,21 +873,6 @@ export const DriveService = {
                     }
                     return combinedData;
                 }
-            }
-
-            // B. Fallback to Legacy/Stable File
-            if (stableFile) {
-                console.log("Read: Loading from monolithic LiveSync file...");
-                const data = await downloadFile(accessToken, stableFile.id);
-                if (data) {
-                    localStorage.setItem('gdrive_sync_file_id', stableFile.id);
-                    const assetsFile = await findFileByName(accessToken, folderId, STABLE_ASSETS_FILENAME);
-                    if (assetsFile) {
-                        const assets = await downloadFile(accessToken, assetsFile.id);
-                        return mergeStateData(data, assets);
-                    }
-                }
-                return data;
             }
 
             return null;
@@ -751,6 +923,9 @@ export const DriveService = {
             // 4. Save Manifest
             await uploadFile(accessToken, folderId, manifest, 'Manifest.json', manifestFile?.id);
             console.log("Incremental sync successful.");
+            
+            // NEW: Clear cache to ensure fresh data on next read
+            driveCache.clear();
         } catch (e: any) {
             console.error("Incremental write failed", e);
             throw e;
@@ -864,6 +1039,10 @@ export const DriveService = {
             }
 
             console.log("Sync successful. ID:", finalId);
+            
+            // NEW: Clear cache to ensure fresh data on next read
+            driveCache.clear();
+            
             return finalId;
         } catch (e: any) {
             if (e.message && e.message.includes('404')) {

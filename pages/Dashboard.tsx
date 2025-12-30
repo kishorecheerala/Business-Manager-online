@@ -204,6 +204,31 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
         };
     }, [sales, purchases, expenses, dateRange]);
 
+    // NEW: Memoized data for charts to prevent infinite loops
+    const memoizedSalesData = useMemo(() => {
+        return [...sales]; // Create a stable reference
+    }, [sales]);
+
+    const memoizedProductsData = useMemo(() => {
+        return [...products]; // Create a stable reference
+    }, [products]);
+
+    const memoizedCustomersData = useMemo(() => {
+        return [...customers]; // Create a stable reference
+    }, [customers]);
+
+    const memoizedPurchasesData = useMemo(() => {
+        return [...purchases]; // Create a stable reference
+    }, [purchases]);
+
+    const memoizedReturnsData = useMemo(() => {
+        return [...returns]; // Create a stable reference
+    }, [returns]);
+
+    const memoizedExpensesData = useMemo(() => {
+        return [...expenses]; // Create a stable reference
+    }, [expenses]);
+
     const collectionDetails = useMemo(() => {
         const paymentMap: Record<string, number> = {};
         const paymentsList: { date: string, customer: string, amount: number, method: string }[] = [];
@@ -584,12 +609,12 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                 {/* AI Analyst Card */}
                 <div className="md:col-span-2">
                     <SmartAnalystCard
-                        sales={sales}
-                        products={products}
-                        customers={customers}
-                        purchases={purchases}
-                        returns={returns}
-                        expenses={expenses}
+                        sales={memoizedSalesData}
+                        products={memoizedProductsData}
+                        customers={memoizedCustomersData}
+                        purchases={memoizedPurchasesData}
+                        returns={memoizedReturnsData}
+                        expenses={memoizedExpensesData}
                         ownerName={profile?.name || 'User'}
                         onNavigate={(page, id) => {
                             if (page === 'CUSTOMERS') {
@@ -604,7 +629,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
 
                 {/* Productivity Widgets */}
                 <div className="md:col-span-1">
-                    <GoalTrackerCard sales={sales} />
+                    <GoalTrackerCard sales={memoizedSalesData} />
                 </div>
                 <div className="md:col-span-1">
                     <QuickMemoCard />
@@ -613,8 +638,8 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <OverdueDuesCard
-                    sales={sales}
-                    customers={customers}
+                    sales={memoizedSalesData}
+                    customers={memoizedCustomersData}
                     onNavigate={(id) => handleNavigate('CUSTOMERS', id)}
                     businessName={profile?.name || 'Our Business'}
                 />
@@ -626,13 +651,13 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
             </div>
 
             <div className="mb-6 w-full">
-                <SalesTrendChart sales={sales} className="h-[350px] w-full" />
+                <SalesTrendChart sales={memoizedSalesData} className="h-[350px] w-full" />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="flex flex-col gap-6">
-                    <TopProductsCard sales={sales} />
-                    <LowStockCard products={products} onNavigate={(id) => handleNavigate('PRODUCTS', id)} />
+                    <TopProductsCard sales={memoizedSalesData} />
+                    <LowStockCard products={memoizedProductsData} onNavigate={(id) => handleNavigate('PRODUCTS', id)} />
                 </div>
                 <div className="space-y-6">
                     <AIInsightsView />

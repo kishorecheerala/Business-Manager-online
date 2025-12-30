@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, memo } from 'react';
 import {
     BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell
 } from 'recharts';
@@ -12,7 +12,7 @@ interface TopProductsChartProps {
     className?: string;
 }
 
-const TopProductsChart: React.FC<TopProductsChartProps> = ({ sales, className }) => {
+const TopProductsChartComponent: React.FC<TopProductsChartProps> = ({ sales, className }) => {
 
     const data = useMemo(() => {
         const productMap: Record<string, { name: string, quantity: number, revenue: number }> = {};
@@ -89,6 +89,8 @@ const TopProductsChart: React.FC<TopProductsChartProps> = ({ sales, className })
                             radius={[0, 4, 4, 0]}
                             barSize={30}
                             label={{ position: 'right', fill: '#64748b', fontSize: 11, formatter: (val: number) => formatCurrency(val) }}
+                            // Disable animation to prevent infinite loop
+                            animationDuration={0}
                         >
                             {data.map((entry, index) => (
                                 <Cell key={`cell-${index}`} fill={index === 0 ? '#6366f1' : '#8b5cf6'} />
@@ -100,5 +102,8 @@ const TopProductsChart: React.FC<TopProductsChartProps> = ({ sales, className })
         </Card>
     );
 };
+
+// Memoize the component to prevent unnecessary re-renders
+const TopProductsChart = memo(TopProductsChartComponent);
 
 export default TopProductsChart;

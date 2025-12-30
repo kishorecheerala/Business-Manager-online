@@ -26,7 +26,15 @@ const AIInsightsView: React.FC<AIInsightsViewProps> = ({ className, onNavigate }
     const [activeTab, setActiveTab] = useState<'overview' | 'strategy' | 'actions'>('overview');
     const [isChatOpen, setIsChatOpen] = useState(false);
 
-    const regression = useMemo(() => calculateLinearRegression(state.sales, 30), [state.sales]);
+    const memoizedSales = useMemo(() => [...state.sales], [state.sales]);
+    const regression = useMemo(() => calculateLinearRegression(memoizedSales, 30), [memoizedSales]);
+    
+    const chartData = useMemo(() => {
+        return Array.from({ length: 7 }, (_, i) => ({
+            day: i,
+            value: regression.predict(30 + i) // Forecast next 7 days
+        }));
+    }, [regression]);
 
     const generateInsight = async () => {
         setLoading(true);
@@ -146,12 +154,7 @@ const AIInsightsView: React.FC<AIInsightsViewProps> = ({ className, onNavigate }
                                             {/* Simple Sparkline simulation using regression */}
                                             <div className="h-24 w-full" style={{ minWidth: 0, minHeight: 0 }}>
                                                 <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100} debounce={100}>
-                                                    <LineChart data={
-                                                        Array.from({ length: 7 }, (_, i) => ({
-                                                            day: i,
-                                                            value: regression.predict(30 + i) // Forecast next 7 days
-                                                        }))
-                                                    }>
+                                                    <LineChart data={chartData} animationDuration={0}>
                                                         <Line type="monotone" dataKey="value" stroke="#6366f1" strokeWidth={3} dot={{ r: 3, fill: '#6366f1' }} />
                                                         <Tooltip
                                                             contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}

@@ -396,7 +396,14 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                                         if (!googleUser) {
                                             setIsSignInModalOpen(true);
                                         } else {
-                                            syncData(undefined, true);
+                                            // Check if token is expired before syncing
+                                            if (googleUser.expiresAt && googleUser.expiresAt < Date.now()) {
+                                                showToast("Session expired. Please sign in again.", 'info');
+                                                authDispatch({ type: 'SET_GOOGLE_USER', payload: null });
+                                                setIsSignInModalOpen(true);
+                                            } else {
+                                                syncData(undefined, true);
+                                            }
                                         }
                                     }}
                                     onContextMenu={(e) => {

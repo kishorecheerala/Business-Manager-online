@@ -95,6 +95,7 @@ const ExpenseTrendChart: React.FC<ExpenseTrendChartProps> = ({ sales, expenses, 
                             strokeWidth={2}
                             dot={false}
                             name="Revenue"
+                            animationDuration={0}
                         />
                         <Line
                             type="monotone"
@@ -103,6 +104,7 @@ const ExpenseTrendChart: React.FC<ExpenseTrendChartProps> = ({ sales, expenses, 
                             strokeWidth={2}
                             dot={false}
                             name="Expenses"
+                            animationDuration={0}
                         />
                     </LineChart>
                 </ResponsiveContainer>

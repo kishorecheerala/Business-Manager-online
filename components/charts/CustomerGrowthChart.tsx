@@ -126,7 +126,8 @@ const CustomerGrowthChart: React.FC<CustomerGrowthChartProps> = ({ sales }) => {
                             strokeWidth={3}
                             fillOpacity={1}
                             fill="url(#colorCustomers)"
-                            animationDuration={1000}
+                            // Disable animation to prevent infinite loop
+                            animationDuration={0}
                         />
                     </AreaChart>
                 </ResponsiveContainer>

@@ -61,6 +61,8 @@ const CategoryDistributionChart: React.FC<CategoryDistributionChartProps> = ({ s
                             outerRadius={80}
                             paddingAngle={5}
                             dataKey="value"
+                            // Disable animation to prevent infinite loop
+                            animationDuration={0}
                         >
                             {data.map((entry, index) => (
                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />

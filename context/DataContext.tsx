@@ -445,6 +445,26 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             return;
         }
 
+        // NEW: Check if token is expired before attempting sync
+        if (googleUser && googleUser.expiresAt && googleUser.expiresAt <= Date.now()) {
+            console.warn('[SYNC] Token expired, attempting refresh...');
+            if (isManual) {
+                // If manual sync and token is expired, trigger auth refresh
+                authDispatch({ type: 'SET_GOOGLE_USER', payload: null });
+                showToast("Session expired. Please sign in again.", 'info');
+                return;
+            } else {
+                // For automatic sync, try to refresh token
+                try {
+                    refreshGoogleToken();
+                    return; // Exit and wait for token refresh to complete
+                } catch (err) {
+                    console.error('[SYNC] Failed to refresh token:', err);
+                    return;
+                }
+            }
+        }
+
         const logEntry = (action: string, details: string) => {
             dispatch({
                 type: 'ADD_AUDIT_LOG',
@@ -553,39 +573,46 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }, 2000);
         } catch (error: any) {
             console.error("Sync Failed:", error);
-            dispatch({ type: 'SET_SYNC_STATUS', payload: 'error' });
             
-            // Reset error status after 5 seconds
-            setTimeout(() => {
-                dispatch({ type: 'SET_SYNC_STATUS', payload: 'idle' });
-            }, 5000);
+            // NEW: More robust error handling to prevent crashes
+            try {
+                dispatch({ type: 'SET_SYNC_STATUS', payload: 'error' });
+                
+                // Reset error status after 5 seconds
+                setTimeout(() => {
+                    dispatch({ type: 'SET_SYNC_STATUS', payload: 'idle' });
+                }, 5000);
 
-            // Log error for debugging
-            dispatch({
-                type: 'ADD_AUDIT_LOG',
-                payload: {
-                    id: `sync-err-${Date.now()}`,
-                    action: 'SYNC_FAILED',
-                    details: error.message || 'Unknown error',
-                    timestamp: new Date().toISOString(),
-                    user: googleUser?.email || 'Anonymous'
-                }
-            });
+                // Log error for debugging
+                dispatch({
+                    type: 'ADD_AUDIT_LOG',
+                    payload: {
+                        id: `sync-err-${Date.now()}`,
+                        action: 'SYNC_FAILED',
+                        details: error.message || 'Unknown error',
+                        timestamp: new Date().toISOString(),
+                        user: googleUser?.email || 'Anonymous'
+                    }
+                });
 
-            const isAuthError = error.message?.includes('401') || error.message?.includes('Unauthorized') || error.message?.includes('invalid_grant');
+                const isAuthError = error.message?.includes('401') || error.message?.includes('Unauthorized') || error.message?.includes('invalid_grant') || error.message?.includes('access_denied') || error.message?.includes('Expired');
 
-            if (isAuthError) {
-                console.warn("Auth Error 401 detected.");
-                // Clear invalid token immediately to prevent loop
-                dispatch({ type: 'SET_GOOGLE_USER', payload: null });
+                if (isAuthError) {
+                    console.warn("Auth Error detected.");
+                    // Clear invalid token immediately to prevent loop
+                    authDispatch({ type: 'SET_GOOGLE_USER', payload: null });
 
-                if (isManual) {
-                    showToast("Session expired. Please sign in again.", 'info');
+                    if (isManual) {
+                        showToast("Session expired. Please sign in again.", 'info');
+                    } else {
+                        if (state.devMode) console.log("Background sync paused: Auth required.");
+                    }
                 } else {
-                    if (state.devMode) console.log("Background sync paused: Auth required.");
+                    showToast(`Sync failed: ${error.message || 'Unknown error'} `, 'error');
                 }
-            } else {
-                showToast(`Sync failed: ${error.message || 'Unknown error'} `, 'error');
+            } catch (dispatchError) {
+                // If error handling itself fails, at least log it and don't crash the app
+                console.error('Error in sync error handling:', dispatchError);
             }
         }
     };

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, memo } from 'react';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
@@ -11,7 +11,7 @@ interface SalesTrendChartProps {
     className?: string;
 }
 
-const SalesTrendChart: React.FC<SalesTrendChartProps> = ({ sales, className }) => {
+const SalesTrendChartComponent: React.FC<SalesTrendChartProps> = ({ sales, className }) => {
     const [days, setDays] = useState(14);
 
     const chartData = useMemo(() => {
@@ -114,7 +114,8 @@ const SalesTrendChart: React.FC<SalesTrendChartProps> = ({ sales, className }) =
                             strokeWidth={3}
                             fillOpacity={1}
                             fill="url(#colorSales)"
-                            animationDuration={1000}
+                            // Disable animation to prevent infinite loop
+                            animationDuration={0}
                         />
                     </AreaChart>
                 </ResponsiveContainer>
@@ -122,5 +123,8 @@ const SalesTrendChart: React.FC<SalesTrendChartProps> = ({ sales, className }) =
         </Card>
     );
 };
+
+// Memoize the component to prevent unnecessary re-renders
+const SalesTrendChart = memo(SalesTrendChartComponent);
 
 export default SalesTrendChart;

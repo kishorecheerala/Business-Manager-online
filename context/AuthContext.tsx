@@ -12,6 +12,8 @@ interface AuthState {
     isAuthenticated: boolean;
     isStaffMode: boolean;
     protectedPages: string[];
+    // NEW: Track token refresh
+    tokenRefreshTimer: number | null;
 }
 
 type AuthAction =
@@ -20,7 +22,9 @@ type AuthAction =
     | { type: 'SET_LOCK'; payload: boolean }
     | { type: 'SET_AUTHENTICATED'; payload: boolean }
     | { type: 'SET_STAFF_MODE'; payload: boolean }
-    | { type: 'SET_PROTECTED_PAGES'; payload: string[] };
+    | { type: 'SET_PROTECTED_PAGES'; payload: string[] }
+    // NEW: Token refresh tracking
+    | { type: 'SET_TOKEN_REFRESH_TIMER'; payload: number | null };
 
 // --- Initial State ---
 const getLocalAuth = (): Partial<AuthState> => {
@@ -42,7 +46,9 @@ const initialState: AuthState = {
     isLocked: false,
     isAuthenticated: false,
     isStaffMode: false,
-    protectedPages: []
+    protectedPages: [],
+    // NEW: Initialize token refresh timer
+    tokenRefreshTimer: null
 };
 
 // --- Reducer ---
@@ -95,6 +101,8 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
             upsertItem('app_metadata', pinMeta);
             return { ...state, protectedPages: action.payload };
         }
+        case 'SET_TOKEN_REFRESH_TIMER':
+            return { ...state, tokenRefreshTimer: action.payload };
         default:
             return state;
     }
@@ -118,36 +126,89 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const { showToast } = useUI();
     const tokenClientRef = useRef<any>(null);
 
+    // NEW: Token refresh timer cleanup on unmount
+    useEffect(() => {
+        return () => {
+            if (authState.tokenRefreshTimer) {
+                clearTimeout(authState.tokenRefreshTimer);
+                authDispatch({ type: 'SET_TOKEN_REFRESH_TIMER', payload: null });
+            }
+        };
+    }, []);
+
+    // NEW: Auto-refresh token before expiration
+    const scheduleTokenRefresh = useCallback((user: GoogleUser | null) => {
+        if (authState.tokenRefreshTimer) {
+            clearTimeout(authState.tokenRefreshTimer);
+            authDispatch({ type: 'SET_TOKEN_REFRESH_TIMER', payload: null });
+        }
+
+        if (user && user.expiresAt) {
+            // Refresh 5 minutes before expiration to be safe
+            const refreshTime = user.expiresAt - Date.now() - (5 * 60 * 1000); // 5 minutes before expiry
+            
+            if (refreshTime > 0) {
+                const timerId = window.setTimeout(() => {
+                    console.log('[AUTH] Token about to expire, refreshing...');
+                    refreshGoogleToken();
+                }, refreshTime);
+                
+                authDispatch({ type: 'SET_TOKEN_REFRESH_TIMER', payload: timerId });
+                console.log(`[AUTH] Scheduled token refresh in ${Math.round(refreshTime / 60000)} minutes`);
+            } else {
+                // Token already expired or will expire soon, refresh immediately
+                console.log('[AUTH] Token already expired or expiring soon, refreshing immediately');
+                refreshGoogleToken();
+            }
+        }
+    }, [authState.tokenRefreshTimer]);
+
+    // NEW: Update token refresh when user changes
+    useEffect(() => {
+        scheduleTokenRefresh(authState.googleUser);
+    }, [authState.googleUser, scheduleTokenRefresh]);
+
     // Restore auth state from IndexedDB if localStorage is empty (recovery scenario)
     useEffect(() => {
         const restoreAuthFromDB = async () => {
-            if (!authState.googleUser) {
-                try {
-                    const metadata = await getAll('app_metadata');
-                    const googleUserMeta = metadata.find((m: any) => m.id === 'googleUser');
-                    if (googleUserMeta) {
-                        const user: GoogleUser = {
-                            name: googleUserMeta.name,
-                            email: googleUserMeta.email,
-                            picture: googleUserMeta.picture,
-                            accessToken: googleUserMeta.accessToken,
-                            expiresAt: googleUserMeta.expiresAt
-                        };
-                        // Check if token is still valid (not expired)
-                        if (user.expiresAt && user.expiresAt > Date.now()) {
-                            localStorage.setItem('googleUser', JSON.stringify(user));
-                            authDispatch({ type: 'SET_GOOGLE_USER', payload: user });
-                            console.log('[Auth] Restored user from IndexedDB');
-                        } else {
-                            console.log('[Auth] Stored token expired, user needs to re-authenticate');
-                        }
-                    }
-                } catch (e) {
-                    console.error('[Auth] Failed to restore from IndexedDB:', e);
+            try {
+                // Check if localStorage has googleUser first
+                const storedUser = localStorage.getItem('googleUser');
+                if (storedUser) {
+                    // User data is already in localStorage, no need to restore from DB
+                    return;
                 }
+                
+                // Only try to restore from DB if localStorage is truly missing the user data
+                const metadata = await getAll('app_metadata');
+                const googleUserMeta = metadata.find((m: any) => m.id === 'googleUser');
+                if (googleUserMeta) {
+                    const user: GoogleUser = {
+                        name: googleUserMeta.name,
+                        email: googleUserMeta.email,
+                        picture: googleUserMeta.picture,
+                        accessToken: googleUserMeta.accessToken,
+                        expiresAt: googleUserMeta.expiresAt
+                    };
+                    // Check if token is still valid (not expired)
+                    if (user.expiresAt && user.expiresAt > Date.now()) {
+                        localStorage.setItem('googleUser', JSON.stringify(user));
+                        authDispatch({ type: 'SET_GOOGLE_USER', payload: user });
+                        console.log('[Auth] Restored user from IndexedDB');
+                    } else {
+                        console.log('[Auth] Stored token expired, user needs to re-authenticate');
+                    }
+                }
+            } catch (e) {
+                console.error('[Auth] Failed to restore from IndexedDB:', e);
+                // Don't crash the app if IndexedDB fails, just continue without auth
             }
         };
-        restoreAuthFromDB();
+        
+        // Only attempt to restore if we're in a browser environment and have access to storage
+        if (typeof window !== 'undefined' && window.localStorage) {
+            restoreAuthFromDB();
+        }
     }, []);
 
     // Initialize Google Auth
@@ -321,11 +382,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const refreshGoogleToken = () => {
         if (tokenClientRef.current) {
+            console.log('[AUTH] Attempting to refresh token via token client...');
             tokenClientRef.current.requestAccessToken({ prompt: '' });
         } else {
+            console.log('[AUTH] No token client available, initializing...');
             loadGoogleScript().then(() => {
                 tokenClientRef.current = initGoogleAuth(handleGoogleLoginResponse, (err: any) => {
                     console.error("Refresh Init Error:", err);
+                    // If refresh fails, user needs to sign in again
+                    showToast("Session expired. Please sign in again.", 'info');
                 });
                 tokenClientRef.current.requestAccessToken({ prompt: '' });
             }).catch(console.error);
