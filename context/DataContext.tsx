@@ -459,20 +459,24 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         };
 
         dispatch({ type: 'SET_SYNC_STATUS', payload: 'syncing' });
+        console.log('[SYNC] Starting sync process...');
         try {
             logEntry('SYNC_START', 'Sync process initiated');
 
             // 1. Read Cloud Data (Manifest-based)
+            console.log('[SYNC] Step 1: Reading cloud data...');
             if (state.devMode) console.log("Sync: Reading cloud data...");
             const cloudData = await DriveService.read(token);
 
             // 2. Merge Cloud -> Local
             let freshState: DataState | undefined;
+            let cloudDataMerged = false;
             if (cloudData && Object.keys(cloudData).length > 0) {
                 logEntry('SYNC_MERGE', `Merging data from cloud (${Object.keys(cloudData).length} stores)`);
                 if (state.devMode) console.log("Sync: Merging cloud data...", Object.keys(cloudData));
 
                 await db.mergeData(cloudData);
+                cloudDataMerged = true;
 
                 // Force full re-hydration to ensure UI reflects DB
                 const result = await hydrateState();
@@ -484,11 +488,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
 
             // 3. Local -> Cloud (Incremental)
+            console.log('[SYNC] Step 2: Checking for local changes...');
             if (state.devMode) console.log("Sync: Identifying modified collections...");
             const modifiedInfo = await getModifiedStores();
+            console.log(`[SYNC] Found ${modifiedInfo.length} modified stores:`, modifiedInfo.map(m => m.storeName));
             const currentState = freshState || stateRef.current;
 
             if (modifiedInfo.length > 0) {
+                console.log('[SYNC] Step 3: Uploading local changes...');
                 logEntry('SYNC_UPLOAD', `Uploading ${modifiedInfo.length} changed stores`);
                 const changedCollections: Record<string, any[]> = {};
                 for (const info of modifiedInfo) {
@@ -512,24 +519,46 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
                 // 4. Mark Synced
                 const now = Date.now();
+                console.log('[SYNC] Step 4: Marking stores as synced...', now);
                 for (const info of modifiedInfo) {
                     await markStoreSynced(info.storeName, now);
                 }
 
                 dispatch({ type: 'SET_LAST_SYNC_TIME', payload: now });
+                console.log('[SYNC] ✓ Sync completed successfully! Last sync:', new Date(now).toLocaleTimeString());
                 showToast(`Sync completed: ${modifiedInfo.length} sections updated.`, 'success');
                 logEntry('SYNC_SUCCESS', `Sync complete. ${modifiedInfo.length} stores uploaded.`);
             } else {
-                logEntry('SYNC_COMPLETE', 'No local changes to upload');
+                // No local changes, but update sync time if we pulled cloud data
+                const now = Date.now();
+                console.log('[SYNC] No local changes to upload. Updating sync time...', now);
+                dispatch({ type: 'SET_LAST_SYNC_TIME', payload: now });
+                console.log('[SYNC] ✓ Sync completed! Last sync:', new Date(now).toLocaleTimeString());
+                
+                logEntry('SYNC_COMPLETE', cloudDataMerged ? 'Cloud data merged successfully' : 'Everything up to date');
                 if (state.devMode) console.log("Sync: No local changes to upload.");
-                if (cloudData) showToast("Sync completed (Cloud updates applied).", 'success');
-                else showToast("Sync: Everything up to date.", 'info');
+                
+                if (cloudDataMerged) {
+                    showToast("Sync completed: Cloud updates applied.", 'success');
+                } else {
+                    showToast("Sync: Everything up to date.", 'info');
+                }
             }
 
             dispatch({ type: 'SET_SYNC_STATUS', payload: 'success' });
+            
+            // Reset sync status after 2 seconds to avoid stuck 'success' state
+            setTimeout(() => {
+                dispatch({ type: 'SET_SYNC_STATUS', payload: 'idle' });
+            }, 2000);
         } catch (error: any) {
             console.error("Sync Failed:", error);
             dispatch({ type: 'SET_SYNC_STATUS', payload: 'error' });
+            
+            // Reset error status after 5 seconds
+            setTimeout(() => {
+                dispatch({ type: 'SET_SYNC_STATUS', payload: 'idle' });
+            }, 5000);
 
             // Log error for debugging
             dispatch({
