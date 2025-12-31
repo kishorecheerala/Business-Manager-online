@@ -79,6 +79,8 @@ export interface DataState {
     selection: { page: Page; id: string; action?: 'edit' | 'new'; data?: any } | null;
 
     syncStatus: SyncStatus;
+    syncMessage?: string;
+    syncLogs: string[];
     lastSyncTime: null | number | string;
     lastLocalUpdate: number;
     devMode: boolean;

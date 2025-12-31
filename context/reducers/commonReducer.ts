@@ -69,6 +69,9 @@ export const commonReducer = (state: DataState, action: Action): DataState => {
 
         // --- Google & Sync ---
         case 'SET_SYNC_STATUS': return { ...state, syncStatus: action.payload };
+        case 'SET_SYNC_MESSAGE': return { ...state, syncMessage: action.payload };
+        case 'ADD_SYNC_LOG': return { ...state, syncLogs: [action.payload, ...state.syncLogs].slice(0, 100) };
+        case 'CLEAR_SYNC_LOGS': return { ...state, syncLogs: [] };
         case 'SET_LAST_SYNC_TIME':
             localStorage.setItem('lastSyncTime', action.payload.toString());
             return { ...state, lastSyncTime: action.payload };

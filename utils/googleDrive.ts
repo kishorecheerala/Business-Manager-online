@@ -757,49 +757,19 @@ export const DriveService = {
     /**
      * Reads data from Drive using Manifest-based incremental strategy.
      */
-    async read(accessToken: string): Promise<any | null> {
+    async read(accessToken: string, options?: { lastSyncedTime?: number; onProgress?: (msg: string) => void }): Promise<any | null> {
+        const { lastSyncedTime, onProgress } = options || {};
         try {
+            if (onProgress) onProgress("Locating Drive folder...");
             const { folderId } = await locateDriveConfig(accessToken);
             if (!folderId) return null;
             localStorage.setItem('gdrive_folder_id', folderId);
 
-            // NEW: Check if we have a cached manifest and it's recent (less than 2 minutes old)
+            // NEW: Check if we have a cached manifest
             const cachedManifest = driveCache.getManifest();
-            if (cachedManifest && Date.now() - cachedManifest.timestamp < 2 * 60 * 1000) {
-                console.log("Read: Using cached manifest...");
+            const useCache = cachedManifest && Date.now() - cachedManifest.timestamp < 2 * 60 * 1000;
 
-                // Download only changed collections
-                const collections: Record<string, any[]> = {};
-                const downloadPromises = Object.entries(cachedManifest.data.collections || {}).map(async ([name, info]: [string, any]) => {
-                    try {
-                        const data = await downloadFile(accessToken, info.fileId);
-                        if (data) collections[name] = data;
-                    } catch (err) {
-                        console.warn(`Failed to download collection ${name}:`, err);
-                    }
-                });
-
-                await Promise.all(downloadPromises);
-                const combinedData = { ...collections };
-
-                // Handle API Key
-                if (cachedManifest.data.metadata?.secure) {
-                    try {
-                        const decryptedKey = await decryptData(cachedManifest.data.metadata.secure);
-                        if (decryptedKey) localStorage.setItem('gemini_api_key', decryptedKey);
-                    } catch (err) {
-                        console.warn("Failed to decrypt API Key from cached Manifest:", err);
-                    }
-                }
-
-                // Load assets if present
-                const assetsFile = await findFileByName(accessToken, folderId, STABLE_ASSETS_FILENAME);
-                if (assetsFile) {
-                    const assets = await downloadFile(accessToken, assetsFile.id);
-                    return mergeStateData(combinedData, assets);
-                }
-                return combinedData;
-            }
+            if (onProgress) onProgress("Checking for updates...");
 
             // Fetch both Manifest and Legacy Sync file options
             const [manifestFile, stableFile] = await Promise.all([
@@ -820,19 +790,40 @@ export const DriveService = {
 
             // Path A: Manifest (Incremental approach - Preferred for multi-device)
             if (useManifest && manifestFile) {
-                console.log("Read: Loading from Manifest (incremental approach)");
+                if (onProgress) onProgress("Sync Strategy: Manifest (Incremental)");
+                if (onProgress) onProgress("Reading Manifest...");
                 const manifest = await downloadFile(accessToken, manifestFile.id);
 
                 if (!manifest || !manifest.collections) {
+                    if (onProgress) onProgress("⚠️ Manifest invalid. Falling back to Full Sync.");
                     console.warn("Manifest empty or invalid. Checking for monolithic fallback.");
-                    // Continue to monolithic if manifest fails
                 } else {
                     // Cache manifest
                     driveCache.setManifest(manifest);
+                    if (onProgress) onProgress("Manifest parsed successfully.");
 
                     const collections: Record<string, any[]> = {};
-                    const downloadPromises = Object.entries(manifest.collections).map(async ([name, info]: [string, any]) => {
+                    const entries = Object.entries(manifest.collections);
+
+                    // Filter collections based on lastSyncedTime (Differential Sync)
+                    const collectionsToDownload = entries.filter(([name, info]: [string, any]) => {
+                        if (!lastSyncedTime) return true;
+                        const collectionTime = new Date(info.updatedAt).getTime();
+                        return collectionTime > lastSyncedTime;
+                    });
+
+                    if (onProgress) {
+                        if (collectionsToDownload.length > 0) {
+                            const names = collectionsToDownload.map(c => c[0]).join(', ');
+                            onProgress(`Found ${collectionsToDownload.length} updated sections: ${names}`);
+                        } else {
+                            onProgress("Differential Check: Local data is up to date.");
+                        }
+                    }
+
+                    const downloadPromises = collectionsToDownload.map(async ([name, info]: [string, any]) => {
                         try {
+                            if (onProgress) onProgress(`Downloading ${name}...`);
                             const data = await downloadFile(accessToken, info.fileId);
                             if (data) collections[name] = data;
                         } catch (err) {
@@ -857,11 +848,19 @@ export const DriveService = {
                         } catch (err) { }
                     }
 
-                    // Load assets
+                    // Load assets if changed
+                    if (onProgress) onProgress("Checking for asset updates...");
                     const assetsFile = await findFileByName(accessToken, folderId, STABLE_ASSETS_FILENAME);
                     if (assetsFile) {
-                        const assets = await downloadFile(accessToken, assetsFile.id);
-                        return mergeStateData(combinedData, assets);
+                        const assetsTime = new Date(assetsFile.modifiedTime).getTime();
+                        if (!lastSyncedTime || assetsTime > lastSyncedTime) {
+                            if (onProgress) onProgress(`Downloading updated assets (${(Number(assetsFile.size) / 1024).toFixed(1)} KB)...`);
+                            const assets = await downloadFile(accessToken, assetsFile.id);
+                            if (onProgress) onProgress("Assets merged successfully.");
+                            return mergeStateData(combinedData, assets);
+                        } else {
+                            if (onProgress) onProgress("Assets are already up to date.");
+                        }
                     }
                     return combinedData;
                 }
@@ -869,6 +868,7 @@ export const DriveService = {
 
             // Path B: Monolithic fallback (Stable approach - Legacy)
             if (stableFile) {
+                if (onProgress) onProgress("Downloading full backup...");
                 console.log("Read: Loading from monolithic LiveSync file");
                 const data = await downloadFile(accessToken, stableFile.id);
                 if (data) {
@@ -890,12 +890,15 @@ export const DriveService = {
         }
     },
 
-    async writeIncremental(accessToken: string, changedCollections: Record<string, any[]>, fullMetadata?: any): Promise<void> {
+    async writeIncremental(accessToken: string, changedCollections: Record<string, any[]>, options?: { metadata?: any; onProgress?: (msg: string) => void }): Promise<void> {
+        const { metadata, onProgress } = options || {};
+        if (onProgress) onProgress("Initializing incremental sync...");
         const { folderId } = await locateDriveConfig(accessToken);
         if (!folderId) throw new Error("Could not locate or create Drive folder.");
 
         try {
             // 1. Load or Create Manifest
+            if (onProgress) onProgress("Loading Manifest...");
             let manifestFile = await findFileByName(accessToken, folderId, 'Manifest.json');
             let manifest: any = { collections: {}, metadata: {} };
             if (manifestFile) {
@@ -903,9 +906,13 @@ export const DriveService = {
             }
 
             // 2. Upload Changed Collections
-            const uploadPromises = Object.entries(changedCollections).map(async ([name, data]) => {
+            const entries = Object.entries(changedCollections);
+            if (onProgress) onProgress(`Uploading ${entries.length} changed sections...`);
+
+            const uploadPromises = entries.map(async ([name, data]) => {
                 const filename = `Collection_${name}.json`;
                 const existingFileId = manifest.collections[name]?.fileId;
+                if (onProgress) onProgress(`Updating ${name}...`);
                 const result = await uploadFile(accessToken, folderId, data, filename, existingFileId);
                 manifest.collections[name] = {
                     fileId: result.id,
@@ -916,7 +923,7 @@ export const DriveService = {
             await Promise.all(uploadPromises);
 
             // 3. Update Manifest Metadata
-            if (fullMetadata) manifest.metadata = { ...manifest.metadata, ...fullMetadata };
+            if (metadata) manifest.metadata = { ...manifest.metadata, ...metadata };
 
             const apiKey = localStorage.getItem('gemini_api_key');
             if (apiKey) {
@@ -928,7 +935,10 @@ export const DriveService = {
             }
 
             // 4. Save Manifest
+            if (onProgress) onProgress("Finalizing Manifest...");
+            if (onProgress) onProgress(`Finalizing Manifest with ${Object.keys(manifest.collections).length} tracked collections...`);
             await uploadFile(accessToken, folderId, manifest, 'Manifest.json', manifestFile?.id);
+            if (onProgress) onProgress("✓ Manifest saved to Drive.");
             console.log("Incremental sync successful.");
 
             // NEW: Clear cache to ensure fresh data on next read
@@ -939,26 +949,27 @@ export const DriveService = {
         }
     },
 
-    async write(accessToken: string, data: any): Promise<any> {
+    async write(accessToken: string, data: any, options?: { onProgress?: (msg: string) => void }): Promise<any> {
+        const { onProgress } = options || {};
         // CRITICAL FIX: Do NOT trust local cache for Folder ID.
-        // Always resolve the "Master Folder" (Oldest) from server to prevent split-brain.
-        // The previous optimization (checking localStorage first) caused devices to get stuck 
-        // writing to different duplicate folders.
+        if (onProgress) onProgress("Resolving Drive folder...");
         const config = await locateDriveConfig(accessToken);
-        const folderId = config.folderId; // config is checking for "Oldest"
+        const folderId = config.folderId;
 
         if (folderId) localStorage.setItem('gdrive_folder_id', folderId);
         if (!folderId) throw new Error("Could not locate or create Drive folder.");
 
         try {
+            if (onProgress) onProgress("Preparing data...");
             console.log(`Preparing sync upload...`);
 
             // Encrypt API Key if present
+            if (onProgress) onProgress("Encryption: Checking for secure keys...");
             const apiKey = localStorage.getItem('gemini_api_key');
             if (apiKey) {
                 try {
+                    if (onProgress) onProgress("Encrypting Gemini API Key for backup...");
                     const encrypted = await encryptData(apiKey);
-                    // Ensure metadata object exists
                     if (!data.metadata) data.metadata = {};
                     data.metadata.secure = encrypted;
                 } catch (err) {
@@ -967,72 +978,57 @@ export const DriveService = {
             }
 
             const { core, assets, hasAssets } = splitStateData(data);
+            if (onProgress) onProgress(`Data Structure: Core split from Assets. Assets present: ${hasAssets}`);
 
             // 1. Resolve Target ID (Prioritize Server Truth)
-            // Always search by name to ensure we write to the one everyone else is reading.
+            if (onProgress) onProgress("Target Resolution: Searching for existing 'LiveSync' file on server...");
             let stableFile = await findFileByName(accessToken, folderId, STABLE_SYNC_FILENAME);
             let targetFileId = stableFile ? stableFile.id : localStorage.getItem('gdrive_sync_file_id');
-
-            if (stableFile) {
-                console.log("Write: Updating existing Server File:", stableFile.id);
-                localStorage.setItem('gdrive_sync_file_id', stableFile.id);
-                targetFileId = stableFile.id;
-            } else if (targetFileId) {
-                console.log("Write: File not found by name, trying Cached ID:", targetFileId);
-            }
+            if (onProgress) onProgress(`Target ID resolved: ${targetFileId || '[NEW FILE]'}`);
 
             let finalId = '';
 
+            if (onProgress) onProgress(`Core Upload: ${core.length ? 'Modified' : 'Empty'} data to ${targetFileId || '[NEW]'}`);
             if (targetFileId) {
                 try {
                     const result = await uploadFile(accessToken, folderId, core, STABLE_SYNC_FILENAME, targetFileId);
                     finalId = result.id;
+                    if (onProgress) onProgress("✓ Core data updated.");
                 } catch (e) {
-                    console.warn("Write to Target ID failed (deleted?). Creating new...");
+                    if (onProgress) onProgress("⚠️ Cached ID failed. Creating new replacement file...");
                     const result = await uploadFile(accessToken, folderId, core, STABLE_SYNC_FILENAME);
                     finalId = result.id;
                 }
             } else {
-                console.log("Write: Creating NEW Sync file...");
+                if (onProgress) onProgress("Legacy Mode: Creating new monolithic 'LiveSync' file...");
                 const result = await uploadFile(accessToken, folderId, core, STABLE_SYNC_FILENAME);
                 finalId = result.id;
             }
 
-            // 1a. DAILY BACKUP CHECK (Restore History)
-            // Check if we have already created a backup for TODAY. If not, create one.
+            // 1a. DAILY BACKUP CHECK
             const dailyFiles = getDailyFilenames();
             const todayBackupName = dailyFiles.core;
 
-            // We do this check asynchronously/independently so it doesn't block the main sync too much,
-            // but we await it to ensure safety.
             const existingDaily = await findFileByName(accessToken, folderId, todayBackupName);
             if (!existingDaily) {
-                console.log(`[Backup] No backup found for today (${todayBackupName}). Creating daily snapshot...`);
+                if (onProgress) onProgress("Creating daily snapshot...");
                 try {
                     await uploadFile(accessToken, folderId, core, todayBackupName);
-                    console.log("[Backup] Daily snapshot created successfully.");
                 } catch (err) {
                     console.error("[Backup] Failed to create daily snapshot:", err);
-                    // We continue with Live Sync even if daily backup fails
                 }
-            } else {
-                console.log(`[Backup] Daily backup already exists (${todayBackupName}). Skipping.`);
             }
 
-            // 1b. DAILY ASSET BACKUP (Images)
+            // 1b. DAILY ASSET BACKUP
             if (hasAssets) {
                 const todayAssetsName = dailyFiles.assets;
                 const existingDailyAssets = await findFileByName(accessToken, folderId, todayAssetsName);
                 if (!existingDailyAssets) {
-                    console.log(`[Backup] No asset backup found for today (${todayAssetsName}). Creating daily snapshot...`);
                     try {
                         await uploadFile(accessToken, folderId, assets, todayAssetsName);
-                        console.log("[Backup] Daily asset snapshot created successfully.");
                     } catch (err) {
                         console.error("[Backup] Failed to create daily asset snapshot:", err);
                     }
-                } else {
-                    console.log(`[Backup] Daily asset backup already exists (${todayAssetsName}). Skipping.`);
                 }
             }
 
@@ -1040,22 +1036,20 @@ export const DriveService = {
 
             // 2. Upload Assets
             if (hasAssets) {
+                if (onProgress) onProgress("Uploading assets...");
                 const existingAssets = await findFileByName(accessToken, folderId, STABLE_ASSETS_FILENAME);
                 const assetId = existingAssets ? existingAssets.id : undefined;
                 await uploadFile(accessToken, folderId, assets, STABLE_ASSETS_FILENAME, assetId);
             }
 
             console.log("Sync successful. ID:", finalId);
-
-            // NEW: Clear cache to ensure fresh data on next read
             driveCache.clear();
-
             return finalId;
         } catch (e: any) {
             if (e.message && e.message.includes('404')) {
                 console.warn("Folder 404, retrying...", e);
                 localStorage.removeItem('gdrive_folder_id');
-                return DriveService.write(accessToken, data);
+                return DriveService.write(accessToken, data, options);
             }
             throw e;
         }

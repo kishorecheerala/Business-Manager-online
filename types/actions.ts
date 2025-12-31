@@ -56,6 +56,9 @@ export type Action =
     | { type: 'HIDE_TOAST' }
     | { type: 'SET_GOOGLE_USER'; payload: GoogleUser | null }
     | { type: 'SET_SYNC_STATUS'; payload: SyncStatus }
+    | { type: 'SET_SYNC_MESSAGE'; payload: string | undefined }
+    | { type: 'ADD_SYNC_LOG'; payload: string }
+    | { type: 'CLEAR_SYNC_LOGS' }
     | { type: 'SET_LAST_SYNC_TIME'; payload: number }
     | { type: 'SET_LAST_BACKUP_DATE'; payload: string }
     | { type: 'ADD_CUSTOM_FONT'; payload: CustomFont }

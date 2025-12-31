@@ -75,6 +75,7 @@ const initialState: DataState = {
     selection: null,
 
     syncStatus: 'idle',
+    syncLogs: [],
     lastSyncTime: 0,
     lastLocalUpdate: 0,
     devMode: false,
@@ -231,6 +232,26 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             showToast(`${newDrafts.length} Recurring Invoices generated as drafts!`, "info");
         }
     }, [dispatch, showToast]);
+
+    useEffect(() => {
+        let inactivityTimer: any;
+        const resetTimer = () => {
+            clearTimeout(inactivityTimer);
+            inactivityTimer = setTimeout(() => {
+                dispatch({ type: 'CLEAR_SYNC_LOGS' });
+            }, 5 * 60 * 1000); // 5 minutes
+        };
+
+        window.addEventListener('mousemove', resetTimer);
+        window.addEventListener('keydown', resetTimer);
+        resetTimer();
+
+        return () => {
+            window.removeEventListener('mousemove', resetTimer);
+            window.removeEventListener('keydown', resetTimer);
+            clearTimeout(inactivityTimer);
+        };
+    }, [dispatch]);
 
     useEffect(() => {
         const handleOnline = () => dispatch({ type: 'SET_ONLINE_STATUS', payload: true });
@@ -464,27 +485,45 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
 
         const logEntry = (action: string, details: string) => {
+            const timestamp = new Date().toISOString();
+            const logString = `[${timestamp}] ${action}: ${details}`;
+
+            // Push to Persistent Audit Log
             dispatch({
                 type: 'ADD_AUDIT_LOG',
                 payload: {
                     id: `sync-log-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
                     action,
                     details,
-                    timestamp: new Date().toISOString(),
+                    timestamp,
                     user: googleUser?.email || 'Anonymous'
                 }
             });
+
+            // Push to Transient Sync Console
+            dispatch({ type: 'ADD_SYNC_LOG', payload: logString });
+
+            if (state.devMode) console.log(logString);
         };
 
         dispatch({ type: 'SET_SYNC_STATUS', payload: 'syncing' });
+        const onProgress = (msg: string) => {
+            dispatch({ type: 'SET_SYNC_MESSAGE', payload: msg });
+            logEntry('SYNC_STEP', msg);
+        };
+
         console.log('[SYNC] Starting sync process...');
         try {
             logEntry('SYNC_START', 'Sync process initiated');
 
-            // 1. Read Cloud Data (Manifest-based)
+            // 1. Read Cloud Data (Manifest-based / Differential)
             console.log('[SYNC] Step 1: Reading cloud data...');
-            if (state.devMode) console.log("Sync: Reading cloud data...");
-            const cloudData = await DriveService.read(token);
+            const lastSyncTimeVal = typeof stateRef.current.lastSyncTime === 'number' ? stateRef.current.lastSyncTime : undefined;
+
+            const cloudData = await DriveService.read(token, {
+                lastSyncedTime: lastSyncTimeVal,
+                onProgress
+            });
 
             // 2. Merge Cloud -> Local
             let freshState: DataState | undefined;
@@ -533,7 +572,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     appVersion: (window as any).APP_VERSION || '1.0.0'
                 };
 
-                await DriveService.writeIncremental(token, changedCollections, manifestMetadata);
+                await DriveService.writeIncremental(token, changedCollections, {
+                    metadata: manifestMetadata,
+                    onProgress
+                });
 
                 // 4. Mark Synced
                 const now = Date.now();
@@ -564,10 +606,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
 
             dispatch({ type: 'SET_SYNC_STATUS', payload: 'success' });
+            dispatch({ type: 'SET_SYNC_MESSAGE', payload: 'Sync Complete' });
 
             // Reset sync status after 2 seconds to avoid stuck 'success' state
             setTimeout(() => {
                 dispatch({ type: 'SET_SYNC_STATUS', payload: 'idle' });
+                dispatch({ type: 'SET_SYNC_MESSAGE', payload: undefined });
             }, 2000);
         } catch (error: any) {
             console.error("Sync Failed:", error);

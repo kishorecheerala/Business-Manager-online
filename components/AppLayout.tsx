@@ -343,20 +343,20 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                                             </div>
 
                                             {/* Last Synced Time - Aligned Single Line */}
-                                            <div className="flex items-center gap-1.5">
-                                                <span className="hidden sm:inline text-xs font-medium text-white/90">
+                                            <div className="flex items-center gap-1.5 overflow-hidden">
+                                                <span className="hidden sm:inline text-xs font-medium text-white/90 shrink-0">
                                                     {syncStatus === 'syncing' ? 'Status:' :
                                                         syncStatus === 'error' ? 'Sync:' :
                                                             'Cloud:'}
                                                 </span>
-                                                <span className="text-[10px] sm:text-xs font-bold text-white drop-shadow-md flex items-center">
+                                                <span className="text-[10px] sm:text-xs font-bold text-white drop-shadow-md flex items-center truncate">
                                                     {syncStatus === 'syncing' ? (
-                                                        <>
-                                                            Syncing
+                                                        <span className="truncate max-w-[120px] sm:max-w-none">
+                                                            {syncMessage || 'Syncing'}
                                                             <span className="animate-bounce-dot mx-[1px]" style={{ animationDelay: '0s' }}>.</span>
                                                             <span className="animate-bounce-dot mx-[1px]" style={{ animationDelay: '0.2s' }}>.</span>
                                                             <span className="animate-bounce-dot mx-[1px]" style={{ animationDelay: '0.4s' }}>.</span>
-                                                        </>
+                                                        </span>
                                                     ) :
                                                         syncStatus === 'error' ? 'Failed' :
                                                             lastSyncTime ? formatDateTime(lastSyncTime).split(', ')[1] :

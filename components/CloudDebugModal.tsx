@@ -312,13 +312,48 @@ const CloudDebugModal: React.FC<CloudDebugModalProps> = ({ isOpen, onClose, onOp
                     </div>
 
                     {/* Logs Section */}
-                    <div>
-                        <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Debug Log</h3>
-                        <div className="bg-slate-900 text-green-400 font-mono text-xs p-3 rounded-lg h-40 overflow-y-auto border border-slate-700">
-                            {logs.map((line, i) => (
-                                <div key={i} className="whitespace-pre-wrap mb-1">{line}</div>
-                            ))}
-                            {logs.length === 0 && <span className="opacity-50">Waiting to start...</span>}
+                    <div className="flex flex-col h-64">
+                        <div className="flex justify-between items-center mb-2">
+                            <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">Sync & Diagnostic Console</h3>
+                            <div className="flex gap-2">
+                                <Button
+                                    onClick={() => dispatch({ type: 'CLEAR_SYNC_LOGS' })}
+                                    variant="secondary"
+                                    className="h-6 text-[10px] px-2 text-red-600 hover:bg-red-50"
+                                >
+                                    Clear Sync Logs
+                                </Button>
+                                <Button
+                                    onClick={() => setLogs([])}
+                                    variant="secondary"
+                                    className="h-6 text-[10px] px-2"
+                                >
+                                    Clear Scan
+                                </Button>
+                            </div>
+                        </div>
+                        <div className="bg-slate-900 text-green-400 font-mono text-xs p-3 rounded-lg flex-grow overflow-y-auto border border-slate-700 shadow-inner">
+                            {/* Diagnostic Scan Logs (Local) */}
+                            {logs.length > 0 && (
+                                <div className="mb-4">
+                                    <div className="text-blue-400 font-bold mb-1 border-b border-blue-900/50 pb-1">-- DIAGNOSTIC SCAN --</div>
+                                    {logs.map((line, i) => (
+                                        <div key={`diag-${i}`} className="whitespace-pre-wrap mb-1 opacity-90">{line}</div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Global Sync Activity Logs (State) */}
+                            <div>
+                                <div className="text-amber-400 font-bold mb-1 border-b border-amber-900/50 pb-1">-- SYNC ACTIVITY --</div>
+                                {state.syncLogs.length > 0 ? (
+                                    state.syncLogs.map((line, i) => (
+                                        <div key={`sync-${i}`} className="whitespace-pre-wrap mb-1 animate-fade-in-fast">{line}</div>
+                                    ))
+                                ) : (
+                                    <span className="opacity-50 italic">No recent sync activity logs...</span>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
