@@ -77,30 +77,17 @@ export const initGoogleAuth = (
 ) => {
     console.log('[GOOGLE] initGoogleAuth called');
 
-    // Detect mobile for UX mode selection
-    const userAgent = navigator.userAgent;
-    const isMobilePhone = /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
-    const isIPad = /iPad/i.test(userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-
-    // Default to popup for better 'crisp' experience unless it's a small mobile phone 
-    // where popups are notoriously problematic or screen is too small.
-    // However, if it was working better before, we should be conservative.
-    const useMobileUX = isMobilePhone && window.innerWidth < 500;
-
-    const uxMode = modeOverride || (useMobileUX ? 'redirect' : 'popup');
-
-    // Robust Redirect URI: Ensure no trailing slash if not required, and no hash/query
-    const redirectUri = window.location.origin + window.location.pathname;
-    const cleanRedirectUri = redirectUri.replace(/\/$/, ''); // Remove trailing slash for exact matching
+    // Simplified: Always use popup by default for the 'crisp' experience users prefer.
+    // Redirect mode can be troublesome in SPAs with HashRouter.
+    const uxMode = modeOverride || 'popup';
 
     console.log(`[GOOGLE] Initializing Auth with mode: ${uxMode}`);
-    console.log(`[GOOGLE] Redirect URI: ${cleanRedirectUri}`);
 
     const config: any = {
         client_id: getClientId(),
         scope: SCOPES,
         ux_mode: uxMode,
-        redirect_uri: cleanRedirectUri,
+        callback: callback,
         error_callback: (err: any) => {
             console.error('[GOOGLE] OAuth error_callback triggered:', err);
             if (errorCallback) errorCallback(err);

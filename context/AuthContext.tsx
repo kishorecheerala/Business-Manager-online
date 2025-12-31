@@ -95,8 +95,6 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
             return { ...state, isStaffMode: action.payload };
         }
         case 'SET_PROTECTED_PAGES': {
-            // protectedPages is part of securityPin metadata in the union, but if we want it isolated, we need a type.
-            // Based on types/metadata.ts, it's in AppMetadataPin.
             const pinMeta: AppMetadataPin = { id: 'securityPin', protectedPages: action.payload as Page[], updatedAt: new Date().toISOString() };
             upsertItem('app_metadata', pinMeta);
             return { ...state, protectedPages: action.payload };
@@ -127,10 +125,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const tokenClientRef = useRef<any>(null);
     const tokenRefreshTimerRef = useRef<number | null>(null);
     const refreshGoogleTokenRef = useRef<() => void>(() => { });
+    const handleLoginResponseRef = useRef<(response: any) => Promise<void>>(async () => { });
 
     const { googleUser } = authState;
 
-    // NEW: Token refresh timer cleanup on unmount
+    // Token refresh timer cleanup on unmount
     useEffect(() => {
         return () => {
             if (tokenRefreshTimerRef.current) {
@@ -138,11 +137,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 authDispatch({ type: 'SET_TOKEN_REFRESH_TIMER', payload: null });
             }
         };
-    }, []);
+    }, [authDispatch]);
 
-    // NEW: Auto-refresh token before expiration
     const scheduleTokenRefresh = useCallback((user: GoogleUser | null) => {
-        // Clear any existing timer
         if (tokenRefreshTimerRef.current) {
             clearTimeout(tokenRefreshTimerRef.current);
             tokenRefreshTimerRef.current = null;
@@ -151,57 +148,38 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         if (user && user.expiresAt) {
             const isMobile = DriveService.isMobile();
-
-            // Refresh 5 minutes before expiration to be safe
-            const refreshTime = user.expiresAt - Date.now() - (5 * 60 * 1000); // 5 minutes before expiry
+            const refreshTime = user.expiresAt - Date.now() - (5 * 60 * 1000);
 
             if (refreshTime > 0) {
                 const timerId = window.setTimeout(() => {
                     console.log('[AUTH] Token about to expire, checking refresh strategy...');
-
                     if (isMobile) {
-                        // On mobile, auto-redirect refresh can be VERY disruptive.
-                        // We will NOT auto-refresh via redirect. Instead, we'll let the next 
-                        // manual sync or action trigger the sign-in modal if needed.
                         console.log('[AUTH] Mobile detected: Skipping auto-refresh to avoid disruptive redirect.');
                     } else {
                         refreshGoogleTokenRef.current();
                     }
                 }, refreshTime);
 
-                // Store timer ID in both ref and state
                 tokenRefreshTimerRef.current = timerId;
                 authDispatch({ type: 'SET_TOKEN_REFRESH_TIMER', payload: timerId });
                 console.log(`[AUTH] Scheduled token check in ${Math.round(refreshTime / 60000)} minutes (isMobile: ${isMobile})`);
-            } else {
-                // Token already expired or will expire soon
-                if (!isMobile) {
-                    console.log('[AUTH] Token already expired or expiring soon, refreshing immediately');
-                    refreshGoogleTokenRef.current();
-                } else {
-                    console.log('[AUTH] Mobile detected: Token expired but skipping auto-refresh to avoid redirect.');
-                }
+            } else if (!isMobile) {
+                refreshGoogleTokenRef.current();
             }
         }
-    }, [authDispatch]); // Include only non-circular dependencies
+    }, [authDispatch]);
 
-    // NEW: Update token refresh when user changes
     useEffect(() => {
         scheduleTokenRefresh(authState.googleUser);
-    }, [authState.googleUser]); // Don't include scheduleTokenRefresh to avoid infinite loop
+    }, [authState.googleUser, scheduleTokenRefresh]);
 
-    // Restore auth state from IndexedDB if localStorage is empty (recovery scenario)
+    // Restore auth state from IndexedDB if localStorage is empty
     useEffect(() => {
         const restoreAuthFromDB = async () => {
             try {
-                // Check if localStorage has googleUser first
                 const storedUser = localStorage.getItem('googleUser');
-                if (storedUser) {
-                    // User data is already in localStorage, no need to restore from DB
-                    return;
-                }
+                if (storedUser) return;
 
-                // Only try to restore from DB if localStorage is truly missing the user data
                 const metadata = await getAll('app_metadata');
                 const googleUserMeta = metadata.find((m: any) => m.id === 'googleUser');
                 if (googleUserMeta) {
@@ -212,89 +190,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                         accessToken: googleUserMeta.accessToken,
                         expiresAt: googleUserMeta.expiresAt
                     };
-                    // Check if token is still valid (not expired)
                     if (user.expiresAt && user.expiresAt > Date.now()) {
                         localStorage.setItem('googleUser', JSON.stringify(user));
                         authDispatch({ type: 'SET_GOOGLE_USER', payload: user });
-                        console.log('[Auth] Restored user from IndexedDB');
-                    } else {
-                        console.log('[Auth] Stored token expired, user needs to re-authenticate');
                     }
                 }
             } catch (e) {
                 console.error('[Auth] Failed to restore from IndexedDB:', e);
-                // Don't crash the app if IndexedDB fails, just continue without auth
             }
         };
 
-        // Only attempt to restore if we're in a browser environment and have access to storage
         if (typeof window !== 'undefined' && window.localStorage) {
             restoreAuthFromDB();
         }
-    }, []);
+    }, [authDispatch]);
 
-    // Initialize Google Auth
-    useEffect(() => {
-        loadGoogleScript()
-            .then(() => {
-                tokenClientRef.current = initGoogleAuth(handleGoogleLoginResponse, (err: any) => {
-                    console.error("Google Auth Init Error:", err);
-                });
-            })
-            .catch(console.error);
-
-        // Check for redirect response on mount (Mobile fallback)
-        const checkRedirect = async () => {
-            const hash = window.location.hash;
-            const search = window.location.search;
-
-            console.log('[AUTH] Checking for OAuth redirect...', {
-                hash: hash.substring(0, 100),
-                search: search.substring(0, 100),
-                fullURL: window.location.href
-            });
-
-            // NEW: Support for combined hash/search parameters (some browsers/redirects vary)
-            const fullQuery = (search + hash).replace(/^#/, '&').replace(/^\?/, '&');
-            const urlParams = new URLSearchParams(fullQuery);
-
-            const accessToken = urlParams.get('access_token');
-            const expiresIn = urlParams.get('expires_in');
-            const error = urlParams.get('error');
-            const errorDesc = urlParams.get('error_description');
-
-            if (accessToken) {
-                console.log('[AUTH] Found access_token in URL, processing login...');
-                await handleGoogleLoginResponse({
-                    access_token: accessToken,
-                    expires_in: parseInt(expiresIn || '3600', 10)
-                });
-                // Remove auth params from URL but keep the rest
-                const cleanURL = window.location.href
-                    .replace(/[#&]access_token=[^&]*/, '')
-                    .replace(/[#&]expires_in=[^&]*/, '')
-                    .replace(/[#&]token_type=[^&]*/, '')
-                    .replace(/[#&]scope=[^&]*/, '')
-                    .replace(/[#&]authuser=[^&]*/, '')
-                    .replace(/[#&]prompt=[^&]*/, '');
-
-                window.history.replaceState(null, '', cleanURL);
-            } else if (error) {
-                console.error("[AUTH] OAuth Redirect Error:", error, errorDesc);
-                showToast(`Sign-in could not be completed: ${errorDesc || error}`, 'error');
-            }
-        };
-        checkRedirect();
-    }, []);
-
-    // Handle Login Response
+    // Handle Login Response implementation
     const handleGoogleLoginResponse = async (response: any) => {
         console.log("[AUTH] handleGoogleLoginResponse triggered", {
             hasError: !!response.error,
-            hasAccessToken: !!response.access_token,
-            scope: response.scope,
-            expiresIn: response.expires_in,
-            fullResponse: response
+            hasAccessToken: !!response.access_token
         });
 
         if (response.error) {
@@ -304,11 +219,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
 
         if (response.access_token) {
-            console.log("[AUTH] Access token received, fetching user info...");
             try {
                 const userInfo = await getUserInfo(response.access_token);
-                console.log("[AUTH] User info fetched:", { name: userInfo.name, email: userInfo.email });
-
                 const expiresAt = Date.now() + (response.expires_in * 1000);
 
                 const user: GoogleUser = {
@@ -319,23 +231,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     expiresAt: expiresAt
                 };
 
-                console.log("[AUTH] Saving user to state and localStorage...");
-
-                // Save to localStorage first (synchronous)
-                try {
-                    localStorage.setItem('googleUser', JSON.stringify(user));
-                    console.log("[AUTH] ✓ Saved to localStorage");
-                } catch (e) {
-                    console.error("[AUTH] ✗ Failed to save to localStorage:", e);
-                }
-
-                // Save to IndexedDB (async, fire-and-forget in reducer)
+                localStorage.setItem('googleUser', JSON.stringify(user));
                 authDispatch({ type: 'SET_GOOGLE_USER', payload: user });
-                console.log("[AUTH] ✓ Dispatched SET_GOOGLE_USER action");
-
                 showToast(`Welcome, ${user.name}!`, 'success');
-                console.log("[AUTH] ✓ Sign-in complete!");
-
             } catch (err) {
                 console.error("[AUTH] Failed to get user info:", err);
                 showToast("Failed to get user info. Please try again.", 'error');
@@ -346,18 +244,56 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     };
 
+    // Update the ref for the response handler
+    useEffect(() => {
+        handleLoginResponseRef.current = handleGoogleLoginResponse;
+    }, [handleGoogleLoginResponse]);
+
+    // Initialize Google Auth
+    useEffect(() => {
+        loadGoogleScript()
+            .then(() => {
+                const proxyCallback = (resp: any) => handleLoginResponseRef.current(resp);
+                tokenClientRef.current = initGoogleAuth(proxyCallback, (err: any) => {
+                    console.error("Google Auth Init Error:", err);
+                });
+            })
+            .catch(console.error);
+
+        // checkRedirect fallback
+        const checkRedirect = async () => {
+            const hash = window.location.hash;
+            const search = window.location.search;
+            const fullQuery = (search + hash).replace(/^#/, '&').replace(/^\?/, '&');
+            const urlParams = new URLSearchParams(fullQuery);
+
+            const accessToken = urlParams.get('access_token');
+            const expiresIn = urlParams.get('expires_in');
+
+            if (accessToken) {
+                console.log('[AUTH] Found access_token in URL...');
+                await handleGoogleLoginResponse({
+                    access_token: accessToken,
+                    expires_in: parseInt(expiresIn || '3600', 10)
+                });
+
+                const cleanURL = window.location.href
+                    .replace(/[#&]access_token=[^&]*/, '')
+                    .replace(/[#&]expires_in=[^&]*/, '')
+                    .replace(/[#&]token_type=[^&]*/, '')
+                    .replace(/[#&]scope=[^&]*/, '');
+                window.history.replaceState(null, '', cleanURL);
+            }
+        };
+        checkRedirect();
+    }, []);
+
     const googleSignIn = (options?: { forceConsent?: boolean }) => {
         if (!navigator.onLine) {
             showToast("Internet connection required to sign in.", 'error');
             return;
         }
 
-        console.log('[Auth] Sign-in initiated', {
-            hasTokenClient: !!tokenClientRef.current,
-            forceConsent: options?.forceConsent
-        });
-
-        // Force fresh init if consent is requested (retrying)
         if (options?.forceConsent) {
             tokenClientRef.current = null;
         }
@@ -365,7 +301,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (!tokenClientRef.current) {
             showToast("Initializing login...", 'info');
             loadGoogleScript().then(() => {
-                tokenClientRef.current = initGoogleAuth(handleGoogleLoginResponse, console.error);
+                const proxyCallback = (resp: any) => handleLoginResponseRef.current(resp);
+                tokenClientRef.current = initGoogleAuth(proxyCallback, console.error);
                 tokenClientRef.current.requestAccessToken({ prompt: options?.forceConsent ? 'consent' : '' });
             });
             return;
@@ -379,20 +316,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (authState.googleUser?.accessToken) {
             revokeConsent(authState.googleUser.accessToken);
         }
+        localStorage.removeItem('googleUser');
         authDispatch({ type: 'SET_GOOGLE_USER', payload: null });
         showToast("Signed out successfully.");
     };
 
     const refreshGoogleToken = () => {
         if (tokenClientRef.current) {
-            console.log('[AUTH] Attempting to refresh token via token client...');
             tokenClientRef.current.requestAccessToken({ prompt: '' });
         } else {
-            console.log('[AUTH] No token client available, initializing...');
             loadGoogleScript().then(() => {
-                tokenClientRef.current = initGoogleAuth(handleGoogleLoginResponse, (err: any) => {
+                const proxyCallback = (resp: any) => handleLoginResponseRef.current(resp);
+                tokenClientRef.current = initGoogleAuth(proxyCallback, (err: any) => {
                     console.error("Refresh Init Error:", err);
-                    // If refresh fails, user needs to sign in again
                     showToast("Session expired. Please sign in again.", 'info');
                 });
                 tokenClientRef.current.requestAccessToken({ prompt: '' });
@@ -400,7 +336,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     };
 
-    // Update the ref when the function is defined
     useEffect(() => {
         refreshGoogleTokenRef.current = refreshGoogleToken;
     }, [refreshGoogleToken]);
