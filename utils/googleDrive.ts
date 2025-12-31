@@ -77,25 +77,30 @@ export const initGoogleAuth = (
 ) => {
     console.log('[GOOGLE] initGoogleAuth called');
 
-    // Detect mobile/tablet for UX mode selection
+    // Detect mobile for UX mode selection
     const userAgent = navigator.userAgent;
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+    const isMobilePhone = /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+    const isIPad = /iPad/i.test(userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-    // Improved tablet/iPad detection: Modern iPads report as 'Macintosh' but have touch support
-    const isIPadPro = (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    const useMobileUX = isMobile || isIPadPro || window.innerWidth < 1024;
+    // Default to popup for better 'crisp' experience unless it's a small mobile phone 
+    // where popups are notoriously problematic or screen is too small.
+    // However, if it was working better before, we should be conservative.
+    const useMobileUX = isMobilePhone && window.innerWidth < 500;
 
     const uxMode = modeOverride || (useMobileUX ? 'redirect' : 'popup');
 
-    console.log(`[GOOGLE] Initializing Auth with mode: ${uxMode}, useMobileUX: ${useMobileUX} (isMobile: ${isMobile}, isIPadPro: ${isIPadPro})`);
-    console.log(`[GOOGLE] Current URL: ${window.location.href}`);
-    console.log(`[GOOGLE] Origin: ${window.location.origin}`);
+    // Robust Redirect URI: Ensure no trailing slash if not required, and no hash/query
+    const redirectUri = window.location.origin + window.location.pathname;
+    const cleanRedirectUri = redirectUri.replace(/\/$/, ''); // Remove trailing slash for exact matching
+
+    console.log(`[GOOGLE] Initializing Auth with mode: ${uxMode}`);
+    console.log(`[GOOGLE] Redirect URI: ${cleanRedirectUri}`);
 
     const config: any = {
         client_id: getClientId(),
         scope: SCOPES,
         ux_mode: uxMode,
-        redirect_uri: window.location.origin + window.location.pathname,
+        redirect_uri: cleanRedirectUri,
         error_callback: (err: any) => {
             console.error('[GOOGLE] OAuth error_callback triggered:', err);
             if (errorCallback) errorCallback(err);

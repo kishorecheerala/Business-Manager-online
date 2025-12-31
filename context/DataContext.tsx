@@ -631,7 +631,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     useEffect(() => {
         if (!googleUser?.accessToken || !state.isOnline || !state.lastLocalUpdate) return;
 
-        const isMobile = DriveService.isMobile();
+        const isMobile = DriveService.isMobile() && window.innerWidth < 500;
         const debounceTime = isMobile ? 20000 : 10000;
 
         const timeout = setTimeout(() => {
@@ -643,7 +643,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // Periodic Poll (Pull cloud changes)
     useEffect(() => {
-        const isMobile = DriveService.isMobile();
+        const isMobile = DriveService.isMobile() && window.innerWidth < 500;
         if (!googleUser?.accessToken || !state.isOnline) return;
 
         const pollInterval = setInterval(() => {

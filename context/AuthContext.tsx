@@ -254,53 +254,34 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 fullURL: window.location.href
             });
 
-            // Check hash parameters (standard OAuth2 implicit flow)
-            if (hash && (hash.includes('access_token=') || hash.includes('error='))) {
-                console.log('[AUTH] ✓ Found OAuth response in URL hash');
-                const params = new URLSearchParams(hash.substring(1));
-                const accessToken = params.get('access_token');
-                const expiresIn = params.get('expires_in');
-                const error = params.get('error');
-                const errorDescription = params.get('error_description');
+            // NEW: Support for combined hash/search parameters (some browsers/redirects vary)
+            const fullQuery = (search + hash).replace(/^#/, '&').replace(/^\?/, '&');
+            const urlParams = new URLSearchParams(fullQuery);
 
-                if (accessToken) {
-                    console.log('[AUTH] Processing access token from redirect...');
-                    await handleGoogleLoginResponse({
-                        access_token: accessToken,
-                        expires_in: parseInt(expiresIn || '3600', 10)
-                    });
-                    // Clean URL
-                    window.history.replaceState(null, '', window.location.pathname + window.location.search);
-                } else if (error) {
-                    console.error("[AUTH] Redirect Auth Error:", error, errorDescription);
-                    showToast(`Login failed: ${errorDescription || error}`, 'error');
-                    window.history.replaceState(null, '', window.location.pathname + window.location.search);
-                }
-            }
-            // Also check query parameters (some OAuth flows use query string)
-            else if (search && (search.includes('access_token=') || search.includes('error='))) {
-                console.log('[AUTH] ✓ Found OAuth response in query string');
-                const params = new URLSearchParams(search);
-                const accessToken = params.get('access_token');
-                const expiresIn = params.get('expires_in');
-                const error = params.get('error');
-                const errorDescription = params.get('error_description');
+            const accessToken = urlParams.get('access_token');
+            const expiresIn = urlParams.get('expires_in');
+            const error = urlParams.get('error');
+            const errorDesc = urlParams.get('error_description');
 
-                if (accessToken) {
-                    console.log('[AUTH] Processing access token from query string...');
-                    await handleGoogleLoginResponse({
-                        access_token: accessToken,
-                        expires_in: parseInt(expiresIn || '3600', 10)
-                    });
-                    // Clean URL
-                    window.history.replaceState(null, '', window.location.pathname);
-                } else if (error) {
-                    console.error("[AUTH] Query Auth Error:", error, errorDescription);
-                    showToast(`Login failed: ${errorDescription || error}`, 'error');
-                    window.history.replaceState(null, '', window.location.pathname);
-                }
-            } else {
-                console.log('[AUTH] No OAuth redirect parameters found in URL');
+            if (accessToken) {
+                console.log('[AUTH] Found access_token in URL, processing login...');
+                await handleGoogleLoginResponse({
+                    access_token: accessToken,
+                    expires_in: parseInt(expiresIn || '3600', 10)
+                });
+                // Remove auth params from URL but keep the rest
+                const cleanURL = window.location.href
+                    .replace(/[#&]access_token=[^&]*/, '')
+                    .replace(/[#&]expires_in=[^&]*/, '')
+                    .replace(/[#&]token_type=[^&]*/, '')
+                    .replace(/[#&]scope=[^&]*/, '')
+                    .replace(/[#&]authuser=[^&]*/, '')
+                    .replace(/[#&]prompt=[^&]*/, '');
+
+                window.history.replaceState(null, '', cleanURL);
+            } else if (error) {
+                console.error("[AUTH] OAuth Redirect Error:", error, errorDesc);
+                showToast(`Sign-in could not be completed: ${errorDesc || error}`, 'error');
             }
         };
         checkRedirect();
