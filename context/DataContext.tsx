@@ -450,21 +450,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         // NEW: Check if token is expired before attempting sync
         if (googleUser && googleUser.expiresAt && googleUser.expiresAt <= Date.now()) {
-            console.warn('[SYNC] Token expired, attempting refresh...');
+            console.warn('[SYNC] Token expired.');
             if (isManual) {
                 // If manual sync and token is expired, trigger auth refresh
                 authDispatch({ type: 'SET_GOOGLE_USER', payload: null });
                 showToast("Session expired. Please sign in again.", 'info');
                 return;
             } else {
-                // For automatic sync, try to refresh token
-                try {
-                    refreshGoogleToken();
-                    return; // Exit and wait for token refresh to complete
-                } catch (err) {
-                    console.error('[SYNC] Failed to refresh token:', err);
-                    return;
-                }
+                // For automatic sync, just skip it until the user logs in again
+                if (state.devMode) console.log("Background sync skipped: Token expired.");
+                return;
             }
         }
 
@@ -598,17 +593,17 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     }
                 });
 
-                const isAuthError = error.message?.includes('401') || error.message?.includes('Unauthorized') || error.message?.includes('invalid_grant') || error.message?.includes('access_denied') || error.message?.includes('Expired');
+                const isAuthError = error.message?.includes('401') || error.message?.includes('Unauthorized') || error.message?.includes('invalid_grant') || error.message?.includes('access_denied') || error.message?.includes('Expired') || error.message?.includes('Failed to fetch');
 
                 if (isAuthError) {
-                    console.warn("Auth Error detected.");
+                    console.warn("Auth/Network Error detected.");
                     // Clear invalid token immediately to prevent loop
                     authDispatch({ type: 'SET_GOOGLE_USER', payload: null });
 
                     if (isManual) {
-                        showToast("Session expired. Please sign in again.", 'info');
+                        showToast("Session expired or network error. Please sign in again.", 'info');
                     } else {
-                        if (state.devMode) console.log("Background sync paused: Auth required.");
+                        console.log("Background sync paused: Auth required.");
                     }
                 } else {
                     showToast(`Sync failed: ${error.message || 'Unknown error'} `, 'error');

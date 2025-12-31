@@ -152,19 +152,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
             if (refreshTime > 0) {
                 const timerId = window.setTimeout(() => {
-                    console.log('[AUTH] Token about to expire, checking refresh strategy...');
-                    if (isMobile) {
-                        console.log('[AUTH] Mobile detected: Skipping auto-refresh to avoid disruptive redirect.');
-                    } else {
-                        refreshGoogleTokenRef.current();
-                    }
-                }, refreshTime);
+                    console.log('[AUTH] Token expired. Session cleared.');
+                    // Passive logout: Clear state but don't show a disruptive popup
+                    authDispatch({ type: 'SET_GOOGLE_USER', payload: null });
+                    // Optional: We can show a toast here, but if the user is inactive it might be annoying.
+                    // Instead, we'll let the next manual action (like sync) show the error.
+                }, refreshTime + (1000)); // Buffer to actually let it expire
 
                 tokenRefreshTimerRef.current = timerId;
                 authDispatch({ type: 'SET_TOKEN_REFRESH_TIMER', payload: timerId });
-                console.log(`[AUTH] Scheduled token check in ${Math.round(refreshTime / 60000)} minutes (isMobile: ${isMobile})`);
-            } else if (!isMobile) {
-                refreshGoogleTokenRef.current();
+                console.log(`[AUTH] Session timeout scheduled in ${Math.round(refreshTime / 60000)} minutes.`);
+            } else {
+                console.log('[AUTH] Session already expired. Clearing...');
+                authDispatch({ type: 'SET_GOOGLE_USER', payload: null });
             }
         }
     }, [authDispatch]);
@@ -221,7 +221,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (response.access_token) {
             try {
                 const userInfo = await getUserInfo(response.access_token);
-                const expiresAt = Date.now() + (response.expires_in * 1000);
+                const expiresIn = parseInt(response.expires_in || '3600', 10);
+                const expiresAt = Date.now() + (expiresIn * 1000);
 
                 const user: GoogleUser = {
                     name: userInfo.name,

@@ -336,18 +336,18 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                                                 {googleUser.name}
                                             </span>
                                             <div className="relative flex h-2 w-2 shrink-0">
-                                                {isOnline && syncStatus !== 'error' && (
-                                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                                {isOnline && syncStatus === 'syncing' && (
+                                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
                                                 )}
-                                                <span className={`relative inline-flex rounded-full h-2 w-2 ${!isOnline || syncStatus === 'error' ? 'bg-red-500' : 'bg-green-400'} shadow-sm`}></span>
+                                                <span className={`relative inline-flex rounded-full h-2 w-2 ${!isOnline ? 'bg-gray-400' : syncStatus === 'error' ? 'bg-red-500' : 'bg-green-400'} shadow-sm`}></span>
                                             </div>
 
                                             {/* Last Synced Time - Aligned Single Line */}
                                             <div className="flex items-center gap-1.5">
                                                 <span className="hidden sm:inline text-xs font-medium text-white/90">
                                                     {syncStatus === 'syncing' ? 'Status:' :
-                                                        syncStatus === 'error' ? 'Status:' :
-                                                            'Last Synced:'}
+                                                        syncStatus === 'error' ? 'Sync:' :
+                                                            'Cloud:'}
                                                 </span>
                                                 <span className="text-[10px] sm:text-xs font-bold text-white drop-shadow-md flex items-center">
                                                     {syncStatus === 'syncing' ? (
@@ -360,12 +360,15 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                                                     ) :
                                                         syncStatus === 'error' ? 'Failed' :
                                                             lastSyncTime ? formatDateTime(lastSyncTime).split(', ')[1] :
-                                                                'Not synced'}
+                                                                'Initial Sync Needed'}
                                                 </span>
                                             </div>
                                         </>
                                     ) : (
-                                        <span className="text-[10px] sm:text-xs text-white/80">Local Mode</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] sm:text-xs text-white/80">Local Only</span>
+                                            <span className="text-[10px] text-white/60 bg-white/10 px-1.5 rounded animate-pulse">Login Required for Sync</span>
+                                        </div>
                                     )}
                                 </div>
                             </button>
