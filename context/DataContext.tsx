@@ -631,8 +631,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     useEffect(() => {
         if (!googleUser?.accessToken || !state.isOnline || !state.lastLocalUpdate) return;
 
-        const isMobile = /Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent);
-        const debounceTime = isMobile ? 30000 : 10000;
+        const isMobile = DriveService.isMobile();
+        const debounceTime = isMobile ? 20000 : 10000;
 
         const timeout = setTimeout(() => {
             syncData();
@@ -641,15 +641,15 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return () => clearTimeout(timeout);
     }, [state.lastLocalUpdate, googleUser?.accessToken, state.isOnline]);
 
-    // Periodic Poll for Desktop (Pull cloud changes)
+    // Periodic Poll (Pull cloud changes)
     useEffect(() => {
-        const isMobile = /Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent);
-        if (isMobile || !googleUser?.accessToken || !state.isOnline) return;
+        const isMobile = DriveService.isMobile();
+        if (!googleUser?.accessToken || !state.isOnline) return;
 
         const pollInterval = setInterval(() => {
-            if (state.devMode) console.log("Desktop Poll: Checking cloud for updates...");
+            console.log(`[SYNC] ${isMobile ? 'Mobile' : 'Desktop'} Poll: Checking cloud for updates...`);
             syncData();
-        }, 5 * 60 * 1000); // 5 minutes
+        }, isMobile ? 10 * 60 * 1000 : 5 * 60 * 1000); // 10 mins mobile, 5 mins desktop
 
         return () => clearInterval(pollInterval);
     }, [googleUser?.accessToken, state.isOnline]);

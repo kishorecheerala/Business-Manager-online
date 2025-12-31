@@ -189,7 +189,7 @@ const uiReducer = (state: UIState, action: UIAction): UIState => {
 };
 
 // --- Context ---
-const UIContext = createContext<{
+export const UIContext = createContext<{
     uiState: UIState;
     uiDispatch: React.Dispatch<UIAction>;
     showToast: (message: string, type?: 'success' | 'info' | 'error') => void;

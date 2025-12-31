@@ -1,6 +1,6 @@
 import React from 'react';
-import { useData } from '../context/DataContext';
-import { useUI } from '../context/UIContext';
+import { DataContext } from '../context/DataContext';
+import { UIContext } from '../context/UIContext';
 
 // Extend from HTMLAttributes to accept props like onClick
 interface CardProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'title'> {
@@ -11,8 +11,8 @@ interface CardProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'title'> 
 }
 
 const Card: React.FC<CardProps> = ({ children, className = '', title, ...props }) => {
-  const dataContext = useData();
-  const uiContext = useUI();
+  const dataContext = React.useContext(DataContext);
+  const uiContext = React.useContext(UIContext);
 
   // Handle case where contexts might not be available (e.g. inside ErrorBoundary)
   const style = uiContext?.uiState?.uiPreferences?.cardStyle || 'solid';

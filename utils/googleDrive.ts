@@ -34,18 +34,18 @@ const getDailyFilenames = (): DailyFilenames => {
 export const loadGoogleScript = (): Promise<void> => {
     return new Promise((resolve, reject) => {
         console.log('[GOOGLE] Loading Google Identity Services script...');
-        
+
         if ((window as any).google) {
             console.log('[GOOGLE] ✓ Google script already loaded');
             resolve();
             return;
         }
-        
+
         const script = document.createElement('script');
         script.src = 'https://accounts.google.com/gsi/client';
         script.async = true;
         script.defer = true;
-        
+
         script.onload = () => {
             console.log('[GOOGLE] ✓ Google script loaded successfully');
             // Give it a moment to initialize
@@ -59,12 +59,12 @@ export const loadGoogleScript = (): Promise<void> => {
                 }
             }, 100);
         };
-        
+
         script.onerror = (error) => {
             console.error('[GOOGLE] ✗ Failed to load Google script:', error);
             reject(error);
         };
-        
+
         document.body.appendChild(script);
         console.log('[GOOGLE] Script tag appended to body');
     });
@@ -76,12 +76,18 @@ export const initGoogleAuth = (
     modeOverride?: 'popup' | 'redirect'
 ) => {
     console.log('[GOOGLE] initGoogleAuth called');
-    
-    // Detect mobile for UX mode selection
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    const uxMode = modeOverride || (isMobile ? 'redirect' : 'popup');
 
-    console.log(`[GOOGLE] Initializing Auth with mode: ${uxMode}, isMobile: ${isMobile}`);
+    // Detect mobile/tablet for UX mode selection
+    const userAgent = navigator.userAgent;
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+
+    // Improved tablet/iPad detection: Modern iPads report as 'Macintosh' but have touch support
+    const isIPadPro = (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const useMobileUX = isMobile || isIPadPro || window.innerWidth < 1024;
+
+    const uxMode = modeOverride || (useMobileUX ? 'redirect' : 'popup');
+
+    console.log(`[GOOGLE] Initializing Auth with mode: ${uxMode}, useMobileUX: ${useMobileUX} (isMobile: ${isMobile}, isIPadPro: ${isIPadPro})`);
     console.log(`[GOOGLE] Current URL: ${window.location.href}`);
     console.log(`[GOOGLE] Origin: ${window.location.origin}`);
 
@@ -126,25 +132,25 @@ export const initGoogleAuth = (
 
     if (uxMode === 'popup') {
         config.callback = (resp: any) => {
-            console.log("[GOOGLE] Popup callback fired", { 
-                hasError: !!resp.error, 
-                hasToken: !!resp.access_token 
+            console.log("[GOOGLE] Popup callback fired", {
+                hasError: !!resp.error,
+                hasToken: !!resp.access_token
             });
             callback(resp);
         };
     }
 
-    console.log('[GOOGLE] Creating token client with config:', { 
-        client_id: config.client_id.substring(0, 20) + '...', 
+    console.log('[GOOGLE] Creating token client with config:', {
+        client_id: config.client_id.substring(0, 20) + '...',
         ux_mode: config.ux_mode,
         redirect_uri: config.redirect_uri,
         hasCallback: !!config.callback,
         scope: config.scope
     });
-    
+
     const tokenClient = (window as any).google.accounts.oauth2.initTokenClient(config);
     console.log('[GOOGLE] ✓ Token client created successfully');
-    
+
     return tokenClient;
 };
 
@@ -164,17 +170,17 @@ class DriveCache {
     private fileCache: Map<string, { file: any; timestamp: number }>; // fileId -> file
     private folderFileCache: Map<string, { files: DriveFile[]; timestamp: number }>; // folderId -> files
     private manifestCache: Map<string, { data: any; timestamp: number }>; // manifestId -> manifest data
-    
+
     constructor() {
         this.folderCache = new Map();
         this.fileCache = new Map();
         this.folderFileCache = new Map();
         this.manifestCache = new Map();
-        
+
         // Cleanup old cache entries periodically
         setInterval(() => this.cleanup(), 5 * 60 * 1000); // Every 5 minutes
     }
-    
+
     getFolderId(accessToken: string): string | null {
         const cached = this.folderCache.get(accessToken);
         if (cached && Date.now() - cached.timestamp < 10 * 60 * 1000) { // 10 minutes
@@ -182,11 +188,11 @@ class DriveCache {
         }
         return null;
     }
-    
+
     setFolderId(accessToken: string, folderId: string) {
         this.folderCache.set(accessToken, { folderId, timestamp: Date.now() });
     }
-    
+
     getFile(fileId: string): any {
         const cached = this.fileCache.get(fileId);
         if (cached && Date.now() - cached.timestamp < 5 * 60 * 1000) { // 5 minutes
@@ -194,11 +200,11 @@ class DriveCache {
         }
         return null;
     }
-    
+
     setFile(fileId: string, file: any) {
         this.fileCache.set(fileId, { file, timestamp: Date.now() });
     }
-    
+
     getFolderFiles(folderId: string): DriveFile[] | null {
         const cached = this.folderFileCache.get(folderId);
         if (cached && Date.now() - cached.timestamp < 2 * 60 * 1000) { // 2 minutes
@@ -206,11 +212,11 @@ class DriveCache {
         }
         return null;
     }
-    
+
     setFolderFiles(folderId: string, files: DriveFile[]) {
         this.folderFileCache.set(folderId, { files, timestamp: Date.now() });
     }
-    
+
     getManifest(): { data: any; timestamp: number } | null {
         // For now, we'll just return the first manifest in the cache
         // In a more advanced implementation, we could have multiple manifests
@@ -221,29 +227,29 @@ class DriveCache {
         }
         return null;
     }
-    
+
     setManifest(manifest: any) {
         // Use a fixed key for now, could be made more sophisticated
         this.manifestCache.set('current_manifest', { data: manifest, timestamp: Date.now() });
     }
-    
+
     private cleanup() {
         const now = Date.now();
-        
+
         // Clean up folder cache
         this.folderCache.forEach((value, key) => {
             if (now - value.timestamp > 10 * 60 * 1000) {
                 this.folderCache.delete(key);
             }
         });
-        
+
         // Clean up file cache
         this.fileCache.forEach((value, key) => {
             if (now - value.timestamp > 5 * 60 * 1000) {
                 this.fileCache.delete(key);
             }
         });
-        
+
         // Clean up folder files cache
         this.folderFileCache.forEach((value, key) => {
             if (now - value.timestamp > 2 * 60 * 1000) {
@@ -251,7 +257,7 @@ class DriveCache {
             }
         });
     }
-    
+
     clear() {
         this.folderCache.clear();
         this.fileCache.clear();
@@ -573,7 +579,7 @@ export const downloadFile = async (accessToken: string, fileId: string) => {
         if ((window as any).devMode) console.log(`[Drive] Using cached content for ID: ${fileId}`);
         return cached;
     }
-    
+
     if ((window as any).devMode) console.log(`Downloading file content for ID: ${fileId}`);
     const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
         headers: { 'Authorization': `Bearer ${accessToken}` },
@@ -586,12 +592,12 @@ export const downloadFile = async (accessToken: string, fileId: string) => {
     }
 
     const data = await safeJsonParse(response);
-    
+
     // NEW: Cache the downloaded content
     if (data) {
         driveCache.setFile(fileId, data);
     }
-    
+
     return data;
 };
 
@@ -664,12 +670,12 @@ async function locateDriveConfig(accessToken: string) {
         console.log("No app folder found. Creating new one.");
         activeFolderId = await createFolder(accessToken);
     }
-    
+
     // NEW: Cache the folder ID
     if (activeFolderId) {
         driveCache.setFolderId(accessToken, activeFolderId);
     }
-    
+
     return { folderId: activeFolderId };
 }
 
@@ -769,7 +775,7 @@ export const DriveService = {
             const cachedManifest = driveCache.getManifest();
             if (cachedManifest && Date.now() - cachedManifest.timestamp < 2 * 60 * 1000) {
                 console.log("Read: Using cached manifest...");
-                
+
                 // Download only changed collections
                 const collections: Record<string, any[]> = {};
                 const downloadPromises = Object.entries(cachedManifest.data.collections || {}).map(async ([name, info]: [string, any]) => {
@@ -809,33 +815,29 @@ export const DriveService = {
                 findFileByName(accessToken, folderId, STABLE_SYNC_FILENAME)
             ]);
 
-            // NEW: Prioritize the stable file (monolithic approach) for faster sync
-            // Only use manifest if it's significantly newer than the stable file
-            if (stableFile) {
-                console.log("Read: Loading from monolithic LiveSync file (faster approach)");
-                const data = await downloadFile(accessToken, stableFile.id);
-                if (data) {
-                    localStorage.setItem('gdrive_sync_file_id', stableFile.id);
-                    const assetsFile = await findFileByName(accessToken, folderId, STABLE_ASSETS_FILENAME);
-                    if (assetsFile) {
-                        const assets = await downloadFile(accessToken, assetsFile.id);
-                        return mergeStateData(data, assets);
-                    }
-                    return data;
-                }
+            // DECISION LOGIC: Prioritize the newer file
+            let useManifest = false;
+            if (manifestFile && stableFile) {
+                const manifestTime = new Date(manifestFile.modifiedTime).getTime();
+                const stableTime = new Date(stableFile.modifiedTime).getTime();
+                useManifest = manifestTime >= stableTime;
+                console.log(`[Drive] File comparison: Manifest (${manifestFile.modifiedTime}) vs LiveSync (${stableFile.modifiedTime}). Using Manifest: ${useManifest}`);
+            } else if (manifestFile) {
+                useManifest = true;
             }
 
-            // Fallback to Manifest if stable file doesn't exist or failed to load
-            if (manifestFile) {
+            // Path A: Manifest (Incremental approach - Preferred for multi-device)
+            if (useManifest && manifestFile) {
+                console.log("Read: Loading from Manifest (incremental approach)");
                 const manifest = await downloadFile(accessToken, manifestFile.id);
+
                 if (!manifest || !manifest.collections) {
-                    console.warn("Manifest empty or invalid. No data to load.");
+                    console.warn("Manifest empty or invalid. Checking for monolithic fallback.");
+                    // Continue to monolithic if manifest fails
                 } else {
-                    console.log("Read: Loading from Manifest (incremental approach)");
-                    
-                    // NEW: Cache the manifest for future use
+                    // Cache manifest
                     driveCache.setManifest(manifest);
-                    
+
                     const collections: Record<string, any[]> = {};
                     const downloadPromises = Object.entries(manifest.collections).map(async ([name, info]: [string, any]) => {
                         try {
@@ -846,8 +848,8 @@ export const DriveService = {
                         }
                     });
 
-                    // Execute downloads in parallel but with a limit to prevent overwhelming
-                    const chunkSize = 3; // Limit concurrent downloads
+                    // Execute downloads in parallel with limit
+                    const chunkSize = 3;
                     for (let i = 0; i < downloadPromises.length; i += chunkSize) {
                         const chunk = downloadPromises.slice(i, i + chunkSize);
                         await Promise.all(chunk);
@@ -860,18 +862,31 @@ export const DriveService = {
                         try {
                             const decryptedKey = await decryptData(manifest.metadata.secure);
                             if (decryptedKey) localStorage.setItem('gemini_api_key', decryptedKey);
-                        } catch (err) {
-                            console.warn("Failed to decrypt API Key from Manifest:", err);
-                        }
+                        } catch (err) { }
                     }
 
-                    // Load assets if present
+                    // Load assets
                     const assetsFile = await findFileByName(accessToken, folderId, STABLE_ASSETS_FILENAME);
                     if (assetsFile) {
                         const assets = await downloadFile(accessToken, assetsFile.id);
                         return mergeStateData(combinedData, assets);
                     }
                     return combinedData;
+                }
+            }
+
+            // Path B: Monolithic fallback (Stable approach - Legacy)
+            if (stableFile) {
+                console.log("Read: Loading from monolithic LiveSync file");
+                const data = await downloadFile(accessToken, stableFile.id);
+                if (data) {
+                    localStorage.setItem('gdrive_sync_file_id', stableFile.id);
+                    const assetsFile = await findFileByName(accessToken, folderId, STABLE_ASSETS_FILENAME);
+                    if (assetsFile) {
+                        const assets = await downloadFile(accessToken, assetsFile.id);
+                        return mergeStateData(data, assets);
+                    }
+                    return data;
                 }
             }
 
@@ -923,7 +938,7 @@ export const DriveService = {
             // 4. Save Manifest
             await uploadFile(accessToken, folderId, manifest, 'Manifest.json', manifestFile?.id);
             console.log("Incremental sync successful.");
-            
+
             // NEW: Clear cache to ensure fresh data on next read
             driveCache.clear();
         } catch (e: any) {
@@ -1039,10 +1054,10 @@ export const DriveService = {
             }
 
             console.log("Sync successful. ID:", finalId);
-            
+
             // NEW: Clear cache to ensure fresh data on next read
             driveCache.clear();
-            
+
             return finalId;
         } catch (e: any) {
             if (e.message && e.message.includes('404')) {
@@ -1052,5 +1067,15 @@ export const DriveService = {
             }
             throw e;
         }
+    },
+
+    /**
+     * Helper to detect mobile/tablet devices accurately
+     */
+    isMobile: () => {
+        const userAgent = navigator.userAgent;
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+        const isIPadPro = (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        return isMobile || isIPadPro || window.innerWidth < 1024;
     }
 };

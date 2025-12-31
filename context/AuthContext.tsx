@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect, useRef, ReactNode, useCallback } from 'react';
 import { GoogleUser, AppMetadataPin, AppMetadata, Page } from '../types';
-import { loadGoogleScript, initGoogleAuth, getUserInfo, revokeConsent } from '../utils/googleDrive';
+import { loadGoogleScript, initGoogleAuth, getUserInfo, revokeConsent, DriveService } from '../utils/googleDrive';
 import { useUI } from './UIContext';
 import { saveCollection, getAll, upsertItem } from '../utils/db';
 
@@ -55,9 +55,9 @@ const initialState: AuthState = {
 const authReducer = (state: AuthState, action: AuthAction): AuthState => {
     switch (action.type) {
         case 'SET_GOOGLE_USER':
-            console.log('[AUTH REDUCER] SET_GOOGLE_USER called', { 
+            console.log('[AUTH REDUCER] SET_GOOGLE_USER called', {
                 hasPayload: !!action.payload,
-                email: action.payload?.email 
+                email: action.payload?.email
             });
             if (action.payload) {
                 try {
@@ -66,7 +66,7 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
                 } catch (e) {
                     console.error('[AUTH REDUCER] ✗ localStorage save failed:', e);
                 }
-                
+
                 try {
                     upsertItem('app_metadata', { id: 'googleUser', ...action.payload, updatedAt: new Date().toISOString() });
                     console.log('[AUTH REDUCER] ✓ Initiated IndexedDB save');
@@ -126,7 +126,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const { showToast } = useUI();
     const tokenClientRef = useRef<any>(null);
     const tokenRefreshTimerRef = useRef<number | null>(null);
-    const refreshGoogleTokenRef = useRef<() => void>(() => {});
+    const refreshGoogleTokenRef = useRef<() => void>(() => { });
+
+    const { googleUser } = authState;
 
     // NEW: Token refresh timer cleanup on unmount
     useEffect(() => {
@@ -148,23 +150,37 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
 
         if (user && user.expiresAt) {
+            const isMobile = DriveService.isMobile();
+
             // Refresh 5 minutes before expiration to be safe
             const refreshTime = user.expiresAt - Date.now() - (5 * 60 * 1000); // 5 minutes before expiry
-            
+
             if (refreshTime > 0) {
                 const timerId = window.setTimeout(() => {
-                    console.log('[AUTH] Token about to expire, refreshing...');
-                    refreshGoogleTokenRef.current();
+                    console.log('[AUTH] Token about to expire, checking refresh strategy...');
+
+                    if (isMobile) {
+                        // On mobile, auto-redirect refresh can be VERY disruptive.
+                        // We will NOT auto-refresh via redirect. Instead, we'll let the next 
+                        // manual sync or action trigger the sign-in modal if needed.
+                        console.log('[AUTH] Mobile detected: Skipping auto-refresh to avoid disruptive redirect.');
+                    } else {
+                        refreshGoogleTokenRef.current();
+                    }
                 }, refreshTime);
-                
+
                 // Store timer ID in both ref and state
                 tokenRefreshTimerRef.current = timerId;
                 authDispatch({ type: 'SET_TOKEN_REFRESH_TIMER', payload: timerId });
-                console.log(`[AUTH] Scheduled token refresh in ${Math.round(refreshTime / 60000)} minutes`);
+                console.log(`[AUTH] Scheduled token check in ${Math.round(refreshTime / 60000)} minutes (isMobile: ${isMobile})`);
             } else {
-                // Token already expired or will expire soon, refresh immediately
-                console.log('[AUTH] Token already expired or expiring soon, refreshing immediately');
-                refreshGoogleTokenRef.current();
+                // Token already expired or will expire soon
+                if (!isMobile) {
+                    console.log('[AUTH] Token already expired or expiring soon, refreshing immediately');
+                    refreshGoogleTokenRef.current();
+                } else {
+                    console.log('[AUTH] Mobile detected: Token expired but skipping auto-refresh to avoid redirect.');
+                }
             }
         }
     }, [authDispatch]); // Include only non-circular dependencies
@@ -184,7 +200,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     // User data is already in localStorage, no need to restore from DB
                     return;
                 }
-                
+
                 // Only try to restore from DB if localStorage is truly missing the user data
                 const metadata = await getAll('app_metadata');
                 const googleUserMeta = metadata.find((m: any) => m.id === 'googleUser');
@@ -210,7 +226,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 // Don't crash the app if IndexedDB fails, just continue without auth
             }
         };
-        
+
         // Only attempt to restore if we're in a browser environment and have access to storage
         if (typeof window !== 'undefined' && window.localStorage) {
             restoreAuthFromDB();
@@ -231,13 +247,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const checkRedirect = async () => {
             const hash = window.location.hash;
             const search = window.location.search;
-            
-            console.log('[AUTH] Checking for OAuth redirect...', { 
-                hash: hash.substring(0, 100), 
+
+            console.log('[AUTH] Checking for OAuth redirect...', {
+                hash: hash.substring(0, 100),
                 search: search.substring(0, 100),
                 fullURL: window.location.href
             });
-            
+
             // Check hash parameters (standard OAuth2 implicit flow)
             if (hash && (hash.includes('access_token=') || hash.includes('error='))) {
                 console.log('[AUTH] ✓ Found OAuth response in URL hash');
@@ -292,14 +308,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // Handle Login Response
     const handleGoogleLoginResponse = async (response: any) => {
-        console.log("[AUTH] handleGoogleLoginResponse triggered", { 
+        console.log("[AUTH] handleGoogleLoginResponse triggered", {
             hasError: !!response.error,
             hasAccessToken: !!response.access_token,
             scope: response.scope,
             expiresIn: response.expires_in,
-            fullResponse: response 
+            fullResponse: response
         });
-        
+
         if (response.error) {
             console.error("[AUTH] Google Login Error:", response.error);
             showToast(`Sign-in failed: ${response.error}`, 'error');
@@ -311,7 +327,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             try {
                 const userInfo = await getUserInfo(response.access_token);
                 console.log("[AUTH] User info fetched:", { name: userInfo.name, email: userInfo.email });
-                
+
                 const expiresAt = Date.now() + (response.expires_in * 1000);
 
                 const user: GoogleUser = {
@@ -323,7 +339,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 };
 
                 console.log("[AUTH] Saving user to state and localStorage...");
-                
+
                 // Save to localStorage first (synchronous)
                 try {
                     localStorage.setItem('googleUser', JSON.stringify(user));
@@ -335,7 +351,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 // Save to IndexedDB (async, fire-and-forget in reducer)
                 authDispatch({ type: 'SET_GOOGLE_USER', payload: user });
                 console.log("[AUTH] ✓ Dispatched SET_GOOGLE_USER action");
-                
+
                 showToast(`Welcome, ${user.name}!`, 'success');
                 console.log("[AUTH] ✓ Sign-in complete!");
 
@@ -355,9 +371,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             return;
         }
 
-        console.log('[Auth] Sign-in initiated', { 
+        console.log('[Auth] Sign-in initiated', {
             hasTokenClient: !!tokenClientRef.current,
-            forceConsent: options?.forceConsent 
+            forceConsent: options?.forceConsent
         });
 
         // Force fresh init if consent is requested (retrying)
@@ -402,7 +418,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }).catch(console.error);
         }
     };
-    
+
     // Update the ref when the function is defined
     useEffect(() => {
         refreshGoogleTokenRef.current = refreshGoogleToken;
