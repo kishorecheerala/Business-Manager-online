@@ -48,8 +48,8 @@ try {
 
   ReactDOM.createRoot(rootElement).render(
     <React.StrictMode>
-      <ErrorBoundary>
-        <UIProvider>
+      <UIProvider>
+        <ErrorBoundary>
           <AuthProvider>
             <DataProvider>
               <DialogProvider>
@@ -59,8 +59,8 @@ try {
               </DialogProvider>
             </DataProvider>
           </AuthProvider>
-        </UIProvider>
-      </ErrorBoundary>
+        </ErrorBoundary>
+      </UIProvider>
     </React.StrictMode>,
   );
 } catch (e: any) {

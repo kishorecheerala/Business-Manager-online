@@ -53,7 +53,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
     const { theme, uiPreferences, navOrder, themeColor, themeGradient } = uiState;
     const { authState, authDispatch, lockApp, unlockApp, refreshGoogleToken } = useAuth();
     const { isAuthenticated, isLocked, pin, isStaffMode, protectedPages, googleUser } = authState;
-    const { isOnline, syncStatus, lastSyncTime } = state; // state contains: isOnline, syncStatus, lastSyncTime, profile, notifications
+    const { isOnline, syncStatus, syncMessage, lastSyncTime } = state; // state contains: isOnline, syncStatus, lastSyncTime, profile, notifications
 
     const { showConfirm } = useDialog();
     const [isMenuOpen, setIsMenuOpen] = useState(false);

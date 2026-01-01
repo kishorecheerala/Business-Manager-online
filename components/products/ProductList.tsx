@@ -57,8 +57,9 @@ const ProductList: React.FC<ProductListProps> = ({
     const rowVirtualizer = useVirtualizer({
         count,
         getScrollElement: () => parentRef.current,
-        estimateSize: () => viewMode === 'list' ? 80 : 300, // Estimate row height
+        estimateSize: () => viewMode === 'list' ? 80 : 380,
         overscan: 5,
+        measureElement: (el) => el.offsetHeight,
     });
 
     if (products.length === 0) {
@@ -82,14 +83,15 @@ const ProductList: React.FC<ProductListProps> = ({
         <div
             ref={parentRef}
             className="flex-grow overflow-auto h-full w-full pr-2 custom-scrollbar pb-20"
-            style={{ contain: 'strict' }}
         >
             <div
                 style={{
                     height: `${rowVirtualizer.getTotalSize()}px`,
                     width: '100%',
                     position: 'relative',
+                    paddingTop: '1rem' // Prevents first row hover scale from being clipped
                 }}
+                className="z-0"
             >
                 {rowVirtualizer.getVirtualItems().map((virtualRow) => {
                     const isList = viewMode === 'list';
@@ -100,14 +102,15 @@ const ProductList: React.FC<ProductListProps> = ({
                         return (
                             <div
                                 key={product.id}
+                                data-index={virtualRow.index}
+                                ref={rowVirtualizer.measureElement}
                                 style={{
                                     position: 'absolute',
                                     top: 0,
                                     left: 0,
                                     width: '100%',
-                                    height: `${virtualRow.size}px`,
                                     transform: `translateY(${virtualRow.start}px)`,
-                                    paddingBottom: '0.75rem' // Gap
+                                    paddingBottom: '1rem' // Gap between rows
                                 }}
                             >
                                 <ProductListItem
@@ -128,19 +131,19 @@ const ProductList: React.FC<ProductListProps> = ({
                         return (
                             <div
                                 key={virtualRow.index}
+                                data-index={virtualRow.index}
+                                ref={rowVirtualizer.measureElement}
                                 style={{
                                     position: 'absolute',
                                     top: 0,
                                     left: 0,
                                     width: '100%',
-                                    height: `${virtualRow.size}px`,
                                     transform: `translateY(${virtualRow.start}px)`,
+                                    paddingBottom: '1.5rem' // Gap between grid rows
                                 }}
-                                className="grid gap-4"
-                            // Dynamically set grid columns to match our JS logic so CSS aligns
-                            // We use standard grid classes inside
+                                className="hover:z-20"
                             >
-                                <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 w-full h-full`}>
+                                <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 w-full`}>
                                     {rowProducts.map(product => (
                                         <ProductCard
                                             key={product.id}

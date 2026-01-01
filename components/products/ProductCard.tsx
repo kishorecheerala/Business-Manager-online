@@ -26,7 +26,7 @@ const ProductCard: React.FC<ProductCardProps> = memo(({
                 if (isSelectionMode) onToggleSelection(product.id);
                 else onClick(product);
             }}
-            className={`bg-white dark:bg-slate-800 rounded-xl overflow-hidden shadow-sm border transition-all cursor-pointer relative group ${isSelected
+            className={`bg-white dark:bg-slate-800 rounded-xl overflow-hidden shadow-sm border transition-all cursor-pointer relative group z-0 hover:z-10 ${isSelected
                 ? 'ring-2 ring-indigo-500'
                 : 'hover:shadow-md hover:-translate-y-1'
                 }`}

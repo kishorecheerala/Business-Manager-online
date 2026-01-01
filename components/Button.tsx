@@ -1,6 +1,6 @@
 
 import React, { forwardRef } from 'react';
-import { useUI } from '../context/UIContext';
+import { useUI, UIContext } from '../context/UIContext';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children: React.ReactNode;
@@ -9,8 +9,8 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(({ children, variant = 'primary', className = '', type = 'button', ...props }, ref) => {
-  const { uiState } = useUI();
-  const style = uiState?.uiPreferences?.buttonStyle || 'rounded';
+  const uiContext = React.useContext(UIContext);
+  const style = uiContext?.uiState?.uiPreferences?.buttonStyle || 'rounded';
 
   let roundedClass = 'rounded-md'; // Default
   if (style === 'pill') roundedClass = 'rounded-full';

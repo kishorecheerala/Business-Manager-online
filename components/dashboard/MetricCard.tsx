@@ -39,7 +39,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
     return (
         <div
             onClick={onClick}
-            className={`rounded-lg shadow-md p-3 sm:p-4 flex items-center transition-all duration-300 hover:shadow-xl hover:scale-[1.01] ${color} ${onClick ? 'cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-primary/50' : ''} animate-slide-up-fade group relative`}
+            className={`rounded-lg shadow-md p-3 sm:p-4 flex items-center transition-all duration-300 hover:shadow-xl hover:scale-[1.01] hover:z-10 ${color} ${onClick ? 'cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-primary/50' : ''} animate-slide-up-fade group relative`}
             style={{ animationDelay: `${delay || 0}ms` }}
             role={onClick ? 'button' : undefined}
             title={tooltip}

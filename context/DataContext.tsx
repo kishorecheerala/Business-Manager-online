@@ -75,6 +75,7 @@ const initialState: DataState = {
     selection: null,
 
     syncStatus: 'idle',
+    syncMessage: undefined,
     syncLogs: [],
     lastSyncTime: 0,
     lastLocalUpdate: 0,
