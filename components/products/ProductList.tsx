@@ -82,7 +82,7 @@ const ProductList: React.FC<ProductListProps> = ({
     return (
         <div
             ref={parentRef}
-            className="flex-grow overflow-auto h-full w-full pr-2 custom-scrollbar pb-20"
+            className="flex-grow overflow-auto h-full w-full px-4 pt-4 custom-scrollbar pb-32"
         >
             <div
                 style={{

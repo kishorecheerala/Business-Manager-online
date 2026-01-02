@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { IndianRupee, User, AlertTriangle, Download, Upload, ShoppingCart, Package, Archive, TestTube2, X, Share, Award, Wallet, Zap, CalendarRange, CreditCard, Banknote, Receipt } from 'lucide-react';
 import { useData } from '../context/DataContext';
@@ -61,13 +61,26 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
     };
 
     // --- Filters State ---
-    const [duration, setDuration] = useState('this_month');
+    const [duration, setDuration] = useState(() => localStorage.getItem('dashboard_duration') || 'this_month');
     const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
     const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth().toString());
-    const [customStart, setCustomStart] = useState(getLocalDateString());
-    const [customEnd, setCustomEnd] = useState(getLocalDateString());
+    const [customStart, setCustomStart] = useState(() => localStorage.getItem('dashboard_customStart') || getLocalDateString());
+    const [customEnd, setCustomEnd] = useState(() => localStorage.getItem('dashboard_customEnd') || getLocalDateString());
     const [isStartCalendarOpen, setIsStartCalendarOpen] = useState(false);
     const [isEndCalendarOpen, setIsEndCalendarOpen] = useState(false);
+
+    // Persistence Effects
+    useEffect(() => {
+        localStorage.setItem('dashboard_duration', duration);
+    }, [duration]);
+
+    useEffect(() => {
+        localStorage.setItem('dashboard_customStart', customStart);
+    }, [customStart]);
+
+    useEffect(() => {
+        localStorage.setItem('dashboard_customEnd', customEnd);
+    }, [customEnd]);
 
     // Collection Modal State
     const [collectionDetailModalOpen, setCollectionDetailModalOpen] = useState(false);
@@ -87,7 +100,8 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
         return Array.from(years).sort().reverse();
     }, [sales]);
 
-    const durationOptions = [
+    // Move outside or memoize
+    const durationOptions = useMemo(() => [
         { value: 'today', label: 'Today' },
         { value: 'yesterday', label: 'Yesterday' },
         { value: 'this_week', label: 'This Week' },
@@ -96,7 +110,12 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
         { value: 'last_month', label: 'Last Month' },
         { value: 'this_year', label: 'This Year' },
         { value: 'custom', label: 'Custom Period' },
-    ];
+    ], []);
+
+    const handleCustomStartChange = useCallback((e: { target: { value: string } }) => setCustomStart(e.target.value), []);
+    const handleCustomEndChange = useCallback((e: { target: { value: string } }) => setCustomEnd(e.target.value), []);
+    const handleStartToggle = useCallback((val: boolean) => setIsStartCalendarOpen(val), []);
+    const handleEndToggle = useCallback((val: boolean) => setIsEndCalendarOpen(val), []);
 
     // Compute generic date range based on duration filter
     const dateRange = useMemo(() => {
@@ -516,17 +535,17 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage }) => {
                             <div className="flex items-center gap-2 px-2 w-full sm:w-auto border-t sm:border-t-0 pt-2 sm:pt-0 dark:border-slate-700">
                                 <ModernDateInput
                                     value={customStart}
-                                    onChange={(e) => setCustomStart(e.target.value)}
+                                    onChange={handleCustomStartChange}
                                     isOpen={isStartCalendarOpen}
-                                    onToggle={setIsStartCalendarOpen}
+                                    onToggle={handleStartToggle}
                                     containerClassName="flex-1 sm:flex-none sm:w-40"
                                 />
                                 <span className="text-gray-400 shrink-0">-</span>
                                 <ModernDateInput
                                     value={customEnd}
-                                    onChange={(e) => setCustomEnd(e.target.value)}
+                                    onChange={handleCustomEndChange}
                                     isOpen={isEndCalendarOpen}
-                                    onToggle={setIsEndCalendarOpen}
+                                    onToggle={handleEndToggle}
                                     containerClassName="flex-1 sm:flex-none sm:w-40"
                                 />
                             </div>

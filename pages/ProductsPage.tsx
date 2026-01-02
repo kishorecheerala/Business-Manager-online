@@ -4,6 +4,7 @@ import { useData } from '../context/DataContext';
 import { useUI } from '../context/UIContext';
 import { Product } from '../types';
 import { formatCurrency, generateDownloadFilename } from '../utils/formatUtils';
+import Tooltip from '../components/Tooltip';
 import Button from '../components/Button';
 import BarcodeModal from '../components/BarcodeModal';
 import BatchBarcodeModal from '../components/BatchBarcodeModal';
@@ -305,37 +306,47 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                     <h1 className="text-2xl font-bold text-primary">Products</h1>
                 </div>
 
-                <div className="flex gap-2 w-full sm:w-auto overflow-x-auto">
+                <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                     <div className="flex bg-gray-100 dark:bg-slate-800 rounded-lg p-1">
                         <button
                             onClick={() => setViewMode('list')}
                             className={`p-2 rounded-md transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-600 shadow text-primary' : 'text-gray-500'}`}
+                            title="List View"
                         >
                             <List size={18} />
                         </button>
                         <button
                             onClick={() => setViewMode('grid')}
                             className={`p-2 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-slate-600 shadow text-primary' : 'text-gray-500'}`}
+                            title="Grid View"
                         >
                             <Grid size={18} />
                         </button>
                     </div>
 
-                    <Button onClick={() => setIsGlobalHistoryOpen(true)} variant="secondary" className="px-3" title="Global Stock Flow">
-                        <History size={18} />
-                    </Button>
+                    <Tooltip content="Global Stock Flow">
+                        <Button onClick={() => setIsGlobalHistoryOpen(true)} variant="secondary" className="px-3">
+                            <History size={18} />
+                        </Button>
+                    </Tooltip>
 
-                    <Button onClick={() => setIsStockAdjustOpen(true)} variant="secondary" className="px-3" title="Audit Stock">
-                        <Scale size={18} />
-                    </Button>
+                    <Tooltip content="Audit Stock">
+                        <Button onClick={() => setIsStockAdjustOpen(true)} variant="secondary" className="px-3">
+                            <Scale size={18} />
+                        </Button>
+                    </Tooltip>
 
-                    <Button onClick={handleExportCSV} variant="secondary" className="px-3" title="Export CSV">
-                        <FileSpreadsheet size={18} />
-                    </Button>
+                    <Tooltip content="Export CSV">
+                        <Button onClick={handleExportCSV} variant="secondary" className="px-3">
+                            <FileSpreadsheet size={18} />
+                        </Button>
+                    </Tooltip>
 
-                    <Button onClick={handleAddNewProduct}>
-                        <Plus size={18} className="mr-2" /> Add Product
-                    </Button>
+                    <Tooltip content="Add Product">
+                        <Button onClick={handleAddNewProduct} className="px-3">
+                            <Plus size={18} />
+                        </Button>
+                    </Tooltip>
                 </div>
             </div>
 
@@ -382,7 +393,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                 )}
             </div>
 
-            <div className="flex gap-2 flex-shrink-0 mb-4">
+            <div className="flex gap-2 flex-shrink-0 mb-8 relative z-30 items-stretch h-11">
                 <div className="relative flex-grow">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
                     <input
@@ -390,16 +401,16 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                         placeholder="Search products..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full p-2 pl-10 border rounded-lg dark:bg-slate-700 dark:border-slate-600 dark:text-white"
+                        className="w-full h-full p-2 pl-10 border rounded-lg dark:bg-slate-700 dark:border-slate-600 dark:text-white"
                     />
                 </div>
-                <Button onClick={() => setIsScannerOpen(true)} variant="secondary" className="px-3">
+                <Button onClick={() => setIsScannerOpen(true)} variant="secondary" className="!px-0 !w-11 h-11 flex items-center justify-center flex-shrink-0">
                     <QrCode size={20} />
                 </Button>
                 <Button
                     onClick={() => setIsSelectionMode(!isSelectionMode)}
                     variant="secondary"
-                    className={`px-3 ${isSelectionMode ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' : ''}`}
+                    className={`!px-0 !w-11 h-11 flex items-center justify-center flex-shrink-0 ${isSelectionMode ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' : ''}`}
                 >
                     <CheckSquare size={20} />
                 </Button>

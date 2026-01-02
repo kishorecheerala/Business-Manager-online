@@ -368,6 +368,21 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const staffModeMeta = app_metadata.find(m => m.id === 'staffMode') as any;
             const googleUserMeta = app_metadata.find(m => m.id === 'googleUser');
 
+            // --- SYNC UI STATE WITH DB/CLOUD ---
+            // This ensures that when we restore from cloud, the UI (Theme, Logo, etc.) updates immediately
+            if (uiMeta) uiDispatch({ type: 'UPDATE_UI_PREFS', payload: uiMeta });
+            if (dashMeta) uiDispatch({ type: 'UPDATE_DASHBOARD_CONFIG', payload: dashMeta });
+            if (navMeta && navMeta.order) uiDispatch({ type: 'UPDATE_NAV_ORDER', payload: navMeta.order });
+            if (qaMeta && qaMeta.actions) uiDispatch({ type: 'UPDATE_QUICK_ACTIONS', payload: qaMeta.actions });
+
+            if (themeMeta) {
+                if (themeMeta.theme) uiDispatch({ type: 'SET_THEME', payload: themeMeta.theme });
+                if (themeMeta.color) uiDispatch({ type: 'SET_THEME_COLOR', payload: themeMeta.color });
+                if (themeMeta.gradient) uiDispatch({ type: 'SET_THEME_GRADIENT', payload: themeMeta.gradient });
+                if (themeMeta.headerColor) uiDispatch({ type: 'SET_HEADER_COLOR', payload: themeMeta.headerColor });
+                if (themeMeta.font) uiDispatch({ type: 'SET_FONT', payload: themeMeta.font });
+            }
+
             // Data State dispatches to other contexts are removed to prevent circular sync loops.
             // These contexts (UI, Auth) already manage their own persistent state initialization.
 

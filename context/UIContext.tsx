@@ -210,6 +210,43 @@ export const UIProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
         }
     }, [uiState.theme]);
 
+    // Hydrate UI State from DB on mount
+    useEffect(() => {
+        const loadSettings = async () => {
+            try {
+                const metadata = await db.getAll('app_metadata');
+                if (metadata && metadata.length > 0) {
+                    metadata.forEach(item => {
+                        switch (item.id) {
+                            case 'uiPreferences':
+                                uiDispatch({ type: 'UPDATE_UI_PREFS', payload: item });
+                                break;
+                            case 'dashboardConfig':
+                                uiDispatch({ type: 'UPDATE_DASHBOARD_CONFIG', payload: item });
+                                break;
+                            case 'navOrder':
+                                if (item.order) uiDispatch({ type: 'UPDATE_NAV_ORDER', payload: item.order });
+                                break;
+                            case 'quickActions':
+                                if (item.actions) uiDispatch({ type: 'UPDATE_QUICK_ACTIONS', payload: item.actions });
+                                break;
+                            case 'themeSettings':
+                                if (item.theme) uiDispatch({ type: 'SET_THEME', payload: item.theme });
+                                if (item.color) uiDispatch({ type: 'SET_THEME_COLOR', payload: item.color });
+                                if (item.gradient) uiDispatch({ type: 'SET_THEME_GRADIENT', payload: item.gradient });
+                                if (item.headerColor) uiDispatch({ type: 'SET_HEADER_COLOR', payload: item.headerColor });
+                                if (item.font) uiDispatch({ type: 'SET_FONT', payload: item.font });
+                                break;
+                        }
+                    });
+                }
+            } catch (e) {
+                console.error("Failed to load UI settings from DB", e);
+            }
+        };
+        loadSettings();
+    }, []);
+
     const showToast = useCallback((message: string, type: 'success' | 'info' | 'error' = 'info') => {
         uiDispatch({ type: 'SHOW_TOAST', payload: { message, type } });
     }, []);
