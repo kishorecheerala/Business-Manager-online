@@ -281,14 +281,14 @@ export async function mergeData(cloudData: any): Promise<void> {
             const tx = db.transaction(storeName as any, 'readwrite');
             const store = tx.objectStore(storeName as any);
 
-            for (const item of remoteItems) {
+            const promises = remoteItems.map(async (item) => {
                 if (item && item.id) {
                     const itemId = String(item.id);
 
                     if (trashIdSet.has(itemId)) {
                         // Item is in trash locally, ensure it's deleted
                         await store.delete(itemId);
-                        continue;
+                        return;
                     }
 
                     try {
@@ -308,7 +308,9 @@ export async function mergeData(cloudData: any): Promise<void> {
                         console.warn(`Error processing item ${itemId} in ${storeName}: `, e);
                     }
                 }
-            }
+            });
+
+            await Promise.all(promises);
             await tx.done;
             // Mark as synced so we don't immediately push it back? 
             // Actually, we usually rely on 'getModifiedStores' which compares timestamps. 

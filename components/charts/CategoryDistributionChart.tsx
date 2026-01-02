@@ -92,4 +92,4 @@ const CategoryDistributionChart: React.FC<CategoryDistributionChartProps> = ({ s
     );
 };
 
-export default CategoryDistributionChart;
+export default React.memo(CategoryDistributionChart);

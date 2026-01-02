@@ -5,6 +5,8 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { Product } from '../types';
 import Card from './Card';
 
+import { useDebounce } from '../hooks/useDebounce';
+
 interface ProductSearchModalProps {
   products: Product[];
   onClose: () => void;
@@ -13,15 +15,16 @@ interface ProductSearchModalProps {
 
 const ProductSearchModal: React.FC<ProductSearchModalProps> = ({ products, onClose, onSelect }) => {
   const [productSearchTerm, setProductSearchTerm] = useState('');
+  const debouncedTerm = useDebounce(productSearchTerm, 300);
   const parentRef = useRef<HTMLDivElement>(null);
 
   const filteredProducts = useMemo(() => {
-    const lowerTerm = productSearchTerm.toLowerCase();
+    const lowerTerm = debouncedTerm.toLowerCase();
     return products.filter(p =>
       p.name.toLowerCase().includes(lowerTerm) ||
       p.id.toLowerCase().includes(lowerTerm)
     );
-  }, [products, productSearchTerm]);
+  }, [products, debouncedTerm]);
 
   const rowVirtualizer = useVirtualizer({
     count: filteredProducts.length,

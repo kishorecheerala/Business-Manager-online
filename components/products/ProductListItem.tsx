@@ -41,7 +41,7 @@ const ProductListItem: React.FC<ProductListItemProps> = memo(({
             {/* Image Thumbnail */}
             <div className="w-12 h-12 rounded-lg bg-gray-100 dark:bg-slate-700 overflow-hidden flex-shrink-0 relative">
                 {product.image ? (
-                    <img src={product.image} alt="" className="w-full h-full object-cover" />
+                    <img src={product.image} alt={product.name} loading="lazy" className="w-full h-full object-cover" />
                 ) : (
                     <div className="w-full h-full flex items-center justify-center text-gray-400">
                         <ImageIcon size={20} />

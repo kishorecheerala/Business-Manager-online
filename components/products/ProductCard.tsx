@@ -54,7 +54,7 @@ const ProductCard: React.FC<ProductCardProps> = memo(({
             {/* Image */}
             <div className="aspect-square bg-gray-100 dark:bg-slate-700 relative">
                 {product.image ? (
-                    <img src={product.image} alt="" className="w-full h-full object-cover" />
+                    <img src={product.image} alt={product.name} loading="lazy" className="w-full h-full object-cover" />
                 ) : (
                     <div className="w-full h-full flex items-center justify-center text-gray-400">
                         <ImageIcon size={32} />

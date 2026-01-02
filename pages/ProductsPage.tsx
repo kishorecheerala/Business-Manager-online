@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Search, List, Grid, QrCode, CheckSquare, AlertTriangle, FileSpreadsheet, Scale, History, Plus, Trash2, Share2, IndianRupee, Barcode } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { useUI } from '../context/UIContext';
@@ -14,6 +14,7 @@ import ProductHistoryModal from '../components/ProductHistoryModal';
 import BatchPriceModal from '../components/BatchPriceModal';
 import QRScannerModal from '../components/QRScannerModal';
 import { useDataLookups } from '../hooks/useDataLookups';
+import { useDebounce } from '../hooks/useDebounce';
 
 // Refactored Components
 import ProductList from '../components/products/ProductList';
@@ -42,6 +43,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     const { showConfirm } = useDialog();
     const { getProduct } = useDataLookups();
     const [searchTerm, setSearchTerm] = useState('');
+    const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
     // View Modes
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
@@ -86,7 +88,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
     }, [isEditing, setIsDirty]);
 
     const filteredProducts = useMemo(() => {
-        const lowerTerm = searchTerm.toLowerCase();
+        const lowerTerm = debouncedSearchTerm.toLowerCase();
         if (lowerTerm === 'low_stock') {
             return state.products.filter(p => p.quantity < 5);
         }
@@ -95,7 +97,7 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
             p.id.toLowerCase().includes(lowerTerm) ||
             p.category?.toLowerCase().includes(lowerTerm)
         );
-    }, [state.products, searchTerm]);
+    }, [state.products, debouncedSearchTerm]);
 
     const inventoryStats = useMemo(() => {
         const totalValue = state.products.reduce((sum, p) => sum + (p.quantity * p.purchasePrice), 0);
@@ -104,12 +106,23 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
         return { totalValue, totalCount, lowStock };
     }, [state.products]);
 
-    const toggleSelection = (id: string) => {
-        const newSet = new Set(selectedIds);
-        if (newSet.has(id)) newSet.delete(id);
-        else newSet.add(id);
-        setSelectedIds(newSet);
-    };
+    const toggleSelection = useCallback((id: string) => {
+        setSelectedIds(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(id)) newSet.delete(id);
+            else newSet.add(id);
+            return newSet;
+        });
+    }, []);
+
+    const handleSelectProduct = useCallback((product: Product) => {
+        setSelectedProduct(product);
+        setEditedProduct(product);
+    }, []);
+
+    const handleViewHistory = useCallback((product: Product) => {
+        setHistoryProduct(product);
+    }, []);
 
     const handleBulkDelete = async () => {
         if (await showConfirm(`Delete ${selectedIds.size} selected products? This cannot be undone.`)) {
@@ -422,11 +435,8 @@ const ProductsPage: React.FC<ProductsPageProps> = ({ setIsDirty }) => {
                 isSelectionMode={isSelectionMode}
                 selectedIds={selectedIds}
                 onToggleSelection={toggleSelection}
-                onSelectProduct={(product) => {
-                    setSelectedProduct(product);
-                    setEditedProduct(product);
-                }}
-                onViewHistory={(product) => setHistoryProduct(product)}
+                onSelectProduct={handleSelectProduct}
+                onViewHistory={handleViewHistory}
                 onAddProduct={handleAddNewProduct}
                 searchTerm={searchTerm}
             />

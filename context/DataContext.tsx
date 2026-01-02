@@ -1,4 +1,4 @@
-import React, { createContext, useReducer, useContext, useEffect, ReactNode, useState, useCallback, useRef } from 'react';
+import React, { createContext, useReducer, useContext, useEffect, ReactNode, useState, useCallback, useRef, useMemo } from 'react';
 import {
     Customer, Supplier, Product, Sale, Purchase, Return, Expense, Quote,
     AppMetadata, AppMetadataTheme, AppMetadataPin, AppMetadataUIPreferences,
@@ -725,8 +725,19 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     };
 
+    const providerValue = useMemo(() => ({
+        state,
+        dispatch,
+        isDbLoaded,
+        syncData,
+        restoreFromFileId,
+        googleSignIn,
+        showToast,
+        googleUser
+    }), [state, isDbLoaded, googleUser, googleSignIn, showToast, restoreFromFileId]); // dispatch is stable
+
     return (
-        <DataContext.Provider value={{ state, dispatch, isDbLoaded, syncData, restoreFromFileId, googleSignIn, showToast, googleUser }}>
+        <DataContext.Provider value={providerValue}>
             {children}
         </DataContext.Provider>
     );
