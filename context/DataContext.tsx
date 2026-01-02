@@ -395,6 +395,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
             const finalBankAccounts = Array.isArray(bankAccountsData) ? (bankAccountsData as unknown as BankAccount[]) : [];
 
+            const lastSyncMeta = app_metadata.find(m => m.id === 'lastSyncTime');
+
             const newState: DataState = {
                 ...initialState,
                 customers: customers as Customer[],
@@ -415,11 +417,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 financialScenarios: scenarios as FinancialScenario[],
                 goals: (goalsData as FinancialGoal[]) || [],
 
-                lastSyncTime: 0, // Fallback, likely unused in types now? No, kept in types/State but not initialState?
+                lastSyncTime: lastSyncMeta ? (lastSyncMeta.value as number) : 0,
                 app_metadata: app_metadata as AppMetadata[],
                 customFonts: customFonts as CustomFont[],
                 autoCleanupSettings: cleanupMeta ? { ...initialAutoCleanup, ...cleanupMeta } : initialAutoCleanup,
             };
+
 
             dispatch({
                 type: 'SET_STATE',
@@ -470,11 +473,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }, [googleUser, state.isOnline, dispatch, showToast]);
 
     // Sync Data
-    const syncData = async (overrideToken?: string, isManual: boolean = false) => {
+    const syncData = useCallback(async (overrideToken?: string, isManual: boolean = false) => {
         if (!stateRef.current.isOnline) return;
 
         if (stateRef.current.syncStatus === 'syncing') {
-            if (state.devMode) console.warn("Sync already in progress. Skipping.");
+            if (stateRef.current.devMode) console.warn("Sync already in progress. Skipping.");
             return;
         }
 
@@ -495,7 +498,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 return;
             } else {
                 // For automatic sync, just skip it until the user logs in again
-                if (state.devMode) console.log("Background sync skipped: Token expired.");
+                if (stateRef.current.devMode) console.log("Background sync skipped: Token expired.");
                 return;
             }
         }
@@ -519,7 +522,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             // Push to Transient Sync Console
             dispatch({ type: 'ADD_SYNC_LOG', payload: logString });
 
-            if (state.devMode) console.log(logString);
+            if (stateRef.current.devMode) console.log(logString);
         };
 
         dispatch({ type: 'SET_SYNC_STATUS', payload: 'syncing' });
@@ -546,7 +549,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             let cloudDataMerged = false;
             if (cloudData && Object.keys(cloudData).length > 0) {
                 logEntry('SYNC_MERGE', `Merging data from cloud (${Object.keys(cloudData).length} stores)`);
-                if (state.devMode) console.log("Sync: Merging cloud data...", Object.keys(cloudData));
+                if (stateRef.current.devMode) console.log("Sync: Merging cloud data...", Object.keys(cloudData));
 
                 await db.mergeData(cloudData);
                 cloudDataMerged = true;
@@ -562,7 +565,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
             // 3. Local -> Cloud (Incremental)
             console.log('[SYNC] Step 2: Checking for local changes...');
-            if (state.devMode) console.log("Sync: Identifying modified collections...");
+            if (stateRef.current.devMode) console.log("Sync: Identifying modified collections...");
             const modifiedInfo = await getModifiedStores();
             console.log(`[SYNC] Found ${modifiedInfo.length} modified stores:`, modifiedInfo.map(m => m.storeName));
             const currentState = freshState || stateRef.current;
@@ -612,7 +615,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 console.log('[SYNC] ✓ Sync completed! Last sync:', new Date(now).toLocaleTimeString());
 
                 logEntry('SYNC_COMPLETE', cloudDataMerged ? 'Cloud data merged successfully' : 'Everything up to date');
-                if (state.devMode) console.log("Sync: No local changes to upload.");
+                if (stateRef.current.devMode) console.log("Sync: No local changes to upload.");
 
                 if (cloudDataMerged) {
                     showToast("Sync completed: Cloud updates applied.", 'success');
@@ -673,7 +676,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 console.error('Error in sync error handling:', dispatchError);
             }
         }
-    };
+    }, [googleUser, authDispatch, dispatch, showToast, hydrateState]);
+
 
     // Trigger sync on login/token refresh
     useEffect(() => {

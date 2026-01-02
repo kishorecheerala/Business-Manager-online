@@ -1,4 +1,4 @@
-import React, { useState, useRef, Suspense, useMemo } from 'react';
+import React, { useState, useRef, Suspense, useMemo, useEffect } from 'react';
 import {
     Menu, Search, Sparkles, WifiOff, Sun, Moon, RefreshCw, CloudOff, Cloud, Bell, HelpCircle, CalendarClock,
     Plus, X, Settings, ShoppingCart, UserPlus, PackagePlus, Receipt, Undo2, FileText, Package, BarChart2, Layout, Download, Info
@@ -51,7 +51,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
     const { state, dispatch, syncData } = useData();
     const { uiState, uiDispatch, showToast } = useUI();
     const { theme, uiPreferences, navOrder, themeColor, themeGradient } = uiState;
-    const { authState, authDispatch, lockApp, unlockApp, refreshGoogleToken } = useAuth();
+    const { authState, authDispatch, lockApp, unlockApp, refreshGoogleToken, googleSignIn } = useAuth();
     const { isAuthenticated, isLocked, pin, isStaffMode, protectedPages, googleUser } = authState;
     const { isOnline, syncStatus, syncMessage, lastSyncTime } = state; // state contains: isOnline, syncStatus, lastSyncTime, profile, notifications
 
@@ -113,7 +113,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
     const notificationsRef = useRef<HTMLDivElement>(null);
     useOnClickOutside(notificationsRef, () => setIsNotificationsOpen(false));
 
-    // Time calling for greeting only (update every minute is enough)
+
     const [greetingHour, setGreetingHour] = useState(new Date().getHours());
 
     React.useEffect(() => {
@@ -360,7 +360,8 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                                                     ) :
                                                         syncStatus === 'error' ? 'Failed' :
                                                             lastSyncTime ? formatDateTime(lastSyncTime).split(', ')[1] :
-                                                                'Initial Sync Needed'}
+                                                                lastSyncTime ? formatDateTime(lastSyncTime).split(', ')[1] :
+                                                                    (state.isOnline ? 'Waiting for Sync...' : 'Offline')}
                                                 </span>
                                             </div>
                                         </>
@@ -397,13 +398,19 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         if (!googleUser) {
-                                            setIsSignInModalOpen(true);
+                                            // Direct triggers for smoother UX
+                                            googleSignIn();
+                                            // Fallback/Loading indication usually handled by AuthContext or we can assume popup opens.
+                                            // We usually don't need the SignInModal if we just want to sign in.
+                                            // But SignInModal provides context "Sync & Integration". 
+                                            // User asked "why am I doing an extra step".
                                         } else {
                                             // Check if token is expired before syncing
                                             if (googleUser.expiresAt && googleUser.expiresAt < Date.now()) {
                                                 showToast("Session expired. Please sign in again.", 'info');
                                                 authDispatch({ type: 'SET_GOOGLE_USER', payload: null });
-                                                setIsSignInModalOpen(true);
+                                                // Direct Trigger
+                                                googleSignIn();
                                             } else {
                                                 syncData(undefined, true);
                                             }

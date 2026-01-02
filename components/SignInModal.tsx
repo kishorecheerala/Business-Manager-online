@@ -31,14 +31,22 @@ const SignInModal: React.FC<SignInModalProps> = ({ isOpen, onClose }) => {
 
     if (!isOpen) return null;
 
-    const handleSignIn = () => {
+    const handleSignIn = async () => {
         if (!state.isOnline) {
             showToast("Internet connection required to sign in.", 'error');
             return;
         }
-        googleSignIn();
-        // Do NOT close immediately. Wait for auth success or user action.
-        // onClose(); 
+
+        try {
+            await googleSignIn();
+            // Note: googleSignIn in context is void, but if we change it to async or await the state change 
+            // (which useEffect handles) that's better. 
+            // The useEffect above at line 26 ALREADY handles auto-close:
+            // if (isOpen && googleUser) { onClose(); }
+            // So we don't need manual close here.
+        } catch (e) {
+            console.error("Sign in trigger failed", e);
+        }
     };
 
     return createPortal(
