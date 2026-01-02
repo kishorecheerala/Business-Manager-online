@@ -95,8 +95,8 @@ const ModernDateInput: React.FC<ModernDateInputProps> = ({ label, value, onChang
       <button
         {...(props as any)}
         ref={triggerRef}
-        onPointerDown={(e: any) => {
-          if ((props as any).onPointerDown) (props as any).onPointerDown(e);
+        onClick={(e: any) => {
+          if ((props as any).onClick) (props as any).onClick(e);
           if (!disabled) setComponentOpen(!isComponentOpen);
         }}
         type="button"

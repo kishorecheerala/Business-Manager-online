@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Plus, User, Phone, MapPin, Search, Edit, Save, X, IndianRupee, ShoppingCart, Share2, Crown, ShieldAlert, BadgeCheck, Users, MessageCircle, FileText, Star, Tag, Wallet } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Plus, User, Phone, MapPin, Search, Edit, Save, X, IndianRupee, ShoppingCart, Share2, Crown, ShieldAlert, BadgeCheck, Users, MessageCircle, FileText, Star, Tag, Wallet, Trash2 } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { useUI } from '../context/UIContext';
 import { Customer, Payment, Sale, Page, SaleItem } from '../types';
@@ -18,6 +19,7 @@ import LedgerModal from '../components/LedgerModal';
 import Input from '../components/Input';
 import ModernDateInput from '../components/ModernDateInput';
 import FormattedNumberInput from '../components/FormattedNumberInput';
+import BulkNotificationModal from '../components/BulkNotificationModal';
 
 import WhatsAppButton from '../components/WhatsAppButton';
 
@@ -101,6 +103,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
     const [currentPage, setCurrentPageNum] = useState(1);
     const [pageSize, setPageSize] = useState(50);
     const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+    const [isBulkMessageOpen, setIsBulkMessageOpen] = useState(false);
 
     const isDirtyRef = useRef(false);
     const actionMenuRef = useRef<HTMLDivElement>(null);
@@ -506,6 +509,29 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
         if (newSelection.has(customerId)) newSelection.delete(customerId);
         else newSelection.add(customerId);
         setSelectedRows(newSelection);
+    };
+
+    const handleBulkDelete = async () => {
+        if (selectedRows.size === 0) return;
+
+        const confirm = await showConfirm(
+            `Are you sure you want to delete ${selectedRows.size} customers? This action cannot be undone.`,
+            { title: 'Bulk Delete Customers', variant: 'danger', confirmText: 'Delete All' }
+        );
+
+        if (confirm) {
+            // Convert Set to Array and iterate
+            const idsToDelete = Array.from(selectedRows);
+            let deletedCount = 0;
+
+            idsToDelete.forEach(id => {
+                dispatch({ type: 'DELETE_CUSTOMER', payload: id });
+                deletedCount++;
+            });
+
+            showToast(`${deletedCount} customers deleted successfully.`, 'success');
+            setSelectedRows(new Set());
+        }
     };
 
     if (selectedCustomer && editedCustomer && selectedCustomer.id !== 'ALL_CUSTOMERS') {
@@ -921,6 +947,53 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                     onAdd={handleAddCustomer}
                     existingCustomers={state.customers}
                 />
+            )}
+
+            <BulkNotificationModal
+                isOpen={isBulkMessageOpen}
+                onClose={() => setIsBulkMessageOpen(false)}
+                preselectedCustomers={Array.from(selectedRows)}
+            />
+
+            {/* Floating Bulk Action Bar */}
+            {selectedRows.size > 0 && createPortal(
+                <div className="fixed bottom-24 md:bottom-10 left-1/2 transform -translate-x-1/2 z-[200]">
+                    <div className="animate-slide-up flex items-center gap-1 p-1.5 rounded-full bg-gray-900/90 dark:bg-black/80 backdrop-blur-xl border border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.3)] ring-1 ring-white/10">
+                        <div className="pl-4 pr-3 py-2 flex items-center gap-2">
+                            <div className="bg-primary/20 text-primary p-1 rounded-full"><Users size={14} /></div>
+                            <span className="font-bold text-sm text-white whitespace-nowrap">{selectedRows.size} Selected</span>
+                        </div>
+
+                        <div className="h-6 w-px bg-white/10 mx-1"></div>
+
+                        <button
+                            onClick={() => setIsBulkMessageOpen(true)}
+                            className="flex items-center gap-2 px-4 py-2 rounded-full hover:bg-white/10 text-white transition-all active:scale-95 group"
+                        >
+                            <MessageCircle size={18} className="text-blue-400 group-hover:text-blue-300 transition-colors" />
+                            <span className="text-sm font-medium">Message</span>
+                        </button>
+
+                        <button
+                            onClick={handleBulkDelete}
+                            className="flex items-center gap-2 px-4 py-2 rounded-full hover:bg-white/10 text-white transition-all active:scale-95 group"
+                        >
+                            <Trash2 size={18} className="text-red-400 group-hover:text-red-300 transition-colors" />
+                            <span className="text-sm font-medium">Delete</span>
+                        </button>
+
+                        <div className="h-6 w-px bg-white/10 mx-1"></div>
+
+                        <button
+                            onClick={() => setSelectedRows(new Set())}
+                            className="p-2 rounded-full hover:bg-white/10 text-gray-400 hover:text-white transition-all active:scale-90"
+                            title="Deslect All"
+                        >
+                            <X size={20} />
+                        </button>
+                    </div>
+                </div>,
+                document.body
             )}
 
             {isLedgerOpen && <LedgerModal isOpen={isLedgerOpen} onClose={() => { setIsLedgerOpen(false); setLedgerPartyId(null); }} partyId={ledgerPartyId || ''} partyType="CUSTOMER" />}
