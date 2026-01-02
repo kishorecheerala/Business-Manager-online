@@ -105,5 +105,11 @@ export default defineConfig({
       }
     },
     chunkSizeWarningLimit: 1000
+  },
+  // @ts-expect-error - Vitest types are not included in Vite config
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: []
   }
 })

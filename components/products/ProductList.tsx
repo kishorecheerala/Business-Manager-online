@@ -59,7 +59,7 @@ const ProductList: React.FC<ProductListProps> = ({
         getScrollElement: () => parentRef.current,
         estimateSize: () => viewMode === 'list' ? 80 : 380,
         overscan: 5,
-        measureElement: (el) => el.offsetHeight,
+        measureElement: (el) => (el as HTMLElement).offsetHeight,
     });
 
     if (products.length === 0) {

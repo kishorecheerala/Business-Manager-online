@@ -1,8 +1,7 @@
 import { DataState, ReportConfig, ReportField, ReportFilter } from "../../types";
+import { safeNumber, safeDivide } from "../mathUtils";
 
 export class ReportEngine {
-    private static _loggedSample = false;
-
     static async process(state: DataState, config: ReportConfig): Promise<any[]> {
         let rawData: any[] = [];
 
@@ -45,8 +44,6 @@ export class ReportEngine {
             default: rawData = [];
         }
 
-        console.log(`[ReportEngine] Data source: ${config.dataSource}, Raw data count: ${rawData.length}`);
-
         // 2. Flatten & map fields with yielding
         const flattenedData: any[] = [];
         const CHUNK_SIZE = 100;
@@ -65,33 +62,19 @@ export class ReportEngine {
             }
         }
 
-        console.log(`[ReportEngine] After filtering: ${flattenedData.length} items`);
-
         // 3. Group & Aggregate (if groupBy is set)
         if (config.groupBy) {
             const grouped = this.groupData(flattenedData, config.groupBy, config.fields);
-            console.log(`[ReportEngine] After grouping by '${config.groupBy}': ${grouped.length} groups`);
             return grouped;
         }
 
-        console.log(`[ReportEngine] Returning ${flattenedData.length} ungrouped items`);
         return flattenedData;
     }
 
     private static flattenItem(item: any, state: DataState, source: string, ctx: { productMap: Map<string, any>, customerMap: Map<string, any>, supplierMap: Map<string, any>, salesByCustomer: Map<string, any[]> }): any {
-        // Debug: Log first item to see structure
-        if (source === 'sales' && !this._loggedSample) {
-            console.log('[DEBUG] Sample sale item:', item);
-            this._loggedSample = true;
-        }
 
         const flat = { ...item };
         let dateObj: Date | null = null;
-
-        // Debug date issues
-        if (source === 'sales') {
-            console.log(`[Date Debug] Sale item date field:`, item.date, `Type:`, typeof item.date);
-        }
 
         if (item.date) {
             dateObj = new Date(item.date);
@@ -102,8 +85,6 @@ export class ReportEngine {
             flat['hour'] = dateObj.getHours().toString();
             const dayOfWeek = dateObj.getDay();
             flat['isWeekend'] = (dayOfWeek === 0 || dayOfWeek === 6) ? 'Weekend' : 'Weekday';
-        } else {
-            console.warn(`[ReportEngine] Item missing date:`, source, item);
         }
 
         // Enrich common relations
@@ -117,10 +98,10 @@ export class ReportEngine {
             flat['paymentMethod'] = item.payments?.[0]?.method || 'UNPAID';
 
             // Discount
-            flat['discount'] = Number(item.discount || 0);
+            flat['discount'] = safeNumber(item.discount);
 
             // GST
-            flat['gstAmount'] = Number(item.gstAmount || 0);
+            flat['gstAmount'] = safeNumber(item.gstAmount);
 
             // Extract product names from items (for product-level reports)
             if (item.items && Array.isArray(item.items) && item.items.length > 0) {
@@ -136,12 +117,12 @@ export class ReportEngine {
                 item.items.forEach((si: any) => {
                     const prod = ctx.productMap.get(si.productId);
                     if (prod) {
-                        cogs += (Number(prod.purchasePrice) || 0) * (Number(si.quantity) || 0);
+                        cogs += safeNumber(prod.purchasePrice) * safeNumber(si.quantity);
                     }
                 });
             }
             flat['cogs'] = cogs;
-            flat['netProfit'] = (Number(item.totalAmount) || 0) - (Number(item.gstAmount) || 0) - cogs;
+            flat['netProfit'] = safeNumber(item.totalAmount) - safeNumber(item.gstAmount) - cogs;
         }
 
         if (source === 'sale_items') {
@@ -152,14 +133,14 @@ export class ReportEngine {
             flat['category'] = prod?.category || 'Uncategorized';
             flat['customerName'] = cust?.name || 'Unknown';
 
-            const cost = Number(prod?.purchasePrice || 0);
-            const salePrice = Number(item.price || 0);
-            const qty = Number(item.quantity || 0);
+            const cost = safeNumber(prod?.purchasePrice);
+            const salePrice = safeNumber(item.price);
+            const qty = safeNumber(item.quantity);
 
             flat['revenue'] = salePrice * qty;
             flat['cost'] = cost * qty;
             flat['profit'] = flat['revenue'] - flat['cost'];
-            flat['marginPercent'] = flat['revenue'] > 0 ? (flat['profit'] / flat['revenue']) * 100 : 0;
+            flat['marginPercent'] = safeDivide(flat['profit'] * 100, flat['revenue']);
         }
 
         if (source === 'purchases' && item.supplierId) {
@@ -168,11 +149,11 @@ export class ReportEngine {
             flat['dueDate'] = item.paymentDueDates?.[0] || 'N/A';
 
             // Calculate due amount for purchases
-            const totalPaid = (item.payments || []).reduce((sum: number, p: any) => sum + Number(p.amount), 0);
-            flat['dueAmount'] = Number(item.totalAmount || 0) - totalPaid;
+            const totalPaid = (item.payments || []).reduce((sum: number, p: any) => sum + safeNumber(p.amount), 0);
+            flat['dueAmount'] = safeNumber(item.totalAmount) - totalPaid;
 
             // GST amount
-            flat['gstAmount'] = Number(item.gstAmount || 0);
+            flat['gstAmount'] = safeNumber(item.gstAmount);
 
             // Extract product info if items exist
             if (item.items && Array.isArray(item.items) && item.items.length > 0) {
@@ -185,21 +166,21 @@ export class ReportEngine {
 
         if (source === 'inventory') {
             // Calculate stock value
-            const cost = Number(item.purchasePrice || 0);
-            const price = Number(item.salePrice || 0);
-            const qty = Number(item.quantity || 0);
+            const cost = safeNumber(item.purchasePrice);
+            const price = safeNumber(item.salePrice);
+            const qty = safeNumber(item.quantity);
 
             flat['stockValue'] = qty * cost;
             flat['retailValue'] = qty * price;
             flat['margin'] = price - cost;
-            flat['marginPercent'] = cost > 0 ? ((price - cost) / cost) * 100 : 100;
+            flat['marginPercent'] = safeDivide((price - cost) * 100, cost, 100);
             flat['brand'] = item.brand || 'Generic';
         }
 
         if (source === 'customers') {
             const customerSales = ctx.salesByCustomer.get(item.id) || [];
-            const totalSpent = customerSales.reduce((sum, s) => sum + Number(s.totalAmount), 0);
-            const totalPaid = customerSales.reduce((sum, s) => sum + (s.payments || []).reduce((p, pm) => p + Number(pm.amount), 0), 0);
+            const totalSpent = customerSales.reduce((sum, s) => sum + safeNumber(s.totalAmount), 0);
+            const totalPaid = customerSales.reduce((sum, s) => sum + (s.payments || []).reduce((p, pm) => p + safeNumber(pm.amount), 0), 0);
 
             flat['totalSpent'] = totalSpent;
             flat['totalPaid'] = totalPaid;
@@ -215,11 +196,11 @@ export class ReportEngine {
                     sale.items.forEach((si: any) => {
                         const prod = ctx.productMap.get(si.productId);
                         if (prod) {
-                            saleCOGS += (Number(prod.purchasePrice) || 0) * (Number(si.quantity) || 0);
+                            saleCOGS += safeNumber(prod.purchasePrice) * safeNumber(si.quantity);
                         }
                     });
                 }
-                totalProfit += (Number(sale.totalAmount) || 0) - (Number(sale.gstAmount) || 0) - saleCOGS;
+                totalProfit += safeNumber(sale.totalAmount) - safeNumber(sale.gstAmount) - saleCOGS;
             });
             flat['totalProfit'] = totalProfit;
 
@@ -235,7 +216,7 @@ export class ReportEngine {
 
         if (source === 'expenses') {
             // Ensure amount is properly set
-            flat['amount'] = Number(item.amount || 0);
+            flat['amount'] = safeNumber(item.amount);
 
             // If date was already processed, month/year should exist
             // But ensure category exists
@@ -253,13 +234,9 @@ export class ReportEngine {
             switch (filter.operator) {
                 case 'equals': return val == target;
                 case 'contains': return String(val).toLowerCase().includes(String(target).toLowerCase());
-                case 'gt': return Number(val) > Number(target);
-                case 'lt': return Number(val) < Number(target);
+                case 'gt': return safeNumber(val) > safeNumber(target);
+                case 'lt': return safeNumber(val) < safeNumber(target);
                 case 'between':
-                    if (filter.id === 'dateVal') {
-                        console.log(`[Filter Debug] Comparing dateVal: ${val} (${new Date(val)}) between ${target[0]} (${new Date(target[0])}) and ${target[1]} (${new Date(target[1])})`);
-                        console.log(`[Filter Debug] Result: val >= target[0] = ${val >= target[0]}, val <= target[1] = ${val <= target[1]}`);
-                    }
                     return Array.isArray(target) && val >= target[0] && val <= target[1];
                 case 'in':
                     return Array.isArray(target) && target.includes(val);
@@ -294,7 +271,7 @@ export class ReportEngine {
 
             fields.forEach(f => {
                 if (f.id === groupByField) return;
-                const val = Number(this.getValue(item, f.id)) || 0;
+                const val = safeNumber(this.getValue(item, f.id));
 
                 if (f.aggregation === 'SUM') group[f.id] += val;
                 else if (f.aggregation === 'AVG') group[f.id] += val;

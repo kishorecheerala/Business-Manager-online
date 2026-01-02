@@ -57,9 +57,35 @@ const PerformanceMonitor = React.lazy(() => import('./components/PerformanceMoni
 
 
 import { QUICK_ACTION_REGISTRY, QUICK_ACTION_SHORTCUTS } from './utils/quickActions';
+import { verifyIntegrity } from './utils/security';
 
 // Root Component
 const App: React.FC = () => {
+    const [isSecure, setIsSecure] = useState(true);
+
+    useEffect(() => {
+        if (!verifyIntegrity()) {
+            setIsSecure(false);
+            // Nuke the app logic potentially or just state
+            console.error("Security Violation: Application Integrity Check Failed.");
+        }
+    }, []);
+
+    if (!isSecure) {
+        return (
+            <div className="fixed inset-0 bg-red-950 text-white flex flex-col items-center justify-center p-8 text-center z-[10000]">
+                <h1 className="text-4xl font-bold mb-4">Security Violation</h1>
+                <p className="text-xl max-w-lg">
+                    Critical application components have been tampered with or removed.
+                    The application cannot start.
+                </p>
+                <div className="mt-8 opacity-50 text-sm font-mono">
+                    Error Code: ERR_INTEGRITY_FAIL_0x01
+                </div>
+            </div>
+        );
+    }
+
     // Initialize Storage Monitor
     useEffect(() => {
         const monitor = StorageMonitor.getInstance();

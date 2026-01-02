@@ -1,5 +1,6 @@
 
 import { SaleItem, QuoteItem, PurchaseItem, Product } from '../types';
+import { safeNumber } from './mathUtils';
 
 export const calculateTotals = (
     items: (SaleItem | QuoteItem | PurchaseItem)[],
@@ -19,9 +20,11 @@ export const calculateTotals = (
         return undefined;
     };
 
+    const safeDiscount = safeNumber(discount);
+
     items.forEach(item => {
-        const quantity = Number(item.quantity) || 0;
-        const price = Number(item.price) || 0;
+        const quantity = safeNumber(item.quantity);
+        const price = safeNumber(item.price);
         const lineTotal = price * quantity;
         subTotal += lineTotal;
 
@@ -30,11 +33,11 @@ export const calculateTotals = (
         // Determine GST Percent
         if ('gstPercent' in item && typeof (item as PurchaseItem).gstPercent === 'number') {
             // PurchaseItem has own GST percent
-            gstPercent = Number((item as PurchaseItem).gstPercent) || 0;
+            gstPercent = safeNumber((item as PurchaseItem).gstPercent);
         } else {
             // Sale/Quote Item looks up GST from product catalog
             const product = findProduct(item.productId);
-            gstPercent = product ? Number(product.gstPercent) || 0 : 0;
+            gstPercent = product ? safeNumber(product.gstPercent) : 0;
         }
 
         // Inclusive GST Calculation: Tax = Total - (Total / (1 + Rate/100))
@@ -44,13 +47,13 @@ export const calculateTotals = (
         }
     });
 
-    const totalAmount = subTotal - discount;
+    const totalAmount = subTotal - safeDiscount;
     // Round GST for display consistency (2 decimal places)
     const roundedGstAmount = Math.round(gstAmount * 100) / 100;
 
     return {
         subTotal,
-        discountAmount: discount,
+        discountAmount: safeDiscount,
         gstAmount: roundedGstAmount,
         totalAmount
     };

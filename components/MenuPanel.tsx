@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User, BarChart2, Activity, LogIn, LogOut, RefreshCw, CloudLightning, Sun, Moon, Palette, Check, Settings, Monitor, Shield, ChevronRight, RotateCcw, BrainCircuit, Terminal, Receipt, FileText, Lock, Unlock, PenTool, Gauge, Cloud, Layout, Download, Sparkles, Smartphone, FileSpreadsheet, Type, PaintBucket, Plus, Trash2, Database, HelpCircle } from 'lucide-react';
+import { User, BarChart2, Activity, LogIn, LogOut, RefreshCw, CloudLightning, Sun, Moon, Palette, Check, Settings, Monitor, Shield, ChevronRight, RotateCcw, BrainCircuit, Terminal, Receipt, FileText, Lock, Unlock, PenTool, Gauge, Cloud, Layout, Download, Sparkles, Smartphone, FileSpreadsheet, Type, PaintBucket, Plus, Trash2, Database, HelpCircle, Code } from 'lucide-react';
 import { Page } from '../types';
 import { useData } from '../context/DataContext';
 import { useUI } from '../context/UIContext';
@@ -13,6 +13,7 @@ import PinModal from './PinModal';
 import InvoiceSettingsModal from './InvoiceSettingsModal';
 import UISettingsModal from './UISettingsModal';
 import { DataImportModal } from './DataImportModal';
+import AboutDeveloperModal from './AboutDeveloperModal';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 
 // ... lines 15-131 
@@ -139,6 +140,7 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
     const [isInvoiceSettingsOpen, setIsInvoiceSettingsOpen] = useState(false);
     const [isUISettingsOpen, setIsUISettingsOpen] = useState(false);
     const [isImportOpen, setIsImportOpen] = useState(false);
+    const [isAboutDevOpen, setIsAboutDevOpen] = useState(false);
 
     // Listen for external trigger
     useEffect(() => {
@@ -321,7 +323,7 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
         setIsPinModalOpen(true);
     };
 
-    if (!isOpen && !isAuditOpen && !isCloudDebugOpen && !isColorPickerOpen && !isHeaderColorPickerOpen && !isGradientPickerOpen && !isPinModalOpen && !isInvoiceSettingsOpen && !isUISettingsOpen && !isImportOpen) return null;
+    if (!isOpen && !isAuditOpen && !isCloudDebugOpen && !isColorPickerOpen && !isHeaderColorPickerOpen && !isGradientPickerOpen && !isPinModalOpen && !isInvoiceSettingsOpen && !isUISettingsOpen && !isImportOpen && !isAboutDevOpen) return null;
 
     return (
         <>
@@ -330,6 +332,7 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
             <InvoiceSettingsModal isOpen={isInvoiceSettingsOpen} onClose={() => setIsInvoiceSettingsOpen(false)} />
             <UISettingsModal isOpen={isUISettingsOpen} onClose={() => setIsUISettingsOpen(false)} />
             <DataImportModal isOpen={isImportOpen} onClose={() => setIsImportOpen(false)} />
+            <AboutDeveloperModal isOpen={isAboutDevOpen} onClose={() => setIsAboutDevOpen(false)} />
 
             {/* Accent Color Picker */}
             <ColorPickerModal
@@ -522,6 +525,12 @@ const MenuPanel: React.FC<MenuPanelProps> = ({ isOpen, onClose, onProfileClick, 
                                 <button onClick={() => { onClose(); onNavigate('TRASH'); }} className="menu-item text-red-600 dark:text-red-400">
                                     <Trash2 className="w-5 h-5" />
                                     <span className="flex-grow text-sm font-medium">Recycle Bin</span>
+                                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                                </button>
+
+                                <button onClick={() => { onClose(); setIsAboutDevOpen(true); }} className="menu-item text-emerald-600 dark:text-emerald-400">
+                                    <Code className="w-5 h-5" />
+                                    <span className="flex-grow text-sm font-medium">About Developer</span>
                                     <ChevronRight className="w-4 h-4 text-gray-400" />
                                 </button>
 
