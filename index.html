@@ -246,8 +246,20 @@
           }
         }
 
-        .animate-devine-pulse {
-          animation: devine-pulse 4s ease-in-out infinite;
+        @keyframes simple-opacity-breath {
+
+          0%,
+          100% {
+            opacity: 0.6;
+          }
+
+          50% {
+            opacity: 1;
+          }
+        }
+
+        .animate-simple-opacity-breath {
+          animation: simple-opacity-breath 3s ease-in-out infinite;
         }
 
         @keyframes fade-in {
@@ -330,15 +342,16 @@
 
       <div
         style="position: relative; width: 300px; height: 300px; display: flex; align-items: center; justify-content: center; margin-bottom: 2rem;">
-        <!-- The Symbol -->
-        <div class="animate-devine-pulse relative z-10 text-[200px] leading-none font-serif font-bold select-none"
-          style="color: rgb(var(--primary-color)); filter: drop-shadow(0 0 10px rgb(var(--primary-color) / 0.3));">
+        <!-- The Symbol - Opacity pulse is safe from "box" artifacts -->
+        <div
+          class="animate-simple-opacity-breath relative z-10 text-[200px] leading-none font-serif font-bold select-none"
+          style="color: rgb(var(--primary-color));">
           ॐ
         </div>
       </div>
 
       <!-- Loading Indicators -->
-      <div class="flex flex-col items-center gap-4 z-10 w-64">
+      <div class="flex flex-col items-center gap-4 z-10 w-64 animate-pulse">
         <div class="text-lg font-bold tracking-widest uppercase flex items-end leading-none h-6"
           style="color: rgb(var(--primary-color) / 0.8);">
           LOADING

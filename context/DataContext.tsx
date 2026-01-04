@@ -504,23 +504,25 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
         }
 
-        const logEntry = (action: string, details: string) => {
+        const logEntry = (action: string, details: string, persistent: boolean = false) => {
             const timestamp = new Date().toISOString();
             const logString = `[${timestamp}] ${action}: ${details}`;
 
-            // Push to Persistent Audit Log
-            dispatch({
-                type: 'ADD_AUDIT_LOG',
-                payload: {
-                    id: `sync-log-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-                    action,
-                    details,
-                    timestamp,
-                    user: googleUser?.email || 'Anonymous'
-                }
-            });
+            // Push to Persistent Audit Log ONLY if requested
+            if (persistent) {
+                dispatch({
+                    type: 'ADD_AUDIT_LOG',
+                    payload: {
+                        id: `sync-log-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                        action,
+                        details,
+                        timestamp,
+                        user: googleUser?.email || 'Anonymous'
+                    }
+                });
+            }
 
-            // Push to Transient Sync Console
+            // Push to Transient Sync Console (Always)
             dispatch({ type: 'ADD_SYNC_LOG', payload: logString });
 
             if (stateRef.current.devMode) console.log(logString);
@@ -534,7 +536,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         console.log(`[SYNC] Starting sync process (Reason: ${reason})...`);
         try {
-            logEntry('SYNC_START', `Sync process initiated (Reason: ${reason})`);
+            logEntry('SYNC_START', `Sync process initiated (Reason: ${reason})`, false);
 
             // 1. Read Cloud Data (Manifest-based / Differential)
             console.log('[SYNC] Step 1: Reading cloud data...');
@@ -549,7 +551,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             let freshState: DataState | undefined;
             let cloudDataMerged = false;
             if (cloudData && Object.keys(cloudData).length > 0) {
-                logEntry('SYNC_MERGE', `Merging data from cloud (${Object.keys(cloudData).length} stores)`);
+                logEntry('SYNC_MERGE', `Merging data from cloud (${Object.keys(cloudData).length} stores)`, true);
                 if (stateRef.current.devMode) console.log("Sync: Merging cloud data...", Object.keys(cloudData));
 
                 await db.mergeData(cloudData);
@@ -573,7 +575,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
             if (modifiedInfo.length > 0) {
                 console.log('[SYNC] Step 3: Uploading local changes...');
-                logEntry('SYNC_UPLOAD', `Uploading ${modifiedInfo.length} changed stores`);
+                logEntry('SYNC_UPLOAD', `Uploading ${modifiedInfo.length} changed stores`, false);
                 const changedCollections: Record<string, any[]> = {};
                 for (const info of modifiedInfo) {
                     const storeName = info.storeName;
@@ -607,7 +609,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 dispatch({ type: 'SET_LAST_SYNC_TIME', payload: now });
                 console.log('[SYNC] ✓ Sync completed successfully! Last sync:', new Date(now).toLocaleTimeString());
                 showToast(`Sync completed: ${modifiedInfo.length} sections updated.`, 'success');
-                logEntry('SYNC_SUCCESS', `Sync complete. ${modifiedInfo.length} stores uploaded.`);
+                logEntry('SYNC_SUCCESS', `Sync complete. ${modifiedInfo.length} stores uploaded.`, true);
             } else {
                 // No local changes, but update sync time if we pulled cloud data
                 const now = Date.now();
@@ -615,12 +617,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 dispatch({ type: 'SET_LAST_SYNC_TIME', payload: now });
                 console.log('[SYNC] ✓ Sync completed! Last sync:', new Date(now).toLocaleTimeString());
 
-                logEntry('SYNC_COMPLETE', cloudDataMerged ? 'Cloud data merged successfully' : 'Everything up to date');
+                logEntry('SYNC_COMPLETE', cloudDataMerged ? 'Cloud data merged successfully' : 'Everything up to date', false);
                 if (stateRef.current.devMode) console.log("Sync: No local changes to upload.");
 
                 if (cloudDataMerged) {
                     showToast("Sync completed: Cloud updates applied.", 'success');
-                } else {
+                } else if (isManual) {
                     showToast("Sync: Everything up to date.", 'info');
                 }
             }

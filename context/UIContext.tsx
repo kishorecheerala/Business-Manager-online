@@ -26,6 +26,7 @@ type UIAction =
     | { type: 'UPDATE_DASHBOARD_CONFIG'; payload: Partial<AppMetadataDashboardConfig> }
     | { type: 'UPDATE_NAV_ORDER'; payload: string[] }
     | { type: 'UPDATE_QUICK_ACTIONS'; payload: string[] }
+    | { type: 'HYDRATE_ALL'; payload: Partial<UIState> }
     | { type: 'SHOW_TOAST'; payload: { message: string, type?: 'success' | 'info' | 'error' } }
     | { type: 'HIDE_TOAST' };
 
@@ -181,6 +182,12 @@ const uiReducer = (state: UIState, action: UIAction): UIState => {
             return { ...state, quickActions: action.payload };
         case 'SHOW_TOAST':
             return { ...state, toast: { show: true, message: action.payload.message, type: action.payload.type || 'info' } };
+        case 'HYDRATE_ALL':
+            // Update state WITHOUT writing back to DB
+            return {
+                ...state,
+                ...action.payload
+            };
         case 'HIDE_TOAST':
             return { ...state, toast: { ...state.toast, show: false } };
         default:
@@ -216,29 +223,35 @@ export const UIProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
             try {
                 const metadata = await db.getAll('app_metadata');
                 if (metadata && metadata.length > 0) {
+                    const hydratedState: Partial<UIState> = {};
+
                     metadata.forEach(item => {
                         switch (item.id) {
                             case 'uiPreferences':
-                                uiDispatch({ type: 'UPDATE_UI_PREFS', payload: item });
+                                hydratedState.uiPreferences = item;
                                 break;
                             case 'dashboardConfig':
-                                uiDispatch({ type: 'UPDATE_DASHBOARD_CONFIG', payload: item });
+                                hydratedState.dashboardConfig = item;
                                 break;
                             case 'navOrder':
-                                if (item.order) uiDispatch({ type: 'UPDATE_NAV_ORDER', payload: item.order });
+                                if (item.order) hydratedState.navOrder = item.order;
                                 break;
                             case 'quickActions':
-                                if (item.actions) uiDispatch({ type: 'UPDATE_QUICK_ACTIONS', payload: item.actions });
+                                if (item.actions) hydratedState.quickActions = item.actions;
                                 break;
                             case 'themeSettings':
-                                if (item.theme) uiDispatch({ type: 'SET_THEME', payload: item.theme });
-                                if (item.color) uiDispatch({ type: 'SET_THEME_COLOR', payload: item.color });
-                                if (item.gradient) uiDispatch({ type: 'SET_THEME_GRADIENT', payload: item.gradient });
-                                if (item.headerColor) uiDispatch({ type: 'SET_HEADER_COLOR', payload: item.headerColor });
-                                if (item.font) uiDispatch({ type: 'SET_FONT', payload: item.font });
+                                if (item.theme) hydratedState.theme = item.theme;
+                                if (item.color) hydratedState.themeColor = item.color;
+                                if (item.gradient) hydratedState.themeGradient = item.gradient;
+                                if (item.headerColor) hydratedState.headerColor = item.headerColor;
+                                if (item.font) hydratedState.font = item.font;
                                 break;
                         }
                     });
+
+                    if (Object.keys(hydratedState).length > 0) {
+                        uiDispatch({ type: 'HYDRATE_ALL', payload: hydratedState });
+                    }
                 }
             } catch (e) {
                 console.error("Failed to load UI settings from DB", e);
