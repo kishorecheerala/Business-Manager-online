@@ -13,7 +13,7 @@ export const getClientId = () => {
 };
 
 // Updated Scopes: Includes Drive File access, User Profile, Calendar, and Spreadsheets
-const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/spreadsheets';
+const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email';
 
 // Folder name in Google Drive
 const APP_FOLDER_NAME = 'BusinessManager_AppData';
