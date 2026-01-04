@@ -199,6 +199,9 @@ export async function deleteFromTrash(id: string) {
 
 async function markStoreModified(storeName: StoreName) {
     if (storeName === 'sync_metadata' || storeName === 'snapshots') return;
+
+    // NOTE: We still mark audit_logs as modified so they eventually sync, 
+    // but we will refine syncData to not trigger JUST because of audit_logs.
     try {
         const db = await getDb();
         const existing = await db.get('sync_metadata', storeName);
@@ -218,8 +221,11 @@ export async function getModifiedStores(): Promise<{ storeName: StoreName, lastM
         const db = await getDb(); // Using getDb() ensures we wait for connection
         const allMetadata = await db.getAll('sync_metadata');
 
+        // Add a small buffer (500ms) to avoid race conditions with quick successions
+        const buffer = 500;
+
         return allMetadata
-            .filter(m => m.lastModified > m.lastSynced)
+            .filter(m => m.lastModified > (m.lastSynced + buffer))
             .map(m => ({ storeName: m.id as StoreName, lastModified: m.lastModified }));
     } catch (e) {
         console.error("Failed to get modified stores", e);

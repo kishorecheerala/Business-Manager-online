@@ -426,7 +426,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
             dispatch({
                 type: 'SET_STATE',
-                payload: newState
+                payload: { ...newState, lastLocalUpdate: state.lastLocalUpdate }
             });
 
             return newState;
@@ -473,7 +473,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }, [googleUser, state.isOnline, dispatch, showToast]);
 
     // Sync Data
-    const syncData = useCallback(async (overrideToken?: string, isManual: boolean = false) => {
+    const syncData = useCallback(async (overrideToken?: string, isManual: boolean = false, reason: string = 'system') => {
         // REMOVED: isOnline block to allow retry in case of false offline detection
         // if (!stateRef.current.isOnline) return;
 
@@ -532,9 +532,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             logEntry('SYNC_STEP', msg);
         };
 
-        console.log('[SYNC] Starting sync process...');
+        console.log(`[SYNC] Starting sync process (Reason: ${reason})...`);
         try {
-            logEntry('SYNC_START', 'Sync process initiated');
+            logEntry('SYNC_START', `Sync process initiated (Reason: ${reason})`);
 
             // 1. Read Cloud Data (Manifest-based / Differential)
             console.log('[SYNC] Step 1: Reading cloud data...');
@@ -683,7 +683,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // Trigger sync on login/token refresh
     useEffect(() => {
         if (googleUser?.accessToken) { // Removed isOnline block
-            syncData();
+            syncData(undefined, false, 'auth_init');
         }
     }, [googleUser?.accessToken]);
 
@@ -695,7 +695,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const debounceTime = isMobile ? 20000 : 10000;
 
         const timeout = setTimeout(() => {
-            syncData();
+            syncData(undefined, false, 'local_update');
         }, debounceTime);
 
         return () => clearTimeout(timeout);
@@ -708,7 +708,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         const pollInterval = setInterval(() => {
             console.log(`[SYNC] ${isMobile ? 'Mobile' : 'Desktop'} Poll: Checking cloud for updates...`);
-            syncData();
+            syncData(undefined, false, 'periodic_poll');
         }, isMobile ? 10 * 60 * 1000 : 5 * 60 * 1000); // 10 mins mobile, 5 mins desktop
 
         return () => clearInterval(pollInterval);
