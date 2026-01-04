@@ -9,6 +9,7 @@ interface LogEntry {
     details?: any;
     timestamp: string;
     context?: string;
+    persistent?: boolean;
 }
 
 class Logger {
@@ -23,7 +24,7 @@ class Logger {
         return Logger.instance;
     }
 
-    private log(level: LogLevel, message: string, details?: any, context?: string) {
+    private log(level: LogLevel, message: string, details?: any, context?: string, persistent: boolean = true) {
         if (APP_CONFIG.DEV_MODE) {
             const consoleMethod = level === 'debug' ? 'debug' : level;
             console[consoleMethod](`[${level.toUpperCase()}]${context ? ` [${context}]` : ''} ${message}`, details || '');
@@ -34,6 +35,7 @@ class Logger {
             message,
             details,
             context,
+            persistent,
             timestamp: new Date().toISOString()
         };
 
@@ -42,21 +44,21 @@ class Logger {
         window.dispatchEvent(event);
     }
 
-    public info(message: string, details?: any, context?: string) {
-        this.log('info', message, details, context);
+    public info(message: string, details?: any, context?: string, persistent: boolean = true) {
+        this.log('info', message, details, context, persistent);
     }
 
-    public warn(message: string, details?: any, context?: string) {
-        this.log('warn', message, details, context);
+    public warn(message: string, details?: any, context?: string, persistent: boolean = true) {
+        this.log('warn', message, details, context, persistent);
     }
 
-    public error(message: string, details?: any, context?: string) {
-        this.log('error', message, details, context);
+    public error(message: string, details?: any, context?: string, persistent: boolean = true) {
+        this.log('error', message, details, context, persistent);
     }
 
     public debug(message: string, details?: any, context?: string) {
         if (APP_CONFIG.DEV_MODE) {
-            this.log('debug', message, details, context);
+            this.log('debug', message, details, context, false); // Debug logs are never persistent
         }
     }
 }

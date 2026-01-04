@@ -39,7 +39,7 @@ class PerformanceReporter {
                 id,
                 status,
                 rating: metric.rating
-            }, 'PERFORMANCE');
+            }, 'PERFORMANCE', false);
         };
 
         onCLS(reportMetric);
@@ -50,7 +50,7 @@ class PerformanceReporter {
 
         logger.info('Performance reporting initialized', {
             sampleRate: APP_CONFIG.PERFORMANCE.SAMPLE_RATE
-        }, 'SYSTEM');
+        }, 'SYSTEM', false);
     }
 }
 

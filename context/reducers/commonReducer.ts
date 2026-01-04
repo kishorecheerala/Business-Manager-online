@@ -47,7 +47,9 @@ export const commonReducer = (state: DataState, action: Action): DataState => {
             return { ...state, audit_logs: [] };
         case 'ADD_AUDIT_LOG':
             const logEntry = { ...action.payload, updatedAt: new Date().toISOString() };
-            db.upsertItem('audit_logs', logEntry);
+            if (action.payload.persistent !== false) {
+                db.upsertItem('audit_logs', logEntry);
+            }
             return { ...state, audit_logs: [logEntry, ...state.audit_logs] };
 
         // --- Profile ---

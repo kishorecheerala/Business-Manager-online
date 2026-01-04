@@ -130,8 +130,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         stateRef.current = state;
     }, [state]);
 
-
-
     const handleAutoCleanup = useCallback(async () => {
         const { enabled, logsRetentionDays, notificationsRetentionDays, trashRetentionDays } = state.autoCleanupSettings;
         if (!enabled) return;
@@ -191,7 +189,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 const nextOcc = sale.recurring.nextOccurrence.split('T')[0];
                 if (nextOcc <= today) {
                     const draft: ParkedSale = {
-                        id: `recurring_draft_${Date.now().toString()}_${sale.id} `,
+                        id: `recurring_draft_${Date.now().toString()}_${sale.id}`,
                         customerId: sale.customerId,
                         items: sale.items,
                         discount: (sale.discount || 0).toString(),
@@ -284,7 +282,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                         details: JSON.stringify(entry.details || {}),
                         timestamp: entry.timestamp,
                         module: entry.context || 'SYSTEM',
-                        userId: googleUser?.email || 'Anonymous'
+                        userId: googleUser?.email || 'Anonymous',
+                        persistent: entry.persistent
                     }
                 });
             }
@@ -324,8 +323,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const results = await Promise.race([loadPromise, timeoutPromise]);
 
             if (results === 'TIMEOUT') {
-                console.error("DB Load Timed Out - Forcing Empty State");
-                showToast("Data load timed out. Please refresh or check connection.", 'error');
                 setIsDbLoaded(true);
                 return;
             }
@@ -359,18 +356,13 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
             // Process Metadata
             const themeMeta = app_metadata.find(m => m.id === 'themeSettings') as AppMetadataTheme;
-            const pinMeta = app_metadata.find(m => m.id === 'securityPin') as AppMetadataPin;
             const uiMeta = app_metadata.find(m => m.id === 'uiPreferences') as AppMetadataUIPreferences;
             const dashMeta = app_metadata.find(m => m.id === 'dashboardConfig') as AppMetadataDashboardConfig;
-            const invoiceMeta = app_metadata.find(m => m.id === 'invoiceSettings') as AppMetadataInvoiceSettings;
             const navMeta = app_metadata.find(m => m.id === 'navOrder') as AppMetadataNavOrder;
             const qaMeta = app_metadata.find(m => m.id === 'quickActions') as AppMetadataQuickActions;
             const cleanupMeta = app_metadata.find(m => m.id === 'autoCleanupSettings') as AppMetadataAutoCleanup;
-            const staffModeMeta = app_metadata.find(m => m.id === 'staffMode') as any;
-            const googleUserMeta = app_metadata.find(m => m.id === 'googleUser');
 
             // --- SYNC UI STATE WITH DB/CLOUD ---
-            // This ensures that when we restore from cloud, the UI (Theme, Logo, etc.) updates immediately
             if (uiMeta) uiDispatch({ type: 'UPDATE_UI_PREFS', payload: uiMeta });
             if (dashMeta) uiDispatch({ type: 'UPDATE_DASHBOARD_CONFIG', payload: dashMeta });
             if (navMeta && navMeta.order) uiDispatch({ type: 'UPDATE_NAV_ORDER', payload: navMeta.order });
@@ -384,9 +376,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 if (themeMeta.font) uiDispatch({ type: 'SET_FONT', payload: themeMeta.font });
             }
 
-            // Data State dispatches to other contexts are removed to prevent circular sync loops.
-            // These contexts (UI, Auth) already manage their own persistent state initialization.
-
             let finalProfile = null;
             if (profile && profile.length > 0) {
                 finalProfile = (profile as any[]).sort((a, b) =>
@@ -395,7 +384,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
 
             const finalBankAccounts = Array.isArray(bankAccountsData) ? (bankAccountsData as unknown as BankAccount[]) : [];
-
             const lastSyncMeta = app_metadata.find(m => m.id === 'lastSyncTime');
 
             const newState: DataState = {
@@ -424,17 +412,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 autoCleanupSettings: cleanupMeta ? { ...initialAutoCleanup, ...cleanupMeta } : initialAutoCleanup,
             };
 
-
             dispatch({
                 type: 'SET_STATE',
-                payload: { ...newState, lastLocalUpdate: state.lastLocalUpdate }
+                payload: { ...newState, lastLocalUpdate: stateRef.current.lastLocalUpdate }
             });
 
             return newState;
         } finally {
             setIsDbLoaded(true);
         }
-    }, [uiDispatch, authDispatch, showToast]);
+    }, [uiDispatch, dispatch]);
 
     // Initial Load
     useEffect(() => {
@@ -475,9 +462,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // Sync Data
     const syncData = useCallback(async (overrideToken?: string, isManual: boolean = false, reason: string = 'system', silent: boolean = false) => {
-        // REMOVED: isOnline block to allow retry in case of false offline detection
-        // if (!stateRef.current.isOnline) return;
-
         if (isSyncingRef.current) {
             if (stateRef.current.devMode) console.warn("Sync already in progress. Skipping.");
             return;
@@ -490,16 +474,13 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             return;
         }
 
-        // NEW: Check if token is expired before attempting sync
         if (googleUser && googleUser.expiresAt && googleUser.expiresAt <= Date.now()) {
             console.warn('[SYNC] Token expired.');
             if (isManual) {
-                // If manual sync and token is expired, trigger auth refresh
                 authDispatch({ type: 'SET_GOOGLE_USER', payload: null });
                 showToast("Session expired. Please sign in again.", 'info');
                 return;
             } else {
-                // For automatic sync, just skip it until the user logs in again
                 if (stateRef.current.devMode) console.log("Background sync skipped: Token expired.");
                 return;
             }
@@ -509,7 +490,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const timestamp = new Date().toISOString();
             const logString = `[${timestamp}] ${action}: ${details}`;
 
-            // Push to Persistent Audit Log ONLY if requested
             if (persistent) {
                 dispatch({
                     type: 'ADD_AUDIT_LOG',
@@ -523,9 +503,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 });
             }
 
-            // Push to Transient Sync Console (Always)
             dispatch({ type: 'ADD_SYNC_LOG', payload: logString });
-
             if (stateRef.current.devMode) console.log(logString);
         };
 
@@ -541,8 +519,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         try {
             logEntry('SYNC_START', `Sync process initiated (Reason: ${reason})`, false);
 
-            // 1. Read Cloud Data (Manifest-based / Differential)
-            console.log('[SYNC] Step 1: Reading cloud data...');
             const lastSyncTimeVal = typeof stateRef.current.lastSyncTime === 'number' ? stateRef.current.lastSyncTime : undefined;
 
             const cloudData = await DriveService.read(token, {
@@ -550,34 +526,24 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 onProgress
             });
 
-            // 2. Merge Cloud -> Local
             let freshState: DataState | undefined;
             let cloudDataMerged = false;
             if (cloudData && Object.keys(cloudData).length > 0) {
                 logEntry('SYNC_MERGE', `Merging data from cloud (${Object.keys(cloudData).length} stores)`, true);
-                if (stateRef.current.devMode) console.log("Sync: Merging cloud data...", Object.keys(cloudData));
-
                 await db.mergeData(cloudData);
                 cloudDataMerged = true;
 
-                // Force full re-hydration to ensure UI reflects DB
                 const result = await hydrateState();
                 if (result) {
                     freshState = result as DataState;
-                    // Explicitly dispatch to ensure UI update
                     dispatch({ type: 'SET_FULL_STATE', payload: result });
                 }
             }
 
-            // 3. Local -> Cloud (Incremental)
-            console.log('[SYNC] Step 2: Checking for local changes...');
-            if (stateRef.current.devMode) console.log("Sync: Identifying modified collections...");
             const modifiedInfo = await getModifiedStores();
-            console.log(`[SYNC] Found ${modifiedInfo.length} modified stores:`, modifiedInfo.map(m => m.storeName));
             const currentState = freshState || stateRef.current;
 
             if (modifiedInfo.length > 0) {
-                console.log('[SYNC] Step 3: Uploading local changes...');
                 logEntry('SYNC_UPLOAD', `Uploading ${modifiedInfo.length} changed stores`, false);
                 const changedCollections: Record<string, any[]> = {};
                 for (const info of modifiedInfo) {
@@ -588,7 +554,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     else if (storeName === 'financial_scenarios') stateKey = 'financialScenarios';
 
                     let data = (currentState as any)[stateKey];
-                    if (storeName === 'profile' && data) data = [data]; // Force array for sync consistency
+                    if (storeName === 'profile' && data) data = [data];
                     changedCollections[storeName] = data || [];
                 }
 
@@ -602,28 +568,19 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     onProgress
                 });
 
-                // 4. Mark Synced
                 const now = Date.now();
-                console.log('[SYNC] Step 4: Marking stores as synced...', now);
                 for (const info of modifiedInfo) {
                     await markStoreSynced(info.storeName, now);
                 }
 
                 dispatch({ type: 'SET_LAST_SYNC_TIME', payload: now });
-                console.log('[SYNC] ✓ Sync completed successfully! Last sync:', new Date(now).toLocaleTimeString());
                 showToast(`Sync completed: ${modifiedInfo.length} sections updated.`, 'success');
                 logEntry('SYNC_SUCCESS', `Sync complete. ${modifiedInfo.length} stores uploaded.`, true);
             } else {
-                // No local changes, but update sync time if we pulled cloud data
-                const now = Date.now();
-                console.log('[SYNC] No local changes to upload. Updating sync time...', now);
-                dispatch({ type: 'SET_LAST_SYNC_TIME', payload: now });
-                console.log('[SYNC] ✓ Sync completed! Last sync:', new Date(now).toLocaleTimeString());
-
                 logEntry('SYNC_COMPLETE', cloudDataMerged ? 'Cloud data merged successfully' : 'Everything up to date', false);
-                if (stateRef.current.devMode) console.log("Sync: No local changes to upload.");
-
                 if (cloudDataMerged) {
+                    const now = Date.now();
+                    dispatch({ type: 'SET_LAST_SYNC_TIME', payload: now });
                     showToast("Sync completed: Cloud updates applied.", 'success');
                 } else if (isManual) {
                     showToast("Sync: Everything up to date.", 'info');
@@ -633,7 +590,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             if (!silent) dispatch({ type: 'SET_SYNC_STATUS', payload: 'success' });
             if (!silent) dispatch({ type: 'SET_SYNC_MESSAGE', payload: 'Sync Complete' });
 
-            // Reset sync status after 2 seconds to avoid stuck 'success' state
             if (!silent) {
                 setTimeout(() => {
                     dispatch({ type: 'SET_SYNC_STATUS', payload: 'idle' });
@@ -642,47 +598,15 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
         } catch (error: any) {
             console.error("Sync Failed:", error);
-
-            // NEW: More robust error handling to prevent crashes
             try {
-                // Background errors should still be visible if they are persistent/critical?
-                // For now, let's keep errors visible but silent on poll
                 dispatch({ type: 'SET_SYNC_STATUS', payload: 'error' });
-
-                // Reset error status after 5 seconds
                 setTimeout(() => {
                     dispatch({ type: 'SET_SYNC_STATUS', payload: 'idle' });
                 }, 5000);
-
-                // Log error for debugging
-                dispatch({
-                    type: 'ADD_AUDIT_LOG',
-                    payload: {
-                        id: `sync-err-${Date.now()}`,
-                        action: 'SYNC_FAILED',
-                        details: error.message || 'Unknown error',
-                        timestamp: new Date().toISOString(),
-                        user: googleUser?.email || 'Anonymous'
-                    }
-                });
-
-                const isAuthError = error.message?.includes('401') || error.message?.includes('Unauthorized') || error.message?.includes('invalid_grant') || error.message?.includes('access_denied') || error.message?.includes('Expired') || error.message?.includes('Failed to fetch');
-
-                if (isAuthError) {
-                    console.warn("Auth/Network Error detected.");
-                    // Clear invalid token immediately to prevent loop
-                    authDispatch({ type: 'SET_GOOGLE_USER', payload: null });
-
-                    if (isManual) {
-                        showToast("Session expired or network error. Please sign in again.", 'info');
-                    } else {
-                        console.log("Background sync paused: Auth required.");
-                    }
-                } else {
-                    showToast(`Sync failed: ${error.message || 'Unknown error'} `, 'error');
+                if (!silent || isManual) {
+                    showToast(`Sync failed: ${error.message || 'Unknown error'}`, 'error');
                 }
             } catch (dispatchError) {
-                // If error handling itself fails, at least log it and don't crash the app
                 console.error('Error in sync error handling:', dispatchError);
             }
         } finally {
@@ -690,42 +614,31 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     }, [googleUser, authDispatch, dispatch, showToast, hydrateState]);
 
-
-    // Trigger sync on login/token refresh
     useEffect(() => {
-        if (googleUser?.accessToken) { // Removed isOnline block
+        if (googleUser?.accessToken) {
             syncData(undefined, false, 'auth_init', true);
         }
-    }, [googleUser?.accessToken]);
+    }, [googleUser?.accessToken, syncData]);
 
-    // Auto-Sync on local changes
     useEffect(() => {
-        if (!googleUser?.accessToken || !state.lastLocalUpdate) return; // Removed isOnline block
-
+        if (!googleUser?.accessToken || !state.lastLocalUpdate) return;
         const isMobile = DriveService.isMobile() && window.innerWidth < 500;
         const debounceTime = isMobile ? 20000 : 10000;
-
         const timeout = setTimeout(() => {
             syncData(undefined, false, 'local_update', true);
         }, debounceTime);
-
         return () => clearTimeout(timeout);
-    }, [state.lastLocalUpdate, googleUser?.accessToken, state.isOnline]);
+    }, [state.lastLocalUpdate, googleUser?.accessToken, syncData]);
 
-    // Periodic Poll (Pull cloud changes)
     useEffect(() => {
         const isMobile = DriveService.isMobile() && window.innerWidth < 500;
-        if (!googleUser?.accessToken) return; // Removed isOnline block
-
+        if (!googleUser?.accessToken) return;
         const pollInterval = setInterval(() => {
-            console.log(`[SYNC] ${isMobile ? 'Mobile' : 'Desktop'} Poll: Checking cloud for updates...`);
             syncData(undefined, false, 'periodic_poll', true);
-        }, isMobile ? 10 * 60 * 1000 : 5 * 60 * 1000); // 10 mins mobile, 5 mins desktop
-
+        }, isMobile ? 10 * 60 * 1000 : 5 * 60 * 1000);
         return () => clearInterval(pollInterval);
-    }, [googleUser?.accessToken, state.isOnline]);
+    }, [googleUser?.accessToken, syncData]);
 
-    // Restore helper (injected into state for compatibility)
     const restoreFromFileId = async (fileId: string) => {
         if (!googleUser?.accessToken) return;
         try {
@@ -750,7 +663,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         googleSignIn,
         showToast,
         googleUser
-    }), [state, isDbLoaded, googleUser, googleSignIn, showToast, restoreFromFileId]); // dispatch is stable
+    }), [state, isDbLoaded, googleUser, googleSignIn, showToast, restoreFromFileId, syncData]);
 
     return (
         <DataContext.Provider value={providerValue}>
