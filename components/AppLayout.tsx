@@ -339,7 +339,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                                                 {isOnline && syncStatus === 'syncing' && (
                                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
                                                 )}
-                                                <span className={`relative inline-flex rounded-full h-2 w-2 ${!isOnline ? 'bg-gray-400' : syncStatus === 'error' ? 'bg-red-500' : 'bg-green-400'} shadow-sm`}></span>
+                                                <span className={`relative inline-flex rounded-full h-2 w-2 ${syncStatus === 'syncing' ? 'bg-blue-400' : syncStatus === 'error' ? 'bg-red-500' : 'bg-green-400'} shadow-sm`}></span>
                                             </div>
 
                                             {/* Last Synced Time - Aligned Single Line */}
@@ -361,7 +361,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                                                         syncStatus === 'error' ? 'Failed' :
                                                             lastSyncTime ? formatDateTime(lastSyncTime).split(', ')[1] :
                                                                 lastSyncTime ? formatDateTime(lastSyncTime).split(', ')[1] :
-                                                                    (state.isOnline ? 'Waiting for Sync...' : 'Offline')}
+                                                                    (googleUser ? 'Waiting for Sync...' : 'Cloud Standby')}
                                                 </span>
                                             </div>
                                         </>
@@ -376,12 +376,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                         </div>
 
                         <div className="flex items-center gap-1 sm:gap-2 z-20">
-                            {!isOnline && (
-                                <div className="hidden sm:flex items-center gap-1 px-2 py-1 bg-red-500/20 rounded-full border border-red-400/50 mr-1 animate-pulse" aria-label="You are currently offline">
-                                    <WifiOff size={14} className="text-white" />
-                                    <span className="text-[10px] font-bold text-white">Offline</span>
-                                </div>
-                            )}
+                            {/* Offline Indicator Removed to avoid confusion */}
 
                             <button
                                 onClick={toggleTheme}

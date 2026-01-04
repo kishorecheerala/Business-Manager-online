@@ -1000,19 +1000,43 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
 
             <div className="space-y-4 animate-fade-in-fast">
 
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                            <Users className="w-6 h-6" />
+                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
+                    <div className="flex flex-row items-center gap-4 w-full lg:w-auto overflow-x-auto no-scrollbar">
+                        <div className="flex items-center gap-3 flex-shrink-0">
+                            <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                                <Users className="w-6 h-6" />
+                            </div>
+                            <h1 className="text-2xl font-bold text-gray-800 dark:text-white whitespace-nowrap">Customers</h1>
                         </div>
-                        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Customers</h1>
+
+                        {filteredCustomers.length > 0 && (
+                            <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-1 rounded-lg border dark:border-slate-700 flex-shrink-0">
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => handleSelectAll('page')}
+                                    className="text-[10px] px-2 py-1 h-7 whitespace-nowrap"
+                                >
+                                    {paginatedCustomers.every(c => selectedRows.has(c.id)) ? 'Deselect Bulk' : 'Bulk actions'}
+                                </Button>
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => handleSelectAll('all')}
+                                    className="text-[10px] px-2 py-1 h-7 whitespace-nowrap"
+                                >
+                                    {selectedRows.size === filteredCustomers.length ? 'Deselect All' : `Select All (${filteredCustomers.length})`}
+                                </Button>
+                            </div>
+                        )}
                     </div>
-                    <div className="flex gap-2 w-full sm:w-auto">
-                        <Button variant="secondary" onClick={() => { setLedgerPartyId('ALL_CUSTOMERS'); setIsLedgerOpen(true); }} className="flex-1 sm:flex-none justify-center">
-                            <FileText size={16} className="mr-2" /> All Transactions
+
+                    <div className="flex flex-row items-center gap-2 w-full lg:w-auto">
+                        <Button variant="secondary" size="sm" onClick={() => { setLedgerPartyId('ALL_CUSTOMERS'); setIsLedgerOpen(true); }} className="flex-1 lg:flex-none whitespace-nowrap h-9">
+                            <FileText size={14} className="mr-1" /> All Transactions
                         </Button>
-                        <Button onClick={() => setIsAdding(true)} className="flex-1 sm:flex-none justify-center">
-                            <Plus size={20} className="mr-2" /> Add Customer
+                        <Button size="sm" onClick={() => setIsAdding(true)} className="flex-1 lg:flex-none whitespace-nowrap h-9">
+                            <Plus size={16} className="mr-1" /> Add Customer
                         </Button>
                     </div>
                 </div>
@@ -1031,24 +1055,6 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ setIsDirty, setCurrentPag
                             className="w-full p-2 pl-10 border rounded-lg dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
                         />
                     </div>
-                    {filteredCustomers.length > 0 && (
-                        <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-1 rounded-lg border dark:border-slate-700">
-                            <Button
-                                variant="secondary"
-                                onClick={() => handleSelectAll('page')}
-                                className="text-xs py-1"
-                            >
-                                {paginatedCustomers.every(c => selectedRows.has(c.id)) ? 'Deselect Page' : 'Select Page'}
-                            </Button>
-                            <Button
-                                variant="secondary"
-                                onClick={() => handleSelectAll('all')}
-                                className="text-xs py-1"
-                            >
-                                {selectedRows.size === filteredCustomers.length ? 'Deselect All' : `Select All (${filteredCustomers.length})`}
-                            </Button>
-                        </div>
-                    )}
                 </div>
 
                 <div className="space-y-3">

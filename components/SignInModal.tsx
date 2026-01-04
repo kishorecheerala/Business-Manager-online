@@ -32,18 +32,11 @@ const SignInModal: React.FC<SignInModalProps> = ({ isOpen, onClose }) => {
     if (!isOpen) return null;
 
     const handleSignIn = async () => {
-        if (!state.isOnline) {
-            showToast("Internet connection required to sign in.", 'error');
-            return;
-        }
+        // REMOVED: Preemptive online check to allow retry.
+        // if (!state.isOnline) { ... }
 
         try {
             await googleSignIn();
-            // Note: googleSignIn in context is void, but if we change it to async or await the state change 
-            // (which useEffect handles) that's better. 
-            // The useEffect above at line 26 ALREADY handles auto-close:
-            // if (isOpen && googleUser) { onClose(); }
-            // So we don't need manual close here.
         } catch (e) {
             console.error("Sign in trigger failed", e);
         }
@@ -83,11 +76,10 @@ const SignInModal: React.FC<SignInModalProps> = ({ isOpen, onClose }) => {
                     <div className="space-y-3">
                         <button
                             onClick={handleSignIn}
-                            disabled={!state.isOnline}
-                            className={`w-full py-3 ${!state.isOnline ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white font-bold rounded-xl shadow-lg shadow-blue-200 dark:shadow-none transition-all flex items-center justify-center gap-2 group`}
+                            className={`w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-200 dark:shadow-none transition-all flex items-center justify-center gap-2 group`}
                         >
-                            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className={`w-5 h-5 bg-white rounded-full p-0.5 ${!state.isOnline ? 'opacity-50' : ''}`} />
-                            {state.isOnline ? 'Sign In with Google' : 'Offline - Connect to Internet'}
+                            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className={`w-5 h-5 bg-white rounded-full p-0.5`} />
+                            Sign In with Google
                         </button>
                         <button
                             onClick={onClose}

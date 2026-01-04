@@ -290,10 +290,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }, []);
 
     const googleSignIn = (options?: { forceConsent?: boolean }) => {
-        if (!navigator.onLine) {
-            showToast("Internet connection required to sign in.", 'error');
-            return;
-        }
+        // REMOVED: Preemptive online check to allow retry.
+        // if (!navigator.onLine) { ... }
 
         if (options?.forceConsent) {
             tokenClientRef.current = null;
@@ -301,11 +299,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         if (!tokenClientRef.current) {
             showToast("Initializing login...", 'info');
-            loadGoogleScript().then(() => {
-                const proxyCallback = (resp: any) => handleLoginResponseRef.current(resp);
-                tokenClientRef.current = initGoogleAuth(proxyCallback, console.error);
-                tokenClientRef.current.requestAccessToken({ prompt: options?.forceConsent ? 'consent' : '' });
-            });
+            loadGoogleScript()
+                .then(() => {
+                    const proxyCallback = (resp: any) => handleLoginResponseRef.current(resp);
+                    tokenClientRef.current = initGoogleAuth(proxyCallback, console.error);
+                    tokenClientRef.current.requestAccessToken({ prompt: options?.forceConsent ? 'consent' : '' });
+                })
+                .catch((err) => {
+                    console.error("Failed to load Google script:", err);
+                    showToast("Network error: Unable to load Google Sign-In.", 'error');
+                });
             return;
         }
 

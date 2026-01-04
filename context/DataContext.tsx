@@ -448,7 +448,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // Poll for developer messages
     useEffect(() => {
-        if (!googleUser?.accessToken || !state.isOnline) return;
+        if (!googleUser?.accessToken) return;
 
         const pollDeveloperMessages = async () => {
             try {
@@ -474,7 +474,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // Sync Data
     const syncData = useCallback(async (overrideToken?: string, isManual: boolean = false) => {
-        if (!stateRef.current.isOnline) return;
+        // REMOVED: isOnline block to allow retry in case of false offline detection
+        // if (!stateRef.current.isOnline) return;
 
         if (stateRef.current.syncStatus === 'syncing') {
             if (stateRef.current.devMode) console.warn("Sync already in progress. Skipping.");
@@ -681,14 +682,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // Trigger sync on login/token refresh
     useEffect(() => {
-        if (googleUser?.accessToken && state.isOnline) {
+        if (googleUser?.accessToken) { // Removed isOnline block
             syncData();
         }
-    }, [googleUser?.accessToken, state.isOnline]);
+    }, [googleUser?.accessToken]);
 
     // Auto-Sync on local changes
     useEffect(() => {
-        if (!googleUser?.accessToken || !state.isOnline || !state.lastLocalUpdate) return;
+        if (!googleUser?.accessToken || !state.lastLocalUpdate) return; // Removed isOnline block
 
         const isMobile = DriveService.isMobile() && window.innerWidth < 500;
         const debounceTime = isMobile ? 20000 : 10000;
@@ -703,7 +704,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // Periodic Poll (Pull cloud changes)
     useEffect(() => {
         const isMobile = DriveService.isMobile() && window.innerWidth < 500;
-        if (!googleUser?.accessToken || !state.isOnline) return;
+        if (!googleUser?.accessToken) return; // Removed isOnline block
 
         const pollInterval = setInterval(() => {
             console.log(`[SYNC] ${isMobile ? 'Mobile' : 'Desktop'} Poll: Checking cloud for updates...`);
