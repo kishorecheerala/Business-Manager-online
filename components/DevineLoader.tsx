@@ -9,10 +9,7 @@ const DevineLoader: React.FC = () => {
 
                 {/* The Symbol */}
                 <div
-                    className="relative z-10 text-[200px] leading-none font-serif font-bold text-primary select-none"
-                    style={{
-                        animation: 'devine-pulse 4s ease-in-out infinite',
-                    }}
+                    className="animate-devine-pulse relative z-10 text-[200px] leading-none font-serif font-bold text-primary select-none"
                 >
                     ॐ
                 </div>
@@ -56,6 +53,23 @@ const DevineLoader: React.FC = () => {
                 opacity: 0.8; 
                 text-shadow: 0 0 20px rgb(var(--primary-color) / 0.5);
             }
+        }
+        .animate-devine-pulse {
+            animation: devine-pulse 4s ease-in-out infinite;
+        }
+        @keyframes fade-in {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .animate-fade-in {
+            animation: fade-in 0.5s ease-out forwards;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .animate-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
         @keyframes progress-indeterminate {
             0% { transform: translateX(-100%); }

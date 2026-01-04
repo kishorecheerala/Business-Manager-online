@@ -246,6 +246,40 @@
           }
         }
 
+        .animate-devine-pulse {
+          animation: devine-pulse 4s ease-in-out infinite;
+        }
+
+        @keyframes fade-in {
+          from {
+            opacity: 0;
+          }
+
+          to {
+            opacity: 1;
+          }
+        }
+
+        .animate-fade-in {
+          animation: fade-in 0.5s ease-out forwards;
+        }
+
+        @keyframes pulse {
+
+          0%,
+          100% {
+            opacity: 1;
+          }
+
+          50% {
+            opacity: 0.5;
+          }
+        }
+
+        .animate-pulse {
+          animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
         @keyframes progress-indeterminate {
           0% {
             transform: translateX(-100%);
@@ -300,8 +334,8 @@
           style="background-color: rgb(var(--primary-color) / 0.05);"></div>
 
         <!-- The Symbol -->
-        <div class="relative z-10 text-[200px] leading-none font-serif font-bold select-none"
-          style="color: rgb(var(--primary-color)); animation: devine-pulse 4s ease-in-out infinite;">
+        <div class="animate-devine-pulse relative z-10 text-[200px] leading-none font-serif font-bold select-none"
+          style="color: rgb(var(--primary-color));">
           ॐ
         </div>
       </div>
