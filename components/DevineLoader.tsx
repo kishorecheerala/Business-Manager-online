@@ -9,7 +9,7 @@ const DevineLoader: React.FC = () => {
 
                 {/* The Symbol */}
                 <div
-                    className="animate-devine-pulse relative z-10 text-[200px] leading-none font-serif font-bold text-primary select-none"
+                    className="animate-surgical-devine-pulse relative z-10 text-[200px] leading-none font-serif font-bold text-primary select-none"
                 >
                     ॐ
                 </div>
@@ -34,28 +34,27 @@ const DevineLoader: React.FC = () => {
 
             {/* Inline Style for animations */}
             <style>{`
-        @keyframes devine-pulse {
+        @keyframes surgical-devine-pulse {
             0% { 
-                transform: scale(0.9); 
+                transform: scale(0.95); 
                 opacity: 0.8; 
-                text-shadow: 0 0 20px rgb(var(--primary-color) / 0.5);
+                filter: drop-shadow(0 0 10px rgb(var(--primary-color) / 0.4));
             }
             50% { 
-                transform: scale(1.1); 
+                transform: scale(1.05); 
                 opacity: 1; 
-                text-shadow: 
-                    0 0 30px rgb(var(--primary-color) / 0.8),
-                    0 0 60px rgb(var(--primary-color) / 0.6),
-                    0 0 90px rgb(var(--primary-color) / 0.4);
+                filter: drop-shadow(0 0 30px rgb(var(--primary-color) / 0.8))
+                        drop-shadow(0 0 60px rgb(var(--primary-color) / 0.5))
+                        drop-shadow(0 0 100px rgb(var(--primary-color) / 0.3));
             }
             100% { 
-                transform: scale(0.9); 
+                transform: scale(0.95); 
                 opacity: 0.8; 
-                text-shadow: 0 0 20px rgb(var(--primary-color) / 0.5);
+                filter: drop-shadow(0 0 10px rgb(var(--primary-color) / 0.4));
             }
         }
-        .animate-devine-pulse {
-            animation: devine-pulse 4s ease-in-out infinite;
+        .animate-surgical-devine-pulse {
+            animation: surgical-devine-pulse 4s ease-in-out infinite;
         }
         @keyframes fade-in {
             from { opacity: 0; }
