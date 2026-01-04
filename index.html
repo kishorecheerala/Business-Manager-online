@@ -221,32 +221,28 @@
   class="bg-background dark:bg-slate-900 text-text dark:text-slate-300 antialiased selection:bg-primary selection:text-white">
   <div id="root">
     <div id="initial-loader"
-      class="fixed inset-0 z-[9999] flex flex-col items-center justify-center cursor-wait bg-white">
+      class="fixed inset-0 z-[9999] flex flex-col items-center justify-center animate-fade-in cursor-wait bg-[#f8fafc] dark:bg-[#020617]">
       <style>
-        /* Immediate Dark Mode Support via HTML class */
-
-
-        .animate-devine-pulse {
-          animation: devine-pulse 4s ease-in-out infinite;
-        }
-
         @keyframes devine-pulse {
           0% {
             transform: scale(0.9);
             opacity: 0.8;
-            filter: drop-shadow(0 0 20px rgb(var(--primary-color) / 0.5));
+            text-shadow: 0 0 20px rgb(var(--primary-color) / 0.5);
           }
 
           50% {
             transform: scale(1.1);
             opacity: 1;
-            filter: drop-shadow(0 0 30px rgb(var(--primary-color) / 0.8)) drop-shadow(0 0 60px rgb(var(--primary-color) / 0.4));
+            text-shadow:
+              0 0 30px rgb(var(--primary-color) / 0.8),
+              0 0 60px rgb(var(--primary-color) / 0.6),
+              0 0 90px rgb(var(--primary-color) / 0.4);
           }
 
           100% {
             transform: scale(0.9);
             opacity: 0.8;
-            filter: drop-shadow(0 0 20px rgb(var(--primary-color) / 0.5));
+            text-shadow: 0 0 20px rgb(var(--primary-color) / 0.5);
           }
         }
 
@@ -268,11 +264,7 @@
           animation: progress-indeterminate 1.5s infinite ease-in-out;
         }
 
-        .animate-bounce-dot {
-          animation: bounce 1.4s infinite both;
-        }
-
-        @keyframes bounce {
+        @keyframes dot-bounce {
 
           0%,
           100% {
@@ -285,20 +277,32 @@
             transform: translateY(-4px);
           }
         }
+
+        .animate-dot-1 {
+          animation: dot-bounce 1.4s infinite both;
+          animation-delay: 0s;
+        }
+
+        .animate-dot-2 {
+          animation: dot-bounce 1.4s infinite both;
+          animation-delay: 0.2s;
+        }
+
+        .animate-dot-3 {
+          animation: dot-bounce 1.4s infinite both;
+          animation-delay: 0.4s;
+        }
       </style>
 
-      <!-- Ambiance -->
-      <div class="absolute inset-0 blur-[100px] rounded-full animate-pulse"
-        style="background-color: rgb(var(--primary-color) / 0.05); z-index: 0;"></div>
+      <div class="relative flex items-center justify-center mb-8">
+        <!-- Subtle background ambiance -->
+        <div class="absolute inset-0 blur-[100px] rounded-full animate-pulse"
+          style="background-color: rgb(var(--primary-color) / 0.05);"></div>
 
-      <!-- Symbol -->
-      <div class="relative z-10 flex items-center justify-center mb-8">
-        <div class="animate-devine-pulse"
-          style="width: 200px; height: 200px; color: rgb(var(--primary-color)); display: flex; align-items: center; justify-content: center;">
-          <svg viewBox="0 0 24 24" fill="currentColor" style="width: 100%; height: 100%;">
-            <path
-              d="M15,2L13.5,3.5L15,5L16.5,3.5L15,2M11,3C10,9 17,10 20,6L18,4.5C17,6 13,8 11,3M9,7C7,7 4.5,8.5 4.5,8.5L6,11C7,10 9,9.5 10,10C12,11 9,13 7,12V15.5C10,14 12,16 11,17.5C8,22 3,16 3,13C1,19 6,22 9,22C12,22 14,20 12.5,15H14C12.5,19.5 18,24 21,18C22,16 22,9.5 17,9.5C13,9.5 14,15 10.5,13.5C14,10 12,7 9,7M19,12C22,15 15,21 15,15C15,13 17,10.5 19,12Z" />
-          </svg>
+        <!-- The Symbol -->
+        <div class="relative z-10 text-[200px] leading-none font-serif font-bold select-none"
+          style="color: rgb(var(--primary-color)); animation: devine-pulse 4s ease-in-out infinite;">
+          ॐ
         </div>
       </div>
 
@@ -308,15 +312,14 @@
           style="color: rgb(var(--primary-color) / 0.8);">
           LOADING
           <div class="flex ml-1 mb-1">
-            <span class="animate-bounce-dot mx-[1px]" style="animation-delay: 0s">.</span>
-            <span class="animate-bounce-dot mx-[1px]" style="animation-delay: 0.2s">.</span>
-            <span class="animate-bounce-dot mx-[1px]" style="animation-delay: 0.4s">.</span>
+            <span class="animate-dot-1 mx-[1px]">.</span>
+            <span class="animate-dot-2 mx-[1px]">.</span>
+            <span class="animate-dot-3 mx-[1px]">.</span>
           </div>
         </div>
 
         <!-- Progress Bar -->
-        <div class="w-full h-1.5 rounded-full overflow-hidden"
-          style="background-color: rgb(var(--primary-color) / 0.1);">
+        <div class="w-full h-1.5 rounded-full overflow-hidden bg-gray-200/50 dark:bg-slate-800/50">
           <div class="h-full w-full origin-left animate-progress-indeterminate"
             style="background: linear-gradient(to right, rgb(var(--primary-color) / 0.4), rgb(var(--primary-color)));">
           </div>
