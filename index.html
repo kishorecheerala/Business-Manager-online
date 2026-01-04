@@ -90,6 +90,117 @@
     })();
   </script>
 
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      plugins: [
+        function ({ addBase, addComponents, addUtilities }) {
+          addUtilities({
+            '.backdrop-blur': {
+              'backdrop-filter': 'blur(1px)',
+              '-webkit-backdrop-filter': 'blur(1px)',
+            },
+            '.backdrop-blur-sm': {
+              'backdrop-filter': 'blur(4px)',
+              '-webkit-backdrop-filter': 'blur(4px)',
+            },
+            '.backdrop-blur-md': {
+              'backdrop-filter': 'blur(12px)',
+              '-webkit-backdrop-filter': 'blur(12px)',
+            },
+            '.backdrop-blur-lg': {
+              'backdrop-filter': 'blur(16px)',
+              '-webkit-backdrop-filter': 'blur(16px)',
+            },
+            '.backdrop-blur-xl': {
+              'backdrop-filter': 'blur(24px)',
+              '-webkit-backdrop-filter': 'blur(24px)',
+            },
+            '.backdrop-blur-2xl': {
+              'backdrop-filter': 'blur(40px)',
+              '-webkit-backdrop-filter': 'blur(40px)',
+            },
+            '.backdrop-blur-3xl': {
+              'backdrop-filter': 'blur(64px)',
+              '-webkit-backdrop-filter': 'blur(64px)',
+            },
+          })
+        }
+      ],
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['var(--app-font)', 'sans-serif'],
+          },
+          colors: {
+            // Dynamic primary color using CSS variable with alpha channel support
+            primary: 'rgb(var(--primary-color) / <alpha-value>)',
+            secondary: '#64748b', // Slate 500
+            accent: 'rgb(var(--primary-color) / 0.8)', // Derived from primary
+            success: '#10b981', // Emerald 500
+            warning: '#f59e0b', // Amber 500
+            danger: '#ef4444', // Red 500
+            background: '#f8fafc',
+            text: '#1e293b',
+          },
+          animation: {
+            'fade-in-up': 'fadeInUp 0.5s ease-out forwards',
+            'scale-in': 'scaleIn 0.2s ease-out forwards',
+            'fade-in-fast': 'fadeIn 0.2s ease-out forwards',
+            'slide-up-fade': 'slideUpFade 0.4s ease-out forwards',
+            'slide-down-fade': 'slideDownFade 0.3s ease-out forwards',
+          },
+          keyframes: {
+            fadeInUp: {
+              '0%': { opacity: '0', marginTop: '10px' },
+              '100%': { opacity: '1', marginTop: '0' },
+            },
+            fadeIn: {
+              '0%': { opacity: '0' },
+              '100%': { opacity: '1' },
+            },
+            scaleIn: {
+              '0%': { opacity: '0', transform: 'scale(0.95)' },
+              '100%': { opacity: '1', transform: 'scale(1)' },
+            },
+            slideUpFade: {
+              '0%': { opacity: '0', transform: 'translateY(10px)' },
+              '100%': { opacity: '1', transform: 'none' },
+            },
+            slideDownFade: {
+              '0%': { opacity: '0', transform: 'translateY(-10px)' },
+              '100%': { opacity: '1', transform: 'none' },
+            }
+          }
+        },
+      },
+    }
+  </script>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "jspdf": "https://aistudiocdn.com/jspdf@^3.0.4",
+    "vite": "https://aistudiocdn.com/vite@^7.2.4",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
+    "jspdf-autotable": "https://aistudiocdn.com/jspdf-autotable@^5.0.2",
+    "pdfjs-dist": "https://aistudiocdn.com/pdfjs-dist@^5.4.449",
+    "html5-qrcode": "https://aistudiocdn.com/html5-qrcode@^2.3.8",
+    "idb": "https://aistudiocdn.com/idb@^8.0.3",
+    "jsbarcode": "https://aistudiocdn.com/jsbarcode@^3.12.1",
+    "react-dom": "https://aistudiocdn.com/react-dom@^19.2.1",
+    "react-native": "https://esm.sh/react-native@^0.83.0"
+  }
+}
+</script>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/alasql@4.0.0/dist/alasql.min.js"></script>
+
   <!-- Drag and Drop Polyfill for Mobile -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/default.css">
   <script src="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/index.min.js"></script>
