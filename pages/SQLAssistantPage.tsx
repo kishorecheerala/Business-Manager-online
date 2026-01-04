@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import alasql from 'alasql';
 import { Database, Play, Terminal, Table as TableIcon, Wand2, AlertCircle, Loader2, Trash2, WifiOff, Layout, History, FileSpreadsheet, ChevronRight, Cloud, HardDrive, RefreshCw, Info, FolderTree } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { useUI } from '../context/UIContext';
@@ -14,7 +15,6 @@ interface SQLAssistantPageProps {
 }
 
 // Alasql typing
-declare const alasql: any;
 
 const SQLAssistantPage: React.FC<SQLAssistantPageProps> = ({ setCurrentPage }) => {
     const { state } = useData();

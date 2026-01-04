@@ -17,6 +17,7 @@
     "@types/react-color": "^3.0.13",
     "@types/react-router-dom": "^5.3.3",
     "@vitejs/plugin-react": "^4.3.4",
+    "alasql": "^4.16.0",
     "framer-motion": "^12.23.26",
     "html2canvas": "^1.4.1",
     "html5-qrcode": "^2.3.8",

@@ -81,7 +81,7 @@ export default defineConfig({
     exclude: ['@sqlite.org/sqlite-wasm'],
   },
   assetsInclude: ['**/*.wasm'],
-  base: './',
+  base: '/',
   build: {
     sourcemap: false, // Disable sourcemaps in production for security and size
     minify: 'terser',
