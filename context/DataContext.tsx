@@ -108,7 +108,7 @@ export const DataContext = createContext<{
     state: DataState;
     dispatch: React.Dispatch<any>;
     isDbLoaded: boolean;
-    syncData: (overrideToken?: string, isManual?: boolean) => Promise<void>;
+    syncData: (overrideToken?: string, isManual?: boolean, reason?: string, silent?: boolean) => Promise<void>;
     restoreFromFileId?: (fileId: string) => Promise<void>;
     googleSignIn: (options?: any) => void;
     showToast: (message: string, type?: ToastState['type']) => void;
@@ -119,6 +119,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [state, dispatch] = useReducer(appReducer, initialState);
     const [isDbLoaded, setIsDbLoaded] = useState(false);
     const stateRef = useRef(state);
+    const isSyncingRef = useRef(false);
 
     // Inject Dependencies
     const { showToast, uiDispatch } = useUI();
@@ -473,11 +474,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }, [googleUser, state.isOnline, dispatch, showToast]);
 
     // Sync Data
-    const syncData = useCallback(async (overrideToken?: string, isManual: boolean = false, reason: string = 'system') => {
+    const syncData = useCallback(async (overrideToken?: string, isManual: boolean = false, reason: string = 'system', silent: boolean = false) => {
         // REMOVED: isOnline block to allow retry in case of false offline detection
         // if (!stateRef.current.isOnline) return;
 
-        if (stateRef.current.syncStatus === 'syncing') {
+        if (isSyncingRef.current) {
             if (stateRef.current.devMode) console.warn("Sync already in progress. Skipping.");
             return;
         }
@@ -528,10 +529,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             if (stateRef.current.devMode) console.log(logString);
         };
 
-        dispatch({ type: 'SET_SYNC_STATUS', payload: 'syncing' });
+        isSyncingRef.current = true;
+        if (!silent) dispatch({ type: 'SET_SYNC_STATUS', payload: 'syncing' });
+
         const onProgress = (msg: string) => {
-            dispatch({ type: 'SET_SYNC_MESSAGE', payload: msg });
-            logEntry('SYNC_STEP', msg);
+            if (!silent) dispatch({ type: 'SET_SYNC_MESSAGE', payload: msg });
+            logEntry('SYNC_STEP', msg, false);
         };
 
         console.log(`[SYNC] Starting sync process (Reason: ${reason})...`);
@@ -627,19 +630,23 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 }
             }
 
-            dispatch({ type: 'SET_SYNC_STATUS', payload: 'success' });
-            dispatch({ type: 'SET_SYNC_MESSAGE', payload: 'Sync Complete' });
+            if (!silent) dispatch({ type: 'SET_SYNC_STATUS', payload: 'success' });
+            if (!silent) dispatch({ type: 'SET_SYNC_MESSAGE', payload: 'Sync Complete' });
 
             // Reset sync status after 2 seconds to avoid stuck 'success' state
-            setTimeout(() => {
-                dispatch({ type: 'SET_SYNC_STATUS', payload: 'idle' });
-                dispatch({ type: 'SET_SYNC_MESSAGE', payload: undefined });
-            }, 2000);
+            if (!silent) {
+                setTimeout(() => {
+                    dispatch({ type: 'SET_SYNC_STATUS', payload: 'idle' });
+                    dispatch({ type: 'SET_SYNC_MESSAGE', payload: undefined });
+                }, 2000);
+            }
         } catch (error: any) {
             console.error("Sync Failed:", error);
 
             // NEW: More robust error handling to prevent crashes
             try {
+                // Background errors should still be visible if they are persistent/critical?
+                // For now, let's keep errors visible but silent on poll
                 dispatch({ type: 'SET_SYNC_STATUS', payload: 'error' });
 
                 // Reset error status after 5 seconds
@@ -678,6 +685,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 // If error handling itself fails, at least log it and don't crash the app
                 console.error('Error in sync error handling:', dispatchError);
             }
+        } finally {
+            isSyncingRef.current = false;
         }
     }, [googleUser, authDispatch, dispatch, showToast, hydrateState]);
 
@@ -685,7 +694,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // Trigger sync on login/token refresh
     useEffect(() => {
         if (googleUser?.accessToken) { // Removed isOnline block
-            syncData(undefined, false, 'auth_init');
+            syncData(undefined, false, 'auth_init', true);
         }
     }, [googleUser?.accessToken]);
 
@@ -697,7 +706,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const debounceTime = isMobile ? 20000 : 10000;
 
         const timeout = setTimeout(() => {
-            syncData(undefined, false, 'local_update');
+            syncData(undefined, false, 'local_update', true);
         }, debounceTime);
 
         return () => clearTimeout(timeout);
@@ -710,7 +719,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         const pollInterval = setInterval(() => {
             console.log(`[SYNC] ${isMobile ? 'Mobile' : 'Desktop'} Poll: Checking cloud for updates...`);
-            syncData(undefined, false, 'periodic_poll');
+            syncData(undefined, false, 'periodic_poll', true);
         }, isMobile ? 10 * 60 * 1000 : 5 * 60 * 1000); // 10 mins mobile, 5 mins desktop
 
         return () => clearInterval(pollInterval);
