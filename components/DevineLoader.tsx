@@ -38,19 +38,20 @@ const DevineLoader: React.FC = () => {
             0% { 
                 transform: scale(0.95); 
                 opacity: 0.8; 
-                filter: drop-shadow(0 0 10px rgb(var(--primary-color) / 0.4));
+                filter: drop-shadow(0 0 15px rgb(var(--primary-color) / 0.4));
             }
             50% { 
                 transform: scale(1.05); 
                 opacity: 1; 
-                filter: drop-shadow(0 0 30px rgb(var(--primary-color) / 0.8))
-                        drop-shadow(0 0 60px rgb(var(--primary-color) / 0.5))
-                        drop-shadow(0 0 100px rgb(var(--primary-color) / 0.3));
+                filter: drop-shadow(0 0 30px rgb(var(--primary-color) / 1))
+                        drop-shadow(0 0 60px rgb(var(--primary-color) / 0.8))
+                        drop-shadow(0 0 100px rgb(var(--primary-color) / 0.6))
+                        drop-shadow(0 0 150px rgb(var(--primary-color) / 0.4));
             }
             100% { 
                 transform: scale(0.95); 
                 opacity: 0.8; 
-                filter: drop-shadow(0 0 10px rgb(var(--primary-color) / 0.4));
+                filter: drop-shadow(0 0 15px rgb(var(--primary-color) / 0.4));
             }
         }
         .animate-surgical-devine-pulse {

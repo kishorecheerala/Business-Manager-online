@@ -226,19 +226,23 @@
           0% {
             transform: scale(0.95);
             opacity: 0.8;
-            filter: drop-shadow(0 0 10px rgb(var(--primary-color) / 0.4));
+            text-shadow: 0 0 10px rgb(var(--primary-color) / 0.4);
           }
 
           50% {
             transform: scale(1.05);
             opacity: 1;
-            filter: drop-shadow(0 0 25px rgb(var(--primary-color) / 0.8)) drop-shadow(0 0 50px rgb(var(--primary-color) / 0.5)) drop-shadow(0 0 80px rgb(var(--primary-color) / 0.3));
+            text-shadow:
+              0 0 20px rgb(var(--primary-color) / 0.9),
+              0 0 40px rgb(var(--primary-color) / 0.7),
+              0 0 80px rgb(var(--primary-color) / 0.5),
+              0 0 120px rgb(var(--primary-color) / 0.3);
           }
 
           100% {
             transform: scale(0.95);
             opacity: 0.8;
-            filter: drop-shadow(0 0 10px rgb(var(--primary-color) / 0.4));
+            text-shadow: 0 0 10px rgb(var(--primary-color) / 0.4);
           }
         }
 
@@ -325,15 +329,10 @@
       </style>
 
       <div
-        style="position: relative; width: 300px; height: 300px; display: flex; items-center: center; justify-content: center; margin-bottom: 2rem;">
-        <!-- Subtle background ambiance - Fixed Size Circle to prevent "box" look -->
-        <div class="animate-pulse"
-          style="position: absolute; width: 150px; height: 150px; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: rgb(var(--primary-color) / 0.1); border-radius: 50%; filter: blur(60px); pointer-events: none;">
-        </div>
-
+        style="position: relative; width: 300px; height: 300px; display: flex; align-items: center; justify-content: center; margin-bottom: 2rem;">
         <!-- The Symbol -->
         <div class="animate-devine-pulse relative z-10 text-[200px] leading-none font-serif font-bold select-none"
-          style="color: rgb(var(--primary-color)); filter: drop-shadow(0 0 20px rgb(var(--primary-color) / 0.3));">
+          style="color: rgb(var(--primary-color)); filter: drop-shadow(0 0 10px rgb(var(--primary-color) / 0.3));">
           ॐ
         </div>
       </div>
