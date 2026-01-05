@@ -508,10 +508,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         };
 
         isSyncingRef.current = true;
-        if (!silent) dispatch({ type: 'SET_SYNC_STATUS', payload: 'syncing' });
+        dispatch({ type: 'SET_SYNC_STATUS', payload: 'syncing' });
 
         const onProgress = (msg: string) => {
-            if (!silent) dispatch({ type: 'SET_SYNC_MESSAGE', payload: msg });
+            dispatch({ type: 'SET_SYNC_MESSAGE', payload: msg });
             logEntry('SYNC_STEP', msg, false);
         };
 
@@ -578,24 +578,23 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 logEntry('SYNC_SUCCESS', `Sync complete. ${modifiedInfo.length} stores uploaded.`, true);
             } else {
                 logEntry('SYNC_COMPLETE', cloudDataMerged ? 'Cloud data merged successfully' : 'Everything up to date', false);
+                const now = Date.now();
+                dispatch({ type: 'SET_LAST_SYNC_TIME', payload: now });
+
                 if (cloudDataMerged) {
-                    const now = Date.now();
-                    dispatch({ type: 'SET_LAST_SYNC_TIME', payload: now });
                     showToast("Sync completed: Cloud updates applied.", 'success');
                 } else if (isManual) {
                     showToast("Sync: Everything up to date.", 'info');
                 }
             }
 
-            if (!silent) dispatch({ type: 'SET_SYNC_STATUS', payload: 'success' });
-            if (!silent) dispatch({ type: 'SET_SYNC_MESSAGE', payload: 'Sync Complete' });
+            dispatch({ type: 'SET_SYNC_STATUS', payload: 'success' });
+            dispatch({ type: 'SET_SYNC_MESSAGE', payload: 'Sync Complete' });
 
-            if (!silent) {
-                setTimeout(() => {
-                    dispatch({ type: 'SET_SYNC_STATUS', payload: 'idle' });
-                    dispatch({ type: 'SET_SYNC_MESSAGE', payload: undefined });
-                }, 2000);
-            }
+            setTimeout(() => {
+                dispatch({ type: 'SET_SYNC_STATUS', payload: 'idle' });
+                dispatch({ type: 'SET_SYNC_MESSAGE', payload: undefined });
+            }, 2000);
         } catch (error: any) {
             console.error("Sync Failed:", error);
             try {
