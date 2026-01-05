@@ -1,5 +1,5 @@
 
-export const APP_VERSION = '1.7.0';
+export const APP_VERSION = '1.7.2';
 
 export interface Release {
     version: string;
@@ -10,8 +10,19 @@ export interface Release {
 
 export const releases: Release[] = [
     {
-        version: '1.7.0',
+        version: '1.7.1',
         date: new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' }),
+        features: [
+            '☁️ Enhanced Sync Visibility: Cloud icon now actively shows status for all background syncs.',
+            '⏱️ Live Metadata: "Last Synced" timestamp updates on every successful check.'
+        ],
+        fixes: [
+            'Restored sync activity indicators for silent background updates.'
+        ]
+    },
+    {
+        version: '1.7.0',
+        date: '4 January 2026',
         features: [
             '🚀 Production Ready: Final internal audit and structural optimizations complete.',
             '🔍 Deep Integrity Check: New advanced database diagnostic tool in System Optimizer.',

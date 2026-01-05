@@ -463,6 +463,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // Sync Data
     const syncData = useCallback(async (overrideToken?: string, isManual: boolean = false, reason: string = 'system', silent: boolean = false) => {
         if (isSyncingRef.current) {
+            if (isManual) showToast("Sync already in progress...", 'info');
             if (stateRef.current.devMode) console.warn("Sync already in progress. Skipping.");
             return;
         }
@@ -521,10 +522,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
             const lastSyncTimeVal = typeof stateRef.current.lastSyncTime === 'number' ? stateRef.current.lastSyncTime : undefined;
 
-            const cloudData = await DriveService.read(token, {
-                lastSyncedTime: lastSyncTimeVal,
-                onProgress
-            });
+            const SYNC_TIMEOUT = 45000; // 45 seconds timeout
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Sync Request Timed Out')), SYNC_TIMEOUT));
+
+            const cloudData = await Promise.race([
+                DriveService.read(token, {
+                    lastSyncedTime: lastSyncTimeVal,
+                    onProgress
+                }),
+                timeoutPromise
+            ]);
 
             let freshState: DataState | undefined;
             let cloudDataMerged = false;
@@ -563,10 +570,13 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     appVersion: (window as any).APP_VERSION || '1.0.0'
                 };
 
-                await DriveService.writeIncremental(token, changedCollections, {
-                    metadata: manifestMetadata,
-                    onProgress
-                });
+                await Promise.race([
+                    DriveService.writeIncremental(token, changedCollections, {
+                        metadata: manifestMetadata,
+                        onProgress
+                    }),
+                    timeoutPromise
+                ]);
 
                 const now = Date.now();
                 for (const info of modifiedInfo) {
