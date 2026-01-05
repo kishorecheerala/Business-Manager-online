@@ -410,6 +410,18 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 app_metadata: app_metadata as AppMetadata[],
                 customFonts: customFonts as CustomFont[],
                 autoCleanupSettings: cleanupMeta ? { ...initialAutoCleanup, ...cleanupMeta } : initialAutoCleanup,
+
+                // PRESERVE RUNTIME STATE
+                syncStatus: stateRef.current.syncStatus,
+                syncMessage: stateRef.current.syncMessage,
+                syncLogs: stateRef.current.syncLogs,
+                isOnline: stateRef.current.isOnline,
+                dbError: stateRef.current.dbError,
+                isAuthenticated: stateRef.current.isAuthenticated,
+                isLocked: stateRef.current.isLocked,
+                isStaffMode: stateRef.current.isStaffMode,
+                protectedPages: stateRef.current.protectedPages,
+                googleUser: stateRef.current.googleUser // Although managed by AuthContext, some state might rely on it if copied
             };
 
             dispatch({
